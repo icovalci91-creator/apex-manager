@@ -127,6 +127,9 @@ class RaceSim:
         self.finished = False
         self.classification: list = []
         self.grip = 0.965          # evoluzione pista
+        # degrado imposto dal regolamento in vigore: fisso per tutta la gara
+        reg = getattr(gs, "regulations", None) or {}
+        self.tyre_deg = float(reg.get("tyres", {}).get("deg_multiplier", 1.0))
         self.leader_lap = 0
         self._order_cache = list(entrants)
 
@@ -219,7 +222,7 @@ class RaceSim:
 
     def _wear_rate(self, e: Entrant) -> float:
         comp = C.COMPOUNDS[e.tyre]
-        base = comp["wear"] * (0.55 + 0.9 * self.track.traits.get("tyre_wear", 0.6))
+        base = comp["wear"] * self.tyre_deg * (0.55 + 0.9 * self.track.traits.get("tyre_wear", 0.6))
         skill = 1.30 - 0.55 * (e.tyre_skill / 100.0)
         push = 0.75 + 0.55 * e.push_mode
         sc = 0.45 if self.safety_car > 0 else 1.0
@@ -303,8 +306,10 @@ class RaceSim:
             stop += self.rng.uniform(2.0, 9.0)
             self.log(f"Sosta lenta per {e.name}!", "warn")
         loss = self.track.pit_loss * (0.62 if self.safety_car > 0 else 1.0)
+        # la vettura resta ferma per tutta la durata della sosta mentre gli
+        # altri avanzano: e' gia' l'intera perdita di tempo. Toglierle anche
+        # la distanza equivalente la farebbe pagare due volte.
         e.pit_timer = stop + loss
-        e.dist -= (stop + loss) * (self.track_len / max(30.0, e.last_lap))
         e.tyre = target
         e.used_compounds.add(target)
         e.tyre_age = 0.0

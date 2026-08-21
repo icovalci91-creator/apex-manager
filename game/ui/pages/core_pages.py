@@ -249,7 +249,10 @@ class DevPage(Page):
         super().__init__(shell)
         self.sel_part = "floor"
         self.sel_size = "medio"
-        self.dev_budget = 1.5
+
+    @property
+    def dev_budget(self) -> float:
+        return self.app.dev_budget
 
     def build(self) -> None:
         r = self.rect
@@ -299,8 +302,8 @@ class DevPage(Page):
         self.team.resource_alloc[k] = max(0.0, v) / 100.0
 
     def _set_budget(self, v) -> None:
-        self.dev_budget = v
-        self.shell.dev_budget = v
+        # il weekend di gara legge il budget dall'App: e' li' che va scritto
+        self.app.dev_budget = v
 
     def _pick_part(self, k) -> None:
         self.sel_part = k

@@ -145,11 +145,12 @@ class Track:
     def lap_model(self, car, wet: float = 0.0, grip: float = 1.0):
         """Restituisce (tempo_giro_s, vmax_kmh, profilo_velocita).
 
-        `car` espone: downforce, drag, power, mech_grip, braking, mass_extra.
+        `car` espone: downforce, drag, power, mech_grip, braking, mass_base,
+        mass_extra.
         """
         cla = C.CLA_BASE * car.downforce
         cda = C.CDA_BASE * car.drag
-        mass = C.CAR_MASS_KG + car.mass_extra
+        mass = car.mass_base + car.mass_extra
         power = C.POWER_W * car.power
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet)

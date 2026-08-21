@@ -141,6 +141,7 @@ def run_qualifying(gs, ws: WeekendState) -> list:
     pool = {e.driver_id: e for e in ents}
     alive = list(ents)
     times = {}
+    reached = {}          # driver_id -> ultimo turno disputato (0 = Q1, 2 = Q3)
     n = len(ents)
     cuts = [max(10, n - 6), 10]
 
@@ -161,11 +162,14 @@ def run_qualifying(gs, ws: WeekendState) -> list:
         results.sort(key=lambda x: x[0])
         for t, e in results:
             times[e.driver_id] = t
+            reached[e.driver_id] = phase
         if keep == 0:
             break
         alive = [e for _, e in results[:keep]]
 
-    order = sorted(times.items(), key=lambda kv: kv[1])
+    # chi supera il taglio parte sempre davanti a chi e' stato eliminato prima,
+    # anche quando nel turno buono ha girato piu' lento
+    order = sorted(times.items(), key=lambda kv: (-reached[kv[0]], kv[1]))
     ws.grid = [d for d, _ in order]
     ws.quali_times = times
     ws.pole = ws.grid[0]

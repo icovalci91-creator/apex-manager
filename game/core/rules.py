@@ -109,8 +109,9 @@ def apply_effects(gs, proposal: dict) -> list:
         elif k == "driver_salary_cap_musd":
             reg[k] = v
         elif k == "min_weight_kg":
-            reg["min_weight_kg"] = reg.get("min_weight_kg", 768) + v
-            C.CAR_MASS_KG = float(reg["min_weight_kg"])
+            reg["min_weight_kg"] = reg.get("min_weight_kg", C.CAR_MASS_KG) + v
+            for t in gs.teams.values():
+                t.car.mass_base = float(reg["min_weight_kg"])
             notes.append(f"Peso minimo: {reg['min_weight_kg']} kg")
         elif k == "active_aero":
             reg["aero"]["active_aero"] = v
@@ -148,9 +149,11 @@ def apply_effects(gs, proposal: dict) -> list:
         elif k == "rookie_fp1_sessions":
             sport["rookie_fp1_sessions"] = sport.get("rookie_fp1_sessions", 4) + v
         elif k == "tyre_deg_multiplier":
+            # il moltiplicatore vive nel regolamento della partita: la gara lo
+            # legge da li'. Scalare C.COMPOUNDS sporcherebbe anche le altre
+            # carriere aperte nella stessa sessione.
             reg["tyres"]["deg_multiplier"] = max(0.5, reg["tyres"].get("deg_multiplier", 1.0) + v)
-            for comp in C.COMPOUNDS.values():
-                comp["wear"] *= (1.0 + v * 0.5)
+            notes.append(f"Degrado gomme: x{reg['tyres']['deg_multiplier']:.2f}")
         elif k == "standard_parts":
             reg["standard_parts"] = v
         elif k == "customer_cars_allowed":

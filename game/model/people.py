@@ -67,7 +67,9 @@ class Driver:
     def market_value(self) -> float:
         """Ingaggio richiesto in M$/anno."""
         ov = self.overall
-        base = max(0.8, ((ov - 62.0) / 8.0) ** 2.4 * 0.9)
+        # sotto la soglia l'esponente frazionario darebbe un numero complesso:
+        # un pilota da 55 di valutazione vale semplicemente il minimo sindacale
+        base = max(0.8, max(0.0, (ov - 62.0) / 8.0) ** 2.4 * 0.9)
         youth = 1.0 + max(0.0, (self.potential - ov)) / 55.0
         star = 1.0 + self.marketability / 260.0
         age_pen = 1.0 - max(0, self.age - 35) * 0.035
@@ -149,7 +151,7 @@ class Staff:
     def market_value(self) -> float:
         best = max(getattr(self, a) for a in STAFF_ATTRS)
         avg = sum(getattr(self, a) for a in STAFF_ATTRS) / len(STAFF_ATTRS)
-        v = ((0.6 * best + 0.4 * avg) - 55.0) / 10.0
+        v = max(0.0, ((0.6 * best + 0.4 * avg) - 55.0) / 10.0)
         return round(max(0.3, v ** 2.1 * 0.55), 2)
 
     def to_dict(self) -> dict:

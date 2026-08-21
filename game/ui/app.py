@@ -41,6 +41,7 @@ class App:
         self.running = True
         self.scenes: list = []
         self.gs = None
+        self.dev_budget = 1.5       # M$ per gara, impostato dalla pagina Sviluppo
         self.toast_text = ""
         self.toast_t = 0.0
 

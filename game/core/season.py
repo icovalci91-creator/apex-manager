@@ -34,17 +34,20 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
         if d:
             d.points += pts
             d.career_points += pts
-            d.races += 1
-            if e.status != "finished":
-                d.dnfs += 1
-            if pos == 1 and e.status == "finished":
-                d.wins += 1
-                team.wins += 1
-            if pos <= 3 and e.status == "finished":
-                d.podiums += 1
-                team.podiums += 1
-            if kind == "gp" and ws.pole == d.id:
-                d.poles += 1
+            # la sprint porta punti, ma non e' un gran premio: non entra nelle
+            # statistiche di gare, vittorie e podi
+            if kind == "gp":
+                d.races += 1
+                if e.status != "finished":
+                    d.dnfs += 1
+                if pos == 1 and e.status == "finished":
+                    d.wins += 1
+                    team.wins += 1
+                if pos <= 3 and e.status == "finished":
+                    d.podiums += 1
+                    team.podiums += 1
+                if ws.pole == d.id:
+                    d.poles += 1
             _update_morale(gs, d, team, pos, e.status)
         team.points += pts
         team_points[team.id] = team_points.get(team.id, 0.0) + pts
@@ -64,10 +67,14 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             dmg += e.damage
             if e.damage > 0:
                 _distribute_damage(gs, team, e.damage)
-        team.car.wear(2.6, track)
-        cost = team.car.repair_all()
-        economy.apply_race_finances(gs, team, team_points.get(team.id, 0.0),
-                                    gs.position_of(team.id), cost)
+        # l'usura segue i chilometri percorsi: la sprint e' circa un terzo di GP
+        team.car.wear(2.6 * min(1.0, sim.laps / max(1, track.laps)), track)
+        # i costi fissi del weekend (logistica, stipendi, strutture) e i ricavi
+        # si contano una volta sola: alla domenica, sprint o non sprint
+        if kind == "gp":
+            cost = team.car.repair_all()
+            economy.apply_race_finances(gs, team, team_points.get(team.id, 0.0),
+                                        gs.position_of(team.id), cost)
 
     gs.results.append(rr)
     return rr
@@ -185,9 +192,11 @@ def end_season(gs) -> dict:
         development.regulation_reset(gs, reset)
         report["rules"].append("Il nuovo regolamento ha rimescolato i valori in campo.")
 
-    # reset della stagione
+    # reset della stagione: le posizioni vanno lette tutte prima di azzerare i
+    # punti, altrimenti ogni squadra ripulita falsa la classifica di quelle dopo
+    final_positions = {t.id: pos for pos, t in enumerate(gs.constructor_standings(), 1)}
     for t in gs.teams.values():
-        t.last_position = gs.position_of(t.id)
+        t.last_position = final_positions[t.id]
         t.points = 0.0
         t.wins = 0
         t.podiums = 0

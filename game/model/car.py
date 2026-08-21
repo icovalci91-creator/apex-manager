@@ -37,6 +37,7 @@ class Car:
     fuel_kg: float = 0.0
     reg_downforce_index: float = 0.70
     active_aero_allowed: bool = True
+    mass_base: float = C.CAR_MASS_KG              # peso minimo regolamentare
 
     # ------------------------------------------------------------------ init
     @classmethod
@@ -49,6 +50,7 @@ class Car:
             setup={k: 50.0 for k in SETUP_KEYS},
             reg_downforce_index=aero.get("downforce_index", 0.70),
             active_aero_allowed=aero.get("active_aero", True),
+            mass_base=float(reg.get("min_weight_kg", C.CAR_MASS_KG)),
         )
         return c
 

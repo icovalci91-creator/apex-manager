@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import json
 import random
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from .. import config as C
 from ..model.car import Car
 from ..model.people import Driver, Staff, generate_staff
 from ..model.team import Team
 from ..model.track import Track
+from .development import Project
 
 ROLE_LEVEL_FROM_REP = {
     "technical_director": 1.00, "chief_designer": 0.95, "head_of_aero": 0.97,
@@ -227,6 +228,7 @@ class GameState:
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "engine": t.engine, "works": t.works,
                     "staff": [s.to_dict() for s in t.staff],
+                    "dev_projects": [asdict(p) for p in t.dev_projects],
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup,
@@ -242,6 +244,7 @@ class GameState:
             data = json.load(f)
         gs = cls.new_game(data["player_team"], data.get("player_is_constructor", True),
                           seed=data.get("seed"))
+        base_sprints = gs.regulations["sporting"].get("sprint_events")
         gs.season = data["season"]
         gs.round = data["round"]
         gs.phase = data["phase"]
@@ -266,9 +269,30 @@ class GameState:
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.car.engine = dict(gs.engine_makers[t.engine])
             t.staff = [Staff.from_dict(s) for s in td["staff"]]
+            t.dev_projects = [Project(**p) for p in td.get("dev_projects", [])]
             for k, p in td["car_parts"].items():
                 if k in t.car.parts:
                     t.car.parts[k].perf = p["perf"]
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
+
+        gs._sync_to_regulations(base_sprints)
         return gs
+
+    def _sync_to_regulations(self, base_sprints=None) -> None:
+        """Riporta vetture e calendario in linea col regolamento caricato.
+
+        Le vetture nascono dal regolamento di `data/`: senza questo passaggio
+        ogni norma votata in Commissione (aero, peso, sprint) si perderebbe al
+        primo caricamento.
+        """
+        aero = self.regulations.get("aero", {})
+        for t in self.teams.values():
+            t.car.reg_downforce_index = aero.get("downforce_index", t.car.reg_downforce_index)
+            t.car.active_aero_allowed = aero.get("active_aero", t.car.active_aero_allowed)
+            t.car.mass_base = float(self.regulations.get("min_weight_kg", t.car.mass_base))
+
+        want = self.regulations["sporting"].get("sprint_events")
+        if want is not None and base_sprints is not None and want != base_sprints:
+            from . import rules
+            rules._resync_sprints(self, want)
