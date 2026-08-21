@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 import pygame
 
 from .. import config as C
 from . import theme as T
+
+IS_WEB = sys.platform == "emscripten"
 
 
 class Scene:
@@ -38,7 +41,11 @@ class App:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption(f"{C.GAME_TITLE} {C.GAME_VERSION}")
-        self.screen = pygame.display.set_mode((C.SCREEN_W, C.SCREEN_H), pygame.RESIZABLE)
+        # nel browser la finestra e' la canvas della pagina, di dimensione
+        # fissa: chiedere RESIZABLE non serve e puo' lasciarla vuota
+        flags = 0 if IS_WEB else pygame.RESIZABLE
+        self.screen = pygame.display.set_mode((C.SCREEN_W, C.SCREEN_H), flags)
+        self._splash()
         self.clock = pygame.time.Clock()
         self.running = True
         self.scenes: list = []
@@ -46,6 +53,22 @@ class App:
         self.dev_budget = 1.5       # M$ per gara, impostato dalla pagina Sviluppo
         self.toast_text = ""
         self.toast_t = 0.0
+
+    def _splash(self) -> None:
+        """Dipinge subito qualcosa, appena lo schermo esiste.
+
+        Serve da segnale: se questa scritta compare, Python sta girando e la
+        canvas riceve i disegni: qualunque problema successivo e' nel gioco,
+        non nell'avvio della pagina.
+        """
+        try:
+            self.screen.fill(T.BG)
+            T.text(self.screen, f"{C.GAME_TITLE} - caricamento...",
+                   (self.screen.get_width() // 2, self.screen.get_height() // 2 - 20),
+                   32, T.TEXT, bold=True, align="center")
+            pygame.display.flip()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------- schermate
     @property

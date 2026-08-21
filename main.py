@@ -9,14 +9,16 @@ import asyncio
 import sys
 import traceback
 
-from game.ui.app import App
-from game.ui.scenes.menu import MenuScene
-
 IS_WEB = sys.platform == "emscripten"
 
 
 async def main() -> int:
     try:
+        # importati qui dentro, non in cima: un errore di importazione fuori
+        # dal try non verrebbe mai mostrato, e nel browser si vedrebbe solo
+        # una schermata muta
+        from game.ui.app import App
+        from game.ui.scenes.menu import MenuScene
         app = App()
         app.push(MenuScene(app))
         await app.run()
@@ -31,23 +33,24 @@ async def main() -> int:
 async def show_crash(text: str) -> None:
     """Scrive l'errore sullo schermo e ce lo tiene.
 
-    Nel browser non c'e' una console a cui guardare: senza questo, qualunque
-    eccezione all'avvio si vede come una schermata grigia e muta.
+    Usa solo pygame, senza toccare i moduli del gioco: deve funzionare anche
+    quando e' proprio uno di quelli ad aver fallito.
     """
     try:
         import pygame
-        from game import config as C
-        from game.ui import theme as T
+        if not pygame.get_init():
+            pygame.init()
         surf = pygame.display.get_surface()
         if surf is None:
-            pygame.init()
-            surf = pygame.display.set_mode((C.SCREEN_W, C.SCREEN_H))
+            surf = pygame.display.set_mode((1600, 900))
         surf.fill((14, 10, 12))
-        T.text(surf, "Apex Manager si e' fermato all'avvio", (40, 40), 30, T.BAD, bold=True)
+        big = pygame.font.Font(None, 40)
+        small = pygame.font.Font(None, 22)
+        surf.blit(big.render("Apex Manager si e' fermato all'avvio", True, (229, 72, 77)), (40, 40))
         y = 100
-        for line in text.splitlines()[-26:]:
-            T.text(surf, line.rstrip(), (40, y), 14, T.TEXT, mono=True)
-            y += 20
+        for line in text.splitlines()[-28:]:
+            surf.blit(small.render(line.rstrip()[:150], True, (231, 238, 248)), (40, y))
+            y += 22
         pygame.display.flip()
     except Exception:
         return

@@ -41,9 +41,13 @@ jobs:
           find stage -name __pycache__ -type d -exec rm -rf {} + || true
 
       - name: Build WebAssembly
-        # senza --ume_block 0: su iOS Safari conviene tenere la schermata di
+        # width/height devono combaciare con il set_mode del gioco, altrimenti
+        # la canvas della pagina resta di un'altra misura e non mostra nulla.
+        # Niente --ume_block 0: su iOS Safari conviene tenere la schermata di
         # avvio, perche' garantisce un tocco dell'utente prima di partire
-        run: python -m pygbag --build --title "Apex Manager" stage/apex-manager/main.py
+        run: >
+          python -m pygbag --build --width 1600 --height 900
+          --title "Apex Manager" stage/apex-manager/main.py
 
       - name: Controlla che il runtime sia stato scaricato
         run: |
