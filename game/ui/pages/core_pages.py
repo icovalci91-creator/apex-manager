@@ -545,13 +545,22 @@ class PowerUnitPage(Page):
 
         hop = team.role("head_of_powertrain")
         ceil = powertrain.ceiling(gs, team)
+        clients = powertrain.customers_of(gs, team.engine) if team.works else []
         y = right.y + 96
         rows = [
             ("Responsabile powertrain", hop.name if hop else "nessuno"),
             ("Qualita' del reparto", f"{team.pu_strength:.0f} / 100"),
             ("Resa dell'investimento", f"x{powertrain.dev_rate(gs, team):.2f}"),
             ("Tetto raggiungibile", f"{ceil:.1f}"),
+            ("Integrazione nella vettura", f"{powertrain.integration(gs, team) * 100:.0f}%"),
         ]
+        if team.works:
+            rows.append(("Gestione del reparto", f"-{powertrain.PU_OPERATING_COST:.0f} M$ all'anno"))
+            income = sum(c.engine_customer_cost for c in clients)
+            rows.append(("Forniture ai clienti",
+                         f"+{income:.0f} M$ da {len(clients)}" if clients else "nessun cliente"))
+        else:
+            rows.append(("Fornitura che paghiamo", f"-{team.engine_customer_cost:.0f} M$ all'anno"))
         for k, v in rows:
             T.text(surf, k, (right.x + 16, y), 13, T.DIM)
             T.text(surf, v, (right.right - 16, y), 13, T.TEXT, bold=True, align="right",

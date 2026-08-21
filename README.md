@@ -102,8 +102,13 @@ galleria del vento). I pacchetti di aggiornamento possono non correlare.
 reparto e da quanto vale la fabbrica: assumere un buon responsabile powertrain alza quel
 tetto. Chi compra il motore da altri puo' fondare un reparto proprio, investirci per almeno
 due stagioni e poi decidere quando portarlo in pista: si parte dietro all'ultimo dei
-motoristi, e quanto si recupera dipende dai soldi messi e dagli ingegneri ingaggiati. Lo
-sviluppo motori sta fuori dal tetto di spesa della squadra.
+motoristi, e quanto si recupera dipende dai soldi messi e dagli ingegneri ingaggiati.
+
+Avere il motore in casa costa: il reparto va tenuto in piedi tutto l'anno anche senza
+svilupparlo, e chi non ha clienti a cui venderlo se lo paga da solo. In cambio si sviluppa
+quello che si vuole e si integra la power unit nella vettura invece di riceverla come una
+scatola con le sue quote: fra cliente e costruttore pieno ballano circa due decimi al giro.
+Lo sviluppo motori sta fuori dal tetto di spesa della squadra.
 
 **Regolamento.** A fine stagione la Commissione vota tre proposte estratte dal catalogo in
 `data/regulations.json`. Ogni scuderia vota secondo il proprio interesse, FIA e FOM secondo

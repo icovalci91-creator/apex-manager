@@ -190,9 +190,11 @@ class GameState:
         Le vetture puntano al dizionario del motorista, non a una copia: cosi'
         lo sviluppo della power unit arriva anche a chi la compra da cliente.
         """
+        from . import powertrain
         for t in self.teams.values():
             if t.car is not None and t.engine in self.engine_makers:
                 t.car.engine = self.engine_makers[t.engine]
+                t.car.pu_integration = powertrain.integration(self, t)
                 if not t.works:
                     t.engine_customer_cost = self.engine_makers[t.engine].get(
                         "cost_per_customer", 25.0)

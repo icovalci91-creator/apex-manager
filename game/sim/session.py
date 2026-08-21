@@ -26,7 +26,11 @@ class WeekendState:
 
 # --------------------------------------------------------------- base lap
 def base_lap_for(gs, team, track, weather: Weather) -> float:
+    from ..core import powertrain
     car = team.car
+    # rinfrescata qui: se il reparto motori e' cambiato (ingaggi, debutto della
+    # propria unita') l'integrazione deve valere gia' da questo weekend
+    car.pu_integration = powertrain.integration(gs, team)
     old_fuel = car.fuel_kg
     car.fuel_kg = 0.0
     car.evaluate_setup(track)

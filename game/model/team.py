@@ -124,7 +124,15 @@ class Team:
 
     @property
     def facility_upkeep(self) -> float:
-        return round(sum(v for v in self.facilities.values()) / 100.0 * 1.35, 2)
+        """Costo annuo di far girare le strutture.
+
+        Cresce piu' che proporzionalmente al livello: una galleria del vento di
+        prim'ordine non si mantiene con il budget di un capannone.
+        """
+        tot = 0.0
+        for v in self.facilities.values():
+            tot += 1.1 + 5.2 * (float(v) / 100.0) ** 2.3
+        return round(tot, 2)
 
     def rating(self) -> float:
         return 0.5 * (self.car.rating if self.car else 60.0) + 0.5 * (

@@ -12,7 +12,13 @@ from ..widgets import Button, ScrollList, card
 
 
 def facility_cost(level: float, base: float) -> float:
-    return round(base * (0.55 + (level / 100.0) ** 2.1 * 2.6), 2)
+    """Costo per alzare di un gradino una struttura.
+
+    Le infrastrutture di una squadra di Formula 1 costano moltissimo, e ogni
+    gradino in piu' costa piu' del precedente: portare una galleria del vento
+    da 90 a 92 non e' come portarla da 60 a 65.
+    """
+    return round(base * (1.6 + (level / 100.0) ** 2.6 * 9.0), 2)
 
 
 class FacilitiesPage(Page):

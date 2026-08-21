@@ -38,6 +38,7 @@ class Car:
     reg_downforce_index: float = 0.70
     active_aero_allowed: bool = True
     mass_base: float = C.CAR_MASS_KG              # peso minimo regolamentare
+    pu_integration: float = 0.25                  # 0 cliente .. 1 costruttore
 
     # ------------------------------------------------------------------ init
     @classmethod
@@ -83,7 +84,9 @@ class Car:
         eff = (0.45 * self.p("rear_wing") + 0.30 * self.p("sidepods")
                + 0.25 * self.p("cooling")) / 100.0
         aa = 0.94 if self.active_aero_allowed else 1.0
-        return wing * (1.30 - 0.42 * eff) * aa
+        # e lo impacchetta piu' stretto, con meno resistenza all'avanzamento
+        integ = 1.0 - 0.018 * self.pu_integration
+        return wing * (1.30 - 0.42 * eff) * aa * integ
 
     @property
     def power(self) -> float:
@@ -92,7 +95,10 @@ class Car:
         cooling = 0.96 + 0.06 * (self.p("cooling") / 100.0)
         gears = 0.97 + 0.05 * (self.p("gearbox") / 100.0)
         gearing = 0.985 + 0.03 * (self.setup.get("gearing", 50.0) / 100.0)
-        return 0.80 + 0.42 * pu * cooling * gears * gearing
+        # chi costruisce il motore lo sfrutta meglio: mappature, raffreddamento
+        # e trasmissione sono disegnati sullo stesso tavolo
+        integ = 1.0 + 0.020 * self.pu_integration
+        return (0.80 + 0.42 * pu * cooling * gears * gearing) * integ
 
     @property
     def mech_grip(self) -> float:

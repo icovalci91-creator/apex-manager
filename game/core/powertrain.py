@@ -29,6 +29,16 @@ PROGRAM_START_COST = 18.0
 PROGRAM_MIN_SEASONS = 2       # prima non si scende in pista con roba propria
 PROGRAM_FLOOR = 50.0          # per quanto male vada, non si parte da zero
 
+# Tenere in casa una power unit costa comunque, anche senza svilupparla: banchi
+# prova, officina, gente. E' la spesa che rende la scelta pesante, e che chi ha
+# clienti si ripaga vendendo la fornitura.
+PU_OPERATING_COST = 45.0      # M$ a stagione per far girare il reparto
+
+# Integrare la propria power unit nella vettura: chi la costruisce la impacchetta
+# meglio, guadagnando in potenza sfruttata e in resistenza all'avanzamento.
+INTEGRATION_WORKS = 1.0
+INTEGRATION_CUSTOMER = 0.25
+
 
 # ------------------------------------------------------------------ anagrafica
 def maker(gs, team) -> dict:
@@ -133,6 +143,39 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
         gain = _advance(eng, ceiling(gs, team), rate, budget, gs.rng)
         if team.is_player and gain > 0.05:
             msgs.append(f"Power unit: progressi in banco prova (+{gain:.2f}).")
+    return msgs
+
+
+def integration(gs, team) -> float:
+    """Da 0 a 1: quanto bene la power unit e' sposata alla vettura.
+
+    Chi si costruisce il motore lo disegna insieme al telaio e ne conosce ogni
+    dettaglio; chi lo compra riceve una scatola con le sue quote e ci lavora
+    attorno. La differenza vale qualche decimo sul giro.
+    """
+    if not team.works:
+        return INTEGRATION_CUSTOMER
+    return INTEGRATION_CUSTOMER + (INTEGRATION_WORKS - INTEGRATION_CUSTOMER) * min(
+        1.0, team.pu_strength / 90.0)
+
+
+def running_costs(gs) -> list[str]:
+    """Costo fisso del reparto motori e incasso dalle forniture, per gara.
+
+    Chi corre col motore proprio paga il reparto tutto l'anno; chi lo vende ai
+    clienti se lo ripaga in parte. E' il conto che rende l'autonomia una scelta
+    e non un regalo.
+    """
+    races = max(1, len(gs.tracks))
+    msgs = []
+    for team in gs.teams.values():
+        if not team.works:
+            continue
+        team.add_expense("Gestione reparto power unit",
+                         round(PU_OPERATING_COST / races, 3), in_cap=False)
+        for client in customers_of(gs, team.engine):
+            team.add_income(f"Fornitura power unit a {client.short}",
+                            round(client.engine_customer_cost / races, 3))
     return msgs
 
 
