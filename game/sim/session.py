@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from .. import config as C
 from ..model.car import SETUP_KEYS
-from .weekend import Entrant, RaceSim, Weather
+from .weekend import BURN_KG_PER_LAP, Entrant, RaceSim, Weather
 
 
 @dataclass
@@ -210,9 +210,16 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
     return plan
 
 
+def race_laps(gs, track, kind: str = "gp") -> int:
+    """Giri effettivi, ridotti secondo la durata scelta dal giocatore."""
+    full = track.laps if kind == "gp" else max(10, int(100.0 / track.length_km))
+    factor = float(getattr(gs, "race_distance", 1.0))
+    return max(3, int(round(full * factor)))
+
+
 def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
     track, weather = ws.track, ws.weather
-    laps = track.laps if kind == "gp" else max(10, int(100.0 / track.length_km))
+    laps = race_laps(gs, track, kind)
     ents = build_entrants(gs, track, weather)
     by_id = {e.driver_id: e for e in ents}
     grid = ws.grid or list(by_id.keys())
@@ -224,12 +231,19 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
             continue
         e.grid = i + 1
         e.dist = -i * 8.0
-        e.fuel = (C.FUEL_MASS_KG * laps / max(1, track.laps)) if kind == "gp" else 35.0
+        # benzina per i giri che si corrono davvero, con un filo di margine:
+        # guidando normale si arriva, attaccando tutta la gara no
+        e.fuel = min(C.FUEL_MASS_KG, laps * BURN_KG_PER_LAP * 1.04)
         e.plan = plan_strategy(gs, e, track, laps, weather) if kind == "gp" else []
         e.tyre_life = 25.0
         ordered.append(e)
 
     sim = RaceSim(gs, track, ordered, weather, laps, kind=kind, rng=gs.rng)
+    # il serbatoio e' quello che e': il consumo si tara su di lui lasciando un
+    # 10% di riserva. Basta per attaccare in un terzo dei giri, non per tutta
+    # la gara: chi ci prova resta a piedi prima della bandiera.
+    if ordered:
+        sim.burn_per_lap = ordered[0].fuel / (laps * 1.10)
     for e in ordered:
         e.tyre_life = sim._tyre_life(e, e.tyre)
     sim.log(f"Semaforo verde a {track.name} - {laps} giri - {weather.label}", "flag")

@@ -59,6 +59,7 @@ class WeekendScene(Scene):
                                        self.to_quali, "primary"))
             self.widgets.append(Button((x - bw - 16, y, bw, bh), "Assetto e vettura",
                                        self.open_setup, "ghost"))
+            self._build_distance(x - bw - 16, y - 56, bw)
         elif self.stage == "qualifica":
             lab = "Sprint Qualifying" if self.sprint_pending else "Disputa la qualifica"
             self.widgets.append(Button((x, y, bw, bh), lab, self.do_quali, "primary"))
@@ -69,6 +70,26 @@ class WeekendScene(Scene):
             self.widgets.append(Button((x, y, bw, bh), "Torna al quartier generale",
                                        self.finish, "primary"))
         self.widgets.append(Button((40, h - 96, 180, 40), "Abbandona", self.app.pop, "ghost"))
+
+    DISTANCES = [0.25, 0.50, 0.75, 1.00]
+
+    def _build_distance(self, x: int, y: int, bw: int) -> None:
+        """Scelta della durata della gara, in percentuale su quella reale."""
+        self.dist_label_at = (x, y - 22)
+        n = len(self.DISTANCES)
+        gap = 6
+        cw = (bw - gap * (n - 1)) / n
+        for i, f in enumerate(self.DISTANCES):
+            b = Button((x + i * (cw + gap), y, cw, 34), f"{f * 100:.0f}%", style="tab")
+            b.on_click = (lambda v=f: self.set_distance(v))
+            b.active = abs(self.gs.race_distance - f) < 0.01
+            self.widgets.append(b)
+
+    def set_distance(self, value: float) -> None:
+        self.gs.race_distance = value
+        laps = S.race_laps(self.gs, self.track, "gp")
+        self.app.toast(f"Gare al {value * 100:.0f}%: {self.track.gp} su {laps} giri")
+        self.build()
 
     def _build_race(self, w: int, h: int) -> None:
         bx = 40
@@ -209,9 +230,13 @@ class WeekendScene(Scene):
         gs, tr, ws = self.gs, self.track, self.ws
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 72))
         T.text(surf, tr.gp.upper(), (28, 12), 24, T.TEXT, bold=True)
-        T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {tr.laps} giri - meteo {ws.weather.label} "
+        laps = S.race_laps(gs, tr, "gp")
+        dist = f"{laps} giri" if laps == tr.laps else f"{laps} giri su {tr.laps}"
+        T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - meteo {ws.weather.label} "
                      f"({ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C asfalto)",
                (28, 42), 14, T.DIM)
+        if self.stage == "prove" and getattr(self, "dist_label_at", None):
+            T.text(surf, "DURATA DELLA GARA", self.dist_label_at, 11, T.DIM_2, bold=True)
         stage_lab = {"prove": "PROVE LIBERE", "qualifica": "QUALIFICA",
                      "sprint": "SPRINT", "gara": "GARA", "fine": "RISULTATI"}[self.stage]
         T.text(surf, stage_lab, (w - 28, 20), 22, T.ACCENT, bold=True, align="right")

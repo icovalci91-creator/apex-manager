@@ -17,6 +17,14 @@ DRIVER_S_PER_POINT = 0.046
 FUEL_S_PER_KG = 0.032
 BURN_KG_PER_LAP = 1.75
 
+# Modalita' di guida (0.9 conserva, 1.0 normale, 1.1 attacca). Attaccare deve
+# valere poco piu' di un secondo sul giro e costare caro in gomme e benzina:
+# e' una scelta, non un pulsante che regala tempo.
+PUSH_S_PER_LAP = 7.5      # 0.1 di push_mode = 0.75 s sul giro
+PUSH_WEAR_EXP = 2.5       # attaccare consuma circa il 27% di gomma in piu'
+PUSH_FUEL_EXP = 2.5       # e altrettanta benzina
+DRY_TANK_PENALTY = 8.0    # secondi al giro quando il serbatoio e' vuoto
+
 
 # --------------------------------------------------------------------- meteo
 @dataclass
@@ -94,6 +102,7 @@ class Entrant:
     clean_lap: float = 90.0     # passo in aria libera, usato per valutare i duelli
     damage: float = 0.0
     push_mode: float = 1.0        # 0.9 conserva .. 1.1 attacca
+    fuel_warned: bool = False
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
@@ -130,6 +139,13 @@ class RaceSim:
         # degrado imposto dal regolamento in vigore: fisso per tutta la gara
         reg = getattr(gs, "regulations", None) or {}
         self.tyre_deg = float(reg.get("tyres", {}).get("deg_multiplier", 1.0))
+        # gare accorciate: gomme e soglie di strategia si accorciano con loro,
+        # altrimenti una gara al 50% si correrebbe senza mai fermarsi
+        self.distance = float(getattr(gs, "race_distance", 1.0))
+        # consumo tarato sul carico imbarcato: guidando normale si arriva in
+        # fondo con un filo di riserva, qualunque sia la lunghezza della gara.
+        # make_race lo ricalcola appena sa quanta benzina c'e' a bordo.
+        self.burn_per_lap = BURN_KG_PER_LAP
         self.leader_lap = 0
         self._order_cache = list(entrants)
 
@@ -155,7 +171,9 @@ class RaceSim:
         t += (1.0 - e.compound_state()) * 22.0
         t += e.damage * 0.06
         t *= (2.0 - self.grip) if self.grip < 1.0 else 1.0
-        t *= 1.0 / max(0.90, min(1.10, e.push_mode))
+        t -= (max(0.90, min(1.10, e.push_mode)) - 1.0) * PUSH_S_PER_LAP
+        if e.fuel <= 0.01:
+            t += DRY_TANK_PENALTY
         clean = t
         t += e.dirty_air * 0.42
         if self.weather.wet > 0.05:
@@ -209,7 +227,8 @@ class RaceSim:
 
             wear_rate = self._wear_rate(e)
             e.tyre_age += wear_rate * dt / lt
-            e.fuel = max(0.0, e.fuel - BURN_KG_PER_LAP * dt / lt)
+            burn = self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
+            e.fuel = max(0.0, e.fuel - burn * dt / lt)
 
             new_lap = int(e.dist // self.track_len)
             if new_lap > e.lap:
@@ -224,7 +243,7 @@ class RaceSim:
         comp = C.COMPOUNDS[e.tyre]
         base = comp["wear"] * self.tyre_deg * (0.55 + 0.9 * self.track.traits.get("tyre_wear", 0.6))
         skill = 1.30 - 0.55 * (e.tyre_skill / 100.0)
-        push = 0.75 + 0.55 * e.push_mode
+        push = e.push_mode ** PUSH_WEAR_EXP
         sc = 0.45 if self.safety_car > 0 else 1.0
         wet = 1.0 - 0.35 * self.weather.wet
         return base * skill * push * sc * wet
@@ -274,9 +293,23 @@ class RaceSim:
                 self.finished = True
             return
 
+        self._fuel_check(e)
         self._check_pit(e)
         if all(x.status in ("finished", "retired") for x in self.entrants):
             self.finished = True
+
+    def _fuel_check(self, e: Entrant) -> None:
+        """Avvisa quando la benzina non basta piu' per arrivare in fondo.
+
+        Non impone niente: attaccare puo' voler dire restare a secco, ma il
+        muretto lo dice prima, non dopo.
+        """
+        left = self.laps - e.lap
+        if left <= 0 or e.fuel_warned or e.fuel >= left * self.burn_per_lap:
+            return
+        e.fuel_warned = True
+        if e.is_player:
+            self.log(f"Benzina critica per {e.name}: cosi' non arriva in fondo", "warn")
 
     # ------------------------------------------------------------- strategia
     def _check_pit(self, e: Entrant) -> None:
@@ -323,16 +356,17 @@ class RaceSim:
             return "wet"
         if self.weather.wet > 0.18:
             return "inter"
-        if remaining <= 16:
+        if remaining <= 16 * self.distance:
             return "soft"
-        if remaining <= 30:
+        if remaining <= 30 * self.distance:
             return "medium"
         return "hard"
 
     def _tyre_life(self, e: Entrant, comp: str) -> float:
         base = {"soft": 17.0, "medium": 26.0, "hard": 37.0, "inter": 22.0, "wet": 26.0}[comp]
         wear_t = self.track.traits.get("tyre_wear", 0.6)
-        return base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
+        life = base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
+        return life * self.distance
 
     # --------------------------------------------------------------- duelli
     def _resolve_battles(self, dt: float) -> None:
