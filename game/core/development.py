@@ -9,6 +9,11 @@ from . import economy
 # tetto tecnico raggiungibile in un ciclo regolamentare
 PERF_CEILING = 99.0
 
+# Quanto invecchia la vettura in una stagione se non ci si investe. Tarato su
+# quello che rende lo sviluppo: con circa 1,6 M$ a gara si sta in pari, sotto
+# si arretra, sopra si guadagna. Una monoposto ferma non resta competitiva.
+TECH_DECAY = 0.45
+
 
 @dataclass
 class Project:
@@ -159,6 +164,24 @@ def ai_development(gs) -> None:
         if not team.dev_projects and gs.rng.random() < 0.30:
             size = gs.rng.choice(["piccolo", "medio", "medio", "grande"])
             start_project(gs, team, weak, size)
+
+
+def technological_decay(gs) -> float:
+    """Invecchia le vetture di tutti di una stagione.
+
+    Non e' usura: e' il resto del mondo che va avanti. Restare fermi significa
+    arretrare, ed e' quello che rende obbligatorio reinvestire.
+    """
+    lost = 0.0
+    for team in gs.teams.values():
+        for p in team.car.parts.values():
+            # chi sta in alto fa piu' fatica a restarci: il fronte si muove
+            step = TECH_DECAY * (0.60 + 0.60 * p.perf / PERF_CEILING)
+            new = max(40.0, p.perf - step)
+            if team.is_player:
+                lost += p.perf - new
+            p.perf = new
+    return lost / max(1, len(C.CAR_PARTS))
 
 
 def regulation_reset(gs, strength: float) -> None:

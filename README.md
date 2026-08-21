@@ -98,6 +98,14 @@ scia sporca, safety car, rotture e contatti sono simulati.
 direttore tecnico, reparti e strutture, moderata dalla scala ATR (chi vince ha meno ore di
 galleria del vento). I pacchetti di aggiornamento possono non correlare.
 
+**Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
+e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
+punto l'anno, una struttura di poco piu' di uno, e in cima si perde di piu' che a meta'
+gruppo. Per stare fermi bisogna investire, per migliorare bisogna investire parecchio: con
+il tetto di spesa nessuno riesce a tenere al passo tutte e nove le strutture, quindi
+bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
+sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
+
 **Power unit.** Ogni motorista cresce gara dopo gara verso un tetto deciso da chi dirige il
 reparto e da quanto vale la fabbrica: assumere un buon responsabile powertrain alza quel
 tetto. Chi compra il motore da altri puo' fondare un reparto proprio, investirci per almeno

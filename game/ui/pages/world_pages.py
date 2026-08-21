@@ -4,21 +4,14 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import economy, rules
+from ...core import economy, facilities, rules
 from .. import theme as T
 from .. import trackdraw
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, card
 
 
-def facility_cost(level: float, base: float) -> float:
-    """Costo per alzare di un gradino una struttura.
-
-    Le infrastrutture di una squadra di Formula 1 costano moltissimo, e ogni
-    gradino in piu' costa piu' del precedente: portare una galleria del vento
-    da 90 a 92 non e' come portarla da 60 a 65.
-    """
-    return round(base * (1.6 + (level / 100.0) ** 2.6 * 9.0), 2)
+facility_cost = facilities.cost
 
 
 class FacilitiesPage(Page):
@@ -35,21 +28,9 @@ class FacilitiesPage(Page):
             y += 42
 
     def upgrade(self, key: str) -> None:
-        team, gs = self.team, self.gs
-        lvl = team.facilities.get(key, 60.0)
-        if lvl >= 99:
-            self.app.toast("Struttura gia' al massimo livello.")
-            return
-        cost = facility_cost(lvl, C.FACILITIES[key]["cost"])
-        ok, why = economy.can_afford(team, cost, gs)
-        if not ok:
-            self.app.toast(why)
-            return
-        team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", cost, in_cap=True)
-        gain = max(1.5, 6.0 - lvl / 22.0)
-        team.facilities[key] = min(99.0, lvl + gain)
-        msg = f"{C.FACILITIES[key]['label']} portata a {team.facilities[key]:.0f} ({cost:.2f} M$)."
-        gs.push(msg, "team")
+        ok, msg = facilities.upgrade(self.gs, self.team, key)
+        if ok:
+            self.gs.push(msg, "team")
         self.app.toast(msg)
 
     def refresh(self) -> None:
@@ -60,11 +41,12 @@ class FacilitiesPage(Page):
         cw = (r.w - 32) / 3
         card(surf, (r.x, r.y, cw, 86), "Costo di gestione",
              f"{team.facility_upkeep:.2f} M$", "all'anno, dentro il cap", accent=T.WARN)
+        obs = sum(facilities.decay_of(v) for v in team.facilities.values()) / len(team.facilities)
         avg = sum(team.facilities.values()) / len(team.facilities)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Livello medio strutture", f"{avg:.0f}",
              _infra_rank(gs, team), accent=T.ACCENT)
-        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Reputazione", f"{team.reputation:.0f}",
-             "influenza sponsor e mercato", accent=T.GOLD)
+        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza", f"-{obs:.1f}",
+             "punti a stagione se non si investe", colour=T.BAD, accent=T.BAD)
 
         panel = pygame.Rect(r.x, r.y + 92 - 12, r.w * 0.5 + 10, r.h - 92)
         T.panel(surf, panel, T.PANEL, radius=10, border=T.LINE)
@@ -75,8 +57,9 @@ class FacilitiesPage(Page):
             T.bar(surf, (panel.x + 190, y + 11, 150, 9), lvl, 100, T.stat_colour(lvl, 60, 88))
             T.text(surf, f"{lvl:.0f}", (panel.x + 352, y + 5), 14, T.TEXT, bold=True)
             cost = facility_cost(lvl, meta["cost"])
-            T.text(surf, f"{cost:.2f} M$", (panel.x + r.w * 0.5 - 146, y + 6), 13, T.GOLD,
-                   align="right")
+            T.text(surf, f"-{facilities.decay_of(lvl):.1f}", (panel.x + 392, y + 6), 12, T.BAD)
+            T.text(surf, f"+{facilities.gain(lvl):.1f} per {cost:.1f} M$",
+                   (panel.x + r.w * 0.5 - 146, y + 6), 13, T.GOLD, align="right")
             y += 42
 
         right = pygame.Rect(r.x + r.w * 0.5 + 26, r.y + 80, r.w * 0.5 - 26, r.h - 80)
@@ -98,7 +81,9 @@ class FacilitiesPage(Page):
             T.text(surf, f"{a:.0f}", (right.right - 16, y + 2), 13, T.TEXT, bold=True, align="right")
             y += 28
         y += 12
-        T.text(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita dei giovani.",
+        T.text(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita dei giovani. "
+                     "Ogni anno invecchiano: quello che non si rinnova arretra, e nessuno puo' "
+                     "permettersi di tenerle tutte al passo.",
                (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
         super().draw(surf)
 

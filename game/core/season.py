@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import development, economy, market, powertrain, rules
+from . import development, economy, facilities, market, powertrain, rules
 from .state import RaceResult
 
 
@@ -164,6 +164,14 @@ def end_season(gs) -> dict:
 
     # votazioni in Commissione: le proposte estratte vengono decise dal giocatore
     gs.pending_votes = rules.draw_proposals(gs, gs.commission.get("proposals_per_vote", 3))
+
+    # invecchiamento: chi non reinveste arretra senza sbagliare niente
+    lost_car = development.technological_decay(gs)
+    lost_fac = facilities.decay(gs)
+    facilities.ai_invest(gs)
+    report["progress"].append(
+        f"Un anno di progresso altrui: la vettura perde {lost_car:.2f} punti di "
+        f"competitivita' e le strutture {lost_fac:.1f}. Si recupera solo investendo.")
 
     # nuovo ciclo tecnico
     reset = float(gs.regulations.pop("pending_reset", 0.0))
