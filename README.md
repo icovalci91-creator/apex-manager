@@ -32,8 +32,13 @@ cartella. Su iPad si apre l'indirizzo in Safari e si usa "Aggiungi a Home" per
 averlo a tutto schermo.
 
 Il workflow `.github/workflows/web.yml` fa la stessa cosa a ogni push e
-pubblica su GitHub Pages. Serve internet verso `pygame-web.github.io`, da cui
-pygbag scarica il runtime Python-WASM.
+pubblica su GitHub Pages.
+
+Il pacchetto pubblicato pesa circa 200 KB perche' contiene solo i sorgenti e i
+dati: il runtime Python-WASM lo carica la pagina da `pygame-web.github.io`
+all'apertura. Serve quindi internet sia per costruire sia per giocare, e il
+gioco dipende da quel CDN. Per renderlo autonomo bisogna ospitare anche il
+runtime insieme alla build.
 
 Differenze rispetto al desktop: i salvataggi vivono in `localStorage` invece
 che in `saves/`, non c'e' il pulsante "Esci", e i font di sistema non esistono
