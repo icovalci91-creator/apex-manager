@@ -23,17 +23,25 @@ def _window():
 
 # ------------------------------------------------------------------ elenco
 def list_saves() -> list[str]:
-    """Nomi dei salvataggi disponibili, dal piu' recente al piu' vecchio."""
+    """Nomi dei salvataggi disponibili, dal piu' recente al piu' vecchio.
+
+    Viene chiamata mentre si costruisce il menu, prima del primo frame: se
+    fallisse trascinerebbe giu' tutto il gioco. Meglio dire che non ci sono
+    salvataggi e lasciar giocare.
+    """
     if IS_WEB:
-        store = _window().localStorage
-        names = []
-        for i in range(int(store.length)):
-            key = store.key(i)
-            if key and key.startswith(_PREFIX):
-                names.append(key[len(_PREFIX):])
-        # senza mtime ci si affida all'ordine alfabetico: i nomi finiscono
-        # con la stagione, quindi il piu' recente resta in cima
-        return sorted(names, reverse=True)
+        try:
+            store = _window().localStorage
+            names = []
+            for i in range(int(store.length)):
+                key = store.key(i)
+                if key and key.startswith(_PREFIX):
+                    names.append(key[len(_PREFIX):])
+            # senza mtime ci si affida all'ordine alfabetico: i nomi finiscono
+            # con la stagione, quindi il piu' recente resta in cima
+            return sorted(names, reverse=True)
+        except Exception:
+            return []
     if not C.SAVES.is_dir():
         return []
     paths = sorted(C.SAVES.glob("*.json"), key=os.path.getmtime, reverse=True)
