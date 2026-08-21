@@ -84,7 +84,7 @@ class GameState:
         gs.engine_makers = teamdata["engine_manufacturers"]
 
         for td in teamdata["teams"]:
-            engine = dict(gs.engine_makers[td["engine"]])
+            engine = gs.engine_makers[td["engine"]]
             team = Team(
                 id=td["id"], name=td["name"], short=td["short"], base=td["base"],
                 colour=td["colour"], accent=td["accent"], founded=td["founded"],
@@ -110,16 +110,19 @@ class GameState:
 
         gs._calibrate_tracks()
         gs._build_staff()
+        gs.sync_engines()
 
-        # il giocatore puo' decidere di costruirsi il motore o restare cliente
+        # il giocatore puo' partire gia' col proprio reparto motori, fondarlo
+        # subito, o restare cliente e decidere piu' avanti
+        from . import powertrain
         pt = gs.teams[team_id]
+        gs.pu_program = {"own": pt.works, "started": pt.works, "level": 0.0,
+                         "invested": 0.0, "ready_season": gs.season}
         if constructor and not pt.works:
-            gs.pu_program = {"own": False, "level": 55.0, "invested": 0.0, "ready_season": gs.season + 2}
-            gs.push(f"Progetto power unit avviato: prima unita' propria attesa per il {gs.season + 2}.",
-                    "tecnico")
-        else:
-            gs.pu_program = {"own": pt.works, "level": 100.0 if pt.works else 0.0,
-                             "invested": 0.0, "ready_season": gs.season}
+            ok, msg = powertrain.start_program(gs, pt)
+            gs.push(msg if ok else
+                    f"Reparto power unit non avviato: {msg} Si puo' fondare piu' avanti "
+                    f"dalla pagina Power unit.", "tecnico")
 
         gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
         return gs
@@ -180,6 +183,19 @@ class GameState:
 
     def drivers_of(self, team_id: str) -> list:
         return [self.drivers[d] for d in self.teams[team_id].drivers if d in self.drivers]
+
+    def sync_engines(self) -> None:
+        """Riaggancia ogni vettura al proprio motorista.
+
+        Le vetture puntano al dizionario del motorista, non a una copia: cosi'
+        lo sviluppo della power unit arriva anche a chi la compra da cliente.
+        """
+        for t in self.teams.values():
+            if t.car is not None and t.engine in self.engine_makers:
+                t.car.engine = self.engine_makers[t.engine]
+                if not t.works:
+                    t.engine_customer_cost = self.engine_makers[t.engine].get(
+                        "cost_per_customer", 25.0)
 
     def view_rng(self, *key) -> random.Random:
         """Generatore per le schermate, separato da quello della partita.
@@ -288,7 +304,7 @@ class GameState:
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
-            t.car.engine = dict(gs.engine_makers[t.engine])
+            t.car.engine = gs.engine_makers[t.engine]
             t.staff = [Staff.from_dict(s) for s in td["staff"]]
             t.dev_projects = [Project(**p) for p in td.get("dev_projects", [])]
             for k, p in td["car_parts"].items():
@@ -297,6 +313,7 @@ class GameState:
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
 
+        gs.sync_engines()
         gs._sync_to_regulations(base_sprints)
         return gs
 

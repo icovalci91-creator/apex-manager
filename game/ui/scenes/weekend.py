@@ -210,8 +210,8 @@ class WeekendScene(Scene):
             self.stage = "gara"
             self.build()
         else:
-            budget = getattr(self.app, "dev_budget", 1.5)
-            SEASON.after_race(self.gs, budget)
+            SEASON.after_race(self.gs, getattr(self.app, "dev_budget", 1.5),
+                              getattr(self.app, "pu_budget", 1.0))
             self.stage = "fine"
             self.sim = None
             self.build()

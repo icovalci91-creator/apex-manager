@@ -23,7 +23,7 @@ Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:
 ```bash
 python -m pip install pygbag
 mkdir -p stage/apex-manager && cp -r main.py game data stage/apex-manager/
-python -m pygbag --build --ume_block 0 --title "Apex Manager" stage/apex-manager/main.py
+python -m pygbag --build --width 1600 --height 900 --title "Apex Manager" stage/apex-manager/main.py
 ```
 
 Il risultato sta in `stage/apex-manager/build/web/`: va servito via HTTP (non
@@ -47,8 +47,9 @@ nel browser quindi si usa quello incluso in pygame.
 ## Come si gioca
 
 1. **Nuova carriera** → scegli la scuderia e decidi se essere **costruttore completo**
-   (telaio + power unit) o **solo telaio** con motore cliente. Se scegli di costruire la
-   power unit partendo da cliente, il progetto richiede due stagioni.
+   (telaio + power unit) o **solo telaio** con motore cliente. Chi parte cliente puo'
+   fondare il reparto motori quando vuole, dalla sezione Power unit: da li' servono almeno
+   due stagioni di investimenti prima di poter scendere in pista con roba propria.
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
 4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
@@ -60,6 +61,7 @@ nel browser quindi si usa quello incluso in pygame.
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sei regolazioni di assetto (o delega agli ingegneri) |
 | Sviluppo | Ripartizione risorse fra le aree, budget di sviluppo per gara, pacchetti di aggiornamento con costo, tempi e rischio |
+| Power unit | Confronto fra i motoristi, budget del reparto motori, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Contratti, clausole, trattative con gradimento del pilota |
 | Staff tecnico | Organigramma completo e mercato del personale |
@@ -96,6 +98,13 @@ scia sporca, safety car, rotture e contatti sono simulati.
 direttore tecnico, reparti e strutture, moderata dalla scala ATR (chi vince ha meno ore di
 galleria del vento). I pacchetti di aggiornamento possono non correlare.
 
+**Power unit.** Ogni motorista cresce gara dopo gara verso un tetto deciso da chi dirige il
+reparto e da quanto vale la fabbrica: assumere un buon responsabile powertrain alza quel
+tetto. Chi compra il motore da altri puo' fondare un reparto proprio, investirci per almeno
+due stagioni e poi decidere quando portarlo in pista: si parte dietro all'ultimo dei
+motoristi, e quanto si recupera dipende dai soldi messi e dagli ingegneri ingaggiati. Lo
+sviluppo motori sta fuori dal tetto di spesa della squadra.
+
 **Regolamento.** A fine stagione la Commissione vota tre proposte estratte dal catalogo in
 `data/regulations.json`. Ogni scuderia vota secondo il proprio interesse, FIA e FOM secondo
 costi e spettacolo. Le proposte approvate cambiano davvero la simulazione. All'inizio di un
@@ -121,7 +130,8 @@ main.py              avvio
 game/config.py       costanti fisiche, gomme, componenti, strutture
 game/model/          track (geometria + modello di giro), car, people, team
 game/core/           state (mondo e salvataggi), economy, development,
-                     engineering, market, rules, season
+                     powertrain, engineering, market, rules, season
+game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
 data/                database JSON

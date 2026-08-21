@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import development, economy, market, rules
+from . import development, economy, market, powertrain, rules
 from .state import RaceResult
 
 
@@ -103,42 +103,24 @@ def _expected_position(gs, team) -> float:
 
 
 # ---------------------------------------------------------------- post gara
-def after_race(gs, dev_budget: float = 1.5) -> list:
+def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     """Sviluppo, notizie e avanzamento del calendario."""
     msgs = []
     player = gs.player
     development.passive_development(gs, player, dev_budget)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
-    _advance_pu_program(gs, msgs)
+    msgs += powertrain.develop(gs, pu_budget)
+    msgs += powertrain.advance_program(gs, pu_budget)
+    if powertrain.ready_to_debut(gs):
+        gs.push("Il reparto puo' portare in pista la nostra power unit quando vogliamo.",
+                "tecnico")
     for m in msgs:
         gs.push(m, "tecnico")
     gs.round += 1
     if gs.round >= len(gs.tracks):
         gs.phase = "offseason"
     return msgs
-
-
-def _advance_pu_program(gs, msgs: list) -> None:
-    prog = getattr(gs, "pu_program", None)
-    if not prog or prog.get("own") or not gs.player_is_constructor:
-        return
-    if prog.get("ready_season", 9999) > gs.season:
-        return
-    prog["own"] = True
-    team = gs.player
-    team.works = True
-    team.engine_customer_cost = 0.0
-    maker = dict(gs.engine_makers[team.engine])
-    lvl = prog.get("level", 55.0)
-    maker["power"] = lvl
-    maker["ers"] = lvl - 2
-    maker["reliability"] = lvl - 6
-    key = f"{team.id}_pu"
-    gs.engine_makers[key] = maker
-    team.engine = key
-    team.car.engine = maker
-    msgs.append("La nostra power unit e' pronta: da questa stagione siamo costruttori a tutti gli effetti.")
 
 
 # ------------------------------------------------------------- fine stagione

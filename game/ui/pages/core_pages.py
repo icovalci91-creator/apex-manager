@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import development, economy, engineering
+from ...core import development, economy, engineering, powertrain
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
@@ -451,4 +451,142 @@ class EngineersPage(Page):
             y += 40
         T.text(surf, "Le stime sugli avversari migliorano con lo scouting e con le gare disputate.",
                (right.x + 16, right.bottom - 30), 12, T.DIM_2)
+        super().draw(surf)
+
+
+# ================================================================ POWER UNIT
+class PowerUnitPage(Page):
+    """Il reparto motori: sviluppo, confronto coi motoristi, programma proprio."""
+
+    def build(self) -> None:
+        r = self.rect
+        self.widgets = []
+        gs, team = self.gs, self.team
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        self.budget_slider = Slider((right.x + 16, right.y + 40, right.w - 32, 28),
+                                    "Budget power unit per gara", self.app.pu_budget, 0.0, 6.0,
+                                    on_change=self._set_budget, fmt="{:.2f} M$")
+        self.widgets.append(self.budget_slider)
+        y = right.y + 300
+        if powertrain.ready_to_debut(gs):
+            self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
+                                       "Porta in pista la nostra power unit",
+                                       self.debut, "primary"))
+        elif not team.works and not powertrain.has_program(gs):
+            self.widgets.append(Button(
+                (right.x + 16, y, right.w - 32, 42),
+                f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)",
+                self.start_program, "primary"))
+
+    def refresh(self) -> None:
+        self.build()
+
+    def _set_budget(self, v) -> None:
+        self.app.pu_budget = v
+
+    def start_program(self) -> None:
+        ok, msg = powertrain.start_program(self.gs, self.team)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def debut(self) -> None:
+        ok, msg = powertrain.debut(self.gs)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def draw(self, surf) -> None:
+        r, gs, team = self.rect, self.gs, self.team
+        eng = powertrain.maker(gs, team)
+        T.text(surf, "POWER UNIT", (r.x, r.y + 10), 22, T.TEXT, bold=True)
+        status = ("costruttore" if team.works else
+                  "cliente, reparto in costruzione" if powertrain.has_program(gs) else "cliente")
+        T.text(surf, f"{eng.get('name', '-')} - {status}", (r.x, r.y + 42), 14, T.DIM)
+
+        # --- confronto fra i motoristi -----------------------------------
+        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "I MOTORISTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
+        y = left.y + 42
+        ranked = sorted(gs.engine_makers.items(), key=lambda kv: -powertrain.rating(kv[1]))
+        for eid, m in ranked:
+            mine = (eid == team.engine)
+            builder = powertrain.builder_of(gs, eid)
+            col = T.ACCENT if mine else T.TEXT
+            T.text(surf, m.get("name", eid), (left.x + 16, y), 14, col, bold=mine,
+                   maxw=left.w * 0.55)
+            T.text(surf, f"{powertrain.rating(m):.1f}", (left.right - 16, y), 14, col,
+                   bold=True, align="right")
+            who = builder.short if builder else "nessuna squadra ufficiale"
+            n = len(powertrain.customers_of(gs, eid))
+            T.text(surf, f"{who} - {n} client{'e' if n == 1 else 'i'}",
+                   (left.x + 16, y + 18), 11, T.DIM_2, maxw=left.w - 32)
+            T.bar(surf, (left.x + 16, y + 34, left.w - 32, 6), powertrain.rating(m), 100,
+                  T.ACCENT if mine else T.PANEL_3)
+            y += 52
+
+        y += 4
+        T.text(surf, "LA NOSTRA UNITA'", (left.x + 16, y), 12, T.DIM_2, bold=True)
+        y += 22
+        for attr, label in (("power", "Potenza termica"), ("ers", "Ibrido ed ERS"),
+                            ("reliability", "Affidabilita'")):
+            T.text(surf, label, (left.x + 16, y), 13, T.DIM)
+            T.text(surf, f"{float(eng.get(attr, 85)):.1f}", (left.right - 16, y), 13,
+                   T.TEXT, bold=True, align="right")
+            y += 20
+
+        # --- reparto e programma -----------------------------------------
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "IL NOSTRO REPARTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+
+        hop = team.role("head_of_powertrain")
+        ceil = powertrain.ceiling(gs, team)
+        y = right.y + 96
+        rows = [
+            ("Responsabile powertrain", hop.name if hop else "nessuno"),
+            ("Qualita' del reparto", f"{team.pu_strength:.0f} / 100"),
+            ("Resa dell'investimento", f"x{powertrain.dev_rate(gs, team):.2f}"),
+            ("Tetto raggiungibile", f"{ceil:.1f}"),
+        ]
+        for k, v in rows:
+            T.text(surf, k, (right.x + 16, y), 13, T.DIM)
+            T.text(surf, v, (right.right - 16, y), 13, T.TEXT, bold=True, align="right",
+                   maxw=right.w * 0.5)
+            y += 22
+
+        y += 10
+        if powertrain.locked(gs):
+            T.text(surf, "Sviluppo power unit congelato dal regolamento.",
+                   (right.x + 16, y), 13, T.WARN, bold=True, maxw=right.w - 32)
+            y += 24
+        if gs.regulations.get("pu_equalisation"):
+            T.text(surf, "Equalizzazione in vigore: chi e' indietro sviluppa di piu'.",
+                   (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
+            y += 22
+
+        p = powertrain.program(gs)
+        if powertrain.has_program(gs):
+            T.text(surf, "PROGRAMMA IN CORSO", (right.x + 16, y), 12, T.DIM_2, bold=True)
+            y += 22
+            T.text(surf, f"Livello raggiunto {p['level']:.1f} su un tetto di {ceil:.1f}",
+                   (right.x + 16, y), 13, T.TEXT, maxw=right.w - 32)
+            T.bar(surf, (right.x + 16, y + 22, right.w - 32, 8), p["level"], 100, T.OK)
+            y += 40
+            T.text(surf, f"Investiti {p['invested']:.0f} M$ - in pista dal {p['ready_season']}",
+                   (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
+        elif not team.works:
+            T.text(surf, f"Compriamo la power unit da {eng.get('name', '-')} per "
+                         f"{team.engine_customer_cost:.0f} M$ a stagione. Fondando un reparto "
+                         f"nostro potremmo svilupparla in casa, ma servono anni e un buon "
+                         f"responsabile powertrain.",
+                   (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+        else:
+            T.text(surf, "Costruiamo la nostra power unit: il budget qui sopra e' quello "
+                         "che il reparto motori spende a ogni gara. Sta fuori dal tetto di "
+                         "spesa della squadra.",
+                   (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
         super().draw(surf)

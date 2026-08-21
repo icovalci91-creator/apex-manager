@@ -46,7 +46,9 @@ class Car:
         aero = reg.get("aero", {})
         c = cls(
             parts=parts,
-            engine=dict(engine),
+            # riferimento vivo al motorista, non una copia: cosi' lo sviluppo
+            # della power unit arriva a tutte le vetture che la montano
+            engine=engine,
             setup={k: 50.0 for k in SETUP_KEYS},
             reg_downforce_index=aero.get("downforce_index", 0.70),
             active_aero_allowed=aero.get("active_aero", True),
