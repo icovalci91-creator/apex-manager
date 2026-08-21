@@ -1,6 +1,8 @@
 """Loop principale e gestione delle schermate."""
 from __future__ import annotations
 
+import asyncio
+
 import pygame
 
 from .. import config as C
@@ -72,7 +74,12 @@ class App:
         self.toast_t = seconds
 
     # ------------------------------------------------------------------ loop
-    def run(self) -> None:
+    async def run(self) -> None:
+        """Loop di gioco.
+
+        E' asincrono perche' la build web gira dentro il browser: senza cedere
+        il controllo a ogni frame la pagina resterebbe congelata.
+        """
         while self.running:
             dt = self.clock.tick(C.FPS) / 1000.0
             for ev in pygame.event.get():
@@ -92,6 +99,7 @@ class App:
                 self.toast_t -= dt
                 self._draw_toast()
             pygame.display.flip()
+            await asyncio.sleep(0)
         pygame.quit()
 
     def _draw_toast(self) -> None:

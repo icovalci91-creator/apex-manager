@@ -16,6 +16,29 @@ Prima installazione delle dipendenze:
 python -m pip install -r requirements.txt
 ```
 
+## Versione web (iPad e tablet)
+
+Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:
+
+```bash
+python -m pip install pygbag
+mkdir -p stage/apex-manager && cp -r main.py game data stage/apex-manager/
+python -m pygbag --build --ume_block 0 --title "Apex Manager" stage/apex-manager/main.py
+```
+
+Il risultato sta in `stage/apex-manager/build/web/`: va servito via HTTP (non
+aperto come file), per esempio con `python -m http.server` dentro quella
+cartella. Su iPad si apre l'indirizzo in Safari e si usa "Aggiungi a Home" per
+averlo a tutto schermo.
+
+Il workflow `.github/workflows/web.yml` fa la stessa cosa a ogni push e
+pubblica su GitHub Pages. Serve internet verso `pygame-web.github.io`, da cui
+pygbag scarica il runtime Python-WASM.
+
+Differenze rispetto al desktop: i salvataggi vivono in `localStorage` invece
+che in `saves/`, non c'e' il pulsante "Esci", e i font di sistema non esistono
+nel browser quindi si usa quello incluso in pygame.
+
 ## Come si gioca
 
 1. **Nuova carriera** → scegli la scuderia e decidi se essere **costruttore completo**

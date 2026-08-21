@@ -205,7 +205,16 @@ class GameState:
 
     # ------------------------------------------------------------ salvataggi
     def save(self, path) -> None:
-        data = {
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path) -> "GameState":
+        with open(path, encoding="utf-8") as f:
+            return cls.from_dict(json.load(f))
+
+    def to_dict(self) -> dict:
+        return {
             "season": self.season, "round": self.round, "phase": self.phase,
             "player_team": self.player_team, "player_is_constructor": self.player_is_constructor,
             "seed": self.seed, "regulations": self.regulations,
@@ -235,13 +244,9 @@ class GameState:
                 } for t in self.teams.values()
             },
         }
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
 
     @classmethod
-    def load(cls, path) -> "GameState":
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
+    def from_dict(cls, data: dict) -> "GameState":
         gs = cls.new_game(data["player_team"], data.get("player_is_constructor", True),
                           seed=data.get("seed"))
         base_sprints = gs.regulations["sporting"].get("sprint_events")

@@ -1,0 +1,63 @@
+name: Build web e pubblica su Pages
+
+# Impacchetta il gioco in WebAssembly con pygbag e lo pubblica su GitHub Pages,
+# cosi' si apre da Safari sull'iPad. La build va fatta qui e non in locale
+# perche' pygbag scarica il runtime CPython-WASM da pygame-web.github.io.
+
+on:
+  push:
+    branches: [claude/game-analysis-l4v034]
+    paths-ignore:
+      - 'screenshots/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: python -m pip install pygbag==0.9.3
+
+      - name: Prepara i sorgenti da impacchettare
+        # solo codice e dati: gli screenshot peserebbero sul download
+        run: |
+          mkdir -p stage/apex-manager
+          cp -r main.py game data stage/apex-manager/
+          find stage -name __pycache__ -type d -exec rm -rf {} + || true
+
+      - name: Build WebAssembly
+        run: python -m pygbag --build --ume_block 0 --title "Apex Manager" stage/apex-manager/main.py
+
+      - name: Controlla che il runtime sia stato scaricato
+        run: |
+          test -f stage/apex-manager/build/web/index.html
+          ls -la stage/apex-manager/build/web/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: stage/apex-manager/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 import pygame
 
-from ... import config as C
+from ... import storage
 from ...core import economy
 from .. import theme as T
 from ..app import Scene
@@ -136,11 +136,13 @@ class GameShell(Scene):
         self.app.push(WeekendScene(self.app))
 
     def save(self) -> None:
-        C.SAVES.mkdir(exist_ok=True)
         gs = self.app.gs
-        path = C.SAVES / f"{gs.player_team}_{gs.season}.json"
-        gs.save(path)
-        self.app.toast(f"Partita salvata: {path.name}")
+        try:
+            where = storage.write_save(f"{gs.player_team}_{gs.season}", gs.to_dict())
+        except Exception as exc:
+            self.app.toast(f"Salvataggio non riuscito: {exc}")
+            return
+        self.app.toast(f"Partita salvata: {where}")
 
     def to_menu(self) -> None:
         from .menu import MenuScene

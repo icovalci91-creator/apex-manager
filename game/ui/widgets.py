@@ -127,7 +127,13 @@ class Slider(Widget):
 
 
 class ScrollList(Widget):
-    """Lista scrollabile con righe disegnate da una callback."""
+    """Lista scrollabile con righe disegnate da una callback.
+
+    Si scorre con la rotellina o trascinando: il trascinamento serve al tocco,
+    dove la rotellina non esiste.
+    """
+
+    TAP_SLOP = 8        # px di scivolamento ancora tollerati per un tocco
 
     def __init__(self, rect, row_h=34, draw_row=None, on_select=None, header_h=0, draw_header=None):
         super().__init__(rect)
@@ -140,6 +146,10 @@ class ScrollList(Widget):
         self.header_h = header_h
         self.on_select = on_select
         self.hover_idx = -1
+        self.pressed = False        # trascinamento in corso (dito o mouse)
+        self._grab_y = 0
+        self._grab_offset = 0.0
+        self._moved = 0.0
 
     @property
     def body(self):
@@ -159,18 +169,35 @@ class ScrollList(Widget):
                 self.offset = max(0.0, min(self.max_offset, self.offset - ev.y * 48))
                 return True
         elif ev.type == pygame.MOUSEMOTION:
+            if self.pressed:
+                # trascinamento: la lista segue il dito
+                delta = ev.pos[1] - self._grab_y
+                self._moved += abs(ev.rel[1]) if hasattr(ev, "rel") else abs(delta)
+                self.offset = max(0.0, min(self.max_offset, self._grab_offset - delta))
+                return True
             if self.body.collidepoint(ev.pos):
                 self.hover_idx = int((ev.pos[1] - self.body.y + self.offset) // self.row_h)
             else:
                 self.hover_idx = -1
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             if self.body.collidepoint(ev.pos):
+                self.pressed = True
+                self._grab_y = ev.pos[1]
+                self._grab_offset = self.offset
+                self._moved = 0.0
+                return True
+        elif ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+            if not self.pressed:
+                return False
+            self.pressed = False
+            # se il dito e' scivolato si stava scorrendo, non scegliendo
+            if self._moved <= self.TAP_SLOP and self.body.collidepoint(ev.pos):
                 idx = int((ev.pos[1] - self.body.y + self.offset) // self.row_h)
                 if 0 <= idx < len(self.items):
                     self.selected = idx
                     if self.on_select:
                         self.on_select(idx, self.items[idx])
-                    return True
+            return True
         return False
 
     def draw(self, surf) -> None:

@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import pygame
 
 from ... import config as C
+from ... import storage
 from ...core.state import GameState
 from .. import theme as T
 from ..app import Scene
@@ -25,11 +25,12 @@ class MenuScene(Scene):
         self.widgets = []
         y = h // 2 - 40
         self.widgets.append(Button((cx - 150, y, 300, 52), "Nuova carriera", self.new_game, "primary"))
-        saves = sorted(C.SAVES.glob("*.json"))
+        saves = storage.list_saves()
         self.widgets.append(Button((cx - 150, y + 64, 300, 46), "Continua",
                                    self.load_game, "normal" if saves else "ghost"))
         self.widgets[-1].enabled = bool(saves)
-        self.widgets.append(Button((cx - 150, y + 120, 300, 46), "Esci", self.quit, "ghost"))
+        if not storage.IS_WEB:
+            self.widgets.append(Button((cx - 150, y + 120, 300, 46), "Esci", self.quit, "ghost"))
 
     def on_resize(self) -> None:
         self.build()
@@ -38,11 +39,11 @@ class MenuScene(Scene):
         self.app.push(TeamSelectScene(self.app))
 
     def load_game(self) -> None:
-        saves = sorted(C.SAVES.glob("*.json"), key=os.path.getmtime, reverse=True)
+        saves = storage.list_saves()
         if not saves:
             return
         try:
-            gs = GameState.load(saves[0])
+            gs = GameState.from_dict(storage.read_save(saves[0]))
         except Exception as exc:                      # salvataggio incompatibile
             self.app.toast(f"Salvataggio non leggibile: {exc}")
             return

@@ -27,16 +27,42 @@ def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
     key = (size, bold, mono)
     if key not in _FONTS:
         fam = _MONO if mono else _FAMILIES
-        _FONTS[key] = pygame.font.SysFont(fam, size, bold=bold)
+        try:
+            f = pygame.font.SysFont(fam, size, bold=bold)
+        except Exception:
+            # nel browser non ci sono font di sistema: si usa quello incluso
+            f = pygame.font.Font(None, size)
+            f.set_bold(bold)
+        _FONTS[key] = f
     return _FONTS[key]
+
+
+# Le etichette sono quasi tutte identiche da un frame all'altro: rasterizzarle
+# ogni volta era il costo principale del disegno. Il tetto tiene a bada le
+# stringhe che cambiano di continuo, come i distacchi durante la gara.
+_SURFS: dict = {}
+_SURF_MAX = 3000
+
+
+def render(s: str, size: int = 16, colour=TEXT, bold: bool = False,
+           mono: bool = False) -> pygame.Surface:
+    key = (s, size, bold, mono, tuple(colour))
+    img = _SURFS.get(key)
+    if img is None:
+        if len(_SURFS) >= _SURF_MAX:
+            _SURFS.clear()
+        img = font(size, bold, mono).render(s, True, colour)
+        _SURFS[key] = img
+    return img
 
 
 def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
          mono: bool = False, align: str = "left", maxw: int | None = None):
     f = font(size, bold, mono)
+    s = str(s)
     if maxw:
         s = ellipsize(s, f, maxw)
-    img = f.render(str(s), True, colour)
+    img = render(s, size, colour, bold, mono)
     r = img.get_rect()
     if align == "left":
         r.topleft = pos
@@ -48,12 +74,24 @@ def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
     return r
 
 
+_ELLIPSIS: dict = {}
+
+
 def ellipsize(s: str, f: pygame.font.Font, maxw: int) -> str:
-    if f.size(s)[0] <= maxw:
-        return s
-    while s and f.size(s + "...")[0] > maxw:
-        s = s[:-1]
-    return s + "..."
+    # il taglio misura la stringa un carattere alla volta: senza cache lo
+    # rifarebbe a ogni frame per ogni etichetta troncata
+    key = (s, id(f), maxw)
+    out = _ELLIPSIS.get(key)
+    if out is None:
+        if len(_ELLIPSIS) >= _SURF_MAX:
+            _ELLIPSIS.clear()
+        out = s
+        if f.size(s)[0] > maxw:
+            while out and f.size(out + "...")[0] > maxw:
+                out = out[:-1]
+            out += "..."
+        _ELLIPSIS[key] = out
+    return out
 
 
 def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1):

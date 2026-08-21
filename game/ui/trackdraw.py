@@ -15,21 +15,33 @@ def fit_points(track, rect, pad: int = 26) -> list:
     return [(ox + px * side, oy + py * side) for px, py in track.points]
 
 
+# Il nastro d'asfalto e' fatto di centinaia di punti e non cambia mai: si
+# disegna una volta su una superficie e poi si incolla. Sopra ci vanno solo le
+# vetture, che invece si muovono.
+_ASPHALT: dict = {}
+
+
 def draw_track(surf, track, rect, width: int = 12, colour=(52, 63, 82),
                kerb: bool = True, start_line: bool = True, pts=None):
-    pts = pts or fit_points(track, rect)
-    if len(pts) < 3:
-        return pts
-    pygame.draw.lines(surf, (16, 20, 28), True, pts, width + 8)
-    if kerb:
-        pygame.draw.lines(surf, (78, 92, 118), True, pts, width + 3)
-    pygame.draw.lines(surf, colour, True, pts, width)
-    if start_line:
-        a, b = pts[0], pts[3 % len(pts)]
-        ang = math.atan2(b[1] - a[1], b[0] - a[0]) + math.pi / 2
-        dx, dy = math.cos(ang) * (width / 2 + 2), math.sin(ang) * (width / 2 + 2)
-        pygame.draw.line(surf, T.WHITE, (a[0] - dx, a[1] - dy), (a[0] + dx, a[1] + dy), 3)
-    return pts
+    rect = pygame.Rect(rect)
+    key = (track.id, rect.w, rect.h, width, tuple(colour), kerb, start_line)
+    img = _ASPHALT.get(key)
+    if img is None:
+        img = pygame.Surface(rect.size, pygame.SRCALPHA)
+        local = fit_points(track, pygame.Rect(0, 0, rect.w, rect.h))
+        if len(local) >= 3:
+            pygame.draw.lines(img, (16, 20, 28), True, local, width + 8)
+            if kerb:
+                pygame.draw.lines(img, (78, 92, 118), True, local, width + 3)
+            pygame.draw.lines(img, colour, True, local, width)
+            if start_line:
+                a, b = local[0], local[3 % len(local)]
+                ang = math.atan2(b[1] - a[1], b[0] - a[0]) + math.pi / 2
+                dx, dy = math.cos(ang) * (width / 2 + 2), math.sin(ang) * (width / 2 + 2)
+                pygame.draw.line(img, T.WHITE, (a[0] - dx, a[1] - dy), (a[0] + dx, a[1] + dy), 3)
+        _ASPHALT[key] = img
+    surf.blit(img, rect.topleft)
+    return pts or fit_points(track, rect)
 
 
 def car_pos(pts, frac: float, offset: float = 0.0):
@@ -49,8 +61,17 @@ def car_pos(pts, frac: float, offset: float = 0.0):
     return x, y
 
 
+_MINIMAPS: dict = {}
+
+
 def draw_minimap(surf, track, rect, colour=(60, 72, 94), width: int = 4):
-    pts = fit_points(track, rect, pad=10)
-    if len(pts) >= 3:
-        pygame.draw.lines(surf, colour, True, pts, width)
-    return pts
+    rect = pygame.Rect(rect)
+    key = (track.id, rect.w, rect.h, tuple(colour), width)
+    img = _MINIMAPS.get(key)
+    if img is None:
+        img = pygame.Surface(rect.size, pygame.SRCALPHA)
+        local = fit_points(track, pygame.Rect(0, 0, rect.w, rect.h), pad=10)
+        if len(local) >= 3:
+            pygame.draw.lines(img, colour, True, local, width)
+        _MINIMAPS[key] = img
+    surf.blit(img, rect.topleft)
