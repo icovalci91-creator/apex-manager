@@ -185,8 +185,13 @@ def _resync_sprints(gs, count: int) -> None:
         t.sprint = True
 
 
-def draw_proposals(gs, n: int = 3) -> list:
+def draw_proposals(gs, n: int = 3, rng=None) -> list:
+    """Estrae le proposte da mettere ai voti.
+
+    `rng` permette alle schermate di mostrarne un'anteprima senza consumare il
+    generatore della partita: il voto vero usa quello di gioco.
+    """
     applied = set(gs.regulations.get("applied", []))
     pool = [p for p in gs.proposals if p["id"] not in applied]
-    gs.rng.shuffle(pool)
+    (rng or gs.rng).shuffle(pool)
     return pool[:n]

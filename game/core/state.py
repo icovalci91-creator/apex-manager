@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import random
+import zlib
 from dataclasses import asdict, dataclass, field
 
 from .. import config as C
@@ -179,6 +180,18 @@ class GameState:
 
     def drivers_of(self, team_id: str) -> list:
         return [self.drivers[d] for d in self.teams[team_id].drivers if d in self.drivers]
+
+    def view_rng(self, *key) -> random.Random:
+        """Generatore per le schermate, separato da quello della partita.
+
+        Le pagine mostrano stime e anteprime che hanno bisogno di un po' di
+        casualita', ma pescarla da `self.rng` significherebbe che guardare una
+        schermata cambia gare, mercato e sviluppo. Questo e' deterministico
+        per stagione e gara: stabile mentre lo guardi, diverso al prossimo
+        weekend, e non tocca il corso della partita.
+        """
+        raw = "|".join(str(x) for x in (self.seed, self.season, self.round) + key)
+        return random.Random(zlib.crc32(raw.encode()))
 
     def push(self, text: str, kind: str = "info") -> None:
         self.inbox.insert(0, {"season": self.season, "round": self.round, "kind": kind, "text": text})

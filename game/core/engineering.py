@@ -67,12 +67,18 @@ def car_profile(team, gs=None) -> dict:
 
 
 def estimate(gs, observer, rival) -> dict:
-    """Stima rumorosa del profilo di un avversario."""
+    """Stima rumorosa del profilo di un avversario.
+
+    Il rumore viene dal generatore delle schermate, non da quello della
+    partita: la stima resta ferma mentre la si guarda e cambia da un weekend
+    all'altro, senza spostare il corso della stagione.
+    """
     truth = car_profile(rival, gs)
     known = min(1.0, 0.25 + gs.round / max(1, len(gs.tracks)) * 0.75)
     skill = (0.55 * observer.scouting_strength + 0.45 * observer._s("technical_director", "analysis")) / 100.0
     sigma = (1.0 - 0.65 * skill) * (1.0 - 0.45 * known) * 16.0
-    return {k: max(1.0, min(100.0, v + gs.rng.gauss(0.0, sigma))) for k, v in truth.items()}
+    rng = gs.view_rng("scouting", observer.id, rival.id)
+    return {k: max(1.0, min(100.0, v + rng.gauss(0.0, sigma))) for k, v in truth.items()}
 
 
 def field_report(gs) -> dict:

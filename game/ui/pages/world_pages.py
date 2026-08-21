@@ -105,9 +105,31 @@ def _infra_rank(gs, team) -> str:
 class RulesPage(Page):
     def build(self) -> None:
         self.widgets = []
+        self.proposals = []
 
     def refresh(self) -> None:
         self.build()
+        self._read_proposals()
+
+    def _read_proposals(self) -> None:
+        """Prepara le proposte una volta sola.
+
+        Farlo in draw() significava riestrarle sessanta volte al secondo, con
+        il pannello che cambiava a ogni frame, e pescare ogni volta dal
+        generatore della partita.
+        """
+        gs = self.gs
+        pending = gs.pending_votes or rules.draw_proposals(gs, 3, gs.view_rng("commissione"))
+        self.proposals = []
+        for p in pending[:4]:
+            score = rules.appeal_score(gs, gs.player, p)
+            self.proposals.append({
+                "p": p,
+                "colour": T.OK if score > 0.2 else (T.BAD if score < -0.2 else T.WARN),
+                "verdict": ("ci conviene" if score > 0.2 else
+                            "ci penalizza" if score < -0.2 else "impatto neutro"),
+                "yes": sum(1 for t in gs.teams.values() if rules.appeal_score(gs, t, p) > 0),
+            })
 
     def draw(self, surf) -> None:
         r, gs = self.rect, self.gs
@@ -156,22 +178,20 @@ class RulesPage(Page):
         T.text(surf, f"{len(gs.teams)} scuderie ({com['team_votes']} voto ciascuna) + "
                      f"FIA {com['fia_votes']} + FOM {com['fom_votes']}",
                (right.x + 16, right.y + 32), 12, T.DIM)
-        pending = gs.pending_votes or rules.draw_proposals(gs, 3)
+        if not self.proposals:
+            self._read_proposals()
         y = right.y + 60
-        for p in pending[:4]:
+        for item in self.proposals:
+            p = item["p"]
             T.panel(surf, (right.x + 12, y, right.w - 24, 96), T.PANEL_2, radius=8)
             T.text(surf, p["title"], (right.x + 24, y + 10), 15, T.TEXT, bold=True,
                    maxw=right.w - 140)
             T.text(surf, p["category"].upper(), (right.right - 24, y + 12), 11, T.ACCENT,
                    bold=True, align="right")
             T.text(surf, p["desc"], (right.x + 24, y + 32), 12, T.DIM, maxw=right.w - 48)
-            score = rules.appeal_score(gs, gs.player, p)
-            col = T.OK if score > 0.2 else (T.BAD if score < -0.2 else T.WARN)
-            verdict = ("ci conviene" if score > 0.2 else
-                       "ci penalizza" if score < -0.2 else "impatto neutro")
-            T.text(surf, f"Per noi: {verdict}", (right.x + 24, y + 68), 13, col, bold=True)
-            yes = sum(1 for t in gs.teams.values() if rules.appeal_score(gs, t, p) > 0)
-            T.text(surf, f"scuderie favorevoli stimate: {yes}/{len(gs.teams)}",
+            T.text(surf, f"Per noi: {item['verdict']}", (right.x + 24, y + 68), 13,
+                   item["colour"], bold=True)
+            T.text(surf, f"scuderie favorevoli stimate: {item['yes']}/{len(gs.teams)}",
                    (right.right - 24, y + 68), 12, T.DIM, align="right")
             y += 104
         T.text(surf, "Le votazioni si tengono a fine stagione.", (right.x + 16, right.bottom - 28),
