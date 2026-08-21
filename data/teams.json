@@ -1,0 +1,509 @@
+{
+  "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori.",
+  "engine_manufacturers": {
+    "mercedes": {
+      "name": "Mercedes-AMG HPP",
+      "power": 92,
+      "ers": 90,
+      "reliability": 88,
+      "efficiency": 89,
+      "cost_per_customer": 26.0
+    },
+    "ferrari": {
+      "name": "Ferrari",
+      "power": 91,
+      "ers": 87,
+      "reliability": 84,
+      "efficiency": 86,
+      "cost_per_customer": 25.0
+    },
+    "redbullford": {
+      "name": "Red Bull Ford Powertrains",
+      "power": 87,
+      "ers": 85,
+      "reliability": 80,
+      "efficiency": 84,
+      "cost_per_customer": 24.0
+    },
+    "honda": {
+      "name": "Honda Racing Corporation",
+      "power": 89,
+      "ers": 89,
+      "reliability": 87,
+      "efficiency": 88,
+      "cost_per_customer": 25.0
+    },
+    "audi": {
+      "name": "Audi Formula Racing",
+      "power": 84,
+      "ers": 86,
+      "reliability": 78,
+      "efficiency": 85,
+      "cost_per_customer": 24.0
+    }
+  },
+  "teams": [
+    {
+      "id": "mclaren",
+      "name": "McLaren Formula 1 Team",
+      "short": "McLaren",
+      "base": "Woking, Regno Unito",
+      "colour": "#FF8000",
+      "accent": "#0090D0",
+      "founded": 1966,
+      "engine": "mercedes",
+      "works": false,
+      "reputation": 92,
+      "budget_base": 195.0,
+      "cash": 42.0,
+      "facilities": {
+        "windtunnel": 88,
+        "cfd": 90,
+        "simulator": 89,
+        "factory": 90,
+        "aero_dept": 93,
+        "design_office": 90,
+        "pit_crew": 92,
+        "academy": 78,
+        "logistics": 88
+      },
+      "car": {
+        "front_wing": 91,
+        "rear_wing": 90,
+        "floor": 93,
+        "sidepods": 89,
+        "suspension": 90,
+        "gearbox": 87,
+        "brakes": 88,
+        "chassis": 91,
+        "active_aero": 86,
+        "cooling": 88
+      },
+      "philosophy": "aero",
+      "titles": {
+        "drivers": 13,
+        "constructors": 10
+      }
+    },
+    {
+      "id": "ferrari",
+      "name": "Scuderia Ferrari HP",
+      "short": "Ferrari",
+      "base": "Maranello, Italia",
+      "colour": "#E8002D",
+      "accent": "#FFF200",
+      "founded": 1950,
+      "engine": "ferrari",
+      "works": true,
+      "reputation": 96,
+      "budget_base": 205.0,
+      "cash": 55.0,
+      "facilities": {
+        "windtunnel": 90,
+        "cfd": 88,
+        "simulator": 90,
+        "factory": 93,
+        "aero_dept": 89,
+        "design_office": 90,
+        "pit_crew": 88,
+        "academy": 90,
+        "logistics": 89
+      },
+      "car": {
+        "front_wing": 88,
+        "rear_wing": 89,
+        "floor": 89,
+        "sidepods": 88,
+        "suspension": 87,
+        "gearbox": 89,
+        "brakes": 90,
+        "chassis": 89,
+        "active_aero": 85,
+        "cooling": 87
+      },
+      "philosophy": "balanced",
+      "titles": {
+        "drivers": 15,
+        "constructors": 16
+      }
+    },
+    {
+      "id": "redbull",
+      "name": "Oracle Red Bull Racing",
+      "short": "Red Bull",
+      "base": "Milton Keynes, Regno Unito",
+      "colour": "#3671C6",
+      "accent": "#E10600",
+      "founded": 2005,
+      "engine": "redbullford",
+      "works": true,
+      "reputation": 94,
+      "budget_base": 200.0,
+      "cash": 48.0,
+      "facilities": {
+        "windtunnel": 87,
+        "cfd": 89,
+        "simulator": 92,
+        "factory": 91,
+        "aero_dept": 92,
+        "design_office": 92,
+        "pit_crew": 95,
+        "academy": 88,
+        "logistics": 90
+      },
+      "car": {
+        "front_wing": 89,
+        "rear_wing": 88,
+        "floor": 90,
+        "sidepods": 90,
+        "suspension": 91,
+        "gearbox": 86,
+        "brakes": 87,
+        "chassis": 90,
+        "active_aero": 87,
+        "cooling": 86
+      },
+      "philosophy": "mechanical",
+      "titles": {
+        "drivers": 8,
+        "constructors": 6
+      }
+    },
+    {
+      "id": "mercedes",
+      "name": "Mercedes-AMG Petronas F1 Team",
+      "short": "Mercedes",
+      "base": "Brackley, Regno Unito",
+      "colour": "#27F4D2",
+      "accent": "#000000",
+      "founded": 2010,
+      "engine": "mercedes",
+      "works": true,
+      "reputation": 93,
+      "budget_base": 198.0,
+      "cash": 50.0,
+      "facilities": {
+        "windtunnel": 89,
+        "cfd": 91,
+        "simulator": 91,
+        "factory": 92,
+        "aero_dept": 88,
+        "design_office": 91,
+        "pit_crew": 90,
+        "academy": 82,
+        "logistics": 91
+      },
+      "car": {
+        "front_wing": 88,
+        "rear_wing": 88,
+        "floor": 88,
+        "sidepods": 89,
+        "suspension": 88,
+        "gearbox": 90,
+        "brakes": 88,
+        "chassis": 90,
+        "active_aero": 88,
+        "cooling": 90
+      },
+      "philosophy": "powertrain",
+      "titles": {
+        "drivers": 9,
+        "constructors": 8
+      }
+    },
+    {
+      "id": "astonmartin",
+      "name": "Aston Martin Aramco F1 Team",
+      "short": "Aston Martin",
+      "base": "Silverstone, Regno Unito",
+      "colour": "#229971",
+      "accent": "#CEDC00",
+      "founded": 2021,
+      "engine": "honda",
+      "works": true,
+      "reputation": 80,
+      "budget_base": 175.0,
+      "cash": 38.0,
+      "facilities": {
+        "windtunnel": 92,
+        "cfd": 87,
+        "simulator": 86,
+        "factory": 94,
+        "aero_dept": 85,
+        "design_office": 86,
+        "pit_crew": 82,
+        "academy": 62,
+        "logistics": 82
+      },
+      "car": {
+        "front_wing": 83,
+        "rear_wing": 82,
+        "floor": 84,
+        "sidepods": 83,
+        "suspension": 82,
+        "gearbox": 83,
+        "brakes": 84,
+        "chassis": 84,
+        "active_aero": 83,
+        "cooling": 84
+      },
+      "philosophy": "aero",
+      "titles": {
+        "drivers": 0,
+        "constructors": 0
+      }
+    },
+    {
+      "id": "alpine",
+      "name": "BWT Alpine F1 Team",
+      "short": "Alpine",
+      "base": "Enstone, Regno Unito",
+      "colour": "#FF87BC",
+      "accent": "#0090FF",
+      "founded": 1981,
+      "engine": "mercedes",
+      "works": false,
+      "reputation": 68,
+      "budget_base": 145.0,
+      "cash": 24.0,
+      "facilities": {
+        "windtunnel": 78,
+        "cfd": 79,
+        "simulator": 78,
+        "factory": 80,
+        "aero_dept": 76,
+        "design_office": 78,
+        "pit_crew": 76,
+        "academy": 74,
+        "logistics": 76
+      },
+      "car": {
+        "front_wing": 77.5,
+        "rear_wing": 76.5,
+        "floor": 77.5,
+        "sidepods": 78.5,
+        "suspension": 77.5,
+        "gearbox": 79.5,
+        "brakes": 79.5,
+        "chassis": 78.5,
+        "active_aero": 75.5,
+        "cooling": 79.5
+      },
+      "philosophy": "balanced",
+      "titles": {
+        "drivers": 2,
+        "constructors": 2
+      }
+    },
+    {
+      "id": "williams",
+      "name": "Atlassian Williams Racing",
+      "short": "Williams",
+      "base": "Grove, Regno Unito",
+      "colour": "#64C4FF",
+      "accent": "#0B2A4A",
+      "founded": 1977,
+      "engine": "mercedes",
+      "works": false,
+      "reputation": 74,
+      "budget_base": 140.0,
+      "cash": 22.0,
+      "facilities": {
+        "windtunnel": 76,
+        "cfd": 82,
+        "simulator": 84,
+        "factory": 79,
+        "aero_dept": 80,
+        "design_office": 82,
+        "pit_crew": 84,
+        "academy": 68,
+        "logistics": 78
+      },
+      "car": {
+        "front_wing": 81,
+        "rear_wing": 82,
+        "floor": 80,
+        "sidepods": 80,
+        "suspension": 79,
+        "gearbox": 82,
+        "brakes": 81,
+        "chassis": 81,
+        "active_aero": 78,
+        "cooling": 80
+      },
+      "philosophy": "efficiency",
+      "titles": {
+        "drivers": 7,
+        "constructors": 9
+      }
+    },
+    {
+      "id": "racingbulls",
+      "name": "Visa Cash App Racing Bulls",
+      "short": "Racing Bulls",
+      "base": "Faenza, Italia",
+      "colour": "#6692FF",
+      "accent": "#FFFFFF",
+      "founded": 2006,
+      "engine": "redbullford",
+      "works": false,
+      "reputation": 70,
+      "budget_base": 135.0,
+      "cash": 20.0,
+      "facilities": {
+        "windtunnel": 74,
+        "cfd": 78,
+        "simulator": 80,
+        "factory": 76,
+        "aero_dept": 78,
+        "design_office": 79,
+        "pit_crew": 82,
+        "academy": 86,
+        "logistics": 80
+      },
+      "car": {
+        "front_wing": 80,
+        "rear_wing": 79,
+        "floor": 80,
+        "sidepods": 80,
+        "suspension": 81,
+        "gearbox": 82,
+        "brakes": 80,
+        "chassis": 80,
+        "active_aero": 77,
+        "cooling": 79
+      },
+      "philosophy": "mechanical",
+      "titles": {
+        "drivers": 0,
+        "constructors": 0
+      }
+    },
+    {
+      "id": "haas",
+      "name": "MoneyGram Haas F1 Team",
+      "short": "Haas",
+      "base": "Kannapolis, Stati Uniti",
+      "colour": "#B6BABD",
+      "accent": "#E10600",
+      "founded": 2016,
+      "engine": "ferrari",
+      "works": false,
+      "reputation": 62,
+      "budget_base": 120.0,
+      "cash": 16.0,
+      "facilities": {
+        "windtunnel": 66,
+        "cfd": 72,
+        "simulator": 68,
+        "factory": 68,
+        "aero_dept": 72,
+        "design_office": 74,
+        "pit_crew": 74,
+        "academy": 52,
+        "logistics": 70
+      },
+      "car": {
+        "front_wing": 78.0,
+        "rear_wing": 78.0,
+        "floor": 77.0,
+        "sidepods": 78.0,
+        "suspension": 77.0,
+        "gearbox": 82.0,
+        "brakes": 80.0,
+        "chassis": 78.0,
+        "active_aero": 74.0,
+        "cooling": 79.0
+      },
+      "philosophy": "efficiency",
+      "titles": {
+        "drivers": 0,
+        "constructors": 0
+      }
+    },
+    {
+      "id": "audi",
+      "name": "Audi F1 Team",
+      "short": "Audi",
+      "base": "Hinwil, Svizzera",
+      "colour": "#00E701",
+      "accent": "#BB0A30",
+      "founded": 1993,
+      "engine": "audi",
+      "works": true,
+      "reputation": 72,
+      "budget_base": 170.0,
+      "cash": 45.0,
+      "facilities": {
+        "windtunnel": 80,
+        "cfd": 80,
+        "simulator": 76,
+        "factory": 82,
+        "aero_dept": 76,
+        "design_office": 78,
+        "pit_crew": 74,
+        "academy": 60,
+        "logistics": 76
+      },
+      "car": {
+        "front_wing": 78.5,
+        "rear_wing": 78.5,
+        "floor": 78.5,
+        "sidepods": 79.5,
+        "suspension": 77.5,
+        "gearbox": 78.5,
+        "brakes": 79.5,
+        "chassis": 79.5,
+        "active_aero": 77.5,
+        "cooling": 79.5
+      },
+      "philosophy": "powertrain",
+      "titles": {
+        "drivers": 0,
+        "constructors": 0
+      }
+    },
+    {
+      "id": "cadillac",
+      "name": "Cadillac Formula 1 Team",
+      "short": "Cadillac",
+      "base": "Fishers, Stati Uniti",
+      "colour": "#C6A664",
+      "accent": "#1B1B1B",
+      "founded": 2026,
+      "engine": "ferrari",
+      "works": false,
+      "reputation": 55,
+      "budget_base": 155.0,
+      "cash": 60.0,
+      "facilities": {
+        "windtunnel": 70,
+        "cfd": 74,
+        "simulator": 72,
+        "factory": 74,
+        "aero_dept": 66,
+        "design_office": 68,
+        "pit_crew": 64,
+        "academy": 45,
+        "logistics": 66
+      },
+      "car": {
+        "front_wing": 73.5,
+        "rear_wing": 73.5,
+        "floor": 72.5,
+        "sidepods": 74.5,
+        "suspension": 73.5,
+        "gearbox": 79.5,
+        "brakes": 77.5,
+        "chassis": 74.5,
+        "active_aero": 69.5,
+        "cooling": 76.5
+      },
+      "philosophy": "balanced",
+      "titles": {
+        "drivers": 0,
+        "constructors": 0
+      }
+    }
+  ]
+}

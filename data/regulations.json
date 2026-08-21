@@ -1,0 +1,214 @@
+{
+  "_note": "Regolamento vigente, storia dei cicli tecnici e catalogo delle proposte votabili in Commissione F1.",
+  "current": {
+    "season": 2026,
+    "label": "Regolamento 2026 - nuova era tecnica",
+    "cost_cap_musd": 215.0,
+    "cost_cap_excludes_driver_salaries": true,
+    "driver_salary_cap_musd": 0,
+    "min_weight_kg": 768,
+    "power_unit": {
+      "ice_kw": 400, "electric_kw": 350, "mgu_h": false, "fuel": "100% sostenibile",
+      "units_per_season": 4, "energy_store_per_season": 2, "penalty_grid": 10
+    },
+    "aero": {
+      "active_aero": true, "modes": ["X-mode (basso drag)", "Z-mode (alto carico)"],
+      "override_mode": true, "drs": false,
+      "downforce_index": 0.70, "drag_index": 0.55,
+      "ground_effect": true
+    },
+    "sporting": {
+      "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "fastest_lap_point": false,
+      "sprint_events": 6,
+      "sprint_points": [8, 7, 6, 5, 4, 3, 2, 1],
+      "mandatory_compounds": 2,
+      "parc_ferme_from": "Q1",
+      "rookie_fp1_sessions": 4,
+      "testing_days": 3,
+      "gearbox_units": 5,
+      "budget_penalty_threshold_pct": 5
+    },
+    "aero_testing_restriction": {
+      "_note": "Ore di galleria del vento e run CFD assegnate in base alla posizione nel costruttori dell'anno precedente. 100 = riferimento.",
+      "scale": [70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 115]
+    },
+    "tyres": {"supplier": "Pirelli", "compounds": ["C1", "C2", "C3", "C4", "C5", "C6"], "deg_multiplier": 1.0, "sets_per_weekend": 13}
+  },
+  "commission": {
+    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM.",
+    "team_votes": 1, "fia_votes": 10, "fom_votes": 10,
+    "threshold_current_season_pct": 0.90,
+    "threshold_next_season_pct": 0.60,
+    "votes_per_season": 2,
+    "proposals_per_vote": 3
+  },
+  "history": {
+    "_note": "Cicli tecnici della categoria: usati per stimare quando arriva un reset regolamentare e quanto rimescola la griglia.",
+    "eras": [
+      {"from": 1950, "to": 1957, "label": "Era dei motori anteriori", "dominant": ["Alfa Romeo", "Ferrari", "Mercedes", "Maserati"], "reset_strength": 0.5},
+      {"from": 1958, "to": 1967, "label": "Rivoluzione del motore posteriore", "dominant": ["Cooper", "Lotus", "BRM", "Ferrari"], "reset_strength": 0.9},
+      {"from": 1968, "to": 1976, "label": "Alettoni e sponsor", "dominant": ["Lotus", "Tyrrell", "McLaren", "Ferrari"], "reset_strength": 0.6},
+      {"from": 1977, "to": 1982, "label": "Effetto suolo (prima era)", "dominant": ["Lotus", "Williams", "Brabham", "Ferrari"], "reset_strength": 0.9},
+      {"from": 1983, "to": 1988, "label": "Turbo", "dominant": ["McLaren", "Williams", "Ferrari", "Brabham"], "reset_strength": 0.8},
+      {"from": 1989, "to": 1994, "label": "Aspirati e aiuti elettronici", "dominant": ["McLaren", "Williams", "Benetton"], "reset_strength": 0.7},
+      {"from": 1995, "to": 2005, "label": "V10 e dominio Ferrari", "dominant": ["Williams", "Ferrari", "McLaren", "Renault"], "reset_strength": 0.5},
+      {"from": 2006, "to": 2013, "label": "V8, diffusori e scarichi soffiati", "dominant": ["Renault", "Brawn", "Red Bull"], "reset_strength": 0.7},
+      {"from": 2014, "to": 2021, "label": "Era ibrida V6 turbo", "dominant": ["Mercedes", "Red Bull"], "reset_strength": 0.95},
+      {"from": 2022, "to": 2025, "label": "Ritorno dell'effetto suolo", "dominant": ["Red Bull", "McLaren", "Ferrari"], "reset_strength": 0.85},
+      {"from": 2026, "to": 2030, "label": "Nuova era: PU 50/50 e aero attiva", "dominant": [], "reset_strength": 0.95}
+    ],
+    "lessons": [
+      "Un reset regolamentare rimescola la griglia: chi arriva preparato guida per anni.",
+      "I team con motore proprio hanno un vantaggio strutturale nei primi due anni di un nuovo ciclo PU.",
+      "L'aero testing restriction comprime le differenze: chi domina rallenta, chi insegue recupera.",
+      "Un budget cap premia l'efficienza dei reparti piu della dimensione della struttura."
+    ]
+  },
+  "proposals": [
+    {
+      "id": "cap_down", "title": "Abbassare il budget cap a 190 M$", "category": "finanziario",
+      "desc": "Riduzione del tetto di spesa per contenere i costi e stringere la griglia.",
+      "effects": {"cost_cap_musd": -25},
+      "appeal": {"small_budget": 1.4, "big_budget": -1.5, "reputation": -0.4}
+    },
+    {
+      "id": "cap_up", "title": "Alzare il budget cap a 245 M$", "category": "finanziario",
+      "desc": "Aumento del tetto di spesa per assorbire inflazione e nuove tecnologie.",
+      "effects": {"cost_cap_musd": 30},
+      "appeal": {"big_budget": 1.5, "small_budget": -1.3, "reputation": 0.4}
+    },
+    {
+      "id": "driver_salary_cap", "title": "Includere gli stipendi piloti nel cap", "category": "finanziario",
+      "desc": "Gli ingaggi dei piloti rientrano nel tetto di spesa, con un massimale di 30 M$ a scuderia.",
+      "effects": {"cost_cap_excludes_driver_salaries": false, "driver_salary_cap_musd": 30},
+      "appeal": {"small_budget": 1.3, "star_drivers": -1.6}
+    },
+    {
+      "id": "ban_active_aero", "title": "Abolire l'aero attiva", "category": "tecnico",
+      "desc": "Ritorno ad ali fisse: si elimina la commutazione X/Z-mode.",
+      "effects": {"active_aero": false, "downforce_index": 0.05, "reset_strength": 0.4},
+      "appeal": {"aero_strength": -1.2, "mechanical_strength": 1.0, "small_budget": 0.5}
+    },
+    {
+      "id": "points_top12", "title": "Punti fino al 12esimo posto", "category": "sportivo",
+      "desc": "Il sistema punti si estende: 25-18-15-12-10-8-6-4-3-2-1-0.5 per premiare i team di meta griglia.",
+      "effects": {"points": [25, 18, 15, 12, 10, 8, 6, 4, 3, 2, 1, 1]},
+      "appeal": {"small_budget": 1.5, "big_budget": -0.8}
+    },
+    {
+      "id": "fastest_lap", "title": "Reintrodurre il punto per il giro veloce", "category": "sportivo",
+      "desc": "Un punto extra al giro piu veloce, solo se classificato nei primi dieci.",
+      "effects": {"fastest_lap_point": true},
+      "appeal": {"big_budget": 0.6, "small_budget": -0.3}
+    },
+    {
+      "id": "more_sprints", "title": "Portare le Sprint a 10 weekend", "category": "sportivo",
+      "desc": "Piu spettacolo e piu ricavi commerciali, ma meno tempo di messa a punto e piu usura.",
+      "effects": {"sprint_events": 4, "income_bonus_musd": 6.0},
+      "appeal": {"small_budget": -0.6, "reputation": 0.5, "reliability_strength": -0.5}
+    },
+    {
+      "id": "no_sprints", "title": "Eliminare le Sprint", "category": "sportivo",
+      "desc": "Ritorno al formato classico: solo prove libere, qualifica e gara.",
+      "effects": {"sprint_events": -6, "income_bonus_musd": -8.0},
+      "appeal": {"small_budget": 0.7, "reputation": -0.6}
+    },
+    {
+      "id": "two_stops", "title": "Due soste obbligatorie in gara", "category": "sportivo",
+      "desc": "Ogni pilota deve effettuare almeno due soste, con tre mescole diverse.",
+      "effects": {"mandatory_stops": 2, "mandatory_compounds": 3},
+      "appeal": {"strategy_strength": 1.2, "pit_crew_strength": 1.0, "tyre_mgmt_strength": -0.8}
+    },
+    {
+      "id": "refuelling", "title": "Ritorno del rifornimento in gara", "category": "tecnico",
+      "desc": "Vetture piu leggere in partenza e strategie sul carburante, con costi e rischi maggiori.",
+      "effects": {"refuelling": true, "min_weight_kg": -30, "reliability_risk": 0.15},
+      "appeal": {"strategy_strength": 1.0, "small_budget": -1.0, "pit_crew_strength": 1.2}
+    },
+    {
+      "id": "pu_freeze", "title": "Congelare lo sviluppo delle power unit", "category": "tecnico",
+      "desc": "Omologazione dei motori fino al 2029: nessuno sviluppo consentito.",
+      "effects": {"pu_development_locked": true},
+      "appeal": {"pu_leader": 1.6, "pu_laggard": -1.8, "small_budget": 0.6}
+    },
+    {
+      "id": "pu_extra_unit", "title": "Una power unit in piu a stagione", "category": "tecnico",
+      "desc": "Cinque PU annuali invece di quattro: meno penalita ma costi maggiori.",
+      "effects": {"units_per_season": 1},
+      "appeal": {"reliability_strength": -1.2, "big_budget": 0.5}
+    },
+    {
+      "id": "atr_steeper", "title": "Rendere piu ripida la scala dell'aero testing", "category": "tecnico",
+      "desc": "Chi vince perde molte piu ore di galleria del vento: griglia piu compatta.",
+      "effects": {"atr_slope": 1.6},
+      "appeal": {"grid_position_low": 1.5, "grid_position_high": -1.5}
+    },
+    {
+      "id": "atr_flatter", "title": "Appiattire la scala dell'aero testing", "category": "tecnico",
+      "desc": "Ore di sviluppo piu simili per tutti: premia chi ha la struttura migliore.",
+      "effects": {"atr_slope": 0.6},
+      "appeal": {"grid_position_high": 1.4, "grid_position_low": -1.2, "big_budget": 0.8}
+    },
+    {
+      "id": "more_testing", "title": "Portare i test pre-stagionali a 6 giorni", "category": "sportivo",
+      "desc": "Piu chilometri per correlare i dati e far crescere i giovani, a costo di piu spesa.",
+      "effects": {"testing_days": 3},
+      "appeal": {"big_budget": 0.8, "young_drivers": 1.0, "small_budget": -0.5}
+    },
+    {
+      "id": "standard_parts", "title": "Estendere i componenti standard", "category": "tecnico",
+      "desc": "Freni, sospensioni posteriori e trasmissione diventano di fornitura unica.",
+      "effects": {"standard_parts": true, "cost_cap_musd": -10, "reset_strength": 0.3},
+      "appeal": {"small_budget": 1.4, "mechanical_strength": -1.2, "reputation": -0.5}
+    },
+    {
+      "id": "customer_cars", "title": "Consentire le vetture cliente", "category": "strutturale",
+      "desc": "Le scuderie non costruttrici possono acquistare un telaio completo da un costruttore.",
+      "effects": {"customer_cars_allowed": true},
+      "appeal": {"customer_team": 1.6, "constructor_team": -1.2, "reputation": -0.4}
+    },
+    {
+      "id": "third_car", "title": "Terza vettura per i top team", "category": "strutturale",
+      "desc": "Le prime tre scuderie possono schierare una terza monoposto affidata a un giovane.",
+      "effects": {"third_car": true},
+      "appeal": {"grid_position_high": 1.5, "grid_position_low": -1.6, "academy_strength": 0.8}
+    },
+    {
+      "id": "tyre_harder", "title": "Mescole piu dure per tutta la stagione", "category": "tecnico",
+      "desc": "Meno degrado, gare piu spesso a una sosta.",
+      "effects": {"tyre_deg_multiplier": -0.2},
+      "appeal": {"tyre_mgmt_strength": -0.9, "power_strength": 0.7}
+    },
+    {
+      "id": "tyre_softer", "title": "Mescole piu morbide e degradanti", "category": "tecnico",
+      "desc": "Piu soste, piu strategia, piu variabilita nei risultati.",
+      "effects": {"tyre_deg_multiplier": 0.25},
+      "appeal": {"tyre_mgmt_strength": 1.1, "strategy_strength": 0.9, "grid_position_low": 0.4}
+    },
+    {
+      "id": "rookie_sessions", "title": "Raddoppiare le sessioni obbligatorie per i rookie", "category": "sportivo",
+      "desc": "Otto FP1 stagionali riservate ai debuttanti: crescita accelerata dei giovani.",
+      "effects": {"rookie_fp1_sessions": 4},
+      "appeal": {"academy_strength": 1.3, "star_drivers": -0.6}
+    },
+    {
+      "id": "engine_equalisation", "title": "Meccanismo di equalizzazione delle power unit", "category": "tecnico",
+      "desc": "La FIA puo concedere sviluppo extra ai motoristi in ritardo di prestazione.",
+      "effects": {"pu_equalisation": true},
+      "appeal": {"pu_laggard": 1.7, "pu_leader": -1.7}
+    },
+    {
+      "id": "cap_carryover", "title": "Riporto del budget non speso all'anno successivo", "category": "finanziario",
+      "desc": "Fino a 15 M$ non spesi possono essere trasferiti alla stagione seguente.",
+      "effects": {"cap_carryover_musd": 15},
+      "appeal": {"small_budget": 0.9, "big_budget": 0.4}
+    },
+    {
+      "id": "prize_flatter", "title": "Distribuzione premi piu equa", "category": "finanziario",
+      "desc": "Il montepremi FOM viene ripartito in modo meno legato alla classifica.",
+      "effects": {"prize_flatten": 0.4},
+      "appeal": {"grid_position_low": 1.6, "grid_position_high": -1.5}
+    }
+  ]
+}
