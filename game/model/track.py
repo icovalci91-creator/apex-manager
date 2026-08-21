@@ -44,6 +44,7 @@ class Track:
     layout: str
     ref_lap: float = 90.0
     calibration: float = 1.0
+    geo: list = field(default_factory=list)   # [[lat, lon], ...] del tracciato reale
 
     segments: list = field(default_factory=list)
     points: list = field(default_factory=list)      # [(x, y)] normalizzati 0..1
@@ -59,10 +60,48 @@ class Track:
             length_km=d["length_km"], laps=d["laps"], corners=d["corners"],
             pit_loss=d["pit_loss"], sprint=d.get("sprint", False),
             traits=d["traits"], layout=d["layout"], ref_lap=d.get("ref_lap", 90.0),
+            geo=d.get("geo") or [],
         )
-        t._parse_layout()
-        t._build_geometry()
+        if t.geo:
+            # tracciato vero: forma e curvatura vengono dalle coordinate
+            t._parse_layout()          # serve ancora per il conteggio dei segmenti
+            t._build_from_geo()
+        else:
+            t._parse_layout()
+            t._build_geometry()
         return t
+
+    # ------------------------------------------------- geometria da coordinate
+    def _build_from_geo(self) -> None:
+        """Costruisce disegno e curvatura dal tracciato reale.
+
+        Le coordinate arrivano in gradi: si proiettano in metri attorno al
+        centro del circuito (su cinque chilometri la deformazione e'
+        trascurabile), si riscalano sulla lunghezza ufficiale, si campionano a
+        passo costante e si lisciano quel tanto che basta a togliere il rumore
+        del rilievo senza smussare le curve vere.
+        """
+        pts = _project(self.geo)
+        if len(pts) < 8:
+            self._build_geometry()
+            return
+        if math.dist(pts[0], pts[-1]) > 1.0:
+            pts.append(pts[0])                      # chiude l'anello
+
+        target = self.length_km * 1000.0
+        raw_len = _path_length(pts)
+        if raw_len > 1.0:
+            k = target / raw_len                    # la misura ufficiale comanda
+            pts = [(x * k, y * k) for x, y in pts]
+
+        n = max(64, int(round(target / STEP_M)))
+        pts = _resample(pts, n)
+        pts = _smooth(pts, passes=2)
+
+        self.ds = target / len(pts)
+        self.curvature = _curvature(pts)
+        self.points = _normalise(pts)
+        self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
 
     def _parse_layout(self) -> None:
         raw: list[Segment] = []
@@ -128,16 +167,7 @@ class Track:
         pts = [(px - gx * i / (n - 1), py - gy * i / (n - 1)) for i, (px, py) in enumerate(pts)]
 
         pts = _smooth(pts, passes=3)
-
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        w = max(xs) - min(xs) or 1.0
-        h = max(ys) - min(ys) or 1.0
-        scale = 1.0 / max(w, h)
-        ox, oy = min(xs), min(ys)
-        cx = (1.0 - w * scale) / 2.0
-        cy = (1.0 - h * scale) / 2.0
-        self.points = [((px - ox) * scale + cx, (py - oy) * scale + cy) for px, py in pts]
+        self.points = _normalise(pts)
         self.curvature = curv
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
 
@@ -213,6 +243,82 @@ class Track:
     def sector_of(self, idx: int) -> int:
         a, b = self.sector_bounds
         return 1 if idx < a else (2 if idx < b else 3)
+
+
+# --------------------------------------------------------------- geometria
+MIN_RADIUS = 12.0      # sotto questo raggio e' rumore di rilievo, non una curva
+
+
+def _project(geo) -> list:
+    """Da gradi a metri, piani, attorno al centro del circuito."""
+    lats = [float(p[0]) for p in geo]
+    lons = [float(p[1]) for p in geo]
+    lat0 = sum(lats) / len(lats)
+    lon0 = sum(lons) / len(lons)
+    mx = 111320.0 * math.cos(math.radians(lat0))
+    return [((lon - lon0) * mx, (lat - lat0) * 110540.0) for lat, lon in zip(lats, lons)]
+
+
+def _path_length(pts) -> float:
+    return sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+
+
+def _resample(pts, n: int) -> list:
+    """Ricampiona la polilinea chiusa a n punti equidistanti."""
+    total = _path_length(pts)
+    if total <= 0:
+        return pts
+    step = total / n
+    out = [pts[0]]
+    i, carry = 0, 0.0
+    while len(out) < n and i < len(pts) - 1:
+        a, b = pts[i], pts[i + 1]
+        seg = math.dist(a, b)
+        if seg <= 1e-9:
+            i += 1
+            continue
+        t = carry + step
+        if t <= seg:
+            f = t / seg
+            out.append((a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f))
+            pts = pts[:i] + [out[-1]] + pts[i + 1:]
+            carry = 0.0
+        else:
+            carry -= seg
+            i += 1
+    return out[:n]
+
+
+def _curvature(pts) -> list:
+    """Curvatura in ogni punto, dal cerchio per tre punti consecutivi.
+
+    Si guarda qualche metro avanti e indietro invece dei vicini immediati:
+    su punti a otto metri il rumore residuo darebbe raggi assurdi.
+    """
+    n = len(pts)
+    span = max(1, int(round(18.0 / max(1.0, _path_length(pts) / n))))
+    out = []
+    for i in range(n):
+        a, b, c = pts[(i - span) % n], pts[i], pts[(i + span) % n]
+        ab, bc, ca = math.dist(a, b), math.dist(b, c), math.dist(c, a)
+        cross = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+        denom = ab * bc * ca
+        k = (2.0 * cross / denom) if denom > 1e-9 else 0.0
+        out.append(min(k, 1.0 / MIN_RADIUS))
+    return out
+
+
+def _normalise(pts) -> list:
+    """Porta la polilinea nel quadrato 0..1, centrata, senza deformarla."""
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    w = max(xs) - min(xs) or 1.0
+    h = max(ys) - min(ys) or 1.0
+    scale = 1.0 / max(w, h)
+    ox, oy = min(xs), min(ys)
+    cx = (1.0 - w * scale) / 2.0
+    cy = (1.0 - h * scale) / 2.0
+    return [((px - ox) * scale + cx, (py - oy) * scale + cy) for px, py in pts]
 
 
 def _smooth(pts, passes: int = 2):

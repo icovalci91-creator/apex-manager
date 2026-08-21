@@ -82,6 +82,23 @@ nel browser quindi si usa quello incluso in pygame.
 rettilinei e curve (`S900 R90:3 L60:4 ...`) con il numero di curve e la lunghezza reali.
 Da quella sequenza si generano sia il disegno 2D sia il profilo di curvatura.
 
+In alternativa un circuito può portare il campo `geo`, cioè il tracciato vero in coordinate
+geografiche: in quel caso forma e curvatura vengono da lì, e la sequenza testuale non serve
+più. Le coordinate si scaricano da OpenStreetMap con:
+
+```bash
+python tools/fetch_layouts.py            # tutti i circuiti
+python tools/fetch_layouts.py --dry-run  # controlla senza scrivere
+```
+
+Lo strumento cerca ogni circuito per nome, ricuce le vie spezzate in un anello unico e
+confronta la lunghezza ottenuta con quella ufficiale: se lo scarto supera il 12% scarta il
+risultato, perché un tracciato sbagliato è peggio di nessun tracciato. Serve rete verso
+`nominatim.openstreetmap.org` e `overpass-api.de`.
+
+Google Maps non è utilizzabile: i suoi dati sono proprietari e le condizioni d'uso vietano
+di estrarli per usarli altrove. OpenStreetMap è aperto e chiede solo la citazione qui sotto.
+
 **Tempo sul giro.** Modello quasi-statico: per ogni punto si calcola la velocità massima
 consentita dall'aderenza laterale (che dipende da carico aerodinamico e velocità), poi una
 passata in avanti limitata da potenza e trazione e una all'indietro limitata dalla frenata.
@@ -151,10 +168,15 @@ data/                database JSON
 saves/               salvataggi
 ```
 
+## Crediti
+
+I layout scaricati con `tools/fetch_layouts.py` provengono da OpenStreetMap:
+© OpenStreetMap contributors, licenza [ODbL](https://www.openstreetmap.org/copyright).
+
 ## Limiti noti
 
-- I tracciati sono ricostruiti dai dati reali (lunghezza, numero e tipo di curve) ma non
-  dalle coordinate GPS: la forma è coerente e distinta per ogni pista, non identica
-  all'originale.
+- I 24 tracciati inclusi sono ancora ricostruiti dai dati reali (lunghezza, numero e tipo
+  di curve) e non dalle coordinate: la forma è coerente e distinta per ogni pista, non
+  identica all'originale. Con `tools/fetch_layouts.py` si sostituiscono con quelli veri.
 - Le sprint usano lo stesso formato della qualifica principale.
 - Le penalità in gara (bandiere, investigazioni) non sono ancora modellate.
