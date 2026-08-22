@@ -59,6 +59,10 @@ nel browser quindi si usa quello incluso in pygame.
    e mettono tutto sulla macchina. Il vincolo e' il campo `pu_capable` in
    `data/teams.json`, con accanto la motivazione: se non sei d'accordo, cambialo.
 
+2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
+3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
+4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
+
 ### Motorista, team ufficiale, cliente
 
 Il rapporto con la power unit ha tre forme, nel campo `pu_status`:
@@ -85,9 +89,7 @@ reparti la rallenta. Su due stagioni Honda guadagna circa +3.6 contro il +4.9 di
 
 Un motorista senza squadra propria in griglia continua comunque a sviluppare per conto suo:
 altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
-2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
-3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
-4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
+
 
 ### Le sezioni
 
