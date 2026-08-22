@@ -40,8 +40,11 @@ class Team:
     last_position: int = 6
 
     spent: float = 0.0          # speso nel cap questa stagione
-    income_log: list = field(default_factory=list)
-    expense_log: list = field(default_factory=list)
+    deals: list = field(default_factory=list)    # accordi commerciali firmati
+    ledger: list = field(default_factory=list)   # movimenti datati
+    cur_season: int = 0                          # quando siamo, per datare i movimenti
+    cur_month: int = 1
+    cur_round: int = 0
     dev_projects: list = field(default_factory=list)
     upgrades_done: int = 0
     is_player: bool = False
@@ -162,17 +165,39 @@ class Team:
             0.4 * self.aero_strength + 0.3 * self.mech_strength + 0.3 * self.dev_rate * 60.0)
 
     # ------------------------------------------------------------- finanze
-    def add_income(self, label: str, amount: float) -> None:
-        self.cash += amount
-        self.income_log.append((label, round(amount, 3)))
+    def set_clock(self, season: int, month: int, rnd: int) -> None:
+        """Da qui in poi i movimenti verranno datati cosi'."""
+        self.cur_season, self.cur_month, self.cur_round = season, month, rnd
 
-    def add_expense(self, label: str, amount: float, in_cap: bool = True) -> None:
+    def _record(self, verso: str, label: str, amount: float,
+                category: str, in_cap: bool) -> None:
+        self.ledger.append({
+            "season": self.cur_season, "month": self.cur_month, "round": self.cur_round,
+            "kind": verso, "category": category, "label": label,
+            "amount": round(float(amount), 3), "in_cap": bool(in_cap),
+        })
+        del self.ledger[4000:]
+
+    def add_income(self, label: str, amount: float, category: str = "altro") -> None:
+        self.cash += amount
+        self._record("in", label, amount, category, False)
+
+    def add_expense(self, label: str, amount: float, in_cap: bool = True,
+                    category: str = "altro") -> None:
         self.cash -= amount
-        self.expense_log.append((label, round(amount, 3)))
+        self._record("out", label, amount, category, in_cap)
         if in_cap:
             self.spent += amount
 
+    # compatibilita' con il codice che leggeva i due registri separati
+    @property
+    def income_log(self) -> list:
+        return [(m["label"], m["amount"]) for m in self.ledger if m["kind"] == "in"]
+
+    @property
+    def expense_log(self) -> list:
+        return [(m["label"], m["amount"]) for m in self.ledger if m["kind"] == "out"]
+
     def reset_season_finances(self) -> None:
+        """Azzera il contatore del cap. Il libro mastro resta: serve allo storico."""
         self.spent = 0.0
-        self.income_log.clear()
-        self.expense_log.clear()

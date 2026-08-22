@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import development, economy, facilities, market, powertrain, rules
+from . import development, economy, facilities, market, powertrain, rules, sponsors
 from .state import RaceResult
 
 
@@ -22,6 +22,10 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
     rr = RaceResult(track_id=track.id, round=gs.round, season=gs.season, kind=kind,
                     pole=ws.pole, fastest_lap=fastest.driver_id if fastest else "",
                     weather=ws.weather.label)
+
+    mese = int(getattr(track, "month", 3))
+    for t in gs.teams.values():
+        t.set_clock(gs.season, mese, gs.round + 1)
 
     team_points = {tid: 0.0 for tid in gs.teams}
     for pos, e in enumerate(order, 1):
@@ -75,6 +79,11 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             cost = team.car.repair_all()
             economy.apply_race_finances(gs, team, team_points.get(team.id, 0.0),
                                         gs.position_of(team.id), cost)
+
+    if kind == "gp":
+        for pos, e in enumerate(order, 1):
+            if e.status == "finished" and pos <= 3:
+                sponsors.register_result(gs.teams[e.team_id], pos)
 
     gs.results.append(rr)
     return rr
@@ -144,7 +153,14 @@ def end_season(gs) -> dict:
             if t:
                 t.titles["drivers"] = t.titles.get("drivers", 0) + 1
 
+    for t in gs.teams.values():          # i conti di fine anno cadono a dicembre
+        t.set_clock(gs.season, 12, len(gs.tracks))
     report["finance"] = economy.end_of_season_finances(gs)
+    campione = cs[0] if cs else None
+    for t in gs.teams.values():
+        premi = sponsors.pay_bonuses(gs, t, champion=(t is campione))
+        if t.is_player and premi > 0.01:
+            report["finance"].append(f"Bonus di risultato dagli sponsor: {premi:.2f} M$.")
 
     # crescita/declino dei piloti
     for d in list(gs.drivers.values()) + list(gs.free_agents):
@@ -162,6 +178,11 @@ def end_season(gs) -> dict:
     for s in [s for t in gs.teams.values() for s in t.staff] + gs.free_staff:
         s.age += 1
 
+    for t in gs.teams.values():
+        msgs_sp = sponsors.roll_season(gs, t)
+        if t.is_player:
+            report["finance"] += msgs_sp
+    sponsors.ai_fill(gs)
     report["market"] = market.run_transfer_window(gs)
     market.new_talents(gs)
 
@@ -225,6 +246,8 @@ def end_season(gs) -> dict:
     })
     gs.season += 1
     gs.regulations["season"] = gs.season
+    for t in gs.teams.values():          # anno nuovo: si riparte da gennaio
+        t.set_clock(gs.season, 1, 0)
     gs.round = 0
     gs.phase = "preseason"
     gs.results = [r for r in gs.results if r.season >= gs.season - 3]

@@ -1,0 +1,725 @@
+{
+  "_note": "Sponsor e accordi commerciali. I nomi sono di fantasia, le cifre e le durate no: sono calibrate sugli accordi reali riportati dalla stampa di settore, che restano stime non confermate dalle parti.",
+  "_riferimenti": [
+    "Title sponsor di vertice: 75-100 M$/anno su 4-5 anni (Oracle-Red Bull, HP-Ferrari, Petronas-Mercedes, Aramco-Aston Martin)",
+    "Title sponsor di meta' gruppo: 20-50 M$/anno su 3-5 anni (Atlassian-Williams, MoneyGram-Haas, Visa Cash App-Racing Bulls)",
+    "Partner principale: 15-40 M$/anno (Shell-Ferrari sul carburante, Google-McLaren, OKX-McLaren)",
+    "Partner secondario: 4-15 M$/anno su 2-3 anni",
+    "Fornitore tecnico: 1-8 M$/anno, spesso in parte come fornitura di beni e servizi"
+  ],
+  "_campi": {
+    "tier": "title = sul nome della squadra | primary = grande spazio in vettura | secondary | technical = fornitore",
+    "base": "valore di riferimento in M$/anno per una squadra che soddisfa le sue attese",
+    "min_reputation": "sotto questa reputazione non si siede nemmeno al tavolo",
+    "wants_position": "posizione nel costruttori che si aspetta: se fai peggio, l'offerta cala",
+    "sector": "settore merceologico: due sponsor dello stesso settore non convivono",
+    "bonus_win / bonus_podium / bonus_title": "premi di risultato, in M$",
+    "prestige": "quanto e' selettivo: alza le pretese e il valore",
+    "loyalty": "quanto e' disposto a restare quando i risultati calano"
+  },
+  "sponsors": [
+    {
+      "id": "helion",
+      "name": "Helion Cloud",
+      "sector": "tecnologia",
+      "tier": "title",
+      "base": 95.0,
+      "min_reputation": 88,
+      "wants_position": 2,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 1.2,
+      "bonus_podium": 0.4,
+      "bonus_title": 12.0,
+      "prestige": 95,
+      "loyalty": 55,
+      "desc": "Gruppo cloud globale: vuole il nome sulla squadra e la vittoria come vetrina."
+    },
+    {
+      "id": "petrofinity",
+      "name": "Petrofinity",
+      "sector": "energia",
+      "tier": "title",
+      "base": 88.0,
+      "min_reputation": 85,
+      "wants_position": 3,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 1.0,
+      "bonus_podium": 0.35,
+      "bonus_title": 10.0,
+      "prestige": 92,
+      "loyalty": 75,
+      "desc": "Compagnia energetica di stato, rapporti lunghissimi e pretese di immagine."
+    },
+    {
+      "id": "vantexbank",
+      "name": "Vantex Bank",
+      "sector": "finanza",
+      "tier": "title",
+      "base": 74.0,
+      "min_reputation": 82,
+      "wants_position": 4,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.9,
+      "bonus_podium": 0.3,
+      "bonus_title": 9.0,
+      "prestige": 88,
+      "loyalty": 60,
+      "desc": "Banca d'investimento: guarda ai numeri di audience prima che ai risultati."
+    },
+    {
+      "id": "aurorafly",
+      "name": "AuroraFly",
+      "sector": "trasporti",
+      "tier": "title",
+      "base": 52.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.8,
+      "bonus_podium": 0.3,
+      "bonus_title": 6.0,
+      "prestige": 74,
+      "loyalty": 70,
+      "desc": "Compagnia aerea in espansione: le basta essere vista, non vincere."
+    },
+    {
+      "id": "novaworks",
+      "name": "NovaWorks",
+      "sector": "software",
+      "tier": "title",
+      "base": 46.0,
+      "min_reputation": 66,
+      "wants_position": 7,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.7,
+      "bonus_podium": 0.25,
+      "bonus_title": 5.0,
+      "prestige": 70,
+      "loyalty": 78,
+      "desc": "Software per aziende: cerca credibilita' tecnica piu' che gloria sportiva."
+    },
+    {
+      "id": "sendline",
+      "name": "Sendline",
+      "sector": "pagamenti",
+      "tier": "title",
+      "base": 24.0,
+      "min_reputation": 55,
+      "wants_position": 9,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.6,
+      "bonus_podium": 0.25,
+      "bonus_title": 4.0,
+      "prestige": 56,
+      "loyalty": 65,
+      "desc": "Trasferimenti di denaro: title sponsor accessibile per una squadra di coda."
+    },
+    {
+      "id": "kortex",
+      "name": "Kortex Exchange",
+      "sector": "cripto",
+      "tier": "title",
+      "base": 40.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 1.5,
+      "bonus_podium": 0.5,
+      "bonus_title": 8.0,
+      "prestige": 62,
+      "loyalty": 25,
+      "desc": "Piattaforma di scambio cripto: paga molto e sparisce in fretta."
+    },
+    {
+      "id": "shellara",
+      "name": "Shellara Lubrificanti",
+      "sector": "energia",
+      "tier": "primary",
+      "base": 58.0,
+      "min_reputation": 80,
+      "wants_position": 4,
+      "years": [
+        4,
+        6
+      ],
+      "bonus_win": 0.8,
+      "bonus_podium": 0.3,
+      "bonus_title": 7.0,
+      "prestige": 90,
+      "loyalty": 92,
+      "desc": "Partner tecnico su carburante e lubrificanti: rapporti che durano decenni."
+    },
+    {
+      "id": "meridiantel",
+      "name": "Meridian Telecom",
+      "sector": "telecomunicazioni",
+      "tier": "primary",
+      "base": 34.0,
+      "min_reputation": 74,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.6,
+      "bonus_podium": 0.25,
+      "bonus_title": 4.5,
+      "prestige": 76,
+      "loyalty": 68,
+      "desc": "Operatore continentale: vuole visibilita' nei mercati dove sta crescendo."
+    },
+    {
+      "id": "orbitware",
+      "name": "Orbitware",
+      "sector": "tecnologia",
+      "tier": "primary",
+      "base": 27.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.2,
+      "bonus_title": 3.5,
+      "prestige": 72,
+      "loyalty": 60,
+      "desc": "Software di collaborazione: cerca il pubblico giovane della categoria."
+    },
+    {
+      "id": "cronark",
+      "name": "Cronark",
+      "sector": "orologi",
+      "tier": "primary",
+      "base": 22.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        4,
+        6
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 3.0,
+      "prestige": 88,
+      "loyalty": 90,
+      "desc": "Manifattura di orologi: selettiva, ma quando entra non se ne va piu'."
+    },
+    {
+      "id": "voltarion",
+      "name": "Voltarion",
+      "sector": "bevande",
+      "tier": "primary",
+      "base": 30.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.7,
+      "bonus_podium": 0.3,
+      "bonus_title": 4.0,
+      "prestige": 66,
+      "loyalty": 62,
+      "desc": "Energy drink: vuole piloti giovani e comunicazione aggressiva."
+    },
+    {
+      "id": "steelbridge",
+      "name": "Steelbridge Assicurazioni",
+      "sector": "assicurazioni",
+      "tier": "primary",
+      "base": 19.0,
+      "min_reputation": 58,
+      "wants_position": 8,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 2.5,
+      "prestige": 58,
+      "loyalty": 80,
+      "desc": "Gruppo assicurativo: prudente, affidabile, poco appariscente."
+    },
+    {
+      "id": "questlog",
+      "name": "Questlog",
+      "sector": "logistica",
+      "tier": "primary",
+      "base": 17.0,
+      "min_reputation": 55,
+      "wants_position": 8,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.35,
+      "bonus_podium": 0.15,
+      "bonus_title": 2.0,
+      "prestige": 54,
+      "loyalty": 72,
+      "desc": "Corriere internazionale: la Formula 1 e' la sua vetrina naturale."
+    },
+    {
+      "id": "brightfoam",
+      "name": "Brightfoam",
+      "sector": "consumo",
+      "tier": "secondary",
+      "base": 12.0,
+      "min_reputation": 50,
+      "wants_position": 9,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.25,
+      "bonus_podium": 0.1,
+      "bonus_title": 1.5,
+      "prestige": 48,
+      "loyalty": 70,
+      "desc": "Prodotti per la casa: cerca il grande pubblico televisivo."
+    },
+    {
+      "id": "altavia",
+      "name": "Altavia Moda",
+      "sector": "abbigliamento",
+      "tier": "secondary",
+      "base": 14.0,
+      "min_reputation": 64,
+      "wants_position": 7,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.12,
+      "bonus_title": 2.0,
+      "prestige": 68,
+      "loyalty": 50,
+      "desc": "Marchio di moda: guarda all'immagine dei piloti piu' che ai risultati."
+    },
+    {
+      "id": "medisar",
+      "name": "Medisar",
+      "sector": "salute",
+      "tier": "secondary",
+      "base": 9.0,
+      "min_reputation": 52,
+      "wants_position": 9,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.2,
+      "bonus_podium": 0.08,
+      "bonus_title": 1.2,
+      "prestige": 52,
+      "loyalty": 84,
+      "desc": "Gruppo sanitario privato: paziente e poco esigente."
+    },
+    {
+      "id": "trailpeak",
+      "name": "Trailpeak",
+      "sector": "sport",
+      "tier": "secondary",
+      "base": 8.0,
+      "min_reputation": 48,
+      "wants_position": 10,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.2,
+      "bonus_podium": 0.1,
+      "bonus_title": 1.0,
+      "prestige": 46,
+      "loyalty": 66,
+      "desc": "Attrezzatura sportiva: budget piccolo, entusiasmo grande."
+    },
+    {
+      "id": "cindershift",
+      "name": "Cindershift Gaming",
+      "sector": "intrattenimento",
+      "tier": "secondary",
+      "base": 11.0,
+      "min_reputation": 50,
+      "wants_position": 9,
+      "years": [
+        1,
+        3
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.12,
+      "bonus_title": 1.5,
+      "prestige": 50,
+      "loyalty": 40,
+      "desc": "Editore di videogiochi: entra e esce a seconda delle uscite in catalogo."
+    },
+    {
+      "id": "harboursalt",
+      "name": "Harbour & Salt",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 54,
+      "wants_position": 9,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.22,
+      "bonus_podium": 0.1,
+      "bonus_title": 1.2,
+      "prestige": 56,
+      "loyalty": 74,
+      "desc": "Distilleria storica: comunicazione sobria, rapporti stabili."
+    },
+    {
+      "id": "carbonek",
+      "name": "Carbonek Compositi",
+      "sector": "materiali",
+      "tier": "technical",
+      "base": 6.5,
+      "min_reputation": 45,
+      "wants_position": 11,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.1,
+      "bonus_podium": 0.05,
+      "bonus_title": 0.8,
+      "prestige": 60,
+      "loyalty": 88,
+      "desc": "Fornitore di fibra di carbonio: in parte paga in materiale."
+    },
+    {
+      "id": "axlebrake",
+      "name": "Axle & Brake",
+      "sector": "componenti",
+      "tier": "technical",
+      "base": 5.0,
+      "min_reputation": 42,
+      "wants_position": 11,
+      "years": [
+        3,
+        6
+      ],
+      "bonus_win": 0.1,
+      "bonus_podium": 0.04,
+      "bonus_title": 0.6,
+      "prestige": 58,
+      "loyalty": 90,
+      "desc": "Impianti frenanti: rapporto tecnico prima che commerciale."
+    },
+    {
+      "id": "datalume",
+      "name": "Datalume",
+      "sector": "software",
+      "tier": "technical",
+      "base": 7.5,
+      "min_reputation": 50,
+      "wants_position": 10,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.12,
+      "bonus_podium": 0.05,
+      "bonus_title": 0.9,
+      "prestige": 64,
+      "loyalty": 70,
+      "desc": "Analisi dati e simulazione: porta strumenti oltre che soldi."
+    },
+    {
+      "id": "thermion",
+      "name": "Thermion",
+      "sector": "materiali",
+      "tier": "technical",
+      "base": 4.0,
+      "min_reputation": 40,
+      "wants_position": 11,
+      "years": [
+        2,
+        5
+      ],
+      "bonus_win": 0.08,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.5,
+      "prestige": 52,
+      "loyalty": 86,
+      "desc": "Trattamenti termici e leghe speciali per la power unit."
+    },
+    {
+      "id": "gridsafe",
+      "name": "Gridsafe",
+      "sector": "sicurezza",
+      "tier": "technical",
+      "base": 3.2,
+      "min_reputation": 38,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.06,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.4,
+      "prestige": 48,
+      "loyalty": 88,
+      "desc": "Sistemi di sicurezza e antincendio: presenza discreta e costante."
+    },
+    {
+      "id": "loomtex",
+      "name": "Loomtex",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 2.4,
+      "min_reputation": 36,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.05,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.3,
+      "prestige": 44,
+      "loyalty": 82,
+      "desc": "Tute e abbigliamento tecnico per squadra e piloti."
+    },
+    {
+      "id": "verdanta",
+      "name": "Verdanta",
+      "sector": "energia",
+      "tier": "technical",
+      "base": 5.5,
+      "min_reputation": 46,
+      "wants_position": 10,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.1,
+      "bonus_podium": 0.04,
+      "bonus_title": 0.7,
+      "prestige": 62,
+      "loyalty": 76,
+      "desc": "Carburanti sostenibili: interesse tecnico sul nuovo regolamento."
+    },
+    {
+      "id": "quarrybuild",
+      "name": "Quarry & Build",
+      "sector": "costruzioni",
+      "tier": "title",
+      "base": 30.0,
+      "min_reputation": 52,
+      "wants_position": 10,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.2,
+      "bonus_title": 3.5,
+      "prestige": 50,
+      "loyalty": 85,
+      "desc": "Gruppo di costruzioni: title sponsor solido per una squadra che cresce."
+    },
+    {
+      "id": "orenta",
+      "name": "Orenta Motors",
+      "sector": "automotive",
+      "tier": "title",
+      "base": 34.0,
+      "min_reputation": 50,
+      "wants_position": 9,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.6,
+      "bonus_podium": 0.25,
+      "bonus_title": 4.0,
+      "prestige": 58,
+      "loyalty": 72,
+      "desc": "Costruttore automobilistico emergente: usa la categoria come laboratorio."
+    },
+    {
+      "id": "vireofoods",
+      "name": "Vireo Foods",
+      "sector": "alimentare",
+      "tier": "title",
+      "base": 26.0,
+      "min_reputation": 45,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.45,
+      "bonus_podium": 0.18,
+      "bonus_title": 3.0,
+      "prestige": 44,
+      "loyalty": 76,
+      "desc": "Gruppo alimentare: cerca visibilita' di massa a prezzo contenuto."
+    },
+    {
+      "id": "lumenpay",
+      "name": "Lumen Pay",
+      "sector": "pagamenti",
+      "tier": "title",
+      "base": 28.0,
+      "min_reputation": 48,
+      "wants_position": 10,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.2,
+      "bonus_title": 3.2,
+      "prestige": 52,
+      "loyalty": 58,
+      "desc": "Servizi di pagamento digitali in espansione sui mercati nuovi."
+    },
+    {
+      "id": "terrafil",
+      "name": "Terrafil",
+      "sector": "chimica",
+      "tier": "primary",
+      "base": 16.0,
+      "min_reputation": 45,
+      "wants_position": 10,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.12,
+      "bonus_title": 2.0,
+      "prestige": 50,
+      "loyalty": 82,
+      "desc": "Chimica industriale: presenza costante e poco rumorosa."
+    },
+    {
+      "id": "nordhaven",
+      "name": "Nordhaven Bank",
+      "sector": "finanza",
+      "tier": "primary",
+      "base": 21.0,
+      "min_reputation": 56,
+      "wants_position": 8,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 2.6,
+      "prestige": 62,
+      "loyalty": 70,
+      "desc": "Banca regionale che punta sull'immagine internazionale."
+    },
+    {
+      "id": "skalatv",
+      "name": "Skala TV",
+      "sector": "intrattenimento",
+      "tier": "primary",
+      "base": 18.0,
+      "min_reputation": 50,
+      "wants_position": 9,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.35,
+      "bonus_podium": 0.14,
+      "bonus_title": 2.2,
+      "prestige": 54,
+      "loyalty": 60,
+      "desc": "Piattaforma di streaming: paga in visibilita' oltre che in denaro."
+    },
+    {
+      "id": "pinemark",
+      "name": "Pinemark",
+      "sector": "consumo",
+      "tier": "secondary",
+      "base": 7.5,
+      "min_reputation": 40,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.18,
+      "bonus_podium": 0.07,
+      "bonus_title": 0.9,
+      "prestige": 42,
+      "loyalty": 80,
+      "desc": "Catena di distribuzione: sponsorizzazione di prossimita'."
+    },
+    {
+      "id": "caldera",
+      "name": "Caldera Energy",
+      "sector": "energia",
+      "tier": "secondary",
+      "base": 13.0,
+      "min_reputation": 52,
+      "wants_position": 9,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.28,
+      "bonus_podium": 0.11,
+      "bonus_title": 1.6,
+      "prestige": 60,
+      "loyalty": 68,
+      "desc": "Rinnovabili: cerca l'accostamento al carburante sostenibile."
+    },
+    {
+      "id": "halvornsec",
+      "name": "Halvorn Security",
+      "sector": "sicurezza",
+      "tier": "secondary",
+      "base": 6.5,
+      "min_reputation": 38,
+      "wants_position": 11,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.15,
+      "bonus_podium": 0.06,
+      "bonus_title": 0.8,
+      "prestige": 40,
+      "loyalty": 78,
+      "desc": "Sicurezza informatica: budget modesto, contratto senza pretese."
+    }
+  ]
+}

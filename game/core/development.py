@@ -137,7 +137,8 @@ def advance_projects(gs, team) -> list:
         slice_cost = pr.budget / max(1, pr.races_left + (1 if pr.invested == 0 else 0))
         slice_cost = min(slice_cost, pr.budget - pr.invested)
         if slice_cost > 0:
-            team.add_expense(f"Sviluppo: {pr.label}", round(slice_cost, 3), in_cap=True)
+            team.add_expense(f"Sviluppo: {pr.label}", round(slice_cost, 3), in_cap=True,
+                             category="sviluppo")
             pr.invested += slice_cost
         pr.races_left -= 1
         if pr.races_left <= 0:
@@ -168,7 +169,8 @@ def passive_development(gs, team, budget: float) -> None:
     """
     if budget <= 0:
         return
-    team.add_expense("Sviluppo continuo", round(budget, 3), in_cap=True)
+    team.add_expense("Sviluppo continuo", round(budget, 3), in_cap=True,
+                     category="sviluppo")
     era = next_era(gs)
     share = max(0.0, min(0.90, team.next_reg_share)) if era is not None else 0.0
     if share > 0:

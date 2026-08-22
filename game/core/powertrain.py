@@ -195,10 +195,12 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
                 if team.cash < budget:
                     budget = max(0.0, team.cash)
                 if budget > 0:
-                    team.add_expense("Sviluppo power unit", round(budget, 3), in_cap=False)
+                    team.add_expense("Sviluppo power unit", round(budget, 3), in_cap=False,
+                             category="powertrain")
         else:
             budget = ai_budget(gs, team)
-            team.add_expense("Sviluppo power unit", round(budget, 3), in_cap=False)
+            team.add_expense("Sviluppo power unit", round(budget, 3), in_cap=False,
+                             category="powertrain")
         if budget <= 0:
             continue
         rate = dev_rate(gs, team) * _equalisation_boost(gs, eng)
@@ -256,10 +258,12 @@ def running_costs(gs) -> list[str]:
         if not team.works:
             continue
         team.add_expense("Gestione reparto power unit",
-                         round(PU_OPERATING_COST / races, 3), in_cap=False)
+                         round(PU_OPERATING_COST / races, 3), in_cap=False,
+                         category="powertrain")
         for client in customers_of(gs, team.engine):
             team.add_income(f"Fornitura power unit a {client.short}",
-                            round(client.engine_customer_cost / races, 3))
+                            round(client.engine_customer_cost / races, 3),
+                            category="powertrain")
     return msgs
 
 
@@ -316,7 +320,8 @@ def start_program(gs, team) -> tuple:
     ok, why = economy.can_afford(team, PROGRAM_START_COST, gs, check_cap=False)
     if not ok:
         return False, why
-    team.add_expense("Fondazione reparto power unit", PROGRAM_START_COST, in_cap=False)
+    team.add_expense("Fondazione reparto power unit", PROGRAM_START_COST,
+                     in_cap=False, category="powertrain")
     p.update({"own": False, "started": True, "level": base_level(gs),
               "invested": PROGRAM_START_COST, "ready_season": gs.season + PROGRAM_MIN_SEASONS})
     return True, (f"Reparto power unit fondato: la prima unita' nostra non potra' "
@@ -334,7 +339,8 @@ def advance_program(gs, budget: float) -> list[str]:
         budget = max(0.0, team.cash)
     if budget <= 0:
         return []
-    team.add_expense("Programma power unit", round(budget, 3), in_cap=False)
+    team.add_expense("Programma power unit", round(budget, 3), in_cap=False,
+                     category="powertrain")
     p["invested"] = p.get("invested", 0.0) + budget
     ceil = ceiling(gs, team)
     gap = ceil - p["level"]

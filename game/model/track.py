@@ -43,6 +43,7 @@ class Track:
     traits: dict
     layout: str
     ref_lap: float = 90.0
+    month: int = 3
     calibration: float = 1.0
     geo: list = field(default_factory=list)   # [[lat, lon], ...] del tracciato reale
 
@@ -59,7 +60,7 @@ class Track:
             id=d["id"], name=d["name"], gp=d["gp"], country=d["country"], flag=d["flag"],
             length_km=d["length_km"], laps=d["laps"], corners=d["corners"],
             pit_loss=d["pit_loss"], sprint=d.get("sprint", False),
-            traits=d["traits"], layout=d["layout"], ref_lap=d.get("ref_lap", 90.0),
+            traits=d["traits"], layout=d["layout"], ref_lap=d.get("ref_lap", 90.0), month=int(d.get("month", 3)),
             geo=d.get("geo") or [],
         )
         if t.geo:

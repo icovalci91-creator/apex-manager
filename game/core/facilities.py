@@ -47,7 +47,8 @@ def upgrade(gs, team, key: str) -> tuple:
     ok, why = economy.can_afford(team, price, gs)
     if not ok:
         return False, why
-    team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", price, in_cap=True)
+    team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", price, in_cap=True,
+                     category="strutture")
     team.facilities[key] = min(99.0, lvl + gain(lvl))
     return True, (f"{C.FACILITIES[key]['label']} portata a "
                   f"{team.facilities[key]:.0f} ({price:.2f} M$).")

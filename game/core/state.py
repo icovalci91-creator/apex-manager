@@ -104,6 +104,7 @@ class GameState:
             team.is_player = (td["id"] == team_id)
             team.engine_customer_cost = engine.get("cost_per_customer", 25.0)
             team.resource_alloc = {k: 1.0 / len(C.CAR_PARTS) for k in C.CAR_PARTS}
+            team.set_clock(gs.season, 1, 0)
             gs.teams[team.id] = team
 
         ddata = _load("drivers.json")
@@ -115,6 +116,7 @@ class GameState:
         for d in ddata["free_agents"]:
             gs.free_agents.append(Driver.from_dict(d))
 
+        gs.sponsor_pool = _load("sponsors.json")["sponsors"]
         gs._calibrate_tracks()
         gs._build_staff()
         gs.sync_engines()
@@ -130,6 +132,9 @@ class GameState:
             gs.push(msg if ok else
                     f"Reparto power unit non avviato: {msg} Si puo' fondare piu' avanti "
                     f"dalla pagina Power unit.", "tecnico")
+
+        from . import sponsors
+        sponsors.bootstrap(gs)
 
         gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
         return gs
@@ -274,6 +279,10 @@ class GameState:
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
+                    "ledger": t.ledger[-1500:],
+                    "deals": [d.to_dict() for d in t.deals],
+                    "cur_season": t.cur_season, "cur_month": t.cur_month,
+                    "cur_round": t.cur_round,
                     "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
                     "parent_team": t.parent_team,
                     "pu_partner_races": t.pu_partner_races,
@@ -315,6 +324,12 @@ class GameState:
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.next_reg_share = td.get("next_reg_share", 0.0)
+            from .sponsors import Deal
+            t.deals = [Deal(**x) for x in td.get("deals", [])]
+            t.ledger = list(td.get("ledger", []))
+            t.cur_season = td.get("cur_season", gs.season)
+            t.cur_month = td.get("cur_month", 1)
+            t.cur_round = td.get("cur_round", 0)
             t.reg_prep = td.get("reg_prep", 0.0)
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)

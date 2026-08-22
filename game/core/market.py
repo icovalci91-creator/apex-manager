@@ -66,8 +66,8 @@ def _sign(gs, team, driver: Driver, salary: float, years: int) -> None:
     if old and driver.id in old.drivers:
         old.drivers.remove(driver.id)
         fee = buyout_cost(gs, driver)
-        team.add_expense(f"Buyout {driver.last}", fee, in_cap=False)
-        old.add_income(f"Buyout {driver.last}", fee)
+        team.add_expense(f"Buyout {driver.last}", fee, in_cap=False, category="cessioni")
+        old.add_income(f"Buyout {driver.last}", fee, category="cessioni")
     if driver in gs.free_agents:
         gs.free_agents.remove(driver)
     gs.drivers[driver.id] = driver
@@ -83,7 +83,8 @@ def release_driver(gs, team, driver: Driver) -> tuple:
     ok, why = economy.can_afford(team, fee, gs, check_cap=False)
     if not ok:
         return False, why
-    team.add_expense(f"Rescissione {driver.last}", fee, in_cap=False)
+    team.add_expense(f"Rescissione {driver.last}", fee, in_cap=False,
+                     category="cessioni")
     if driver.id in team.drivers:
         team.drivers.remove(driver.id)
     driver.team = None
@@ -105,7 +106,8 @@ def hire_staff(gs, team, person: Staff, salary: float, years: int) -> tuple:
             if s.id == person.id:
                 old.staff.remove(s)
         fee = round(person.salary * 0.8, 2)
-        team.add_expense(f"Indennizzo {person.last}", fee, in_cap=True)
+        team.add_expense(f"Indennizzo {person.last}", fee, in_cap=True,
+                         category="personale")
     if person in gs.free_staff:
         gs.free_staff.remove(person)
     # una sola persona per ruolo (tranne ingegneri e performance)
@@ -127,7 +129,8 @@ def fire_staff(gs, team, person: Staff) -> tuple:
     ok, why = economy.can_afford(team, fee, gs, check_cap=False)
     if not ok:
         return False, why
-    team.add_expense(f"Buonuscita {person.last}", fee, in_cap=False)
+    team.add_expense(f"Buonuscita {person.last}", fee, in_cap=False,
+                     category="personale")
     team.staff.remove(person)
     person.team = None
     gs.free_staff.append(person)

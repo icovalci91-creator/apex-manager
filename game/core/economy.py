@@ -19,12 +19,16 @@ def prize_money(gs, position: int, flatten: float = 0.0) -> float:
 
 
 def sponsor_income(gs, team, race_points: float, position: int) -> float:
-    """Ricavo per gara: base contrattuale + bonus prestazione + appeal dei piloti."""
-    base = team.budget_base / len(gs.tracks)
-    perf = race_points * 0.055
-    star = sum(gs.drivers[d].marketability for d in team.drivers if d in gs.drivers) / 200.0
-    rep = team.reputation / 100.0
-    return round(base * (0.72 + 0.35 * rep) + perf + star * 0.22, 3)
+    """Ricavo commerciale per gara.
+
+    La parte grossa arriva dagli accordi firmati; resta una quota di ricavi
+    minori (biglietteria, ospitalita', merchandising) legata alla notorieta'
+    della squadra e ai punti appena portati a casa.
+    """
+    from . import sponsors
+    contratti = sponsors.race_income(gs, team)
+    minori = team.budget_base * 0.18 / len(gs.tracks) * (0.7 + 0.3 * team.reputation / 100.0)
+    return round(contratti + minori + race_points * 0.03, 3)
 
 
 def cap_limit(gs) -> float:
@@ -37,27 +41,42 @@ def cap_usage(gs, team) -> tuple:
 
 
 def race_costs(gs, team, damage_cost: float) -> list:
-    """Voci di costo di un weekend. Ritorna [(etichetta, importo, dentro_il_cap)]."""
-    items = [("Logistica e trasferta", TRAVEL_PER_RACE, True)]
+    """Voci di costo di un weekend: (etichetta, importo, dentro_il_cap, categoria)."""
+    items = [("Logistica e trasferta", TRAVEL_PER_RACE, True, "gara")]
     if damage_cost > 0.001:
-        items.append(("Riparazioni e ricambi", round(damage_cost, 3), True))
+        items.append(("Riparazioni e ricambi", round(damage_cost, 3), True, "danni"))
     n = max(1, len(gs.tracks))
-    items.append(("Stipendi staff", round(team.staff_cost / n, 3), True))
-    items.append(("Gestione strutture", round(team.facility_upkeep / n, 3), True))
+    items.append(("Stipendi staff", round(team.staff_cost / n, 3), True, "personale"))
+    items.append(("Gestione strutture", round(team.facility_upkeep / n, 3), True, "strutture"))
     if not team.works:
-        items.append(("Fornitura power unit", round(team.engine_customer_cost / n, 3), False))
+        items.append(("Fornitura power unit", round(team.engine_customer_cost / n, 3),
+                      False, "powertrain"))
     drv_salaries = sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers) / n
     in_cap = not gs.regulations.get("cost_cap_excludes_driver_salaries", True)
-    items.append(("Ingaggi piloti", round(drv_salaries, 3), in_cap))
+    items.append(("Ingaggi piloti", round(drv_salaries, 3), in_cap, "piloti"))
     return items
+
+
+def prize_advance(gs, team) -> float:
+    """Rata del montepremi pagata gara per gara.
+
+    La FOM non salda a fine anno: distribuisce durante la stagione sulla base
+    del piazzamento precedente, e conguaglia a dicembre. Senza questo una
+    squadra resterebbe in rosso da maggio a dicembre pur essendo in attivo.
+    """
+    flatten = float(gs.regulations.get("prize_flatten", 0.0))
+    return round(prize_money(gs, team.last_position, flatten) / max(1, len(gs.tracks)), 3)
 
 
 def apply_race_finances(gs, team, race_points: float, position: int, damage_cost: float) -> dict:
     inc = sponsor_income(gs, team, race_points, position)
-    team.add_income("Sponsor e diritti", inc)
+    team.add_income("Sponsor e diritti", inc, category="sponsor")
+    anticipo = prize_advance(gs, team)
+    team.add_income("Rata diritti commerciali", anticipo, category="premi")
+    inc += anticipo
     total_out = 0.0
-    for label, amt, in_cap in race_costs(gs, team, damage_cost):
-        team.add_expense(label, amt, in_cap)
+    for label, amt, in_cap, cat in race_costs(gs, team, damage_cost):
+        team.add_expense(label, amt, in_cap, category=cat)
         total_out += amt
     return {"in": inc, "out": round(total_out, 3), "net": round(inc - total_out, 3)}
 
@@ -70,17 +89,27 @@ def end_of_season_finances(gs) -> list:
     thr = gs.regulations["sporting"].get("budget_penalty_threshold_pct", 5) / 100.0
     for pos, team in enumerate(gs.constructor_standings(), 1):
         prize = prize_money(gs, pos, flatten)
-        team.add_income(f"Premio FOM ({pos}o posto)", prize)
+        # durante l'anno sono gia' state pagate le rate sul piazzamento
+        # precedente: a dicembre si versa solo la differenza
+        anticipato = round(prize_money(gs, team.last_position, flatten), 2)
+        saldo = round(prize - anticipato, 2)
+        if saldo >= 0:
+            team.add_income(f"Conguaglio FOM ({pos}o posto)", saldo, category="premi")
+        else:
+            team.add_expense(f"Restituzione FOM ({pos}o posto)", -saldo,
+                             in_cap=False, category="premi")
         team.last_position = pos
         over = team.spent - limit
         if over > 0:
             if over <= limit * thr:
                 fine = round(over * 1.5 + 2.0, 2)
-                team.add_expense("Multa sforamento budget cap", fine, in_cap=False)
+                team.add_expense("Multa sforamento budget cap", fine, in_cap=False,
+                                 category="sanzioni")
                 msgs.append(f"{team.short}: sforamento lieve del cap, multa di {fine} M$.")
             else:
                 fine = round(over * 3.0 + 8.0, 2)
-                team.add_expense("Sanzione grave budget cap", fine, in_cap=False)
+                team.add_expense("Sanzione grave budget cap", fine, in_cap=False,
+                                 category="sanzioni")
                 pen = min(30, int(over / 3))
                 team.points = max(0.0, team.points - pen)
                 msgs.append(f"{team.short}: sforamento grave, {fine} M$ di multa e -{pen} punti.")
@@ -96,3 +125,77 @@ def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:
         if team.spent + amount > cap_limit(gs):
             return False, "Supereresti il tetto di spesa (budget cap)."
     return True, ""
+
+
+# ---------------------------------------------------------------- bilancio
+MESI = ["", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+
+CATEGORIE = {
+    "sponsor": "Sponsor e accordi commerciali",
+    "premi": "Premi e diritti televisivi",
+    "cessioni": "Cessioni e indennizzi",
+    "personale": "Stipendi e personale",
+    "piloti": "Ingaggi piloti",
+    "sviluppo": "Sviluppo e aggiornamenti",
+    "powertrain": "Power unit",
+    "strutture": "Strutture e impianti",
+    "gara": "Costi di gara e logistica",
+    "danni": "Riparazioni",
+    "sanzioni": "Multe e sanzioni",
+    "altro": "Altro",
+}
+
+
+def ledger_of(team, season=None) -> list:
+    if season is None:
+        return list(team.ledger)
+    return [m for m in team.ledger if m["season"] == season]
+
+
+def by_month(team, season: int) -> list:
+    """Entrate, uscite e saldo mese per mese. Ritorna dodici righe."""
+    righe = []
+    for mese in range(1, 13):
+        entrate = sum(m["amount"] for m in team.ledger
+                      if m["season"] == season and m["month"] == mese and m["kind"] == "in")
+        uscite = sum(m["amount"] for m in team.ledger
+                     if m["season"] == season and m["month"] == mese and m["kind"] == "out")
+        righe.append({"month": mese, "label": MESI[mese], "in": entrate,
+                      "out": uscite, "net": entrate - uscite})
+    return righe
+
+
+def by_category(team, season: int, verso: str) -> list:
+    """Voci aggregate per categoria, dalla piu' pesante."""
+    tot = {}
+    for m in team.ledger:
+        if m["season"] == season and m["kind"] == verso:
+            tot[m["category"]] = tot.get(m["category"], 0.0) + m["amount"]
+    voci = [{"category": k, "label": CATEGORIE.get(k, k), "amount": v}
+            for k, v in tot.items()]
+    voci.sort(key=lambda x: -x["amount"])
+    return voci
+
+
+def by_year(team) -> list:
+    """Conto economico di ogni stagione registrata."""
+    anni = sorted({m["season"] for m in team.ledger})
+    out = []
+    for a in anni:
+        entrate = sum(m["amount"] for m in team.ledger if m["season"] == a and m["kind"] == "in")
+        uscite = sum(m["amount"] for m in team.ledger if m["season"] == a and m["kind"] == "out")
+        cap = sum(m["amount"] for m in team.ledger
+                  if m["season"] == a and m["kind"] == "out" and m["in_cap"])
+        out.append({"season": a, "in": entrate, "out": uscite,
+                    "net": entrate - uscite, "in_cap": cap})
+    return out
+
+
+def season_summary(team, season: int) -> dict:
+    entrate = sum(m["amount"] for m in team.ledger
+                  if m["season"] == season and m["kind"] == "in")
+    uscite = sum(m["amount"] for m in team.ledger
+                 if m["season"] == season and m["kind"] == "out")
+    return {"in": entrate, "out": uscite, "net": entrate - uscite,
+            "cash": team.cash, "spent": team.spent}
