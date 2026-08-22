@@ -26,6 +26,8 @@ class Team:
     titles: dict
     pu_status: str = "customer"  # works = costruisce | partner = team ufficiale | customer
     pu_capable: bool = True     # puo' fondare un reparto motori proprio?
+    pu_partner_races: int = 0   # gare passate a lavorare con questa casa
+    pu_partner_engine: str = "" # con quale: se cambia, si riparte da capo
     pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
     car: Car = None

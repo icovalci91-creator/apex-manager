@@ -65,18 +65,26 @@ Il rapporto con la power unit ha tre forme, nel campo `pu_status`:
 
 | Stato | Chi | Costo fornitura | Integrazione | Sviluppo PU |
 |---|---|---|---|---|
-| `works` | Ferrari, Mercedes, Red Bull, Audi | zero, ma paghi il reparto (45 M$/anno) | fino a 1.00 | lo decidi tu |
-| `partner` | Aston Martin con Honda | frazione del listino (8.75 invece di 25 M$) | 0.80 | lo fa la casa |
+| `works` | Ferrari, Mercedes, Red Bull, Audi | zero, ma paghi il reparto (45 M$/anno) | fino a 1.00 subito | lo decidi tu |
+| `partner` | Aston Martin con Honda | frazione del listino (8.75 invece di 25 M$) | da 0.42 a 0.85, con gli anni | lo fa la casa, un po' piu' piano |
 | `customer` | tutti gli altri | listino pieno | 0.25 | non ti riguarda |
 
-Il caso `partner` e' la via di mezzo: sulla carta compri il motore, nei fatti sei la squadra
-ufficiale di quella casa. Non costruisci nulla e non decidi lo sviluppo, ma la power unit
-viene disegnata attorno alla tua vettura, quindi il guadagno di integrazione e' quasi da
-motorista. I termini economici veri dell'accordo Aston Martin-Honda non sono pubblici: qui
-si assume che la casa ci metta soprattutto marchio e ingegneria.
+Il caso `partner` e' la via di mezzo, e lo e' in tre modi diversi.
 
-Un motorista senza squadra propria in griglia, come Honda, continua a sviluppare per conto
-suo: altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
+**Costi**: piu' bassi di chiunque, perche' non c'e' infrastruttura da mantenere e la casa
+mette marchio e ingegneria. I termini veri dell'accordo Aston Martin-Honda non sono
+pubblici: la quota di listino e' un'assunzione, non un dato.
+
+**Integrazione**: non nasce alta, ci arriva. Fra Silverstone e Sakura ci sono un oceano e
+un fuso orario, e ogni giro di messa a punto costa piu' tempo che a chi ha il motore nel
+capannone accanto. Si parte a 0.42, poco sopra un cliente, e si arriva a 0.85 dopo una
+cinquantina di gare insieme. Cambiando fornitore si ricomincia da capo.
+
+**Sviluppo**: la casa investe come e piu' di una squadra works, ma il tramite fra i due
+reparti la rallenta. Su due stagioni Honda guadagna circa +3.6 contro il +4.9 di Mercedes.
+
+Un motorista senza squadra propria in griglia continua comunque a sviluppare per conto suo:
+altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
 4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.

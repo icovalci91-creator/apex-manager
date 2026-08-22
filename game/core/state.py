@@ -273,6 +273,8 @@ class GameState:
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
+                    "pu_partner_races": t.pu_partner_races,
+                    "pu_partner_engine": t.pu_partner_engine,
                     "staff": [s.to_dict() for s in t.staff],
                     "dev_projects": [asdict(p) for p in t.dev_projects],
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
@@ -311,6 +313,8 @@ class GameState:
             t.upgrades_done = td.get("upgrades_done", 0)
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
+            t.pu_partner_races = td.get("pu_partner_races", 0)
+            t.pu_partner_engine = td.get("pu_partner_engine", "")
             t.car.engine = gs.engine_makers[t.engine]
             t.staff = [Staff.from_dict(s) for s in td["staff"]]
             t.dev_projects = [Project(**p) for p in td.get("dev_projects", [])]

@@ -37,10 +37,22 @@ PU_OPERATING_COST = 45.0      # M$ a stagione per far girare il reparto
 # Integrare la propria power unit nella vettura: chi la costruisce la impacchetta
 # meglio, guadagnando in potenza sfruttata e in resistenza all'avanzamento.
 INTEGRATION_WORKS = 1.0
-INTEGRATION_PARTNER = 0.80    # la casa disegna la PU attorno a quella vettura
+# Un team ufficiale non nasce integrato: fra la squadra e la casa ci sono un
+# oceano e un fuso orario, e ogni giro di messa a punto costa una settimana in
+# piu' di quanto ne costi a chi ha il motore nel capannone accanto. Con gli anni
+# le due strutture imparano a lavorare insieme e il divario si chiude quasi
+# tutto, ma non subito.
+INTEGRATION_PARTNER_NEW = 0.42     # primo anno di matrimonio
+INTEGRATION_PARTNER_MAX = 0.85     # a regime, dopo un paio di stagioni
+PARTNER_MATURITY_RACES = 48        # gare per arrivarci
+EXTERNAL_DEV_PENALTY = 0.88        # la casa lontana sviluppa un po' piu' piano
 INTEGRATION_CUSTOMER = 0.25
 PARTNER_COST_SHARE = 0.35     # quota del listino che paga un team ufficiale
-EXTERNAL_BUDGET = 1.5         # M$ a gara spesi da un motorista che non corre
+# Un motorista esterno e' comunque una casa automobilistica: investe come e piu'
+# di una squadra works. Cio' che la rallenta non e' il portafoglio ma la
+# distanza dal reparto telaio, ed e' EXTERNAL_DEV_PENALTY a rappresentarla.
+EXTERNAL_BUDGET = 3.0         # M$ a gara spesi da un motorista che non corre
+EXTERNAL_DEV_RATE = 1.30      # capacita' tecnica di una casa strutturata
 
 
 # ------------------------------------------------------------------ anagrafica
@@ -158,7 +170,8 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
                 continue
             ref = partner or max(gs.teams.values(), key=lambda t: t.reputation)
             _advance(eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
-                     1.0 * _equalisation_boost(gs, eng), EXTERNAL_BUDGET, gs.rng)
+                     EXTERNAL_DEV_RATE * EXTERNAL_DEV_PENALTY * _equalisation_boost(gs, eng),
+                     EXTERNAL_BUDGET, gs.rng)
             continue
         if team.is_player:
             budget = max(0.0, float(player_budget))
@@ -187,11 +200,28 @@ def integration(gs, team) -> float:
     attorno. La differenza vale qualche decimo sul giro.
     """
     if team.is_partner:
-        return INTEGRATION_PARTNER
+        return partner_integration(team)
     if not team.works:
         return INTEGRATION_CUSTOMER
     return INTEGRATION_CUSTOMER + (INTEGRATION_WORKS - INTEGRATION_CUSTOMER) * min(
         1.0, team.pu_strength / 90.0)
+
+
+def partner_integration(team) -> float:
+    """Quanto e' maturato il rapporto fra la squadra e la sua casa motoristica."""
+    m = min(1.0, max(0, team.pu_partner_races) / float(PARTNER_MATURITY_RACES))
+    return INTEGRATION_PARTNER_NEW + (INTEGRATION_PARTNER_MAX - INTEGRATION_PARTNER_NEW) * m
+
+
+def advance_partnership(gs) -> None:
+    """Una gara in piu' di lavoro comune. Cambiando casa si ricomincia."""
+    for team in gs.teams.values():
+        if not team.is_partner:
+            continue
+        if team.pu_partner_engine != team.engine:
+            team.pu_partner_engine = team.engine
+            team.pu_partner_races = 0
+        team.pu_partner_races += 1
 
 
 def running_costs(gs) -> list[str]:

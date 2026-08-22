@@ -110,6 +110,7 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     development.passive_development(gs, player, dev_budget)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
+    powertrain.advance_partnership(gs)
     powertrain.running_costs(gs)
     msgs += powertrain.develop(gs, pu_budget)
     msgs += powertrain.advance_program(gs, pu_budget)
