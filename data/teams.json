@@ -117,16 +117,16 @@
         "logistics": 89
       },
       "car": {
-        "front_wing": 88,
-        "rear_wing": 89,
-        "floor": 89,
-        "sidepods": 88,
-        "suspension": 87,
-        "gearbox": 89,
-        "brakes": 90,
-        "chassis": 89,
-        "active_aero": 85,
-        "cooling": 87
+        "front_wing": 86.7,
+        "rear_wing": 87.7,
+        "floor": 87.7,
+        "sidepods": 86.7,
+        "suspension": 85.7,
+        "gearbox": 87.7,
+        "brakes": 88.7,
+        "chassis": 87.7,
+        "active_aero": 83.7,
+        "cooling": 85.7
       },
       "philosophy": "balanced",
       "titles": {
@@ -163,16 +163,16 @@
         "logistics": 90
       },
       "car": {
-        "front_wing": 89,
-        "rear_wing": 88,
-        "floor": 90,
-        "sidepods": 90,
-        "suspension": 91,
-        "gearbox": 86,
-        "brakes": 87,
-        "chassis": 90,
-        "active_aero": 87,
-        "cooling": 86
+        "front_wing": 87.4,
+        "rear_wing": 86.4,
+        "floor": 88.4,
+        "sidepods": 88.4,
+        "suspension": 89.4,
+        "gearbox": 84.4,
+        "brakes": 85.4,
+        "chassis": 88.4,
+        "active_aero": 85.4,
+        "cooling": 84.4
       },
       "philosophy": "mechanical",
       "titles": {
@@ -209,16 +209,16 @@
         "logistics": 91
       },
       "car": {
-        "front_wing": 88,
-        "rear_wing": 88,
-        "floor": 88,
-        "sidepods": 89,
-        "suspension": 88,
-        "gearbox": 90,
-        "brakes": 88,
-        "chassis": 90,
-        "active_aero": 88,
-        "cooling": 90
+        "front_wing": 87.2,
+        "rear_wing": 87.2,
+        "floor": 87.2,
+        "sidepods": 88.2,
+        "suspension": 87.2,
+        "gearbox": 89.2,
+        "brakes": 87.2,
+        "chassis": 89.2,
+        "active_aero": 87.2,
+        "cooling": 89.2
       },
       "philosophy": "powertrain",
       "titles": {
@@ -255,16 +255,16 @@
         "logistics": 82
       },
       "car": {
-        "front_wing": 83,
-        "rear_wing": 82,
-        "floor": 84,
-        "sidepods": 83,
-        "suspension": 82,
-        "gearbox": 83,
-        "brakes": 84,
-        "chassis": 84,
-        "active_aero": 83,
-        "cooling": 84
+        "front_wing": 80.6,
+        "rear_wing": 79.6,
+        "floor": 81.6,
+        "sidepods": 80.6,
+        "suspension": 79.6,
+        "gearbox": 80.6,
+        "brakes": 81.6,
+        "chassis": 81.6,
+        "active_aero": 80.6,
+        "cooling": 81.6
       },
       "philosophy": "aero",
       "titles": {
@@ -301,16 +301,16 @@
         "logistics": 76
       },
       "car": {
-        "front_wing": 77.5,
-        "rear_wing": 76.5,
-        "floor": 77.5,
-        "sidepods": 78.5,
-        "suspension": 77.5,
-        "gearbox": 79.5,
-        "brakes": 79.5,
-        "chassis": 78.5,
-        "active_aero": 75.5,
-        "cooling": 79.5
+        "front_wing": 76.1,
+        "rear_wing": 75.1,
+        "floor": 76.1,
+        "sidepods": 77.1,
+        "suspension": 76.1,
+        "gearbox": 78.1,
+        "brakes": 78.1,
+        "chassis": 77.1,
+        "active_aero": 74.1,
+        "cooling": 78.1
       },
       "philosophy": "balanced",
       "titles": {
@@ -347,16 +347,16 @@
         "logistics": 78
       },
       "car": {
-        "front_wing": 81,
-        "rear_wing": 82,
-        "floor": 80,
-        "sidepods": 80,
-        "suspension": 79,
-        "gearbox": 82,
-        "brakes": 81,
-        "chassis": 81,
-        "active_aero": 78,
-        "cooling": 80
+        "front_wing": 83.2,
+        "rear_wing": 84.2,
+        "floor": 82.2,
+        "sidepods": 82.2,
+        "suspension": 81.2,
+        "gearbox": 84.2,
+        "brakes": 83.2,
+        "chassis": 83.2,
+        "active_aero": 80.2,
+        "cooling": 82.2
       },
       "philosophy": "efficiency",
       "titles": {
@@ -393,16 +393,16 @@
         "logistics": 80
       },
       "car": {
-        "front_wing": 80,
-        "rear_wing": 79,
-        "floor": 80,
-        "sidepods": 80,
-        "suspension": 81,
-        "gearbox": 82,
-        "brakes": 80,
-        "chassis": 80,
-        "active_aero": 77,
-        "cooling": 79
+        "front_wing": 80.6,
+        "rear_wing": 79.6,
+        "floor": 80.6,
+        "sidepods": 80.6,
+        "suspension": 81.6,
+        "gearbox": 82.6,
+        "brakes": 80.6,
+        "chassis": 80.6,
+        "active_aero": 77.6,
+        "cooling": 79.6
       },
       "philosophy": "mechanical",
       "titles": {
@@ -439,16 +439,16 @@
         "logistics": 70
       },
       "car": {
-        "front_wing": 78.0,
-        "rear_wing": 78.0,
-        "floor": 77.0,
-        "sidepods": 78.0,
-        "suspension": 77.0,
-        "gearbox": 82.0,
-        "brakes": 80.0,
-        "chassis": 78.0,
-        "active_aero": 74.0,
-        "cooling": 79.0
+        "front_wing": 78.2,
+        "rear_wing": 78.2,
+        "floor": 77.2,
+        "sidepods": 78.2,
+        "suspension": 77.2,
+        "gearbox": 82.2,
+        "brakes": 80.2,
+        "chassis": 78.2,
+        "active_aero": 74.2,
+        "cooling": 79.2
       },
       "philosophy": "efficiency",
       "titles": {
@@ -485,16 +485,16 @@
         "logistics": 76
       },
       "car": {
-        "front_wing": 78.5,
-        "rear_wing": 78.5,
-        "floor": 78.5,
-        "sidepods": 79.5,
-        "suspension": 77.5,
-        "gearbox": 78.5,
-        "brakes": 79.5,
-        "chassis": 79.5,
-        "active_aero": 77.5,
-        "cooling": 79.5
+        "front_wing": 78.9,
+        "rear_wing": 78.9,
+        "floor": 78.9,
+        "sidepods": 79.9,
+        "suspension": 77.9,
+        "gearbox": 78.9,
+        "brakes": 79.9,
+        "chassis": 79.9,
+        "active_aero": 77.9,
+        "cooling": 79.9
       },
       "philosophy": "powertrain",
       "titles": {

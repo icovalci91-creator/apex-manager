@@ -260,8 +260,17 @@ Tutto il contenuto sta in `data/` ed è JSON leggibile:
 - `staff.json` — figure chiave nominate, staff libero, template dei ruoli
 - `regulations.json` — regolamento 2026, cicli storici, catalogo delle proposte votabili
 
-I valori di piloti, scuderie e staff sono una fotografia ragionata della stagione 2026:
-se qualcosa non ti torna, correggilo nel JSON e il gioco lo usa al riavvio.
+I valori di piloti e scuderie sono ancorati alla forza espressa nella stagione 2025, che e'
+l'ultima cosa verificabile prima di un reset regolamentare: nel 2026 nessuno sa davvero
+l'ordine. Da li' si aggiungono i fattori strutturali - eta', chi ha cambiato squadra, chi e'
+stato fermo un anno.
+
+La taratura e' verificata simulando: due stagioni complete danno McLaren campione
+costruttori, Red Bull-Ferrari-Mercedes a contendersi il secondo posto, Williams prima delle
+altre e Cadillac al debutto in fondo. Fra i piloti Verstappen vince quasi la meta' delle
+gare pur non avendo la macchina migliore, Norris e Piastri si dividono il resto.
+
+Se qualcosa non ti torna, correggilo nel JSON e il gioco lo usa al riavvio.
 
 ## Struttura del codice
 
