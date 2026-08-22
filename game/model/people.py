@@ -44,6 +44,11 @@ class Driver:
     races: int = 0
     dnfs: int = 0
     career_points: float = 0.0
+    penalty_points: int = 0      # punti sulla licenza: a dodici si salta una gara
+    banned_races: int = 0        # gare di squalifica ancora da scontare
+    grid_penalty: int = 0        # posizioni da scontare alla prossima partenza
+    pu_used: int = 1             # unita' di power unit gia' impiegate
+    gearbox_used: int = 1
     happiness_notes: list = field(default_factory=list)
 
     @property

@@ -22,6 +22,7 @@ class WeekendState:
     sprint_done: bool = False
     race: RaceSim | None = None
     sprint: RaceSim | None = None
+    grid_notes: list = field(default_factory=list)   # penalizzazioni scontate in griglia
 
 
 # --------------------------------------------------------------- base lap
@@ -49,6 +50,8 @@ def build_entrants(gs, track, weather: Weather) -> list:
             d = gs.drivers.get(did)
             if not d:
                 continue
+            if d.banned_races > 0:
+                continue                      # sta scontando la squalifica
             col = _hex(team.colour)
             out.append(Entrant(
                 driver_id=d.id, team_id=team.id, code=d.code, name=d.short,
@@ -176,7 +179,11 @@ def run_qualifying(gs, ws: WeekendState) -> list:
     order = sorted(times.items(), key=lambda kv: (-reached[kv[0]], kv[1]))
     ws.grid = [d for d, _ in order]
     ws.quali_times = times
+    # la pole resta a chi ha fatto il tempo: le penalita' spostano la griglia,
+    # non cancellano il giro
     ws.pole = ws.grid[0]
+    from ..core import penalties
+    ws.grid, ws.grid_notes = penalties.apply_grid_penalties(gs, ws.grid)
     ws.quali_done = True
     for team in gs.teams.values():
         team.car.wear(0.4, track)

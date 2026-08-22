@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import development, economy, facilities, market, powertrain, rules, sponsors
+from . import (development, economy, facilities, market, penalties, powertrain,
+               rules, sponsors)
 from .state import RaceResult
 
 
@@ -85,6 +86,17 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             if e.status == "finished" and pos <= 3:
                 sponsors.register_result(gs.teams[e.team_id], pos)
 
+    # chi ha saltato il weekend sconta una gara di squalifica
+    corsi = {x["driver"] for x in rr.order}
+    for d in gs.drivers.values():
+        if d.banned_races > 0 and d.id not in corsi:
+            d.banned_races -= 1
+
+    if kind == "gp":
+        rr.penalties = penalties.apply_race_penalties(gs, sim)
+        for m in rr.penalties:
+            gs.push(m, "gara")
+
     gs.results.append(rr)
     return rr
 
@@ -119,6 +131,10 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     development.passive_development(gs, player, dev_budget)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
+    for t in gs.teams.values():          # usura di power unit e cambi
+        for m in penalties.wear_components(gs, t):
+            if t.is_player:
+                msgs.append(m)
     powertrain.advance_partnership(gs)
     powertrain.running_costs(gs)
     msgs += powertrain.develop(gs, pu_budget)
@@ -231,7 +247,11 @@ def end_season(gs) -> dict:
         t.podiums = 0
         t.reset_season_finances()
         t.car.repair_all()
+    penalties.decay_points(gs)
     for d in gs.drivers.values():
+        d.pu_used = 1
+        d.gearbox_used = 1
+        d.grid_penalty = 0
         d.points = 0.0
         d.wins = 0
         d.podiums = 0

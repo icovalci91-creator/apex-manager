@@ -141,6 +141,13 @@ class DriversPage(Page):
             T.text(surf, f"Morale {d.morale:.0f}   Forma {d.form:+.1f}   "
                          f"Punti {d.points:.0f}   Vittorie {d.wins}",
                    (left.x + 24, y + 146), 12, T.DIM)
+            lic = d.penalty_points
+            col_lic = T.BAD if lic >= 9 else (T.WARN if lic >= 6 else T.DIM)
+            testo = f"Licenza: {lic}/12 punti"
+            if d.banned_races > 0:
+                testo += f"  -  SQUALIFICATO per {d.banned_races} gara"
+                col_lic = T.BAD
+            T.text(surf, testo, (left.x + 24, y + 162), 12, col_lic)
             y += 186
 
         right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)

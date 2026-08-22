@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 
 from .. import config as C
 
+from ..core.penalties import INFRAZIONI as PENALTY_RULES
+
+PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
+
 # quanto pesa un punto di valutazione pilota sul giro (secondi)
 DRIVER_S_PER_POINT = 0.046
 FUEL_S_PER_KG = 0.032
@@ -107,6 +111,12 @@ class Entrant:
     finished_time: float = 0.0
     is_player: bool = False
     laps_led: int = 0
+    penalty_pending: float = 0.0     # secondi assegnati e non ancora scontati
+    penalty_total: float = 0.0       # secondi complessivi ricevuti
+    penalties_given: list = field(default_factory=list)   # infrazioni contestate
+    under_review: float = 0.0        # secondi di attesa prima della decisione
+    review_kind: str = ""
+    track_warnings: int = 0
 
     def compound_state(self) -> float:
         """1.0 = gomma fresca, cala fino allo 0 dopo il degrado."""
@@ -230,12 +240,15 @@ class RaceSim:
             burn = self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
             e.fuel = max(0.0, e.fuel - burn * dt / lt)
 
+            self._track_limits(e, dt)
+
             new_lap = int(e.dist // self.track_len)
             if new_lap > e.lap:
                 e.lap = new_lap
                 self._on_lap_complete(e, lt)
 
         self._resolve_battles(dt)
+        self._resolve_reviews(dt)
         self._update_positions()
         self._maybe_incident(dt)
 
@@ -286,6 +299,11 @@ class RaceSim:
             e.status = "finished"
             over = e.dist - self.laps * self.track_len
             e.finished_time = e.total_time - over / max(1.0, self.track_len / max(30.0, lt))
+            if e.penalty_pending > 0:
+                # non c'e' stata piu' una sosta: i secondi si aggiungono all'arrivo
+                e.finished_time += e.penalty_pending
+                self.log(f"{e.name}: {e.penalty_pending:.0f}s aggiunti al tempo finale", "pen")
+                e.penalty_pending = 0.0
             if not self.classification:
                 self.log(f"BANDIERA A SCACCHI: vince {e.name}!", "flag")
             self.classification.append(e)
@@ -335,9 +353,16 @@ class RaceSim:
         # opportunismo: sotto safety car si guadagna tempo
         e.status = "pitting"
         stop = e.pit_time + max(0.0, self.rng.gauss(0.25, 0.35))
+        if e.penalty_pending > 0:
+            # i secondi si scontano fermi ai box, prima di toccare la vettura
+            stop += e.penalty_pending
+            self.log(f"{e.name} sconta {e.penalty_pending:.0f}s di penalita' ai box", "pen")
+            e.penalty_pending = 0.0
         if self.rng.random() < 0.035:
             stop += self.rng.uniform(2.0, 9.0)
             self.log(f"Sosta lenta per {e.name}!", "warn")
+        if self.rng.random() < 0.012 + (100.0 - e.consistency) * 0.0004:
+            self._investigate(e, "velocita_box")
         loss = self.track.pit_loss * (0.62 if self.safety_car > 0 else 1.0)
         # la vettura resta ferma per tutta la durata della sosta mentre gli
         # altri avanzano: e' gia' l'intera perdita di tempo. Toglierle anche
@@ -399,7 +424,58 @@ class RaceSim:
                     behind.damage = min(100.0, behind.damage + dmg)
                     ahead.damage = min(100.0, ahead.damage + dmg * 0.8)
                     self.log(f"Contatto tra {behind.name} e {ahead.name}!", "warn")
+                    grave = dmg > 12
+                    self._investigate(behind, "contatto" if grave else "contatto_lieve")
                     self._maybe_safety_car(0.35)
+
+    # ------------------------------------------------------------ commissari
+    def _investigate(self, e, kind: str) -> None:
+        """Apre un'investigazione. I commissari non decidono subito."""
+        if e.under_review > 0 or e.status != "running":
+            return
+        e.under_review = self.rng.uniform(25.0, 70.0)
+        e.review_kind = kind
+        self.log(f"{e.name} sotto investigazione: "
+                 f"{PENALTY_LABELS.get(kind, kind).lower()}", "warn")
+
+    def _resolve_reviews(self, dt: float) -> None:
+        """Le decisioni arrivano dopo qualche minuto, come in pista."""
+        for e in self.entrants:
+            if e.under_review <= 0:
+                continue
+            e.under_review -= dt
+            if e.under_review > 0:
+                continue
+            kind, e.review_kind = e.review_kind, ""
+            meta = PENALTY_RULES.get(kind, {})
+            # un pilota pulito viene creduto piu' facilmente
+            scusante = 0.10 + 0.35 * (e.consistency / 100.0)
+            if self.rng.random() < scusante:
+                self.log(f"{e.name}: nessun provvedimento", "info")
+                continue
+            secondi = meta.get("secondi", 5.0)
+            e.penalty_pending += secondi
+            e.penalty_total += secondi
+            e.penalties_given.append(kind)
+            self.log(f"PENALITA': {secondi:.0f} secondi a {e.name} - "
+                     f"{PENALTY_LABELS.get(kind, kind).lower()}", "pen")
+
+    def _track_limits(self, e, dt: float) -> None:
+        """Uscite di pista ripetute: tre avvertimenti e arriva la penalita'."""
+        if e.status != "running" or self.safety_car > 0:
+            return
+        # Probabilita' al secondo, tarata perche' un pilota medio raccolga circa
+        # un avvertimento a gara: servendone tre per la penalita', ne esce
+        # qualcuna sparsa nell'arco del weekend, non una a ogni curva.
+        rischio = (100.0 - e.consistency) * 0.0000052 * (0.6 + 0.9 * e.push_mode)
+        rischio *= 1.0 + 0.8 * self.track.traits.get("bumpiness", 0.4)
+        if self.rng.random() < rischio * dt:
+            e.track_warnings += 1
+            if e.track_warnings % 3 == 0:
+                self._investigate(e, "limiti_pista")
+            else:
+                self.log(f"{e.name}: avvertimento per i limiti della pista "
+                         f"({e.track_warnings})", "info")
 
     def _update_positions(self) -> None:
         for i, e in enumerate(self.order(), 1):

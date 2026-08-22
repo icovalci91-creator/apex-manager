@@ -272,6 +272,9 @@ class WeekendScene(Scene):
         elif self.stage in ("qualifica", "sprint", "gara") and ws.quali_done:
             title = "GRIGLIA DI PARTENZA" if self.stage != "qualifica" else "QUALIFICA"
             T.text(surf, title, (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
+            if ws.grid_notes:
+                T.text(surf, "PENALIZZAZIONI IN GRIGLIA", (right.right - 20, right.y + 16),
+                       11, T.WARN, bold=True, align="right")
             y = right.y + 44
             p0 = ws.quali_times.get(ws.pole, 0)
             for i, did in enumerate(ws.grid, 1):
@@ -291,6 +294,10 @@ class WeekendScene(Scene):
                     T.text(surf, f"+{tt - p0:.3f}", (right.right - 20, y), 13, T.DIM,
                            mono=True, align="right")
                 y += 25
+            for nota in ws.grid_notes[:4]:
+                T.text(surf, "- " + nota, (right.x + 20, y + 6), 12, T.WARN,
+                       maxw=right.w - 40)
+                y += 18
         elif self.stage == "qualifica":
             T.text(surf, "Tutto pronto per la qualifica.", (right.x + 20, right.y + 30), 16, T.TEXT)
         elif self.stage == "fine":
@@ -365,7 +372,7 @@ class WeekendScene(Scene):
         ev = pygame.Rect(20, h - 164, w - tower_w - 48, 74)
         T.panel(surf, ev, T.PANEL, radius=10, border=T.LINE)
         cols = {"pass": T.OK, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
-                "warn": T.WARN, "flag": T.WHITE}
+                "warn": T.WARN, "flag": T.WHITE, "pen": (255, 120, 90)}
         for i, e in enumerate(sim.events[:3]):
             T.text(surf, f"g{e['lap']:>2}", (ev.x + 14, ev.y + 10 + i * 20), 13, T.DIM_2, mono=True)
             T.text(surf, e["text"], (ev.x + 56, ev.y + 10 + i * 20), 14,
@@ -393,6 +400,11 @@ class WeekendScene(Scene):
             wear = e.compound_state()
             T.bar(surf, (tower.x + 230, y + 5, 34, 6), wear * 100, 100,
                   T.OK if wear > 0.9 else (T.WARN if wear > 0.75 else T.BAD))
+            if e.under_review > 0:
+                T.text(surf, "INV", (tower.x + 270, y), 11, T.WARN, bold=True)
+            elif e.penalty_pending > 0:
+                T.text(surf, f"+{e.penalty_pending:.0f}s", (tower.x + 268, y), 11,
+                       (255, 120, 90), bold=True)
             if e.status == "retired":
                 T.text(surf, "RIT", (tower.right - 16, y), 12, T.BAD, align="right")
             elif e.status == "pitting":

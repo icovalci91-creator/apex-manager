@@ -122,54 +122,61 @@ def _looks_like_circuit(rel: dict) -> bool:
     return True
 
 
-def circuit_ways(lat: float, lon: float, name: str, radius_m: int = 4000) -> list:
-    """I tratti del circuito, presi dalla relazione OSM quando esiste.
+def circuit_candidates(lat: float, lon: float, name: str) -> list:
+    """Tutti i modi plausibili di ricavare il tracciato, dal piu' affidabile.
 
-    La relazione elenca solo le vie del tracciato di gara: usarla evita di
-    raccogliere anche la pista junior, l'anello sopraelevato e la corsia dei
-    box, che stanno tutti a pochi metri e sono taggati allo stesso modo.
+    Un circuito puo' stare in OSM come relazione dedicata, come insieme di vie
+    da corsa sparse, o come relazione senza nome. Attorno ci sono spesso altri
+    tracciati - pista junior, anello sopraelevato, kartodromo - quindi si prova
+    anche con un raggio stretto, che li esclude. Chi chiama sceglie il
+    candidato la cui lunghezza torna con quella ufficiale.
     """
-    # parola piu' distintiva del nome, per riconoscere la relazione giusta
     stop = {"circuit", "circuito", "autodromo", "international", "raceway",
             "racing", "course", "street", "park", "de", "di", "the", "nazionale"}
     words = [w for w in name.lower().replace("-", " ").split()
              if len(w) > 3 and w not in stop] or [name.lower()]
 
-    queries = [
-        f'relation(around:{radius_m},{lat},{lon})["highway"="raceway"];',
-        f'relation(around:{radius_m},{lat},{lon})["name"~"{words[0]}",i];',
-    ]
-    for q in queries:
-        res = _overpass(f'[out:json][timeout:90];{q}out geom;')
-        rels = [el for el in res.get("elements", []) if el.get("type") == "relation"]
-        rels = [r for r in rels if _looks_like_circuit(r)]
-        if not rels:
-            continue
+    out = []
+    viste = set()
 
-        def score(r):
-            tags = r.get("tags", {})
-            nm = (tags.get("name", "") or "").lower()
-            s = sum(2 for w in words if w in nm)
-            if tags.get("highway") == "raceway":
-                s += 3
-            return s
+    def aggiungi(etichetta, ways):
+        if not ways or len(ways) < 1:
+            return
+        firma = (len(ways), round(sum(len(w) for w in ways)))
+        if firma in viste:
+            return
+        viste.add(firma)
+        out.append((etichetta, ways))
 
-        rels.sort(key=score, reverse=True)
-        for rel in rels[:3]:
-            ways = _geoms({"elements": [rel]})
-            if len(ways) >= 2:
-                print(f"    relazione OSM '{rel.get('tags', {}).get('name', '?')}' "
-                      f"({len(ways)} tratti)")
-                return ways
+    for raggio in (4000, 2000):
+        res = _overpass(f'[out:json][timeout:90];'
+                        f'relation(around:{raggio},{lat},{lon})["highway"="raceway"];'
+                        f'out geom;')
+        rels = [e for e in res.get("elements", [])
+                if e.get("type") == "relation" and _looks_like_circuit(e)]
+        rels.sort(key=lambda r: -sum(2 for w in words
+                                     if w in (r.get("tags", {}).get("name", "") or "").lower()))
+        for rel in rels[:4]:
+            nome = rel.get("tags", {}).get("name") or "senza nome"
+            aggiungi(f"relazione '{nome}' (r{raggio})", _geoms({"elements": [rel]}))
 
-    # nessuna relazione: si ripiega sulle singole vie da corsa nei dintorni
     res = _overpass(f'[out:json][timeout:90];'
-                    f'way(around:{radius_m},{lat},{lon})["highway"="raceway"];'
+                    f'relation(around:4000,{lat},{lon})["name"~"{words[0]}",i];'
                     f'out geom;')
-    ways = [w for w in _geoms(res) if len(w) >= 4]
-    if ways:
-        print(f"    nessuna relazione: {len(ways)} vie sciolte nei dintorni")
-    return ways
+    rels = [e for e in res.get("elements", [])
+            if e.get("type") == "relation" and _looks_like_circuit(e)]
+    for rel in rels[:3]:
+        nome = rel.get("tags", {}).get("name") or "senza nome"
+        aggiungi(f"relazione per nome '{nome}'", _geoms({"elements": [rel]}))
+
+    for raggio in (1500, 2500, 4000):
+        res = _overpass(f'[out:json][timeout:90];'
+                        f'way(around:{raggio},{lat},{lon})["highway"="raceway"];'
+                        f'out geom;')
+        ways = [w for w in _geoms(res) if len(w) >= 2]
+        aggiungi(f"{len(ways)} vie sciolte (r{raggio})", ways)
+
+    return out
 
 
 # ------------------------------------------------------------------ geometria
@@ -283,25 +290,36 @@ def main() -> int:
             print("    non trovato su Nominatim")
             failed += 1
             continue
-        ways = circuit_ways(here[0], here[1], t["name"])
-        if not ways:
+        candidati = circuit_candidates(here[0], here[1], t["name"])
+        if not candidati:
             print("    nessuna via da corsa nei dintorni")
             failed += 1
             continue
-        ring, err = find_loop(ways, t["length_km"])
-        if ring is None:
-            print(f"    nessun anello chiuso fra {len(ways)} vie trovate")
+
+        migliore, best_err, best_lab = None, 9e9, ""
+        for etichetta, ways in candidati:
+            ring, err = find_loop(ways, t["length_km"])
+            if ring is None:
+                print(f"    {etichetta}: nessun anello chiuso")
+                continue
+            print(f"    {etichetta}: {length_km(ring):.3f} km ({err*100:+.1f}%)")
+            if err < best_err:
+                migliore, best_err, best_lab = ring, err, etichetta
+            if err <= TOLERANCE:
+                break                      # gia' buono, inutile insistere
+
+        if migliore is None:
+            print("    nessun anello chiuso fra i candidati")
             failed += 1
             continue
-        got = length_km(ring)
-        flag = "ok" if err <= TOLERANCE else "SOSPETTO"
-        print(f"    {len(ring)} punti - {got:.3f} km contro {t['length_km']:.3f} "
-              f"ufficiali ({err*100:+.1f}%) [{flag}]")
-        if err > TOLERANCE:
-            print("    scartato: troppo diverso, meglio nessun tracciato che uno sbagliato")
+        if best_err > TOLERANCE:
+            print(f"    scartato: il migliore era {best_lab} a {best_err*100:+.1f}%, "
+                  f"meglio nessun tracciato che uno sbagliato")
             failed += 1
             continue
-        t["geo"] = thin(ring)
+        print(f"    scelto {best_lab}: {len(migliore)} punti, "
+              f"{length_km(migliore):.3f} km contro {t['length_km']:.3f} ufficiali")
+        t["geo"] = thin(migliore)
         done += 1
 
     print(f"\nTrovati {done}, falliti {failed}.")

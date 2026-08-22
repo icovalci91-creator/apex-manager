@@ -36,6 +36,7 @@ class RaceResult:
     pole: str = ""
     fastest_lap: str = ""
     weather: str = "sereno"
+    penalties: list = field(default_factory=list)
 
 
 @dataclass
@@ -266,7 +267,8 @@ class GameState:
             "inbox": self.inbox, "season_history": self.season_history,
             "results": [
                 {"track_id": r.track_id, "round": r.round, "season": r.season, "kind": r.kind,
-                 "order": r.order, "pole": r.pole, "fastest_lap": r.fastest_lap, "weather": r.weather}
+                 "order": r.order, "pole": r.pole, "fastest_lap": r.fastest_lap,
+                 "weather": r.weather, "penalties": r.penalties}
                 for r in self.results
             ],
             "drivers": {k: v.to_dict() for k, v in self.drivers.items()},
