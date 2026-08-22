@@ -6,7 +6,7 @@ name: Build web e pubblica su Pages
 
 on:
   push:
-    branches: [claude/game-analysis-l4v034]
+    branches: [main]
     paths-ignore:
       - 'screenshots/**'
       - 'README.md'
