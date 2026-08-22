@@ -141,9 +141,14 @@ geografiche: in quel caso forma e curvatura vengono da lì, e la sequenza testua
 più. Le coordinate si scaricano da OpenStreetMap con:
 
 ```bash
-python tools/fetch_layouts.py            # tutti i circuiti
-python tools/fetch_layouts.py --dry-run  # controlla senza scrivere
+python tools/fetch_layouts.py                    # quelli che ancora non ce l'hanno
+python tools/fetch_layouts.py --pool candidati   # solo i circuiti fuori calendario
+python tools/fetch_layouts.py --only monza spa
+python tools/fetch_layouts.py --dry-run          # controlla senza scrivere
 ```
+
+Guarda sia le gare in calendario sia i circuiti candidati a entrarci, e salta quelli che
+hanno gia' il tracciato: rilanciarlo costa poche richieste. Con `--force` li rifa'.
 
 Lo strumento cerca ogni circuito per nome, ricuce le vie spezzate in un anello unico e
 confronta la lunghezza ottenuta con quella ufficiale: se lo scarto supera il 12% scarta il

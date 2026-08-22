@@ -1,8 +1,13 @@
 """Scarica i tracciati reali da OpenStreetMap e li scrive in data/tracks.json.
 
-    python tools/fetch_layouts.py            # tutti i circuiti
+    python tools/fetch_layouts.py                 # quelli che ancora non ce l'hanno
     python tools/fetch_layouts.py --only monza spa
-    python tools/fetch_layouts.py --dry-run  # controlla senza scrivere
+    python tools/fetch_layouts.py --pool candidati  # solo i circuiti fuori calendario
+    python tools/fetch_layouts.py --dry-run       # controlla senza scrivere
+    python tools/fetch_layouts.py --force --only monza   # rifa' uno gia' scaricato
+
+Guarda sia le gare in calendario sia i circuiti candidati a entrarci, e salta
+quelli che hanno gia' il tracciato: cosi' rilanciarlo costa poche richieste.
 
 La fonte e' OpenStreetMap, non Google Maps: i dati di Google sono proprietari
 e le loro condizioni d'uso vietano di estrarli o derivarne mappe da usare
@@ -38,6 +43,10 @@ OVERPASS_HOSTS = (
 )
 PAUSE = 3.0                 # secondi fra una richiesta e l'altra
 TOLERANCE = 0.12            # scarto massimo accettato sulla lunghezza
+# Sotto questa soglia il risultato e' cosi' buono che non vale la pena
+# interrogare altre fonti. Fra le due si continua a cercare e si tiene il
+# migliore: fermarsi al primo "accettabile" faceva prendere varianti corte.
+GOOD_ENOUGH = 0.02
 
 
 def _get(url: str, data: bytes | None = None) -> str:
@@ -265,15 +274,36 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--only", nargs="*", help="id dei circuiti da aggiornare")
     ap.add_argument("--dry-run", action="store_true", help="non scrive nulla")
+    ap.add_argument("--pool", choices=("calendario", "candidati", "tutti"), default="tutti",
+                    help="quali circuiti guardare (default: tutti)")
+    ap.add_argument("--force", action="store_true",
+                    help="riscarica anche quelli che hanno gia' il tracciato")
     args = ap.parse_args()
 
     data = json.loads(TRACKS.read_text(encoding="utf-8"))
-    todo = [t for t in data["tracks"] if not args.only or t["id"] in args.only]
-    print(f"Circuiti da cercare: {len(todo)}\n")
+    pools = []
+    if args.pool in ("calendario", "tutti"):
+        pools.append(("calendario", data.get("tracks", [])))
+    if args.pool in ("candidati", "tutti"):
+        pools.append(("candidato", data.get("candidates", [])))
+
+    todo = []
+    gia_fatti = 0
+    for etichetta, elenco in pools:
+        for t in elenco:
+            if args.only and t["id"] not in args.only:
+                continue
+            if t.get("geo") and not args.force:
+                gia_fatti += 1
+                continue
+            todo.append((etichetta, t))
+
+    print(f"Circuiti da cercare: {len(todo)}"
+          + (f" ({gia_fatti} gia' a posto, --force per rifarli)" if gia_fatti else "") + "\n")
 
     done = failed = 0
-    for t in todo:
-        print(f"{t['id']:<14} {t['name']}")
+    for pool, t in todo:
+        print(f"{t['id']:<14} {t['name']}  [{pool}]")
         here = geocode(t)
         if not here:
             print("    non trovato su Nominatim")
@@ -288,8 +318,8 @@ def main() -> int:
             print(f"    {etichetta}: {length_km(ring):.3f} km ({err*100:+.1f}%)")
             if err < best_err:
                 migliore, best_err, best_lab = ring, err, etichetta
-            if err <= TOLERANCE:
-                break                      # gia' buono, inutile insistere
+            if err <= GOOD_ENOUGH:
+                break                      # combacia, inutile insistere
 
         if migliore is None:
             print("    nessun tracciato utilizzabile nei dintorni")
@@ -312,7 +342,7 @@ def main() -> int:
     if done:
         data.setdefault("_attribution", "Layout dei circuiti (c) OpenStreetMap "
                                         "contributors, licenza ODbL")
-        TRACKS.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        TRACKS.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Scritto {TRACKS}")
     return 0
 
