@@ -28,8 +28,11 @@ class OffseasonScene(Scene):
         elif self.step == "voto":
             for i, p in enumerate(self.gs.pending_votes):
                 y = 190 + i * 150
-                yb = Button((w - 420, y + 66, 130, 38), "Favorevole", style="tab")
-                nb = Button((w - 280, y + 66, 130, 38), "Contrario", style="tab")
+                voto = self.votes.get(p["id"])
+                yb = Button((w - 420, y + 66, 130, 38), "Favorevole",
+                            style="tab" if voto is True else "ghost")
+                nb = Button((w - 280, y + 66, 130, 38), "Contrario",
+                            style="tab" if voto is False else "ghost")
                 yb.on_click = (lambda k=p["id"]: self.vote(k, True))
                 nb.on_click = (lambda k=p["id"]: self.vote(k, False))
                 yb.active = self.votes.get(p["id"]) is True
@@ -53,14 +56,9 @@ class OffseasonScene(Scene):
         self.build()
 
     def tally(self) -> None:
-        gs = self.gs
-        for p in gs.pending_votes:
-            res = rules.tally(gs, p, self.votes.get(p["id"]))
-            notes = rules.apply_effects(gs, p) if res["passed"] else []
-            self.results.append((p, res, notes))
-            msg = (f"APPROVATA: {p['title']}" if res["passed"] else f"RESPINTA: {p['title']}")
-            gs.push(msg + f" ({res['yes']}/{res['total']} voti)", "regole")
-        gs.pending_votes = []
+        # stesso conteggio delle riunioni di meta' stagione: cio' che passa
+        # alimenta anche la spinta verso un nuovo ciclo tecnico
+        self.results = rules.close_meeting(self.gs, self.votes)
         self.step = "esito"
         self.build()
 

@@ -122,6 +122,8 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     gs.round += 1
     if gs.round >= len(gs.tracks):
         gs.phase = "offseason"
+    elif rules.meeting_due(gs):
+        rules.open_meeting(gs)
     return msgs
 
 
@@ -163,8 +165,8 @@ def end_season(gs) -> dict:
     report["market"] = market.run_transfer_window(gs)
     market.new_talents(gs)
 
-    # votazioni in Commissione: le proposte estratte vengono decise dal giocatore
-    gs.pending_votes = rules.draw_proposals(gs, gs.commission.get("proposals_per_vote", 3))
+    # ultima riunione dell'anno: le altre si sono tenute durante la stagione
+    rules.open_meeting(gs)
 
     # invecchiamento: chi non reinveste arretra senza sbagliare niente
     lost_car = development.technological_decay(gs)
@@ -174,11 +176,19 @@ def end_season(gs) -> dict:
         f"Un anno di progresso altrui: la vettura perde {lost_car:.2f} punti di "
         f"competitivita' e le strutture {lost_fac:.1f}. Si recupera solo investendo.")
 
-    # nuovo ciclo tecnico
+    # Nuovo ciclo tecnico: non c'e' piu' un calendario: il ciclo arriva quando
+    # le squadre hanno approvato abbastanza cambiamenti da farne una nuova era.
     reset = float(gs.regulations.pop("pending_reset", 0.0))
-    era = _era_for(gs, gs.season + 1)
-    if era and era["from"] == gs.season + 1:
-        reset = max(reset, era.get("reset_strength", 0.6))
+    era = None
+    ciclo = gs.regulations.get("pending_cycle")
+    if ciclo and ciclo.get("season") == gs.season + 1:
+        reset = max(reset, min(0.95, 0.35 + 0.45 * ciclo["pressure"]))
+        era = {"from": gs.season + 1, "to": gs.season + 6,
+               "label": _nome_ciclo(gs, ciclo), "dominant": [],
+               "reset_strength": round(reset, 2), "focus": rules.cycle_focus(gs),
+               "nota": "Nato da " + ", ".join(ciclo["titles"][:3]).lower() + "."}
+        gs.history_data.setdefault("eras", []).append(era)
+        gs.regulations.pop("pending_cycle", None)
         report["rules"].append(f"Nuovo ciclo tecnico: {era['label']}.")
     if reset > 0:
         report["rules"] += development.regulation_reset(gs, reset, era)
@@ -215,6 +225,14 @@ def end_season(gs) -> dict:
     gs.phase = "preseason"
     gs.results = [r for r in gs.results if r.season >= gs.season - 3]
     return report
+
+
+def _nome_ciclo(gs, ciclo: dict) -> str:
+    aree = ciclo.get("areas", {})
+    dom = max(aree, key=aree.get) if aree else "chassis"
+    return {"pu": "Nuova era delle power unit",
+            "aero": "Nuova era aerodinamica",
+            "chassis": "Nuova era di telaio e meccanica"}.get(dom, "Nuovo ciclo tecnico")
 
 
 def _era_for(gs, season: int) -> dict | None:

@@ -39,41 +39,18 @@ def next_era(gs):
     dove a una rivoluzione della power unit segue di solito un periodo di
     motori congelati in cui a decidere e' l'aerodinamica.
     """
+    ciclo = gs.regulations.get("pending_cycle")
+    if ciclo and ciclo.get("season"):
+        from . import rules
+        return {"from": ciclo["season"], "to": ciclo["season"] + 5,
+                "label": "Ciclo in preparazione", "focus": rules.cycle_focus(gs),
+                "reset_strength": min(0.95, 0.35 + 0.45 * ciclo["pressure"]),
+                "in_discussione": True}
     eras = gs.history_data.setdefault("eras", [])
     for era in eras:
         if era["from"] > gs.season:
             return era
-    if not eras:
-        return None
-    return _forecast_era(gs, eras)
-
-
-def _forecast_era(gs, eras: list) -> dict:
-    last = eras[-1]
-    start = last["to"] + 1
-    prev = last.get("focus") or {}
-    pu_prima = prev.get("pu", 0.33) >= 0.45
-    if pu_prima:
-        # dopo una rivoluzione motoristica si congela e si torna all'aero
-        focus = {"pu": 0.12, "chassis": 0.25, "aero": 0.63}
-        label = "Motori omologati, guerra aerodinamica"
-        nota = "Power unit congelate: la prestazione torna tutta nel fondo e nelle ali."
-    else:
-        focus = {"pu": 0.55, "chassis": 0.15, "aero": 0.30}
-        label = "Nuova generazione di power unit"
-        nota = "Cambia la power unit: chi ci arriva preparato detta legge per anni."
-    era = {
-        "from": start,
-        "to": start + gs.rng.randint(4, 6),
-        "label": label,
-        "dominant": [],
-        "reset_strength": round(gs.rng.uniform(0.55, 0.95), 2),
-        "focus": focus,
-        "nota": nota,
-        "previsto": True,
-    }
-    eras.append(era)
-    return era
+    return None
 
 
 def seasons_to_reset(gs):

@@ -91,14 +91,18 @@
     }
   },
   "commission": {
-    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM.",
+    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. Le riunioni si tengono piu' volte per stagione: la FIA porta al tavolo alcuni aspetti e le squadre votano secondo il proprio interesse sportivo ed economico. I cicli tecnici nascono da cio' che viene approvato, non da un calendario.",
     "team_votes": 1,
     "fia_votes": 10,
     "fom_votes": 10,
     "threshold_current_season_pct": 0.9,
     "threshold_next_season_pct": 0.6,
     "votes_per_season": 2,
-    "proposals_per_vote": 3
+    "proposals_per_vote": 3,
+    "meetings_per_season": 3,
+    "proposals_per_meeting": 3,
+    "cycle_reset_threshold": 1.2,
+    "cycle_lead_seasons": 2
   },
   "history": {
     "_note": "Cicli tecnici della categoria: usati per stimare quando arriva un reset regolamentare e quanto rimescola la griglia.",
@@ -314,7 +318,9 @@
         "small_budget": 1.4,
         "big_budget": -1.5,
         "reputation": -0.4
-      }
+      },
+      "area": "financial",
+      "reset": 0.1
     },
     {
       "id": "cap_up",
@@ -328,7 +334,9 @@
         "big_budget": 1.5,
         "small_budget": -1.3,
         "reputation": 0.4
-      }
+      },
+      "area": "financial",
+      "reset": 0.1
     },
     {
       "id": "driver_salary_cap",
@@ -342,7 +350,9 @@
       "appeal": {
         "small_budget": 1.3,
         "star_drivers": -1.6
-      }
+      },
+      "area": "financial",
+      "reset": 0.05
     },
     {
       "id": "ban_active_aero",
@@ -358,7 +368,9 @@
         "aero_strength": -1.2,
         "mechanical_strength": 1.0,
         "small_budget": 0.5
-      }
+      },
+      "area": "aero",
+      "reset": 0.45
     },
     {
       "id": "points_top12",
@@ -384,7 +396,9 @@
       "appeal": {
         "small_budget": 1.5,
         "big_budget": -0.8
-      }
+      },
+      "area": "sporting",
+      "reset": 0.0
     },
     {
       "id": "fastest_lap",
@@ -397,7 +411,9 @@
       "appeal": {
         "big_budget": 0.6,
         "small_budget": -0.3
-      }
+      },
+      "area": "sporting",
+      "reset": 0.0
     },
     {
       "id": "more_sprints",
@@ -412,7 +428,9 @@
         "small_budget": -0.6,
         "reputation": 0.5,
         "reliability_strength": -0.5
-      }
+      },
+      "area": "sporting",
+      "reset": 0.0
     },
     {
       "id": "no_sprints",
@@ -426,7 +444,9 @@
       "appeal": {
         "small_budget": 0.7,
         "reputation": -0.6
-      }
+      },
+      "area": "sporting",
+      "reset": 0.0
     },
     {
       "id": "two_stops",
@@ -441,7 +461,9 @@
         "strategy_strength": 1.2,
         "pit_crew_strength": 1.0,
         "tyre_mgmt_strength": -0.8
-      }
+      },
+      "area": "sporting",
+      "reset": 0.05
     },
     {
       "id": "refuelling",
@@ -457,7 +479,9 @@
         "strategy_strength": 1.0,
         "small_budget": -1.0,
         "pit_crew_strength": 1.2
-      }
+      },
+      "area": "sporting",
+      "reset": 0.2
     },
     {
       "id": "pu_freeze",
@@ -471,7 +495,9 @@
         "pu_leader": 1.6,
         "pu_laggard": -1.8,
         "small_budget": 0.6
-      }
+      },
+      "area": "pu",
+      "reset": 0.3
     },
     {
       "id": "pu_extra_unit",
@@ -484,7 +510,9 @@
       "appeal": {
         "reliability_strength": -1.2,
         "big_budget": 0.5
-      }
+      },
+      "area": "pu",
+      "reset": 0.05
     },
     {
       "id": "atr_steeper",
@@ -497,7 +525,9 @@
       "appeal": {
         "grid_position_low": 1.5,
         "grid_position_high": -1.5
-      }
+      },
+      "area": "aero",
+      "reset": 0.1
     },
     {
       "id": "atr_flatter",
@@ -511,7 +541,9 @@
         "grid_position_high": 1.4,
         "grid_position_low": -1.2,
         "big_budget": 0.8
-      }
+      },
+      "area": "aero",
+      "reset": 0.1
     },
     {
       "id": "more_testing",
@@ -525,7 +557,9 @@
         "big_budget": 0.8,
         "young_drivers": 1.0,
         "small_budget": -0.5
-      }
+      },
+      "area": "sporting",
+      "reset": 0.05
     },
     {
       "id": "standard_parts",
@@ -541,7 +575,9 @@
         "small_budget": 1.4,
         "mechanical_strength": -1.2,
         "reputation": -0.5
-      }
+      },
+      "area": "chassis",
+      "reset": 0.35
     },
     {
       "id": "customer_cars",
@@ -555,7 +591,9 @@
         "customer_team": 1.6,
         "constructor_team": -1.2,
         "reputation": -0.4
-      }
+      },
+      "area": "chassis",
+      "reset": 0.25
     },
     {
       "id": "third_car",
@@ -569,7 +607,9 @@
         "grid_position_high": 1.5,
         "grid_position_low": -1.6,
         "academy_strength": 0.8
-      }
+      },
+      "area": "sporting",
+      "reset": 0.05
     },
     {
       "id": "tyre_harder",
@@ -582,7 +622,9 @@
       "appeal": {
         "tyre_mgmt_strength": -0.9,
         "power_strength": 0.7
-      }
+      },
+      "area": "chassis",
+      "reset": 0.1
     },
     {
       "id": "tyre_softer",
@@ -596,7 +638,9 @@
         "tyre_mgmt_strength": 1.1,
         "strategy_strength": 0.9,
         "grid_position_low": 0.4
-      }
+      },
+      "area": "chassis",
+      "reset": 0.1
     },
     {
       "id": "rookie_sessions",
@@ -609,7 +653,9 @@
       "appeal": {
         "academy_strength": 1.3,
         "star_drivers": -0.6
-      }
+      },
+      "area": "sporting",
+      "reset": 0.0
     },
     {
       "id": "engine_equalisation",
@@ -622,7 +668,9 @@
       "appeal": {
         "pu_laggard": 1.7,
         "pu_leader": -1.7
-      }
+      },
+      "area": "pu",
+      "reset": 0.25
     },
     {
       "id": "cap_carryover",
@@ -635,7 +683,9 @@
       "appeal": {
         "small_budget": 0.9,
         "big_budget": 0.4
-      }
+      },
+      "area": "financial",
+      "reset": 0.05
     },
     {
       "id": "prize_flatter",
@@ -648,6 +698,332 @@
       "appeal": {
         "grid_position_low": 1.6,
         "grid_position_high": -1.5
+      },
+      "area": "financial",
+      "reset": 0.05
+    },
+    {
+      "id": "v10_sostenibile",
+      "title": "Tornare ai V10 aspirati con carburante sostenibile",
+      "category": "tecnico",
+      "area": "pu",
+      "reset": 0.9,
+      "desc": "Addio ibrido: motori piu' semplici, leggeri e rumorosi, con carburante sintetico. Una rivoluzione che azzera anni di lavoro sulle power unit attuali.",
+      "effects": {
+        "min_weight_kg": -40,
+        "pu_reset": true
+      },
+      "appeal": {
+        "pu_laggard": 1.4,
+        "pu_leader": -1.6,
+        "small_budget": 0.9,
+        "reputation": -0.3
+      }
+    },
+    {
+      "id": "piu_elettrico",
+      "title": "Portare la quota elettrica al 60%",
+      "category": "tecnico",
+      "area": "pu",
+      "reset": 0.55,
+      "desc": "Piu' peso sull'ibrido e sulla gestione dell'energia, meno sul motore termico.",
+      "effects": {
+        "electric_share": 0.1
+      },
+      "appeal": {
+        "pu_leader": 0.6,
+        "big_budget": 0.7,
+        "small_budget": -0.6
+      }
+    },
+    {
+      "id": "meno_elettrico",
+      "title": "Ridurre la quota elettrica e alzare il termico",
+      "category": "tecnico",
+      "area": "pu",
+      "reset": 0.5,
+      "desc": "Si torna a premiare il motore a combustione: meno recupero, meno gestione.",
+      "effects": {
+        "electric_share": -0.1
+      },
+      "appeal": {
+        "pu_laggard": 0.8,
+        "small_budget": 0.5,
+        "pu_leader": -0.7
+      }
+    },
+    {
+      "id": "ibrido_standard",
+      "title": "Rendere standard la parte ibrida",
+      "category": "tecnico",
+      "area": "pu",
+      "reset": 0.45,
+      "desc": "Batteria ed elettronica di fornitura unica per tutti: restano liberi solo il termico e l'integrazione.",
+      "effects": {
+        "standard_hybrid": true,
+        "cost_cap_musd": -8
+      },
+      "appeal": {
+        "pu_laggard": 1.3,
+        "pu_leader": -1.5,
+        "small_budget": 1.0
+      }
+    },
+    {
+      "id": "limite_banchi",
+      "title": "Limitare le ore di banco prova sui motori",
+      "category": "tecnico",
+      "area": "pu",
+      "reset": 0.2,
+      "desc": "Un tetto alle ore di sviluppo al banco, sul modello della restrizione aerodinamica.",
+      "effects": {
+        "pu_bench_limit": true
+      },
+      "appeal": {
+        "pu_laggard": 1.1,
+        "pu_leader": -1.2,
+        "small_budget": 0.8
+      }
+    },
+    {
+      "id": "fondo_piatto",
+      "title": "Vietare l'effetto suolo e imporre il fondo piatto",
+      "category": "tecnico",
+      "area": "aero",
+      "reset": 0.85,
+      "desc": "Come nel 1983: si toglie il carico generato dal fondo e si riparte da zero sul concetto aerodinamico.",
+      "effects": {
+        "ground_effect": false,
+        "downforce_index": -0.18
+      },
+      "appeal": {
+        "aero_strength": -1.0,
+        "mechanical_strength": 0.9,
+        "grid_position_low": 0.6
+      }
+    },
+    {
+      "id": "taglio_carico",
+      "title": "Tagliare del 25% il carico aerodinamico",
+      "category": "tecnico",
+      "area": "aero",
+      "reset": 0.55,
+      "desc": "Vetture piu' lente in curva e piu' facili da seguire, con meno turbolenza.",
+      "effects": {
+        "downforce_index": -0.15
+      },
+      "appeal": {
+        "aero_strength": -0.8,
+        "power_strength": 0.7,
+        "grid_position_low": 0.5
+      }
+    },
+    {
+      "id": "ala_mobile",
+      "title": "Introdurre l'ala mobile per chi insegue",
+      "category": "tecnico",
+      "area": "aero",
+      "reset": 0.15,
+      "desc": "Un dispositivo che riduce la resistenza a chi si trova entro un secondo, come il DRS dal 2011: piu' sorpassi, meno merito.",
+      "effects": {
+        "drs": true
+      },
+      "appeal": {
+        "power_strength": 0.6,
+        "aero_strength": -0.4,
+        "reputation": -0.3
+      }
+    },
+    {
+      "id": "vieta_soffiati",
+      "title": "Vietare gli scarichi soffiati sul fondo",
+      "category": "tecnico",
+      "area": "aero",
+      "reset": 0.35,
+      "desc": "Come nel 2012: si toglie il carico ottenuto soffiando i gas di scarico sulle superfici aerodinamiche.",
+      "effects": {
+        "downforce_index": -0.06
+      },
+      "appeal": {
+        "aero_strength": -0.7,
+        "pu_leader": -0.5,
+        "grid_position_low": 0.5
+      }
+    },
+    {
+      "id": "ali_semplici",
+      "title": "Semplificare drasticamente le ali anteriori",
+      "category": "tecnico",
+      "area": "aero",
+      "reset": 0.4,
+      "desc": "Meno appendici, meno flap: si riduce lo spazio dove le grandi gallerie fanno la differenza.",
+      "effects": {
+        "downforce_index": -0.08,
+        "cost_cap_musd": -5
+      },
+      "appeal": {
+        "aero_strength": -1.1,
+        "small_budget": 1.0
+      }
+    },
+    {
+      "id": "vetture_strette",
+      "title": "Ridurre la larghezza delle vetture",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.5,
+      "desc": "Come nel 1998: monoposto piu' strette, meno stabili e piu' difficili da guidare al limite.",
+      "effects": {
+        "min_weight_kg": -15,
+        "downforce_index": -0.05
+      },
+      "appeal": {
+        "mechanical_strength": 0.6,
+        "aero_strength": -0.5,
+        "star_drivers": 0.5
+      }
+    },
+    {
+      "id": "sospensioni_attive",
+      "title": "Consentire le sospensioni attive",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.6,
+      "desc": "Il sistema che dominava nel 1993: assetto sempre ottimale, a un costo di sviluppo che solo alcuni possono reggere.",
+      "effects": {
+        "active_suspension": true
+      },
+      "appeal": {
+        "big_budget": 1.3,
+        "mechanical_strength": 1.0,
+        "small_budget": -1.2
+      }
+    },
+    {
+      "id": "controllo_trazione",
+      "title": "Consentire il controllo di trazione",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.35,
+      "desc": "L'elettronica corregge il pilota in uscita di curva: meno errori, meno differenza fra chi guida bene e chi no.",
+      "effects": {
+        "traction_control": true
+      },
+      "appeal": {
+        "big_budget": 0.8,
+        "star_drivers": -1.1,
+        "young_drivers": 0.7
+      }
+    },
+    {
+      "id": "peso_giu",
+      "title": "Abbassare il peso minimo di 30 kg",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.4,
+      "desc": "Vetture piu' leggere e agili, ma serve rifare il telaio e costa parecchio.",
+      "effects": {
+        "min_weight_kg": -30
+      },
+      "appeal": {
+        "big_budget": 0.9,
+        "mechanical_strength": 0.8,
+        "small_budget": -0.9
+      }
+    },
+    {
+      "id": "gomme_scanalate",
+      "title": "Passare alle gomme scanalate",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.45,
+      "desc": "Come dal 1998 al 2008: meno aderenza meccanica, piu' peso sull'aerodinamica.",
+      "effects": {
+        "grooved_tyres": true
+      },
+      "appeal": {
+        "aero_strength": 0.8,
+        "mechanical_strength": -0.7,
+        "tyre_mgmt_strength": 0.5
+      }
+    },
+    {
+      "id": "guerra_gomme",
+      "title": "Riaprire alla concorrenza fra fornitori di gomme",
+      "category": "tecnico",
+      "area": "chassis",
+      "reset": 0.55,
+      "desc": "Piu' fornitori in gara: chi ha l'accordo giusto vola, gli altri arrancano.",
+      "effects": {
+        "tyre_war": true
+      },
+      "appeal": {
+        "big_budget": 1.2,
+        "reputation": 0.8,
+        "small_budget": -1.3
+      }
+    },
+    {
+      "id": "vieta_termocoperte",
+      "title": "Vietare le termocoperte",
+      "category": "tecnico",
+      "area": "sporting",
+      "reset": 0.1,
+      "desc": "Gomme fredde all'uscita dai box: piu' errori, piu' imprevedibilita', meno costi di trasferta.",
+      "effects": {
+        "tyre_warmers": false
+      },
+      "appeal": {
+        "tyre_mgmt_strength": 0.9,
+        "small_budget": 0.6,
+        "star_drivers": 0.4
+      }
+    },
+    {
+      "id": "griglia_invertita",
+      "title": "Griglia invertita nelle gare Sprint",
+      "category": "sportivo",
+      "area": "sporting",
+      "reset": 0.0,
+      "desc": "Si parte con l'ordine rovesciato rispetto al campionato: spettacolo garantito, merito sportivo discutibile.",
+      "effects": {
+        "reverse_grid": true
+      },
+      "appeal": {
+        "grid_position_low": 1.5,
+        "grid_position_high": -1.6,
+        "reputation": -0.5
+      }
+    },
+    {
+      "id": "quali_aggregata",
+      "title": "Qualifica a tempo aggregato sui due piloti",
+      "category": "sportivo",
+      "area": "sporting",
+      "reset": 0.0,
+      "desc": "Conta la somma dei tempi dei due piloti: nessuna squadra puo' piu' avere una seconda guida.",
+      "effects": {
+        "aggregate_quali": true
+      },
+      "appeal": {
+        "star_drivers": -0.8,
+        "academy_strength": 0.6
+      }
+    },
+    {
+      "id": "motori_clienti_obbligo",
+      "title": "Obbligare i motoristi a fornire chi resta senza",
+      "category": "strutturale",
+      "area": "pu",
+      "reset": 0.1,
+      "desc": "Nessuna squadra puo' restare senza power unit: il motorista con meno clienti e' obbligato a fornirla.",
+      "effects": {
+        "supply_obligation": true
+      },
+      "appeal": {
+        "customer_team": 1.2,
+        "constructor_team": -0.8,
+        "small_budget": 0.7
       }
     }
   ]

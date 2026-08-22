@@ -173,8 +173,58 @@ def apply_effects(gs, proposal: dict) -> list:
             reg["reliability_risk"] = v
         elif k == "reset_strength":
             reg["pending_reset"] = v
+        elif k == "electric_share":
+            pu = reg["power_unit"]
+            tot = pu["ice_kw"] + pu["electric_kw"]
+            quota = min(0.75, max(0.25, pu["electric_kw"] / tot + v))
+            pu["electric_kw"] = round(tot * quota)
+            pu["ice_kw"] = round(tot * (1 - quota))
+            notes.append(f"Ripartizione: {pu['ice_kw']} kW termico / {pu['electric_kw']} kW elettrico")
+        elif k == "ground_effect":
+            reg["aero"]["ground_effect"] = v
+            if not v:
+                reg["aero"]["downforce_index"] = max(0.35, reg["aero"]["downforce_index"] - 0.12)
+                for t in gs.teams.values():
+                    t.car.reg_downforce_index = reg["aero"]["downforce_index"]
+            notes.append("Effetto suolo " + ("consentito" if v else "abolito"))
+        elif k == "grooved_tyres":
+            reg["grip_multiplier"] = 0.93 if v else 1.0
+            notes.append("Gomme scanalate: meno aderenza meccanica" if v else "Ritorno alle slick")
+        elif k == "tyre_war":
+            reg["tyre_war"] = v
+            notes.append("Piu' fornitori di gomme in gara")
+        elif k == "tyre_warmers":
+            reg["tyre_warmers"] = v
+            notes.append("Termocoperte vietate" if not v else "Termocoperte consentite")
+        elif k == "drs":
+            reg["aero"]["drs"] = v
+            notes.append("Ala mobile " + ("introdotta" if v else "abolita"))
+        elif k == "traction_control":
+            reg["traction_control"] = v
+            notes.append("Controllo di trazione " + ("consentito" if v else "vietato"))
+        elif k == "active_suspension":
+            reg["active_suspension"] = v
+            notes.append("Sospensioni attive " + ("consentite" if v else "vietate"))
+        elif k == "pu_reset":
+            _rimescola_motori(gs)
+            notes.append("Le power unit ripartono da zero")
+        elif k in ("standard_hybrid", "pu_bench_limit", "reverse_grid",
+                   "aggregate_quali", "supply_obligation"):
+            reg[k] = v
     reg.setdefault("applied", []).append(proposal["id"])
     return notes
+
+
+def _rimescola_motori(gs) -> None:
+    """Una rivoluzione motoristica riavvicina tutti i motoristi."""
+    from .powertrain import PU_ATTRS
+    vals = [sum(float(m.get(a, 85)) for a in PU_ATTRS) / len(PU_ATTRS)
+            for m in gs.engine_makers.values()]
+    media = sum(vals) / max(1, len(vals))
+    for m in gs.engine_makers.values():
+        for a in PU_ATTRS:
+            cur = float(m.get(a, 85))
+            m[a] = max(45.0, cur + (media - cur) * 0.75 + gs.rng.gauss(0, 3.0))
 
 
 def _resync_sprints(gs, count: int) -> None:
@@ -193,5 +243,115 @@ def draw_proposals(gs, n: int = 3, rng=None) -> list:
     """
     applied = set(gs.regulations.get("applied", []))
     pool = [p for p in gs.proposals if p["id"] not in applied]
-    (rng or gs.rng).shuffle(pool)
-    return pool[:n]
+    if not pool:
+        return []
+    r = rng or gs.rng
+
+    # Non e' un sorteggio cieco: si discute cio' che in quel momento e' un
+    # problema. Se una squadra sta scappando si parla di riequilibrio, se i
+    # conti sono tesi si parla di costi, e le rivoluzioni tecniche arrivano
+    # di rado.
+    standings = gs.constructor_standings()
+    dominio = 0.0
+    if len(standings) > 1 and standings[0].points > 0:
+        dominio = 1.0 - standings[1].points / max(1.0, standings[0].points)
+    poveri = sum(1 for t in gs.teams.values() if t.cash < 8.0) / max(1, len(gs.teams))
+
+    def peso(pr):
+        w = 1.0
+        if dominio > 0.35:
+            w += (1.8 if pr.get("reset", 0.0) > 0.3 else 0.4) * dominio
+        if poveri > 0.25 and pr.get("area") == "financial":
+            w += 1.5 * poveri
+        if pr.get("reset", 0.0) > 0.5:
+            w *= 0.55
+        return max(0.05, w)
+
+    scelte, resto = [], list(pool)
+    for _ in range(min(n, len(resto))):
+        pesi = [peso(x) for x in resto]
+        soglia = r.uniform(0.0, sum(pesi))
+        acc = 0.0
+        for i, x in enumerate(resto):
+            acc += pesi[i]
+            if acc >= soglia:
+                scelte.append(resto.pop(i))
+                break
+    return scelte
+
+
+# ------------------------------------------------------------------ riunioni
+def meeting_rounds(gs) -> list:
+    """A quali gare si tiene una riunione della Commissione."""
+    n = len(gs.tracks)
+    quante = int(gs.commission.get("meetings_per_season", 3))
+    if quante <= 1:
+        return [n]
+    passo = n / quante
+    return [int(round(passo * (i + 1))) for i in range(quante)]
+
+
+def meeting_due(gs) -> bool:
+    return (gs.round in meeting_rounds(gs)
+            and gs.regulations.get("meeting_done_at") != gs.round)
+
+
+def open_meeting(gs) -> list:
+    """Apre la riunione: la FIA mette sul tavolo le proposte."""
+    n = int(gs.commission.get("proposals_per_meeting",
+                              gs.commission.get("proposals_per_vote", 3)))
+    gs.pending_votes = draw_proposals(gs, n)
+    gs.regulations["meeting_done_at"] = gs.round
+    return gs.pending_votes
+
+
+def close_meeting(gs, player_votes: dict) -> list:
+    """Conta i voti, applica cio' che passa, accumula la spinta al cambiamento."""
+    esiti = []
+    for pr in list(gs.pending_votes):
+        res = tally(gs, pr, (player_votes or {}).get(pr["id"]))
+        note = apply_effects(gs, pr) if res["passed"] else []
+        if res["passed"]:
+            _accumula_ciclo(gs, pr)
+        esiti.append((pr, res, note))
+        gs.push(("APPROVATA: " if res["passed"] else "RESPINTA: ") + pr["title"]
+                + f" ({res['yes']}/{res['total']} voti)", "regole")
+    gs.pending_votes = []
+    return esiti
+
+
+def _accumula_ciclo(gs, proposal: dict) -> None:
+    """Ogni norma tecnica approvata avvicina il prossimo ciclo tecnico.
+
+    Quando la somma supera la soglia i cambiamenti sono cosi' tanti da fare
+    un'era nuova: viene fissata due stagioni piu' avanti, e la sua natura e'
+    la somma delle aree toccate da cio' che e' passato. Non c'e' un calendario
+    dei cicli: escono da quello che le squadre approvano.
+    """
+    reset = float(proposal.get("reset", 0.0))
+    if reset <= 0.0:
+        return
+    ciclo = gs.regulations.setdefault(
+        "pending_cycle", {"pressure": 0.0,
+                          "areas": {"pu": 0.0, "aero": 0.0, "chassis": 0.0},
+                          "season": None, "titles": []})
+    ciclo["pressure"] += reset
+    area = proposal.get("area", "chassis")
+    if area in ciclo["areas"]:
+        ciclo["areas"][area] += reset
+    ciclo["titles"].append(proposal["title"])
+    soglia = float(gs.commission.get("cycle_reset_threshold", 1.2))
+    if ciclo["season"] is None and ciclo["pressure"] >= soglia:
+        ciclo["season"] = gs.season + int(gs.commission.get("cycle_lead_seasons", 2))
+        gs.push(f"Le norme approvate sono ormai tante da fare un'era nuova: il ciclo "
+                f"tecnico cambia nel {ciclo['season']}.", "regole")
+
+
+def cycle_focus(gs) -> dict:
+    """Da cosa dipendera' la prestazione nel prossimo ciclo."""
+    ciclo = gs.regulations.get("pending_cycle") or {}
+    aree = ciclo.get("areas") or {}
+    tot = sum(aree.values())
+    if tot <= 0:
+        return {"pu": 0.34, "chassis": 0.33, "aero": 0.33}
+    return {k: v / tot for k, v in aree.items()}

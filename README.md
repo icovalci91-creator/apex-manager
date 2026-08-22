@@ -186,10 +186,24 @@ reparti sono forti proprio nell'area che il nuovo regolamento premia.
 Le squadre gestite dal computer fanno lo stesso calcolo: a un anno dal cambio chi non ha
 piu' niente da giocarsi dirotta fino all'85%, chi si gioca il titolo si ferma al 33%.
 
-**Regolamento.** A fine stagione la Commissione vota tre proposte estratte dal catalogo in
-`data/regulations.json`. Ogni scuderia vota secondo il proprio interesse, FIA e FOM secondo
-costi e spettacolo. Le proposte approvate cambiano davvero la simulazione. All'inizio di un
-nuovo ciclo tecnico i valori in campo si rimescolano, premiando chi ha struttura migliore.
+**Regolamento.** Tre volte per stagione si riunisce la Commissione: la FIA porta al tavolo
+alcune proposte dal catalogo di `data/regulations.json` e le squadre votano. Non e' un
+sorteggio cieco - se una scuderia sta scappando si discute di riequilibrio, se i conti sono
+tesi si parla di costi - e ogni squadra vota secondo il proprio interesse sportivo ed
+economico, con FIA e FOM che guardano a costi e spettacolo.
+
+Il catalogo copre gli aspetti realmente discussi nella storia della categoria: fondo piatto,
+sospensioni attive, controllo di trazione, gomme scanalate, guerra fra fornitori,
+rifornimento, ali mobili, ritorno ai V10, quota elettrica, termocoperte, griglia invertita,
+vetture cliente, tetto di spesa.
+
+**I cicli tecnici non sono un calendario.** Ogni norma tecnica approvata porta con se' un
+peso e un'area (power unit, aerodinamica, telaio). Quando la somma dei pesi supera la
+soglia, i cambiamenti sono cosi' tanti da fare un'era nuova: viene fissata due stagioni piu'
+avanti, e la sua natura e' la somma delle aree toccate. Se sono passate soprattutto norme
+sul telaio, sara' il telaio a decidere; se e' passato il ritorno ai V10, sara' il motore.
+Nessuno sa in anticipo che forma avra' il prossimo regolamento: dipende da come si e'
+votato.
 
 ## Dati modificabili
 

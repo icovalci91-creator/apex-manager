@@ -182,6 +182,9 @@ class WeekendScene(Scene):
         from .shell import GameShell
         if isinstance(self.app.scene, GameShell):
             self.app.scene.enter()
+        if self.gs.pending_votes and self.gs.phase != "offseason":
+            from .commission import CommissionScene
+            self.app.push(CommissionScene(self.app))
 
     # ------------------------------------------------------------------- loop
     def update(self, dt: float) -> None:
