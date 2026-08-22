@@ -154,7 +154,9 @@ class TeamSelectScene(Scene):
                              border_top_right_radius=10)
             T.text(surf, t.short, (r.x + 14, r.y + 16), 20, T.TEXT, bold=True, maxw=r.w - 28)
             eng = self.gs_preview.engine_makers[t.engine]["name"]
-            T.text(surf, f"{'Motorista' if t.works else 'Cliente'} - {eng}",
+            stato = ("Motorista" if t.works else
+                     "Team ufficiale" if t.is_partner else "Cliente")
+            T.text(surf, f"{stato} - {eng}",
                    (r.x + 14, r.y + 42), 13, T.DIM, maxw=r.w - 28)
             drs = self.gs_preview.drivers_of(t.id)
             T.text(surf, " / ".join(d.last for d in drs), (r.x + 14, r.y + 62), 13, T.DIM_2,
@@ -173,6 +175,10 @@ class TeamSelectScene(Scene):
         if t.works:
             note = ("Sei gia' motorista: costruisci in casa telaio e power unit, "
                     "con i costi e il controllo che ne derivano.")
+        elif t.is_partner:
+            note = (f"Team ufficiale {eng_name(self.gs_preview, t)}: non costruisci la power "
+                    f"unit ma te la disegnano attorno alla vettura, a condizioni da partner. "
+                    f"{t.pu_reason}.")
         elif not t.pu_capable:
             note = f"Solo telaio: {t.pu_reason}."
             colour = T.WARN
@@ -183,6 +189,10 @@ class TeamSelectScene(Scene):
             note = "Comprerai la power unit da un motorista: meno costi fissi, prestazione non tua."
         T.text(surf, note, (w // 2, h - 180), 14, colour, align="center", maxw=w - 160)
         super().draw(surf)
+
+
+def eng_name(gs, t) -> str:
+    return gs.engine_makers.get(t.engine, {}).get("name", "?")
 
 
 def _difficulty(t) -> tuple:

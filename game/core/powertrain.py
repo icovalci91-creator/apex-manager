@@ -37,7 +37,10 @@ PU_OPERATING_COST = 45.0      # M$ a stagione per far girare il reparto
 # Integrare la propria power unit nella vettura: chi la costruisce la impacchetta
 # meglio, guadagnando in potenza sfruttata e in resistenza all'avanzamento.
 INTEGRATION_WORKS = 1.0
+INTEGRATION_PARTNER = 0.80    # la casa disegna la PU attorno a quella vettura
 INTEGRATION_CUSTOMER = 0.25
+PARTNER_COST_SHARE = 0.35     # quota del listino che paga un team ufficiale
+EXTERNAL_BUDGET = 1.5         # M$ a gara spesi da un motorista che non corre
 
 
 # ------------------------------------------------------------------ anagrafica
@@ -55,6 +58,27 @@ def builder_of(gs, engine_id: str):
 
 def customers_of(gs, engine_id: str) -> list:
     return [t for t in gs.teams.values() if t.engine == engine_id and not t.works]
+
+
+def partner_of(gs, engine_id: str):
+    """Il team ufficiale di quel motorista, se esiste."""
+    for t in gs.teams.values():
+        if t.engine == engine_id and t.is_partner:
+            return t
+    return None
+
+
+def supply_cost(gs, team) -> float:
+    """Quanto costa a questa squadra la fornitura di power unit, all'anno.
+
+    Chi la costruisce non la compra. Un team ufficiale paga una frazione del
+    listino: la casa ci guadagna il marchio e i dati, non il conto. Un cliente
+    paga tutto.
+    """
+    if team.works:
+        return 0.0
+    full = float(gs.engine_makers.get(team.engine, {}).get("cost_per_customer", 25.0))
+    return round(full * PARTNER_COST_SHARE, 2) if team.is_partner else full
 
 
 def rating(eng: dict) -> float:
@@ -126,7 +150,16 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
     for eid, eng in gs.engine_makers.items():
         team = builder_of(gs, eid)
         if team is None:
-            continue                    # motorista senza squadra in griglia
+            # Motorista esterno: non ha una squadra propria in griglia (Honda con
+            # Aston Martin). Sviluppa lo stesso, a spese sue: senza questo la sua
+            # power unit resterebbe ferma mentre le altre crescono.
+            partner = partner_of(gs, eid)
+            if partner is None and not customers_of(gs, eid):
+                continue
+            ref = partner or max(gs.teams.values(), key=lambda t: t.reputation)
+            _advance(eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
+                     1.0 * _equalisation_boost(gs, eng), EXTERNAL_BUDGET, gs.rng)
+            continue
         if team.is_player:
             budget = max(0.0, float(player_budget))
             if budget > 0:
@@ -153,6 +186,8 @@ def integration(gs, team) -> float:
     dettaglio; chi lo compra riceve una scatola con le sue quote e ci lavora
     attorno. La differenza vale qualche decimo sul giro.
     """
+    if team.is_partner:
+        return INTEGRATION_PARTNER
     if not team.works:
         return INTEGRATION_CUSTOMER
     return INTEGRATION_CUSTOMER + (INTEGRATION_WORKS - INTEGRATION_CUSTOMER) * min(

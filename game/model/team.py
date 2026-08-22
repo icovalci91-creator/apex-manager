@@ -24,6 +24,7 @@ class Team:
     facilities: dict
     philosophy: str
     titles: dict
+    pu_status: str = "customer"  # works = costruisce | partner = team ufficiale | customer
     pu_capable: bool = True     # puo' fondare un reparto motori proprio?
     pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
@@ -43,6 +44,16 @@ class Team:
     is_player: bool = False
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
+
+    @property
+    def is_partner(self) -> bool:
+        """Team ufficiale di una casa che non corre in proprio.
+
+        Non costruisce la power unit ma la riceve disegnata attorno alla sua
+        vettura, a condizioni da partner e non da cliente. E' il caso di Aston
+        Martin con Honda: sulla carta un cliente, nei fatti una squadra works.
+        """
+        return self.pu_status == "partner"
 
     # ------------------------------------------------------------ organico
     def role(self, role_id: str) -> Staff | None:

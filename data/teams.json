@@ -1,6 +1,7 @@
 {
   "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori.",
   "_pu_note": "pu_capable: se falso la squadra non potra' mai fondare un reparto motori. Un programma power unit richiede una casa automobilistica o un gruppo industriale alle spalle: costa una fondazione piu' decine di milioni l'anno di gestione, fuori dalla portata di una squadra indipendente.",
+  "_pu_status_note": "pu_status: 'works' costruisce la propria power unit e ne paga il reparto; 'partner' e' team ufficiale di una casa che non corre in proprio (Aston Martin-Honda): non costruisce nulla, paga una fornitura agevolata e riceve un motore disegnato attorno alla sua vettura; 'customer' compra a listino. Il campo works viene derivato da qui.",
   "engine_manufacturers": {
     "mercedes": {
       "name": "Mercedes-AMG HPP",
@@ -86,7 +87,8 @@
         "constructors": 10
       },
       "pu_capable": false,
-      "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente"
+      "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente",
+      "pu_status": "customer"
     },
     {
       "id": "ferrari",
@@ -130,7 +132,8 @@
         "constructors": 16
       },
       "pu_capable": true,
-      "pu_reason": "Costruisce power unit a Maranello dal 1950"
+      "pu_reason": "Costruisce power unit a Maranello dal 1950",
+      "pu_status": "works"
     },
     {
       "id": "redbull",
@@ -174,7 +177,8 @@
         "constructors": 6
       },
       "pu_capable": true,
-      "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes"
+      "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes",
+      "pu_status": "works"
     },
     {
       "id": "mercedes",
@@ -218,7 +222,8 @@
         "constructors": 8
       },
       "pu_capable": true,
-      "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth"
+      "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth",
+      "pu_status": "works"
     },
     {
       "id": "astonmartin",
@@ -229,7 +234,7 @@
       "accent": "#CEDC00",
       "founded": 2021,
       "engine": "honda",
-      "works": true,
+      "works": false,
       "reputation": 80,
       "budget_base": 175.0,
       "cash": 38.0,
@@ -262,7 +267,8 @@
         "constructors": 0
       },
       "pu_capable": false,
-      "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa"
+      "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa",
+      "pu_status": "partner"
     },
     {
       "id": "alpine",
@@ -306,7 +312,8 @@
         "constructors": 2
       },
       "pu_capable": true,
-      "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon"
+      "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon",
+      "pu_status": "customer"
     },
     {
       "id": "williams",
@@ -350,7 +357,8 @@
         "constructors": 9
       },
       "pu_capable": false,
-      "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle"
+      "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle",
+      "pu_status": "customer"
     },
     {
       "id": "racingbulls",
@@ -394,7 +402,8 @@
         "constructors": 0
       },
       "pu_capable": false,
-      "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains"
+      "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains",
+      "pu_status": "customer"
     },
     {
       "id": "haas",
@@ -438,7 +447,8 @@
         "constructors": 0
       },
       "pu_capable": false,
-      "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari"
+      "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari",
+      "pu_status": "customer"
     },
     {
       "id": "audi",
@@ -482,7 +492,8 @@
         "constructors": 0
       },
       "pu_capable": true,
-      "pu_reason": "Reparto motori Audi a Neuburg"
+      "pu_reason": "Reparto motori Audi a Neuburg",
+      "pu_status": "works"
     },
     {
       "id": "cadillac",
@@ -526,7 +537,8 @@
         "constructors": 0
       },
       "pu_capable": true,
-      "pu_reason": "General Motors sta sviluppando una propria power unit"
+      "pu_reason": "General Motors sta sviluppando una propria power unit",
+      "pu_status": "customer"
     }
   ]
 }

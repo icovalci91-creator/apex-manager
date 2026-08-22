@@ -510,6 +510,7 @@ class PowerUnitPage(Page):
         eng = powertrain.maker(gs, team)
         T.text(surf, "POWER UNIT", (r.x, r.y + 10), 22, T.TEXT, bold=True)
         status = ("costruttore" if team.works else
+                  "team ufficiale" if team.is_partner else
                   "cliente, reparto in costruzione" if powertrain.has_program(gs) else "cliente")
         T.text(surf, f"{eng.get('name', '-')} - {status}", (r.x, r.y + 42), 14, T.DIM)
 

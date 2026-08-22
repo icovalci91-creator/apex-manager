@@ -88,16 +88,20 @@ class GameState:
             team = Team(
                 id=td["id"], name=td["name"], short=td["short"], base=td["base"],
                 colour=td["colour"], accent=td["accent"], founded=td["founded"],
-                engine=td["engine"], works=td["works"], reputation=td["reputation"],
+                engine=td["engine"],
+                works=(td.get("pu_status", "customer") == "works" if "pu_status" in td
+                       else td["works"]),
+                reputation=td["reputation"],
                 budget_base=td["budget_base"], cash=td["cash"],
                 facilities=dict(td["facilities"]), philosophy=td["philosophy"],
                 titles=dict(td["titles"]),
+                pu_status=td.get("pu_status", "works" if td["works"] else "customer"),
                 pu_capable=td.get("pu_capable", True),
                 pu_reason=td.get("pu_reason", ""),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
             team.is_player = (td["id"] == team_id)
-            team.engine_customer_cost = 0.0 if td["works"] else engine.get("cost_per_customer", 25.0)
+            team.engine_customer_cost = engine.get("cost_per_customer", 25.0)
             team.resource_alloc = {k: 1.0 / len(C.CAR_PARTS) for k in C.CAR_PARTS}
             gs.teams[team.id] = team
 
@@ -197,9 +201,7 @@ class GameState:
             if t.car is not None and t.engine in self.engine_makers:
                 t.car.engine = self.engine_makers[t.engine]
                 t.car.pu_integration = powertrain.integration(self, t)
-                if not t.works:
-                    t.engine_customer_cost = self.engine_makers[t.engine].get(
-                        "cost_per_customer", 25.0)
+                t.engine_customer_cost = powertrain.supply_cost(self, t)
 
     def view_rng(self, *key) -> random.Random:
         """Generatore per le schermate, separato da quello della partita.
@@ -270,7 +272,7 @@ class GameState:
                     "spent": t.spent, "reputation": t.reputation, "facilities": t.facilities,
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
-                    "engine": t.engine, "works": t.works,
+                    "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
                     "staff": [s.to_dict() for s in t.staff],
                     "dev_projects": [asdict(p) for p in t.dev_projects],
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
@@ -308,6 +310,7 @@ class GameState:
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
+            t.pu_status = td.get("pu_status", t.pu_status)
             t.car.engine = gs.engine_makers[t.engine]
             t.staff = [Staff.from_dict(s) for s in td["staff"]]
             t.dev_projects = [Project(**p) for p in td.get("dev_projects", [])]

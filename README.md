@@ -54,11 +54,29 @@ nel browser quindi si usa quello incluso in pygame.
    Non tutte le squadre possono farlo, ed e' voluto. Un reparto motori e' un'azienda dentro
    l'azienda: costa una fondazione piu' decine di milioni l'anno di sola gestione, e in
    Formula 1 lo regge chi ha una casa automobilistica o un gruppo industriale alle spalle.
-   Ferrari, Mercedes, Red Bull e Audi il motore lo fanno gia'. Alpine e Cadillac possono
-   aprirlo, perche' dietro hanno Renault e General Motors. McLaren, Williams, Racing Bulls,
-   Haas e Aston Martin restano squadre da telaio: comprano la power unit e mettono tutto
-   sulla macchina. Il vincolo e' il campo `pu_capable` in `data/teams.json`, con accanto la
-   motivazione: se non sei d'accordo, cambialo.
+   Alpine e Cadillac possono aprirlo, perche' dietro hanno Renault e General Motors.
+   McLaren, Williams, Racing Bulls e Haas restano squadre da telaio: comprano la power unit
+   e mettono tutto sulla macchina. Il vincolo e' il campo `pu_capable` in
+   `data/teams.json`, con accanto la motivazione: se non sei d'accordo, cambialo.
+
+### Motorista, team ufficiale, cliente
+
+Il rapporto con la power unit ha tre forme, nel campo `pu_status`:
+
+| Stato | Chi | Costo fornitura | Integrazione | Sviluppo PU |
+|---|---|---|---|---|
+| `works` | Ferrari, Mercedes, Red Bull, Audi | zero, ma paghi il reparto (45 M$/anno) | fino a 1.00 | lo decidi tu |
+| `partner` | Aston Martin con Honda | frazione del listino (8.75 invece di 25 M$) | 0.80 | lo fa la casa |
+| `customer` | tutti gli altri | listino pieno | 0.25 | non ti riguarda |
+
+Il caso `partner` e' la via di mezzo: sulla carta compri il motore, nei fatti sei la squadra
+ufficiale di quella casa. Non costruisci nulla e non decidi lo sviluppo, ma la power unit
+viene disegnata attorno alla tua vettura, quindi il guadagno di integrazione e' quasi da
+motorista. I termini economici veri dell'accordo Aston Martin-Honda non sono pubblici: qui
+si assume che la casa ci metta soprattutto marchio e ingegneria.
+
+Un motorista senza squadra propria in griglia, come Honda, continua a sviluppare per conto
+suo: altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
 4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
