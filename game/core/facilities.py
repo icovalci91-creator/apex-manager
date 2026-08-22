@@ -13,9 +13,14 @@ from __future__ import annotations
 from .. import config as C
 from . import economy
 
-# Punti persi ogni stagione da una struttura lasciata com'e'. Cresce col
-# livello: stare al passo in cima costa piu' che stare al passo a meta'.
-DECAY = 1.10
+# Una struttura non invecchia il giorno dopo averla costruita. Una galleria del
+# vento nuova resta all'avanguardia per qualche stagione: e' quello il premio di
+# chi investe. Solo dopo comincia a restare indietro, e piu' passa il tempo piu'
+# in fretta lo fa, perche' nel frattempo gli altri sono andati avanti.
+GRACE_SEASONS = 3.0   # anni in cui resta di riferimento, senza perdere nulla
+DECAY = 0.42          # punti persi nel primo anno dopo il periodo di grazia
+DECAY_RAMP = 0.13     # e quanto accelera ogni anno che passa
+DECAY_MAX = 1.7       # oltre non si scivola, per quanto vecchia sia
 FLOOR = 35.0          # sotto questo livello non si scende: resta un capannone
 
 
@@ -34,8 +39,28 @@ def gain(level: float) -> float:
     return max(1.5, 6.0 - level / 22.0)
 
 
-def decay_of(level: float) -> float:
-    return DECAY * (0.55 + 0.65 * level / 100.0)
+def decay_of(level: float, age: float = 99.0) -> float:
+    """Punti persi in una stagione, dati livello ed eta' dall'ultimo intervento."""
+    if age < GRACE_SEASONS:
+        return 0.0
+    ritmo = DECAY + DECAY_RAMP * (age - GRACE_SEASONS)
+    return min(DECAY_MAX, ritmo) * (0.55 + 0.65 * level / 100.0)
+
+
+def age_of(team, key: str) -> float:
+    return float((team.facility_age or {}).get(key, GRACE_SEASONS))
+
+
+def state_label(team, key: str) -> tuple:
+    """Come sta messa una struttura, in parole. Ritorna (testo, anni)."""
+    eta = age_of(team, key)
+    if eta < GRACE_SEASONS:
+        return "all'avanguardia", eta
+    if eta < GRACE_SEASONS + 4:
+        return "ancora competitiva", eta
+    if eta < GRACE_SEASONS + 9:
+        return "da aggiornare", eta
+    return "superata", eta
 
 
 def upgrade(gs, team, key: str) -> tuple:
@@ -50,8 +75,13 @@ def upgrade(gs, team, key: str) -> tuple:
     team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", price, in_cap=True,
                      category="strutture")
     team.facilities[key] = min(99.0, lvl + gain(lvl))
+    # l'intervento rimette a nuovo: da qui ricominciano gli anni di grazia
+    if team.facility_age is None:
+        team.facility_age = {}
+    team.facility_age[key] = 0.0
     return True, (f"{C.FACILITIES[key]['label']} portata a "
-                  f"{team.facilities[key]:.0f} ({price:.2f} M$).")
+                  f"{team.facilities[key]:.0f} ({price:.2f} M$), "
+                  f"di riferimento per le prossime stagioni.")
 
 
 def decay(gs) -> float:
@@ -61,11 +91,15 @@ def decay(gs) -> float:
     """
     lost = 0.0
     for team in gs.teams.values():
+        if team.facility_age is None:
+            team.facility_age = {}
         for k, v in team.facilities.items():
-            new = max(FLOOR, float(v) - decay_of(float(v)))
+            eta = float(team.facility_age.get(k, GRACE_SEASONS))
+            new = max(FLOOR, float(v) - decay_of(float(v), eta))
             if team.is_player:
                 lost += float(v) - new
             team.facilities[k] = new
+            team.facility_age[k] = eta + 1.0
     return lost / max(1, len(C.FACILITIES))
 
 

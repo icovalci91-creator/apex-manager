@@ -119,7 +119,7 @@ altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Contratti, clausole, trattative con gradimento del pilota |
 | Staff tecnico | Organigramma completo e mercato del personale |
-| Infrastrutture | Nove strutture da potenziare, confronto con gli avversari |
+| Infrastrutture | Nove strutture da potenziare, stato di obsolescenza, confronto con gli avversari |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione |
 | Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
 
@@ -152,6 +152,12 @@ risultato, perché un tracciato sbagliato è peggio di nessun tracciato. Serve r
 
 Google Maps non è utilizzabile: i suoi dati sono proprietari e le condizioni d'uso vietano
 di estrarli per usarli altrove. OpenStreetMap è aperto e chiede solo la citazione qui sotto.
+
+**Infrastrutture.** Una struttura appena rifatta resta di riferimento per tre stagioni e in
+quel periodo non perde nulla: e' il premio di chi investe. Dopo comincia a restare indietro,
+e piu' passa il tempo piu' in fretta lo fa, perche' nel frattempo gli altri sono andati
+avanti. Un potenziamento azzera il contatore. Tenere una galleria del vento di livello 90
+costa circa 4 M$ l'anno spalmati, non ventitre come nella prima versione del modello.
 
 **Il calendario non e' fisso.** Ogni circuito ha un contratto con una scadenza, un canone
 annuo e un grado di tradizione. Alla scadenza si rinnova o si esce, e a decidere sono tre

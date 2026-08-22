@@ -109,6 +109,10 @@ class GameState:
             team.engine_customer_cost = engine.get("cost_per_customer", 25.0)
             team.resource_alloc = {k: 1.0 / len(C.CAR_PARTS) for k in C.CAR_PARTS}
             team.set_clock(gs.season, 1, 0)
+            # le strutture partono a meta' del periodo di grazia: nessuna e'
+            # appena costruita, nessuna e' gia' da buttare
+            from .facilities import GRACE_SEASONS
+            team.facility_age = {k: GRACE_SEASONS * 0.5 for k in team.facilities}
             gs.teams[team.id] = team
 
         ddata = _load("drivers.json")
@@ -310,6 +314,7 @@ class GameState:
                 t.id: {
                     "cash": t.cash, "points": t.points, "wins": t.wins, "podiums": t.podiums,
                     "spent": t.spent, "reputation": t.reputation, "facilities": t.facilities,
+                    "facility_age": t.facility_age or {},
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
@@ -355,7 +360,8 @@ class GameState:
             t = gs.teams[tid]
             t.cash = td["cash"]; t.points = td["points"]; t.wins = td["wins"]
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
-            t.facilities = td["facilities"]; t.drivers = td["drivers"]
+            t.facilities = td["facilities"]
+            t.facility_age = dict(td.get("facility_age") or {}); t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.next_reg_share = td.get("next_reg_share", 0.0)

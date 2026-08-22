@@ -31,6 +31,7 @@ class Team:
     pu_partner_engine: str = "" # con quale: se cambia, si riparte da capo
     pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
+    facility_age: dict = None    # stagioni dall'ultimo intervento, per struttura
     car: Car = None
     drivers: list = field(default_factory=list)      # id piloti
     staff: list = field(default_factory=list)        # oggetti Staff

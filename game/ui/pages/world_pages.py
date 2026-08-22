@@ -41,25 +41,44 @@ class FacilitiesPage(Page):
         cw = (r.w - 32) / 3
         card(surf, (r.x, r.y, cw, 86), "Costo di gestione",
              f"{team.facility_upkeep:.2f} M$", "all'anno, dentro il cap", accent=T.WARN)
-        obs = sum(facilities.decay_of(v) for v in team.facilities.values()) / len(team.facilities)
+        obs = sum(facilities.decay_of(v, facilities.age_of(team, k))
+                  for k, v in team.facilities.items()) / len(team.facilities)
         avg = sum(team.facilities.values()) / len(team.facilities)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Livello medio strutture", f"{avg:.0f}",
              _infra_rank(gs, team), accent=T.ACCENT)
-        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza", f"-{obs:.1f}",
-             "punti a stagione se non si investe", colour=T.BAD, accent=T.BAD)
+        fresche = sum(1 for k in team.facilities
+                      if facilities.age_of(team, k) < facilities.GRACE_SEASONS)
+        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza",
+             "nessuna" if obs < 0.01 else f"-{obs:.2f}",
+             f"{fresche} strutture su {len(team.facilities)} all'avanguardia",
+             colour=T.OK if obs < 0.2 else T.BAD, accent=T.BAD if obs >= 0.2 else T.OK)
 
         panel = pygame.Rect(r.x, r.y + 92 - 12, r.w * 0.5 + 10, r.h - 92)
         T.panel(surf, panel, T.PANEL, radius=10, border=T.LINE)
         y = r.y + 92
         for k, meta in C.FACILITIES.items():
             lvl = team.facilities.get(k, 60.0)
-            T.text(surf, meta["label"], (panel.x + 16, y + 6), 15, T.TEXT)
-            T.bar(surf, (panel.x + 190, y + 11, 150, 9), lvl, 100, T.stat_colour(lvl, 60, 88))
-            T.text(surf, f"{lvl:.0f}", (panel.x + 352, y + 5), 14, T.TEXT, bold=True)
             cost = facility_cost(lvl, meta["cost"])
-            T.text(surf, f"-{facilities.decay_of(lvl):.1f}", (panel.x + 392, y + 6), 12, T.BAD)
+            stato, eta = facilities.state_label(team, k)
+            perdita = facilities.decay_of(lvl, eta)
+            col_st = {"all'avanguardia": T.OK, "ancora competitiva": (150, 200, 90),
+                      "da aggiornare": T.WARN}.get(stato, T.BAD)
+            # prima riga: nome, livello, prezzo del prossimo gradino
+            T.text(surf, meta["label"], (panel.x + 16, y), 15, T.TEXT, maxw=170)
+            T.bar(surf, (panel.x + 190, y + 5, 150, 9), lvl, 100, T.stat_colour(lvl, 60, 88))
+            T.text(surf, f"{lvl:.0f}", (panel.x + 352, y - 1), 14, T.TEXT, bold=True)
             T.text(surf, f"+{facilities.gain(lvl):.1f} per {cost:.1f} M$",
-                   (panel.x + r.w * 0.5 - 146, y + 6), 13, T.GOLD, align="right")
+                   (panel.x + r.w * 0.5 - 146, y - 1), 13, T.GOLD, align="right")
+            # seconda riga: da quanto e' ferma e quanto le costa
+            if eta < 1:
+                anni = "rifatta quest'anno"
+            elif eta < 2:
+                anni = "rifatta l'anno scorso"
+            else:
+                anni = f"ferma da {eta:.0f} stagioni"
+            T.text(surf, f"{stato}  -  {anni}", (panel.x + 16, y + 20), 12, col_st, maxw=280)
+            T.text(surf, "non invecchia" if perdita <= 0.01 else f"-{perdita:.1f} punti l'anno",
+                   (panel.x + 352, y + 20), 12, T.OK if perdita <= 0.01 else T.BAD)
             y += 42
 
         right = pygame.Rect(r.x + r.w * 0.5 + 26, r.y + 80, r.w * 0.5 - 26, r.h - 80)
@@ -81,6 +100,11 @@ class FacilitiesPage(Page):
             T.text(surf, f"{a:.0f}", (right.right - 16, y + 2), 13, T.TEXT, bold=True, align="right")
             y += 28
         y += 12
+        T.text(surf, f"Una struttura appena rifatta resta di riferimento per "
+                     f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo non perde "
+                     f"nulla. Poi comincia a restare indietro, sempre piu' in fretta.",
+               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
+        y += 34
         T.text(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita dei giovani. "
                      "Ogni anno invecchiano: quello che non si rinnova arretra, e nessuno puo' "
                      "permettersi di tenerle tutte al passo.",
