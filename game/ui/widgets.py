@@ -264,6 +264,8 @@ class Toggle(Widget):
         self.on_change = on_change
 
     def handle(self, ev) -> bool:
+        if not self.enabled:
+            return False
         if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.rect.collidepoint(ev.pos):
             self.value = not self.value
             if self.on_change:
@@ -273,6 +275,11 @@ class Toggle(Widget):
 
     def draw(self, surf) -> None:
         knob = pygame.Rect(self.rect.right - 52, self.rect.centery - 12, 46, 24)
+        if not self.enabled:
+            T.panel(surf, knob, T.PANEL, radius=12, border=T.LINE)
+            pygame.draw.circle(surf, T.DIM_2, (knob.x + 13, knob.centery), 9)
+            T.text(surf, self.label, (self.rect.x, self.rect.centery - 9), 15, T.DIM_2)
+            return
         T.panel(surf, knob, T.OK if self.value else T.PANEL_3, radius=12)
         cx = knob.right - 13 if self.value else knob.x + 13
         pygame.draw.circle(surf, T.WHITE, (cx, knob.centery), 9)

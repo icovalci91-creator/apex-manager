@@ -204,6 +204,21 @@ def has_program(gs) -> bool:
     return bool(p.get("started")) and not p.get("own")
 
 
+def can_found(team) -> tuple:
+    """Se questa squadra puo' realisticamente aprire un reparto motori.
+
+    Costruire power unit non e' una spesa in piu': e' un'azienda dentro
+    l'azienda, con banchi prova, fonderia e centinaia di persone, che costa
+    una fondazione piu' decine di milioni l'anno di sola gestione. In Formula 1
+    lo fanno case automobilistiche e gruppi industriali; una squadra
+    indipendente compra il motore e concentra tutto sul telaio.
+    """
+    if getattr(team, "pu_capable", True):
+        return True, getattr(team, "pu_reason", "")
+    why = getattr(team, "pu_reason", "") or "non ha una casa automobilistica alle spalle"
+    return False, f"{team.short} non aprira' mai un reparto motori: {why}."
+
+
 def start_program(gs, team) -> tuple:
     """Fonda il reparto motori. Da qui in poi si costruisce, non si compra."""
     p = program(gs)
@@ -211,6 +226,9 @@ def start_program(gs, team) -> tuple:
         return False, "Costruiamo gia' la nostra power unit."
     if p.get("started"):
         return False, "Il programma e' gia' avviato."
+    ok, why = can_found(team)
+    if not ok:
+        return False, why
     ok, why = economy.can_afford(team, PROGRAM_START_COST, gs, check_cap=False)
     if not ok:
         return False, why

@@ -1,5 +1,6 @@
 {
   "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori.",
+  "_pu_note": "pu_capable: se falso la squadra non potra' mai fondare un reparto motori. Un programma power unit richiede una casa automobilistica o un gruppo industriale alle spalle: costa una fondazione piu' decine di milioni l'anno di gestione, fuori dalla portata di una squadra indipendente.",
   "engine_manufacturers": {
     "mercedes": {
       "name": "Mercedes-AMG HPP",
@@ -83,7 +84,9 @@
       "titles": {
         "drivers": 13,
         "constructors": 10
-      }
+      },
+      "pu_capable": false,
+      "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente"
     },
     {
       "id": "ferrari",
@@ -125,7 +128,9 @@
       "titles": {
         "drivers": 15,
         "constructors": 16
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "Costruisce power unit a Maranello dal 1950"
     },
     {
       "id": "redbull",
@@ -167,7 +172,9 @@
       "titles": {
         "drivers": 8,
         "constructors": 6
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes"
     },
     {
       "id": "mercedes",
@@ -209,7 +216,9 @@
       "titles": {
         "drivers": 9,
         "constructors": 8
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth"
     },
     {
       "id": "astonmartin",
@@ -251,7 +260,9 @@
       "titles": {
         "drivers": 0,
         "constructors": 0
-      }
+      },
+      "pu_capable": false,
+      "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa"
     },
     {
       "id": "alpine",
@@ -293,7 +304,9 @@
       "titles": {
         "drivers": 2,
         "constructors": 2
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon"
     },
     {
       "id": "williams",
@@ -335,7 +348,9 @@
       "titles": {
         "drivers": 7,
         "constructors": 9
-      }
+      },
+      "pu_capable": false,
+      "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle"
     },
     {
       "id": "racingbulls",
@@ -377,7 +392,9 @@
       "titles": {
         "drivers": 0,
         "constructors": 0
-      }
+      },
+      "pu_capable": false,
+      "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains"
     },
     {
       "id": "haas",
@@ -419,7 +436,9 @@
       "titles": {
         "drivers": 0,
         "constructors": 0
-      }
+      },
+      "pu_capable": false,
+      "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari"
     },
     {
       "id": "audi",
@@ -461,7 +480,9 @@
       "titles": {
         "drivers": 0,
         "constructors": 0
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "Reparto motori Audi a Neuburg"
     },
     {
       "id": "cadillac",
@@ -503,7 +524,9 @@
       "titles": {
         "drivers": 0,
         "constructors": 0
-      }
+      },
+      "pu_capable": true,
+      "pu_reason": "General Motors sta sviluppando una propria power unit"
     }
   ]
 }

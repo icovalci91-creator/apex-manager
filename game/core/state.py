@@ -92,6 +92,8 @@ class GameState:
                 budget_base=td["budget_base"], cash=td["cash"],
                 facilities=dict(td["facilities"]), philosophy=td["philosophy"],
                 titles=dict(td["titles"]),
+                pu_capable=td.get("pu_capable", True),
+                pu_reason=td.get("pu_reason", ""),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
             team.is_player = (td["id"] == team_id)

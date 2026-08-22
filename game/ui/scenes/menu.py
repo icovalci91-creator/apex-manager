@@ -94,6 +94,7 @@ class TeamSelectScene(Scene):
                              "Costruttore completo (telaio + power unit)", self.constructor,
                              self.set_mode)
         self.widgets.append(self.toggle)
+        self._sync_toggle()
         self.widgets.append(Button((w // 2 + 110, h - 156, 220, 46), "Inizia la carriera",
                                    self.start, "primary"))
         self.widgets.append(Button((40, h - 156, 150, 46), "Indietro", self.app.pop, "ghost"))
@@ -104,9 +105,26 @@ class TeamSelectScene(Scene):
     def set_mode(self, v: bool) -> None:
         self.constructor = v
 
+    def _sync_toggle(self) -> None:
+        """La scelta ha senso solo per un cliente che potrebbe farsi il motore."""
+        t = self.teams[self.sel]
+        self.toggle.enabled = (not t.works) and t.pu_capable
+        if t.works:
+            self.toggle.label = "Gia' motorista: telaio e power unit in casa"
+            self.toggle.value = True
+        elif not t.pu_capable:
+            self.toggle.label = "Solo telaio: reparto motori fuori portata"
+            self.toggle.value = False
+        else:
+            self.toggle.label = "Fonda il reparto power unit"
+            self.toggle.value = self.constructor
+
+    def effective_constructor(self, t) -> bool:
+        return t.works or (t.pu_capable and self.constructor)
+
     def start(self) -> None:
         team = self.teams[self.sel]
-        gs = GameState.new_game(team.id, self.constructor)
+        gs = GameState.new_game(team.id, self.effective_constructor(team))
         self.app.gs = gs
         from .shell import GameShell
         self.app.replace(GameShell(self.app))
@@ -116,6 +134,7 @@ class TeamSelectScene(Scene):
             for i, (r, _t) in enumerate(self.cards):
                 if r.collidepoint(ev.pos):
                     self.sel = i
+                    self._sync_toggle()
                     return
         super().handle(ev)
 
@@ -150,13 +169,19 @@ class TeamSelectScene(Scene):
                    T.DIM, align="right")
         t = self.teams[self.sel]
         T.text(surf, t.name, (w // 2, h - 208), 22, T.hex_rgb(t.colour), bold=True, align="center")
-        note = ("Costruirai in casa anche la power unit: costi molto piu' alti, ma pieno controllo."
-                if self.constructor else
-                "Comprerai la power unit da un motorista: meno costi fissi, prestazione non tua.")
-        if not t.works and self.constructor:
-            note = ("Avvierai un programma power unit da zero: la tua prima unita' sara' pronta "
+        colour = T.DIM
+        if t.works:
+            note = ("Sei gia' motorista: costruisci in casa telaio e power unit, "
+                    "con i costi e il controllo che ne derivano.")
+        elif not t.pu_capable:
+            note = f"Solo telaio: {t.pu_reason}."
+            colour = T.WARN
+        elif self.constructor:
+            note = ("Fonderai il reparto motori: la prima unita' nostra scendera' in pista "
                     "fra due stagioni, nel frattempo resti cliente.")
-        T.text(surf, note, (w // 2, h - 180), 14, T.DIM, align="center")
+        else:
+            note = "Comprerai la power unit da un motorista: meno costi fissi, prestazione non tua."
+        T.text(surf, note, (w // 2, h - 180), 14, colour, align="center", maxw=w - 160)
         super().draw(surf)
 
 

@@ -459,6 +459,7 @@ class PowerUnitPage(Page):
     """Il reparto motori: sviluppo, confronto coi motoristi, programma proprio."""
 
     def build(self) -> None:
+        self.found_note = ""
         r = self.rect
         self.widgets = []
         gs, team = self.gs, self.team
@@ -473,10 +474,16 @@ class PowerUnitPage(Page):
                                        "Porta in pista la nostra power unit",
                                        self.debut, "primary"))
         elif not team.works and not powertrain.has_program(gs):
-            self.widgets.append(Button(
+            can, why = powertrain.can_found(team)
+            b = Button(
                 (right.x + 16, y, right.w - 32, 42),
-                f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)",
-                self.start_program, "primary"))
+                f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)"
+                if can else "Reparto motori fuori dalla nostra portata",
+                self.start_program, "primary" if can else "ghost")
+            b.enabled = can
+            b.tip = why
+            self.widgets.append(b)
+            self.found_note = "" if can else why
 
     def refresh(self) -> None:
         self.build()
@@ -598,4 +605,7 @@ class PowerUnitPage(Page):
                          "che il reparto motori spende a ogni gara. Sta fuori dal tetto di "
                          "spesa della squadra.",
                    (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+        if getattr(self, "found_note", ""):
+            T.text(surf, self.found_note, (r.x + 16, r.bottom - 26), 13, T.WARN,
+                   maxw=r.w - 32)
         super().draw(surf)

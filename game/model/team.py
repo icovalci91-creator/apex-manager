@@ -24,6 +24,8 @@ class Team:
     facilities: dict
     philosophy: str
     titles: dict
+    pu_capable: bool = True     # puo' fondare un reparto motori proprio?
+    pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
     car: Car = None
     drivers: list = field(default_factory=list)      # id piloti

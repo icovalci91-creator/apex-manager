@@ -50,6 +50,15 @@ nel browser quindi si usa quello incluso in pygame.
    (telaio + power unit) o **solo telaio** con motore cliente. Chi parte cliente puo'
    fondare il reparto motori quando vuole, dalla sezione Power unit: da li' servono almeno
    due stagioni di investimenti prima di poter scendere in pista con roba propria.
+
+   Non tutte le squadre possono farlo, ed e' voluto. Un reparto motori e' un'azienda dentro
+   l'azienda: costa una fondazione piu' decine di milioni l'anno di sola gestione, e in
+   Formula 1 lo regge chi ha una casa automobilistica o un gruppo industriale alle spalle.
+   Ferrari, Mercedes, Red Bull e Audi il motore lo fanno gia'. Alpine e Cadillac possono
+   aprirlo, perche' dietro hanno Renault e General Motors. McLaren, Williams, Racing Bulls,
+   Haas e Aston Martin restano squadre da telaio: comprano la power unit e mettono tutto
+   sulla macchina. Il vincolo e' il campo `pu_capable` in `data/teams.json`, con accanto la
+   motivazione: se non sei d'accordo, cambialo.
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
 4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
