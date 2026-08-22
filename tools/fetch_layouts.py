@@ -64,7 +64,7 @@ def geocode(track: dict) -> tuple | None:
     return None
 
 
-def _overpass(query: str, attempts: int = 3) -> dict:
+def _overpass(query: str, attempts: int = 2) -> dict:
     """Interroga Overpass, cambiando server quando quello in uso non risponde.
 
     L'istanza principale limita chi fa molte richieste di fila e ogni tanto e'
@@ -147,13 +147,14 @@ def circuit_candidates(lat: float, lon: float, name: str):
             if ways:
                 yield f"{etichetta} '{nome}'", ways
 
-    # 1. la relazione dedicata: quando c'e', e' la fonte giusta
-    yield from relazioni(f'relation(around:4000,{lat},{lon})["highway"="raceway"];',
-                         "relazione")
-    # 2. i circuiti cittadini spesso non hanno vie da corsa ma sono taggati
-    #    come impianto sportivo: e' cosi' che si trova Albert Park
+    # 1. L'impianto sportivo: e' il filtro piu' selettivo e il piu' economico
+    #    per il servizio, e prende anche i cittadini che non hanno vie da corsa
+    #    (Albert Park e' un parco pubblico, sono strade normali).
     yield from relazioni(f'relation(around:3000,{lat},{lon})["sport"~"motor",i];',
                          "relazione sportiva")
+    # 2. la relazione dedicata alla pista, per i circuiti permanenti
+    yield from relazioni(f'relation(around:4000,{lat},{lon})["highway"="raceway"];',
+                         "relazione")
     # 3. ricerca per nome, ultima spiaggia fra le relazioni
     yield from relazioni(f'relation(around:4000,{lat},{lon})["name"~"{words[0]}",i];',
                          "relazione per nome")
