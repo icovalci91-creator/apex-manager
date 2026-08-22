@@ -270,7 +270,20 @@ costruttori, Red Bull-Ferrari-Mercedes a contendersi il secondo posto, Williams 
 altre e Cadillac al debutto in fondo. Fra i piloti Verstappen vince quasi la meta' delle
 gare pur non avendo la macchina migliore, Norris e Piastri si dividono il resto.
 
-Se qualcosa non ti torna, correggilo nel JSON e il gioco lo usa al riavvio.
+Se qualcosa non ti torna, correggilo nel JSON e il gioco lo usa al riavvio. Per cambiare
+molti piloti insieme c'e' uno strumento:
+
+```bash
+python tools/import_ratings.py mie_valutazioni.json --dry-run
+```
+
+Accetta due formati: le quattro categorie usate dai giochi ufficiali (pace, racecraft,
+awareness, experience), tradotte con formule scritte in chiaro dentro lo strumento, oppure
+gli otto attributi del gioco uno per uno. Scrive solo i piloti e i campi presenti nel file.
+
+Le valutazioni di un gioco commerciale sono un giudizio di terzi, non un dato pubblico:
+usarle come riferimento per una partita e' una cosa, ridistribuirle un'altra. Lo strumento
+legge un file che tieni tu e non porta con se' nessun dato altrui.
 
 ## Struttura del codice
 
