@@ -54,6 +54,13 @@ PARTNER_COST_SHARE = 0.35     # quota del listino che paga un team ufficiale
 EXTERNAL_BUDGET = 3.0         # M$ a gara spesi da un motorista che non corre
 EXTERNAL_DEV_RATE = 1.30      # capacita' tecnica di una casa strutturata
 
+# Al banco si lavora alla cieca. Mancano i chilometri veri, le temperature
+# vere, il degrado vero: si sviluppa contro un modello, e il modello sbaglia.
+# Portare la power unit in pista costa prestazione subito - si corre con un
+# motore acerbo - ma sblocca i dati che fanno crescere il reparto piu' in
+# fretta. E' il compromesso che rende il "quando" una decisione.
+BENCH_DEV_PENALTY = 0.60
+
 
 # ------------------------------------------------------------------ anagrafica
 def maker(gs, team) -> dict:
@@ -321,9 +328,41 @@ def advance_program(gs, budget: float) -> list[str]:
     gap = ceil - p["level"]
     if gap <= 0:
         return []
-    step = gap * CLOSE_RATE * min(2.5, budget / 2.0) * dev_rate(gs, team)
+    step = (gap * CLOSE_RATE * min(2.5, budget / 2.0)
+            * dev_rate(gs, team) * BENCH_DEV_PENALTY)
     p["level"] = min(PU_MAX, p["level"] + step * gs.rng.uniform(0.6, 1.4))
     return []
+
+
+def debut_outlook(gs, budget: float = 2.0, horizon: int = 24) -> dict:
+    """Cosa succede a debuttare adesso invece che fra una stagione.
+
+    Serve a rendere visibile il compromesso: chi debutta subito corre peggio
+    oggi ma sviluppa piu' in fretta, chi aspetta arriva con un motore migliore
+    ma ha perso mesi di dati veri.
+    """
+    p = program(gs)
+    team = gs.player
+    now = float(p.get("level", 0.0))
+    ceil = ceiling(gs, team)
+    rate = CLOSE_RATE * min(2.5, max(0.0, budget) / 2.0) * dev_rate(gs, team)
+
+    def grow(level, races, penalty):
+        for _ in range(races):
+            level = min(PU_MAX, level + max(0.0, ceil - level) * rate * penalty)
+        return level
+
+    supplied = rating(maker(gs, team))
+    return {
+        "now": now,
+        "supplied": supplied,
+        "gap_now": now - supplied,
+        "if_debut_now": grow(now, horizon, 1.0),
+        "if_wait": grow(now, horizon, BENCH_DEV_PENALTY),
+        "ceiling": ceil,
+        "bench_penalty": BENCH_DEV_PENALTY,
+        "horizon": horizon,
+    }
 
 
 def ready_to_debut(gs) -> bool:

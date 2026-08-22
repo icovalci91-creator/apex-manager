@@ -595,6 +595,30 @@ class PowerUnitPage(Page):
             y += 40
             T.text(surf, f"Investiti {p['invested']:.0f} M$ - in pista dal {p['ready_season']}",
                    (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
+            y += 26
+            o = powertrain.debut_outlook(gs, self.app.pu_budget)
+            T.text(surf, "QUANDO PORTARLA IN PISTA", (right.x + 16, y), 12, T.DIM_2, bold=True)
+            y += 22
+            gap = o["gap_now"]
+            T.text(surf, "Oggi il nostro motore vale", (right.x + 16, y), 13, T.DIM)
+            T.text(surf, f"{o['now']:.1f}", (right.x + 240, y), 13, T.TEXT, bold=True)
+            T.text(surf, f"contro il {o['supplied']:.1f} che compriamo ({gap:+.1f})",
+                   (right.x + 280, y), 13, T.OK if gap >= 0 else T.BAD)
+            y += 22
+            T.text(surf, f"Fra {o['horizon']} gare, se debutta subito",
+                   (right.x + 16, y), 13, T.DIM)
+            T.text(surf, f"{o['if_debut_now']:.1f}", (right.x + 240, y), 13, T.OK, bold=True)
+            y += 20
+            T.text(surf, f"Fra {o['horizon']} gare, se resta al banco",
+                   (right.x + 16, y), 13, T.DIM)
+            T.text(surf, f"{o['if_wait']:.1f}", (right.x + 240, y), 13, T.WARN, bold=True)
+            y += 24
+            for line in (f"Al banco si sviluppa al {o['bench_penalty']*100:.0f}% del ritmo: "
+                         f"mancano i dati veri.",
+                         "Correre con un motore acerbo costa punti adesso, ma lo fa",
+                         "crescere piu' in fretta."):
+                T.text(surf, line, (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
+                y += 16
         elif not team.works:
             T.text(surf, f"Compriamo la power unit da {eng.get('name', '-')} per "
                          f"{team.engine_customer_cost:.0f} M$ a stagione. Fondando un reparto "
