@@ -56,7 +56,15 @@ def _get(url: str, data: bytes | None = None) -> str:
 
 
 def geocode(track: dict) -> tuple | None:
-    """Trova il circuito per nome. Ritorna (lat, lon)."""
+    """Trova il circuito. Ritorna (lat, lon).
+
+    Se il circuito porta gia' un campo `coords` nei dati si usa quello: la
+    ricerca per nome non trova tutto, e per certe piste e' piu' semplice
+    scrivere le coordinate una volta che sperare che il servizio le indovini.
+    """
+    fisse = track.get("coords")
+    if fisse and len(fisse) == 2:
+        return float(fisse[0]), float(fisse[1])
     for query in (f"{track['name']} circuit", track["name"],
                   f"{track['name']} {track['country']}",
                   f"{track['gp']} circuit", f"{track['id']} circuit"):

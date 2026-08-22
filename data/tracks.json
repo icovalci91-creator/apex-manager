@@ -2,6 +2,7 @@
   "_format": "layout = sequenza di segmenti. S<metri> = rettilineo; R<gradi>:<classe> / L<gradi>:<classe> = curva destra/sinistra. Classe 1=tornante, 2=lenta, 3=media, 4=veloce, 5=curvone/kink",
   "_note": "I rettilinei vengono riscalati automaticamente per far combaciare length_km. File liberamente modificabile.",
   "_calendar_note": "Ogni circuito ha un contratto: contract_until e' l'ultima stagione coperta, fee il canone annuo in M$, tradition quanto e' intoccabile (Monaco 1.0), popularity il richiamo di pubblico. Alla scadenza si rinnova o si esce, e il posto vacante lo prende un circuito da 'candidates'. I canoni seguono l'ordine di grandezza di quelli riportati dalla stampa: i mediorientali pagano molto, i classici europei poco e in cambio non si toccano.",
+  "_coords_note": "coords: latitudine e longitudine facoltative. Se ci sono, lo strumento dei tracciati le usa invece di cercare il circuito per nome, che per le piste minori spesso non basta.",
   "tracks": [
     {
       "id": "melbourne",
@@ -21587,6 +21588,36 @@
         "bumpiness": 0.55
       },
       "layout": "S800 R90:2 S180 L70:3 S200 R60:4 S170 L80:3 S190 R45:5 S210 L90:2 S160 R70:3 S180 L60:4 S170 R80:3 S190 L45:5 S200 R90:2 S150 L70:3 S170 R60:4 S180 L100:3 S150 R70:3 S350"
+    },
+    {
+      "id": "tsukuba",
+      "name": "Tsukuba Circuit",
+      "gp": "Gran Premio di Tsukuba",
+      "country": "Giappone",
+      "flag": "JP",
+      "length_km": 2.045,
+      "laps": 149,
+      "corners": 12,
+      "pit_loss": 16.0,
+      "sprint": false,
+      "ref_lap": 42.0,
+      "month": 4,
+      "fee": 9.0,
+      "tradition": 0.15,
+      "popularity": 55,
+      "traits": {
+        "downforce": 0.95,
+        "power": 0.2,
+        "tyre_wear": 0.45,
+        "braking": 0.85,
+        "overtaking": 0.08,
+        "bumpiness": 0.4
+      },
+      "layout": "S330 R90:2 S60 L45:4 S150 R100:1 S120 L80:2 S90 R60:3 S110 L70:2 S80 R45:4 S130 L90:2 S100 R120:1 S140 L60:3 S90 R70:2 S110 L80:2 S250",
+      "coords": [
+        36.1547,
+        140.0761
+      ]
     }
   ]
 }
