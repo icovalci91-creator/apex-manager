@@ -74,6 +74,7 @@ def _hex(h: str) -> tuple:
 # ------------------------------------------------------------ prove libere
 def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     """Una sessione di prove: affina l'assetto e produce riscontri tecnici."""
+    from ..core import testing
     track = ws.track
     notes = []
     for team in gs.teams.values():
@@ -81,7 +82,8 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
         opt = car.optimal_setup(track)
         drivers = gs.drivers_of(team.id)
         fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
-        quality = 0.35 + 0.45 * (team.setup_strength / 100.0) + 0.20 * (fb / 100.0)
+        quality = (0.35 + 0.45 * (team.setup_strength / 100.0) + 0.20 * (fb / 100.0)
+                   + 0.25 * testing.setup_bonus(team, track))
         quality = min(0.97, quality * (0.75 + 0.25 * (ws.practice_done + 1) / 3.0))
         if team.id == gs.player_team and not delegate_player:
             quality *= 0.55        # il giocatore lavora da solo: gli ingegneri aiutano meno
@@ -132,9 +134,15 @@ def setup_hints(car, track) -> list:
 
 def auto_setup(gs, team, track, quality: float | None = None) -> None:
     """Delega completamente l'assetto agli ingegneri."""
+    from ..core import testing
     car = team.car
     opt = car.optimal_setup(track)
-    q = quality if quality is not None else min(0.98, 0.55 + 0.45 * (team.setup_strength / 100.0))
+    if quality is None:
+        # chi ha girato qui in test parte gia' dentro la finestra giusta
+        q = min(0.98, 0.55 + 0.45 * (team.setup_strength / 100.0)
+                + 0.30 * testing.setup_bonus(team, track))
+    else:
+        q = quality
     for k in SETUP_KEYS:
         car.setup[k] = opt[k] + gs.rng.gauss(0.0, (1.0 - q) * 22.0)
         car.setup[k] = max(0.0, min(100.0, car.setup[k]))

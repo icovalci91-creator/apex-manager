@@ -110,7 +110,11 @@ def project_risk(team, size: str) -> float:
     base = {"piccolo": 0.06, "medio": 0.12, "grande": 0.22}[size]
     quality = (0.5 * team.aero_strength + 0.5 * team.mech_strength) / 100.0
     sim = team.facilities.get("simulator", 60) / 100.0
-    return max(0.02, base * (1.55 - 0.55 * quality - 0.30 * sim))
+    rischio = base * (1.55 - 0.55 * quality - 0.30 * sim)
+    # i chilometri di correlazione fatti in test tolgono rischio: e' il loro
+    # scopo, misurare in pista quello che la galleria promette
+    rischio *= 1.0 - 0.55 * max(0.0, min(1.0, team.correlation))
+    return max(0.02, rischio)
 
 
 def start_project(gs, team, part: str, size: str) -> tuple:

@@ -4,7 +4,7 @@ from __future__ import annotations
 from .. import config as C
 from ..model.car import Part
 from . import (calendar, development, economy, facilities, market, penalties,
-               powertrain, rules, sponsors)
+               powertrain, rules, sponsors, testing)
 from .state import RaceResult
 
 
@@ -131,6 +131,7 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     development.passive_development(gs, player, dev_budget)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
+    testing.ai_plan(gs)
     for t in gs.teams.values():          # usura di power unit e cambi
         for m in penalties.wear_components(gs, t):
             if t.is_player:
@@ -247,6 +248,7 @@ def end_season(gs) -> dict:
         t.podiums = 0
         t.reset_season_finances()
         t.car.repair_all()
+    testing.end_season(gs)
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1

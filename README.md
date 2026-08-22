@@ -108,6 +108,28 @@ Un motorista senza squadra propria in griglia continua comunque a sviluppare per
 altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
 
 
+### Test privati
+
+Il regolamento vieta di provare in stagione con la vettura dell'anno, ma lascia due porte
+aperte che le squadre usano davvero: i TPC, con monoposto di almeno due stagioni fa, e i
+filming day. Da qui nascono otto giornate all'anno (`sporting.private_test_days`) da
+spendere in quattro programmi diversi:
+
+| Programma | Cosa lascia |
+|---|---|
+| Chilometri ai giovani | Crescita degli attributi, ma solo per chi ha ancora margine sul potenziale |
+| Correlazione galleria-pista | Fino al 45% di rischio in meno sui progetti di sviluppo |
+| Lavoro di assetto | Conoscenza del circuito: quando ci si torna in gara si parte gia' in finestra |
+| Prova di affidabilita' | Componenti rimessi a punto, meno rotture in gara |
+
+Le giornate costano dentro il tetto di spesa, quindi ogni prova e' sviluppo in meno, e la
+trasferta pesa: una squadra inglese che va a girare in Europa spende molto meno di una che
+si porta tutto dall'altra parte del mondo. Si puo' girare anche fuori dal calendario:
+Tsukuba, Mugello, Paul Ricard, Portimao e gli altri candidati sono li' apposta.
+
+A fine stagione le giornate si azzerano, la correlazione si dimezza e la conoscenza dei
+circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
+
 ### Le sezioni
 
 | Sezione | Cosa fai |
@@ -120,6 +142,8 @@ altrimenti la sua power unit resterebbe ferma mentre le altre crescono.
 | Piloti e mercato | Contratti, clausole, trattative con gradimento del pilota |
 | Staff tecnico | Organigramma completo e mercato del personale |
 | Infrastrutture | Nove strutture da potenziare, stato di obsolescenza, confronto con gli avversari |
+| Test privati | Otto giornate l'anno: dove girare, con chi, per quale programma |
+| Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione |
 | Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
 
