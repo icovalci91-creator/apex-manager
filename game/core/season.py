@@ -181,7 +181,9 @@ def end_season(gs) -> dict:
         reset = max(reset, era.get("reset_strength", 0.6))
         report["rules"].append(f"Nuovo ciclo tecnico: {era['label']}.")
     if reset > 0:
-        development.regulation_reset(gs, reset)
+        report["rules"] += development.regulation_reset(gs, reset, era)
+        if era and era.get("nota"):
+            report["rules"].append(era["nota"])
         report["rules"].append("Il nuovo regolamento ha rimescolato i valori in campo.")
 
     # reset della stagione: le posizioni vanno lette tutte prima di azzerare i

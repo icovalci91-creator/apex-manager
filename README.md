@@ -170,6 +170,20 @@ quello che si vuole e si integra la power unit nella vettura invece di riceverla
 scatola con le sue quote: fra cliente e costruttore pieno ballano circa due decimi al giro.
 Lo sviluppo motori sta fuori dal tetto di spesa della squadra.
 
+**Cambi di regolamento.** Non tutti i reset premiano le stesse cose, e i dati lo dicono ciclo
+per ciclo in `data/regulations.json`. Nel 2014 contava la power unit e Mercedes, partita col
+progetto anni prima, ne visse di rendita fino al 2021. Nel 2022 i motori erano congelati e
+l'unica leva era l'aerodinamica. Il 2026 e' di nuovo un reset motoristico.
+
+Da qui il dilemma vero: nella pagina Sviluppo decidi che quota del budget dirottare sul
+regolamento che verra'. Ogni milione speso li' e' un milione che non finisce sulla macchina
+con cui corri adesso. La Brawn 2009 nacque da una stagione buttata via; la McLaren 2013 dal
+non averlo fatto. Al reset conta quanto hai preparato rispetto agli altri e se i tuoi
+reparti sono forti proprio nell'area che il nuovo regolamento premia.
+
+Le squadre gestite dal computer fanno lo stesso calcolo: a un anno dal cambio chi non ha
+piu' niente da giocarsi dirotta fino all'85%, chi si gioca il titolo si ferma al 33%.
+
 **Regolamento.** A fine stagione la Commissione vota tre proposte estratte dal catalogo in
 `data/regulations.json`. Ogni scuderia vota secondo il proprio interesse, FIA e FOM secondo
 costi e spettacolo. Le proposte approvate cambiano davvero la simulazione. All'inizio di un

@@ -31,6 +31,72 @@ class Project:
         return 0.0 if self.budget <= 0 else min(1.0, self.invested / self.budget)
 
 
+def next_era(gs):
+    """Il prossimo ciclo tecnico.
+
+    Oltre l'ultimo ciclo scritto nei dati la carriera continua, quindi i cicli
+    successivi vengono immaginati: cadenza e natura seguono il ritmo storico,
+    dove a una rivoluzione della power unit segue di solito un periodo di
+    motori congelati in cui a decidere e' l'aerodinamica.
+    """
+    eras = gs.history_data.setdefault("eras", [])
+    for era in eras:
+        if era["from"] > gs.season:
+            return era
+    if not eras:
+        return None
+    return _forecast_era(gs, eras)
+
+
+def _forecast_era(gs, eras: list) -> dict:
+    last = eras[-1]
+    start = last["to"] + 1
+    prev = last.get("focus") or {}
+    pu_prima = prev.get("pu", 0.33) >= 0.45
+    if pu_prima:
+        # dopo una rivoluzione motoristica si congela e si torna all'aero
+        focus = {"pu": 0.12, "chassis": 0.25, "aero": 0.63}
+        label = "Motori omologati, guerra aerodinamica"
+        nota = "Power unit congelate: la prestazione torna tutta nel fondo e nelle ali."
+    else:
+        focus = {"pu": 0.55, "chassis": 0.15, "aero": 0.30}
+        label = "Nuova generazione di power unit"
+        nota = "Cambia la power unit: chi ci arriva preparato detta legge per anni."
+    era = {
+        "from": start,
+        "to": start + gs.rng.randint(4, 6),
+        "label": label,
+        "dominant": [],
+        "reset_strength": round(gs.rng.uniform(0.55, 0.95), 2),
+        "focus": focus,
+        "nota": nota,
+        "previsto": True,
+    }
+    eras.append(era)
+    return era
+
+
+def seasons_to_reset(gs):
+    era = next_era(gs)
+    return None if era is None else era["from"] - gs.season
+
+
+def prep_conversion(gs, team, era: dict) -> float:
+    """Quanto rende un milione speso sul regolamento che verra'.
+
+    Non tutti i reset premiano le stesse cose. Nel 2014 contava la power unit
+    e chi non ce l'aveva ha inseguito per anni; nel 2022 i motori erano
+    congelati e l'unica leva era il concetto aerodinamico. Una squadra forte
+    nell'area giusta converte molto meglio le stesse risorse.
+    """
+    focus = era.get("focus") or {"pu": 0.34, "chassis": 0.33, "aero": 0.33}
+    pu = team.pu_strength if team.works else 55.0
+    val = (focus.get("aero", 0.0) * team.aero_strength
+           + focus.get("chassis", 0.0) * team.mech_strength
+           + focus.get("pu", 0.0) * pu)
+    return val / 100.0
+
+
 def atr_factor(gs, team) -> float:
     """Ore di galleria del vento consentite in base alla classifica dell'anno prima."""
     scale = gs.regulations["aero_testing_restriction"]["scale"]
@@ -116,10 +182,22 @@ def advance_projects(gs, team) -> list:
 
 
 def passive_development(gs, team, budget: float) -> None:
-    """Sviluppo continuo distribuito secondo l'allocazione delle risorse."""
+    """Sviluppo continuo, diviso fra la vettura di oggi e il regolamento di domani.
+
+    E' il dilemma classico della Formula 1: ogni milione speso sul progetto
+    dell'anno prossimo e' un milione che non finisce sulla macchina con cui si
+    corre adesso. La Brawn 2009 nacque da una stagione buttata via; la McLaren
+    2013 dal non averlo fatto.
+    """
     if budget <= 0:
         return
     team.add_expense("Sviluppo continuo", round(budget, 3), in_cap=True)
+    era = next_era(gs)
+    share = max(0.0, min(0.90, team.next_reg_share)) if era is not None else 0.0
+    if share > 0:
+        reg_budget = budget * share
+        team.reg_prep += reg_budget * team.dev_rate * prep_conversion(gs, team, era)
+        budget -= reg_budget
     pts = dev_capacity(gs, team) * (budget / 2.5) * 0.55
     alloc = team.resource_alloc or {}
     tot = sum(alloc.values()) or 1.0
@@ -158,6 +236,7 @@ def ai_development(gs) -> None:
         elif team.philosophy == "powertrain":
             for k in ("cooling", "gearbox", "sidepods"):
                 alloc[k] = alloc.get(k, 1.0) + 1.0
+        team.next_reg_share = ai_reg_share(gs, team)
         team.resource_alloc = alloc
         passive_development(gs, team, budget)
         advance_projects(gs, team)
@@ -184,15 +263,61 @@ def technological_decay(gs) -> float:
     return lost / max(1, len(C.CAR_PARTS))
 
 
-def regulation_reset(gs, strength: float) -> None:
-    """Un nuovo ciclo tecnico riavvicina le prestazioni e premia chi ha struttura."""
+def ai_reg_share(gs, team) -> float:
+    """Quanto il computer dirotta sul regolamento che verra'.
+
+    Piu' il reset e' vicino, piu' si sposta. E chi non ha piu' niente da
+    giocarsi nel campionato in corso stacca prima la spina alla vettura
+    attuale: e' quello che fece la Brawn nel 2008.
+    """
+    # Il reset scatta a fine stagione, quindi l'ultimo anno utile per
+    # prepararsi e' quello con left == 1: da li' in poi e' troppo tardi.
+    left = seasons_to_reset(gs)
+    if left is None or left > 3:
+        return 0.0
+    base = {3: 0.10, 2: 0.25, 1: 0.60}.get(left, 0.0)
+    standings = gs.constructor_standings()
+    leader = standings[0].points if standings else 0.0
+    pos = gs.position_of(team.id)
+    in_lotta = pos <= 3 and team.points > leader * 0.60
+    tardi = gs.round > len(gs.tracks) * 0.55
+    if in_lotta:
+        base *= 0.55                       # si difende il campionato in corso
+    elif tardi and pos > 4:
+        base = min(0.85, base + 0.25)      # niente da perdere: tutto sull'anno nuovo
+    return base
+
+
+def regulation_reset(gs, strength: float, era: dict | None = None) -> list:
+    """Un nuovo ciclo tecnico rimescola la griglia.
+
+    Conta chi ci ha lavorato prima e quanto la squadra e' forte nell'area che
+    il nuovo regolamento premia. Chi non ha preparato nulla il reset lo subisce
+    invece di sfruttarlo.
+    """
     vals = [t.car.rating for t in gs.teams.values()]
     mean = sum(vals) / len(vals)
+    preps = [t.reg_prep for t in gs.teams.values()]
+    best_prep = max(preps) or 1.0
+    avg_prep = (sum(preps) / len(preps)) or 1.0
+    news = []
     for team in gs.teams.values():
         quality = (0.45 * team.aero_strength + 0.35 * team.mech_strength
                    + 0.20 * team.dev_rate * 60.0) / 100.0
+        # preparazione rispetto agli altri: negativa se sotto la media
+        rel = (team.reg_prep - avg_prep) / max(best_prep, 1e-6)
+        prep_bonus = rel * 16.0 * strength
         for p in team.car.parts.values():
             pull = (mean - p.perf) * strength * 0.55
-            bonus = (quality - 0.75) * 22.0 * strength
-            p.perf = max(45.0, min(PERF_CEILING, p.perf + pull + bonus + gs.rng.gauss(0, 2.4)))
+            bonus = (quality - 0.75) * 14.0 * strength
+            p.perf = max(45.0, min(PERF_CEILING,
+                                   p.perf + pull + bonus + prep_bonus + gs.rng.gauss(0, 2.4)))
             p.condition = 100.0
+        if team.is_player:
+            if rel > 0.25:
+                news.append("Il lavoro sul nuovo regolamento paga: siamo fra i piu' pronti.")
+            elif rel < -0.25:
+                news.append("Ci siamo fatti sorprendere: altri avevano cominciato molto prima.")
+        team.reg_prep = 0.0
+        team.next_reg_share = 0.0
+    return news

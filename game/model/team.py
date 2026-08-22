@@ -46,6 +46,8 @@ class Team:
     is_player: bool = False
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
+    next_reg_share: float = 0.0   # quota di sviluppo dirottata sul regolamento futuro
+    reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
 
     @property
     def is_partner(self) -> bool:

@@ -297,6 +297,14 @@ class DevPage(Page):
             self.widgets.append(b)
         self.widgets.append(Button((bx, sy + 76, right.w - 32, 40), "Avvia progetto",
                                    self.start_project, "primary"))
+        self.reg_slider = None
+        if development.seasons_to_reset(self.gs) not in (None,) and \
+                development.seasons_to_reset(self.gs) <= 3:
+            self.reg_slider = Slider(
+                (bx, sy + 128, right.w - 32, 28), "Risorse sul regolamento nuovo",
+                self.team.next_reg_share * 100.0, 0.0, 90.0,
+                on_change=self._set_reg_share, fmt="{:.0f}%")
+            self.widgets.append(self.reg_slider)
 
     def _alloc(self, k, v) -> None:
         self.team.resource_alloc[k] = max(0.0, v) / 100.0
@@ -304,6 +312,10 @@ class DevPage(Page):
     def _set_budget(self, v) -> None:
         # il weekend di gara legge il budget dall'App: e' li' che va scritto
         self.app.dev_budget = v
+
+    def _set_reg_share(self, v) -> None:
+        """Quota del budget di sviluppo dirottata sul regolamento che verra'."""
+        self.team.next_reg_share = max(0.0, min(0.90, v / 100.0))
 
     def _pick_part(self, k) -> None:
         self.sel_part = k
@@ -373,6 +385,29 @@ class DevPage(Page):
             y += 34
         T.text(surf, "NUOVO PACCHETTO", (right.x + 16, right.y + 128), 12, T.DIM_2, bold=True)
         sy = right.y + 150 + 4 * 34 + 10
+        left = development.seasons_to_reset(gs)
+        if left is not None and left <= 3:
+            era = development.next_era(gs)
+            f = era.get("focus", {})
+            dom = max(f, key=f.get) if f else "aero"
+            nome = {"pu": "power unit", "chassis": "telaio", "aero": "aerodinamica"}[dom]
+            ry = sy + 160
+            T.text(surf, f"REGOLAMENTO {era['from']}  -  fra {left} "
+                         f"{'stagione' if left == 1 else 'stagioni'}",
+                   (right.x + 16, ry), 12, T.GOLD, bold=True)
+            T.text(surf, f"{era['label']}: a decidere sara' soprattutto {nome} "
+                         f"({f.get(dom, 0)*100:.0f}%).",
+                   (right.x + 16, ry + 18), 12, T.DIM, maxw=right.w - 32)
+            conv = development.prep_conversion(gs, team, era)
+            rank = 1 + sum(1 for t in gs.teams.values()
+                           if development.prep_conversion(gs, t, era) > conv)
+            T.text(surf, f"Con i nostri reparti convertiamo a {conv:.2f}: "
+                         f"{rank}i della griglia su questo fronte.",
+                   (right.x + 16, ry + 34), 12, T.DIM, maxw=right.w - 32)
+            if left == 1:
+                T.text(surf, "Ultima stagione utile: dopo il cambio la preparazione non conta piu'.",
+                       (right.x + 16, ry + 50), 12, T.WARN, maxw=right.w - 32)
+
         cost = development.cost_of_upgrade(self.sel_part, self.sel_size)
         gain = development.expected_gain(gs, team, self.sel_part, self.sel_size)
         risk = development.project_risk(team, self.sel_size)

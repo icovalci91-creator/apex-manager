@@ -272,6 +272,7 @@ class GameState:
                     "spent": t.spent, "reputation": t.reputation, "facilities": t.facilities,
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
+                    "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
                     "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
                     "pu_partner_races": t.pu_partner_races,
                     "pu_partner_engine": t.pu_partner_engine,
@@ -311,6 +312,8 @@ class GameState:
             t.facilities = td["facilities"]; t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
+            t.next_reg_share = td.get("next_reg_share", 0.0)
+            t.reg_prep = td.get("reg_prep", 0.0)
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
             t.pu_partner_races = td.get("pu_partner_races", 0)
