@@ -25,6 +25,7 @@ class Team:
     philosophy: str
     titles: dict
     pu_status: str = "customer"  # works = costruisce | partner = team ufficiale | customer
+    parent_team: str = ""        # squadra maggiore dello stesso gruppo
     pu_capable: bool = True     # puo' fondare un reparto motori proprio?
     pu_partner_races: int = 0   # gare passate a lavorare con questa casa
     pu_partner_engine: str = "" # con quale: se cambia, si riparte da capo
@@ -48,6 +49,11 @@ class Team:
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
     next_reg_share: float = 0.0   # quota di sviluppo dirottata sul regolamento futuro
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
+
+    @property
+    def is_satellite(self) -> bool:
+        """Seconda squadra di un gruppo che ne ha gia' una in griglia."""
+        return bool(self.parent_team)
 
     @property
     def is_partner(self) -> bool:

@@ -46,8 +46,16 @@ def appeal_score(gs, team, proposal: dict) -> float:
     return sum(tr.get(k, 0.0) * w for k, w in proposal.get("appeal", {}).items())
 
 
+SISTER_ALIGNMENT = 0.60      # quanto una satellite pesa l'interesse del gruppo
+
+
 def vote_of(gs, team, proposal: dict) -> bool:
     s = appeal_score(gs, team, proposal)
+    parent = gs.teams.get(team.parent_team) if team.parent_team else None
+    if parent is not None and parent is not team:
+        # La seconda squadra di un gruppo vota in larga parte con la prima: e'
+        # la critica classica a chi in Commissione si ritrova due voti.
+        s = s * (1.0 - SISTER_ALIGNMENT) + appeal_score(gs, parent, proposal) * SISTER_ALIGNMENT
     s += gs.rng.gauss(0.0, 0.32)
     return s > 0.0
 

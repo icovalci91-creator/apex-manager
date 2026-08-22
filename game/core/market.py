@@ -156,6 +156,28 @@ def run_transfer_window(gs) -> list:
                 gs.free_agents.append(d)
                 news.append(f"{d.name} lascia {team.short}.")
 
+    # una squadra maggiore guarda prima nel proprio vivaio: e' a questo che
+    # serve avere una seconda squadra nel gruppo
+    for team in gs.teams.values():
+        sat = [t for t in gs.teams.values() if t.parent_team == team.id]
+        if team.is_player or not sat or len(team.drivers) >= 2:
+            continue
+        pesca = []
+        for s2 in sat:
+            pesca += [gs.drivers[x] for x in s2.drivers if x in gs.drivers]
+        if not pesca:
+            continue
+        promosso = max(pesca, key=lambda x: x.overall + x.potential * 0.4)
+        casa = gs.teams.get(promosso.team)
+        if casa and promosso.id in casa.drivers:
+            casa.drivers.remove(promosso.id)
+        promosso.team = team.id
+        promosso.salary = round(promosso.market_value * gs.rng.uniform(1.0, 1.3), 1)
+        promosso.contract_until = gs.season + gs.rng.randint(1, 3)
+        team.drivers.append(promosso.id)
+        news.append(f"{promosso.name} promosso da {casa.short if casa else '-'} "
+                    f"a {team.short}.")
+
     # le scuderie con sedili liberi pescano dal mercato
     order = sorted(gs.teams.values(), key=lambda t: -seat_quality(gs, t))
     for team in order:

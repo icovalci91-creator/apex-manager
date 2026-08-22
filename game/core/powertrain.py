@@ -48,6 +48,10 @@ PARTNER_MATURITY_RACES = 48        # gare per arrivarci
 EXTERNAL_DEV_PENALTY = 0.88        # la casa lontana sviluppa un po' piu' piano
 INTEGRATION_CUSTOMER = 0.25
 PARTNER_COST_SHARE = 0.35     # quota del listino che paga un team ufficiale
+# Dentro un gruppo la fornitura e' una partita di giro: la satellite paga poco e
+# riceve una power unit gia' allineata al telaio della sorella maggiore.
+SISTER_COST_SHARE = 0.45
+INTEGRATION_SISTER = 0.50
 # Un motorista esterno e' comunque una casa automobilistica: investe come e piu'
 # di una squadra works. Cio' che la rallenta non e' il portafoglio ma la
 # distanza dal reparto telaio, ed e' EXTERNAL_DEV_PENALTY a rappresentarla.
@@ -97,7 +101,12 @@ def supply_cost(gs, team) -> float:
     if team.works:
         return 0.0
     full = float(gs.engine_makers.get(team.engine, {}).get("cost_per_customer", 25.0))
-    return round(full * PARTNER_COST_SHARE, 2) if team.is_partner else full
+    if team.is_partner:
+        return round(full * PARTNER_COST_SHARE, 2)
+    parent = gs.teams.get(team.parent_team) if team.parent_team else None
+    if parent is not None and parent.engine == team.engine:
+        return round(full * SISTER_COST_SHARE, 2)
+    return full
 
 
 def rating(eng: dict) -> float:
@@ -209,6 +218,9 @@ def integration(gs, team) -> float:
     if team.is_partner:
         return partner_integration(team)
     if not team.works:
+        parent = gs.teams.get(team.parent_team) if team.parent_team else None
+        if parent is not None and parent.engine == team.engine:
+            return INTEGRATION_SISTER
         return INTEGRATION_CUSTOMER
     return INTEGRATION_CUSTOMER + (INTEGRATION_WORKS - INTEGRATION_CUSTOMER) * min(
         1.0, team.pu_strength / 90.0)

@@ -2,6 +2,7 @@
   "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori.",
   "_pu_note": "pu_capable: se falso la squadra non potra' mai fondare un reparto motori. Un programma power unit richiede una casa automobilistica o un gruppo industriale alle spalle: costa una fondazione piu' decine di milioni l'anno di gestione, fuori dalla portata di una squadra indipendente.",
   "_pu_status_note": "pu_status: 'works' costruisce la propria power unit e ne paga il reparto; 'partner' e' team ufficiale di una casa che non corre in proprio (Aston Martin-Honda): non costruisce nulla, paga una fornitura agevolata e riceve un motore disegnato attorno alla sua vettura; 'customer' compra a listino. Il campo works viene derivato da qui.",
+  "_group_note": "parent_team: squadra maggiore dello stesso gruppo. Una satellite compra la power unit a prezzo interno, monta i componenti trasferibili della sorella maggiore (cambio, sospensione posteriore), ne condivide l'indirizzo tecnico e le fa da vivaio piloti. In cambio vota spesso con lei in Commissione e si vede portare via i talenti migliori.",
   "engine_manufacturers": {
     "mercedes": {
       "name": "Mercedes-AMG HPP",
@@ -88,7 +89,8 @@
       },
       "pu_capable": false,
       "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": ""
     },
     {
       "id": "ferrari",
@@ -133,7 +135,8 @@
       },
       "pu_capable": true,
       "pu_reason": "Costruisce power unit a Maranello dal 1950",
-      "pu_status": "works"
+      "pu_status": "works",
+      "parent_team": ""
     },
     {
       "id": "redbull",
@@ -178,7 +181,8 @@
       },
       "pu_capable": true,
       "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes",
-      "pu_status": "works"
+      "pu_status": "works",
+      "parent_team": ""
     },
     {
       "id": "mercedes",
@@ -223,7 +227,8 @@
       },
       "pu_capable": true,
       "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth",
-      "pu_status": "works"
+      "pu_status": "works",
+      "parent_team": ""
     },
     {
       "id": "astonmartin",
@@ -268,7 +273,8 @@
       },
       "pu_capable": false,
       "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa",
-      "pu_status": "partner"
+      "pu_status": "partner",
+      "parent_team": ""
     },
     {
       "id": "alpine",
@@ -313,7 +319,8 @@
       },
       "pu_capable": true,
       "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": ""
     },
     {
       "id": "williams",
@@ -358,7 +365,8 @@
       },
       "pu_capable": false,
       "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": ""
     },
     {
       "id": "racingbulls",
@@ -403,7 +411,8 @@
       },
       "pu_capable": false,
       "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": "redbull"
     },
     {
       "id": "haas",
@@ -448,7 +457,8 @@
       },
       "pu_capable": false,
       "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": ""
     },
     {
       "id": "audi",
@@ -493,7 +503,8 @@
       },
       "pu_capable": true,
       "pu_reason": "Reparto motori Audi a Neuburg",
-      "pu_status": "works"
+      "pu_status": "works",
+      "parent_team": ""
     },
     {
       "id": "cadillac",
@@ -538,7 +549,8 @@
       },
       "pu_capable": true,
       "pu_reason": "General Motors sta sviluppando una propria power unit",
-      "pu_status": "customer"
+      "pu_status": "customer",
+      "parent_team": ""
     }
   ]
 }

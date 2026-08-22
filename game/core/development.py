@@ -240,6 +240,36 @@ def technological_decay(gs) -> float:
     return lost / max(1, len(C.CAR_PARTS))
 
 
+# Componenti che il regolamento consente di comprare dalla squadra maggiore:
+# nella realta' sono cambio, sospensione posteriore e impianto frenante.
+TRANSFERABLE = ("gearbox", "suspension", "brakes")
+
+
+def sister_transfer(gs) -> list:
+    """Le satellite montano i componenti trasferibili della sorella maggiore.
+
+    Non e' un regalo: si comprano, e restano indietro di un passo rispetto
+    all'originale. Ma per una squadra piccola vale piu' di quanto potrebbe
+    progettare da sola.
+    """
+    msgs = []
+    for team in gs.teams.values():
+        parent = gs.teams.get(team.parent_team) if team.parent_team else None
+        if parent is None or parent is team:
+            continue
+        for k in TRANSFERABLE:
+            if k not in team.car.parts or k not in parent.car.parts:
+                continue
+            mio = team.car.parts[k]
+            suo = parent.car.parts[k].perf * 0.97      # un passo indietro
+            if suo > mio.perf:
+                mio.perf = min(PERF_CEILING, mio.perf + (suo - mio.perf) * 0.8)
+        if team.is_player:
+            msgs.append(f"Dal gruppo {parent.short} arrivano cambio, sospensione "
+                        f"posteriore e freni della stagione nuova.")
+    return msgs
+
+
 def ai_reg_share(gs, team) -> float:
     """Quanto il computer dirotta sul regolamento che verra'.
 

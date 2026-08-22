@@ -73,6 +73,23 @@ Il rapporto con la power unit ha tre forme, nel campo `pu_status`:
 | `partner` | Aston Martin con Honda | frazione del listino (8.75 invece di 25 M$) | da 0.42 a 0.85, con gli anni | lo fa la casa, un po' piu' piano |
 | `customer` | tutti gli altri | listino pieno | 0.25 | non ti riguarda |
 
+C'e' poi il caso della **squadra satellite**: non un rapporto con un motorista esterno ma
+con un'altra squadra in griglia. Racing Bulls sta dentro il gruppo Red Bull, e il campo
+`parent_team` le da' quattro vantaggi concreti:
+
+- **fornitura interna** al 45% del listino (10.80 invece di 24 M$)
+- **integrazione 0.50**, il doppio di un cliente: la power unit e' gia' allineata al telaio
+  della sorella maggiore
+- **componenti trasferibili** - cambio, sospensione posteriore e freni arrivano dalla
+  squadra maggiore a fine stagione, un passo indietro rispetto all'originale ma molto
+  avanti rispetto a quello che progetterebbe da sola
+- **vivaio**: quando la squadra maggiore ha un sedile libero pesca prima di tutto dalla
+  satellite
+
+Il prezzo lo paga in Commissione: una satellite vota per il 60% secondo l'interesse del
+gruppo invece del proprio, che e' la critica classica a chi si ritrova due voti al tavolo.
+E i suoi piloti migliori se li vede portare via.
+
 Il caso `partner` e' la via di mezzo, e lo e' in tre modi diversi.
 
 **Costi**: piu' bassi di chiunque, perche' non c'e' infrastruttura da mantenere e la casa

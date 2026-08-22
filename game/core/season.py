@@ -196,6 +196,10 @@ def end_season(gs) -> dict:
             report["rules"].append(era["nota"])
         report["rules"].append("Il nuovo regolamento ha rimescolato i valori in campo.")
 
+    # i componenti che arrivano dalla sorella maggiore si montano sulla vettura
+    # dell'anno nuovo, quindi dopo l'eventuale rimescolamento regolamentare
+    report["rules"] += development.sister_transfer(gs)
+
     # reset della stagione: le posizioni vanno lette tutte prima di azzerare i
     # punti, altrimenti ogni squadra ripulita falsa la classifica di quelle dopo
     final_positions = {t.id: pos for pos, t in enumerate(gs.constructor_standings(), 1)}
