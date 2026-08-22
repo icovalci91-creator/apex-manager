@@ -44,6 +44,10 @@ class Track:
     layout: str
     ref_lap: float = 90.0
     month: int = 3
+    contract_until: int = 9999   # ultima stagione coperta dal contratto
+    fee: float = 25.0            # canone annuo pagato dal promotore, in M$
+    tradition: float = 0.3       # quanto e' intoccabile (Monaco 1.0)
+    popularity: float = 60.0     # richiamo di pubblico
     calibration: float = 1.0
     geo: list = field(default_factory=list)   # [[lat, lon], ...] del tracciato reale
 
@@ -61,6 +65,9 @@ class Track:
             length_km=d["length_km"], laps=d["laps"], corners=d["corners"],
             pit_loss=d["pit_loss"], sprint=d.get("sprint", False),
             traits=d["traits"], layout=d["layout"], ref_lap=d.get("ref_lap", 90.0), month=int(d.get("month", 3)),
+            contract_until=int(d.get("contract_until", 9999)),
+            fee=float(d.get("fee", 25.0)), tradition=float(d.get("tradition", 0.3)),
+            popularity=float(d.get("popularity", 60.0)),
             geo=d.get("geo") or [],
         )
         if t.geo:

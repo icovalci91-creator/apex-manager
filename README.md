@@ -153,6 +153,23 @@ risultato, perché un tracciato sbagliato è peggio di nessun tracciato. Serve r
 Google Maps non è utilizzabile: i suoi dati sono proprietari e le condizioni d'uso vietano
 di estrarli per usarli altrove. OpenStreetMap è aperto e chiede solo la citazione qui sotto.
 
+**Il calendario non e' fisso.** Ogni circuito ha un contratto con una scadenza, un canone
+annuo e un grado di tradizione. Alla scadenza si rinnova o si esce, e a decidere sono tre
+cose che tirano in direzioni diverse: quanto paga il promotore, quanto pubblico porta, e
+quanto la pista e' intoccabile. Monaco paga poco e non si tocca; una pista nuova paga molto
+ma non ha storia da spendere quando i conti cambiano. Chi esce finisce nel serbatoio dei
+candidati e puo' rientrare piu' avanti, ma non la stagione dopo.
+
+Il serbatoio parte con dieci circuiti che premono per entrare - Imola, Portimao, Mugello,
+Istanbul, Sepang, Hockenheim, Kyalami, Paul Ricard, Nurburgring, Buenos Aires - e si
+riempie con chi perde il posto. Su otto stagioni di prova il calendario resta fra le 23 e
+le 24 gare, Monaco, Monza, Silverstone e Spa non se ne vanno mai, e i mesi si
+ridistribuiscono da marzo a dicembre a ogni cambio.
+
+Canoni e scadenze in `data/tracks.json` seguono l'ordine di grandezza di quelli riportati
+dalla stampa: i circuiti mediorientali pagano 50-58 M$, i classici europei 16-27 e in
+cambio non si discutono.
+
 **Tempo sul giro.** Modello quasi-statico: per ogni punto si calcola la velocità massima
 consentita dall'aderenza laterale (che dipende da carico aerodinamico e velocità), poi una
 passata in avanti limitata da potenza e trazione e una all'indietro limitata dalla frenata.

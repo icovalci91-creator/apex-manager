@@ -250,13 +250,22 @@ class CalendarPage(Page):
         self.build()
 
     def draw(self, surf) -> None:
+        from ...core import calendar as CAL
         r, gs = self.rect, self.gs
+        rias = CAL.summary(gs)
+        T.text(surf, f"{rias['gare']} GARE  -  {rias['canoni']:.0f} M$ DI CANONI ALL'ANNO",
+               (r.x, r.y), 12, T.DIM_2, bold=True)
+        if rias["in_scadenza"]:
+            nomi = ", ".join(t.name for t in rias["in_scadenza"][:3])
+            T.text(surf, f"in scadenza: {nomi}", (r.x + 380, r.y), 12, T.WARN,
+                   maxw=r.w - 400)
         cols = 6
         cw = (r.w - (cols - 1) * 12) / cols
         ch = 150
+        top = r.y + 22
         for i, t in enumerate(gs.tracks):
             x = r.x + (i % cols) * (cw + 12)
-            y = r.y + (i // cols) * (ch + 12)
+            y = top + (i // cols) * (ch + 12)
             rect = pygame.Rect(x, y, cw, ch)
             done = i < gs.round
             nxt = (i == gs.round)
@@ -271,9 +280,16 @@ class CalendarPage(Page):
             trackdraw.draw_minimap(surf, t, (rect.x + 8, rect.y + 26, rect.w - 16, 70),
                                    colour=(52, 62, 82) if not done else (38, 46, 60), width=3)
             T.text(surf, t.name, (rect.x + 12, rect.bottom - 44), 12,
-                   T.DIM if done else T.TEXT, maxw=rect.w - 24)
+                   T.DIM if done else T.TEXT, maxw=rect.w - 88)
             T.text(surf, f"{t.length_km:.3f} km - {t.laps} giri",
                    (rect.x + 12, rect.bottom - 26), 11, T.DIM_2)
+            scade = getattr(t, "contract_until", 9999)
+            resta = scade - gs.season
+            col = T.BAD if resta <= 0 else (T.WARN if resta <= 1 else T.DIM_2)
+            if getattr(t, "tradition", 0) >= 0.85:
+                T.text(surf, "STORICO", (rect.x + 12, rect.y + 8 + 14), 10, T.GOLD, bold=True)
+            T.text(surf, f"fino {scade}", (rect.right - 12, rect.bottom - 44), 11, col,
+                   align="right")
             if done:
                 res = next((rr for rr in gs.results
                             if rr.track_id == t.id and rr.season == gs.season and rr.kind == "gp"), None)
@@ -282,6 +298,20 @@ class CalendarPage(Page):
                     if win:
                         T.text(surf, f"1o {win.last}", (rect.right - 12, rect.bottom - 26), 11,
                                T.GOLD, bold=True, align="right")
+
+        # chi aspetta un posto in calendario
+        righe = (len(gs.tracks) + cols - 1) // cols
+        cy = top + righe * (ch + 12) + 8
+        if rias["candidati"] and cy < r.bottom - 60:
+            T.text(surf, "CIRCUITI CHE PREMONO PER ENTRARE", (r.x, cy), 12, T.DIM_2, bold=True)
+            cy += 22
+            for j, t in enumerate(rias["candidati"][:8]):
+                cx = r.x + (j % 4) * (r.w / 4)
+                yy = cy + (j // 4) * 20
+                T.text(surf, t.name, (cx, yy), 12, T.TEXT, maxw=r.w / 4 - 130)
+                T.text(surf, f"{t.fee:.0f} M$", (cx + r.w / 4 - 120, yy), 12, T.GOLD)
+                T.bar(surf, (cx + r.w / 4 - 70, yy + 4, 50, 7),
+                      CAL.candidate_score(gs, t) * 100, 100, T.ACCENT)
         super().draw(surf)
 
 

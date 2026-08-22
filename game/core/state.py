@@ -50,6 +50,7 @@ class GameState:
     race_distance: float = 1.0     # durata delle gare rispetto alla realta'
 
     tracks: list = field(default_factory=list)
+    candidates: list = field(default_factory=list)   # circuiti fuori calendario
     teams: dict = field(default_factory=dict)
     drivers: dict = field(default_factory=dict)
     free_agents: list = field(default_factory=list)
@@ -73,6 +74,8 @@ class GameState:
 
         tdata = _load("tracks.json")
         gs.tracks = [Track.from_dict(t) for t in tdata["tracks"]]
+        # circuiti che non corrono ma potrebbero entrare in calendario
+        gs.candidates = [Track.from_dict(t) for t in tdata.get("candidates", [])]
 
         regs = _load("regulations.json")
         gs.regulations = regs["current"]
@@ -140,12 +143,37 @@ class GameState:
         gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
         return gs
 
+    def _restore_calendar(self, calendario, candidati) -> None:
+        """Rimette il calendario com'era: le gare cambiano di stagione in stagione."""
+        if not calendario:
+            return
+        tutti = {t.id: t for t in list(self.tracks) + list(self.candidates)}
+        nuovi = []
+        for voce in calendario:
+            t = tutti.get(voce["id"])
+            if t is None:
+                continue
+            t.contract_until = voce.get("contract_until", t.contract_until)
+            t.fee = voce.get("fee", t.fee)
+            t.month = voce.get("month", t.month)
+            nuovi.append(t)
+        if not nuovi:
+            return
+        self.tracks = nuovi
+        rimasti = [t for k, t in tutti.items() if t not in nuovi]
+        for voce in (candidati or []):
+            t = tutti.get(voce["id"])
+            if t is not None and t not in nuovi:
+                t.contract_until = voce.get("contract_until", t.contract_until)
+                t.fee = voce.get("fee", t.fee)
+        self.candidates = rimasti
+
     def _calibrate_tracks(self) -> None:
         """Allinea il modello di giro ai tempi reali usando una vettura di riferimento."""
         ref_spec = {k: 85.0 for k in C.CAR_PARTS}
         ref_engine = {"power": 90, "ers": 88, "reliability": 86, "efficiency": 87}
         ref = Car.build(ref_spec, ref_engine, self.regulations)
-        for tr in self.tracks:
+        for tr in list(self.tracks) + list(self.candidates):
             tr.calibrate(ref)
 
     def _build_staff(self) -> None:
@@ -263,6 +291,10 @@ class GameState:
             "seed": self.seed, "regulations": self.regulations,
             "race_distance": self.race_distance,
             "pu_program": getattr(self, "pu_program", {}),
+            "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
+                          "month": t.month} for t in self.tracks],
+            "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
+                           for t in self.candidates],
             "engine_makers": self.engine_makers,
             "inbox": self.inbox, "season_history": self.season_history,
             "results": [
@@ -309,6 +341,7 @@ class GameState:
         gs.race_distance = float(data.get("race_distance", 1.0))
         gs.regulations = data["regulations"]
         gs.pu_program = data.get("pu_program", {})
+        gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         gs.inbox = data.get("inbox", [])
         gs.season_history = data.get("season_history", [])

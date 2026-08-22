@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import (development, economy, facilities, market, penalties, powertrain,
-               rules, sponsors)
+from . import (calendar, development, economy, facilities, market, penalties,
+               powertrain, rules, sponsors)
 from .state import RaceResult
 
 
@@ -264,6 +264,8 @@ def end_season(gs) -> dict:
         "constructor_champion": report["champions"]["constructor"].short if cs else "",
         "standings": [(t.short, t.last_position) for t in cs],
     })
+    report["calendar"] = calendar.roll_contracts(gs)
+
     gs.season += 1
     gs.regulations["season"] = gs.season
     for t in gs.teams.values():          # anno nuovo: si riparte da gennaio
