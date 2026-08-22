@@ -90,7 +90,8 @@
       "pu_capable": false,
       "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente",
       "pu_status": "customer",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 1
     },
     {
       "id": "ferrari",
@@ -136,7 +137,8 @@
       "pu_capable": true,
       "pu_reason": "Costruisce power unit a Maranello dal 1950",
       "pu_status": "works",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 4
     },
     {
       "id": "redbull",
@@ -182,7 +184,8 @@
       "pu_capable": true,
       "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes",
       "pu_status": "works",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 3
     },
     {
       "id": "mercedes",
@@ -228,7 +231,8 @@
       "pu_capable": true,
       "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth",
       "pu_status": "works",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 2
     },
     {
       "id": "astonmartin",
@@ -274,7 +278,8 @@
       "pu_capable": false,
       "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa",
       "pu_status": "partner",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 7
     },
     {
       "id": "alpine",
@@ -320,7 +325,8 @@
       "pu_capable": true,
       "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon",
       "pu_status": "customer",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 10
     },
     {
       "id": "williams",
@@ -366,7 +372,8 @@
       "pu_capable": false,
       "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle",
       "pu_status": "customer",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 5
     },
     {
       "id": "racingbulls",
@@ -412,7 +419,8 @@
       "pu_capable": false,
       "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains",
       "pu_status": "customer",
-      "parent_team": "redbull"
+      "parent_team": "redbull",
+      "last_position": 6
     },
     {
       "id": "haas",
@@ -458,7 +466,8 @@
       "pu_capable": false,
       "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari",
       "pu_status": "customer",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 9
     },
     {
       "id": "audi",
@@ -504,7 +513,8 @@
       "pu_capable": true,
       "pu_reason": "Reparto motori Audi a Neuburg",
       "pu_status": "works",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 8
     },
     {
       "id": "cadillac",
@@ -550,7 +560,8 @@
       "pu_capable": true,
       "pu_reason": "General Motors sta sviluppando una propria power unit",
       "pu_status": "customer",
-      "parent_team": ""
+      "parent_team": "",
+      "last_position": 11
     }
   ]
 }

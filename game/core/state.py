@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import random
 import zlib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 
 from .. import config as C
 from ..model.car import Car
@@ -103,6 +103,9 @@ class GameState:
                 parent_team=td.get("parent_team", ""),
                 pu_capable=td.get("pu_capable", True),
                 pu_reason=td.get("pu_reason", ""),
+                # da qui escono ore di galleria, premi e valore per gli sponsor:
+                # senza, la prima stagione tratterebbe tutti come sesti
+                last_position=td.get("last_position", 6),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
             team.is_player = (td["id"] == team_id)
@@ -296,6 +299,7 @@ class GameState:
             "seed": self.seed, "regulations": self.regulations,
             "race_distance": self.race_distance,
             "pu_program": getattr(self, "pu_program", {}),
+            "pu_specs": getattr(self, "pu_specs", {}),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
                           "month": t.month} for t in self.tracks],
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
@@ -318,6 +322,7 @@ class GameState:
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used, "correlation": t.correlation,
                     "setup_knowledge": t.setup_knowledge or {},
+                    "car_understanding": t.car_understanding,
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
@@ -349,6 +354,7 @@ class GameState:
         gs.race_distance = float(data.get("race_distance", 1.0))
         gs.regulations = data["regulations"]
         gs.pu_program = data.get("pu_program", {})
+        gs.pu_specs = data.get("pu_specs", {})
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         gs.inbox = data.get("inbox", [])
@@ -367,7 +373,9 @@ class GameState:
             t.facility_age = dict(td.get("facility_age") or {})
             t.test_days_used = td.get("test_days_used", 0)
             t.correlation = td.get("correlation", 0.0)
-            t.setup_knowledge = dict(td.get("setup_knowledge") or {}); t.drivers = td["drivers"]
+            t.setup_knowledge = dict(td.get("setup_knowledge") or {})
+            t.car_understanding = td.get("car_understanding", 0.0)
+            t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.next_reg_share = td.get("next_reg_share", 0.0)
@@ -385,7 +393,9 @@ class GameState:
             t.pu_partner_engine = td.get("pu_partner_engine", "")
             t.car.engine = gs.engine_makers[t.engine]
             t.staff = [Staff.from_dict(s) for s in td["staff"]]
-            t.dev_projects = [Project(**p) for p in td.get("dev_projects", [])]
+            campi = {f.name for f in fields(Project)}
+            t.dev_projects = [Project(**{k: v for k, v in p.items() if k in campi})
+                              for p in td.get("dev_projects", [])]
             for k, p in td["car_parts"].items():
                 if k in t.car.parts:
                     t.car.parts[k].perf = p["perf"]

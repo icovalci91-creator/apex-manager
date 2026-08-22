@@ -168,6 +168,25 @@ def briefing(gs) -> list:
         lines.append((speaker,
                       f"{AREAS[area]} {tone} {r['best_team']} ({gap:+.0f} punti). "
                       f"Lavorerei su {', '.join(C.CAR_PARTS[p]['label'].lower() for p in AREA_PARTS[area][:2])}."))
+    # come stiamo a esecuzione, non solo a idee: il pezzo giusto serve a poco
+    # se poi in pista non funziona
+    from . import development
+    conf = development.project_confidence(gs, me, "floor", "grande")
+    if conf < 0.45:
+        lines.append((who(td, "Il direttore tecnico"),
+                      f"Il problema non e' solo dove sviluppare: cosi' come siamo "
+                      f"messi, un pacchetto grande ha {development.outcome_odds(conf, 'grande')['fallito']*100:.0f}% "
+                      f"di non funzionare. {development.weakest_link(gs, me, 'floor').capitalize()}."))
+    elif conf > 0.72:
+        lines.append((who(td, "Il direttore tecnico"),
+                      "Sull'esecuzione siamo tranquilli: quello che disegniamo, in "
+                      "pista si ritrova. Possiamo permetterci pacchetti ambiziosi."))
+    if me.car_understanding < 0.25:
+        lines.append((who(aero, "Aerodinamica"),
+                      "Di questa macchina sappiamo ancora poco: ogni venerdi' "
+                      "ripartiamo da capo con l'assetto. Serve tempo di reparto, "
+                      "non un altro aggiornamento."))
+
     nxt = gs.next_track
     if nxt and strat:
         t = nxt.traits

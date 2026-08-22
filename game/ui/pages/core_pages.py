@@ -277,7 +277,7 @@ class DevPage(Page):
                                     "Budget sviluppo per gara", self.dev_budget, 0.0, 6.0,
                                     on_change=self._set_budget, fmt="{:.2f} M$")
         self.widgets.append(self.budget_slider)
-        bx, by = right.x + 16, right.y + 150
+        bx, by = right.x + 16, right.y + 200
         self.part_buttons = []
         for i, (k, meta) in enumerate(C.CAR_PARTS.items()):
             b = Button((bx + (i % 3) * ((right.w - 44) / 3 + 6), by + (i // 3) * 34,
@@ -295,13 +295,13 @@ class DevPage(Page):
             b.active = (sz == self.sel_size)
             self.size_buttons.append(b)
             self.widgets.append(b)
-        self.widgets.append(Button((bx, sy + 76, right.w - 32, 40), "Avvia progetto",
+        self.widgets.append(Button((bx, sy + 152, right.w - 32, 40), "Avvia progetto",
                                    self.start_project, "primary"))
         self.reg_slider = None
         if development.seasons_to_reset(self.gs) not in (None,) and \
                 development.seasons_to_reset(self.gs) <= 3:
             self.reg_slider = Slider(
-                (bx, sy + 128, right.w - 32, 28), "Risorse sul regolamento nuovo",
+                (bx, sy + 206, right.w - 32, 28), "Risorse sul regolamento nuovo",
                 self.team.next_reg_share * 100.0, 0.0, 90.0,
                 on_change=self._set_reg_share, fmt="{:.0f}%")
             self.widgets.append(self.reg_slider)
@@ -354,19 +354,26 @@ class DevPage(Page):
         r, gs, team = self.rect, self.gs, self.team
         atr = development.atr_factor(gs, team)
         cap = development.dev_capacity(gs, team)
-        cw = (r.w - 32) / 3
+        cw = (r.w - 48) / 4
         card(surf, (r.x, r.y, cw, 86), "Capacita' di sviluppo", f"{cap:.2f}",
              f"efficienza reparto {team.dev_rate:.2f}", accent=T.ACCENT)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Ore galleria (ATR)", f"{atr*100:.0f}%",
              f"{team.last_position}o nel costruttori precedente",
              colour=T.OK if atr >= 1.0 else T.WARN, accent=T.WARN)
-        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Progetti attivi",
+        und = team.car_understanding
+        card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Conoscenza della vettura",
+             f"{und*100:.0f}%", "quanto sappiamo sfruttarla",
+             colour=T.OK if und > 0.45 else T.TEXT, accent=T.GOLD)
+        card(surf, (r.x + 3 * (cw + 16), r.y, cw, 86), "Progetti attivi",
              f"{len(team.dev_projects)} / 3",
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
 
         left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "ALLOCAZIONE DELLE RISORSE", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, "LAVORO DI REPARTO: DOVE LIMARE", (left.x + 16, left.y + 12), 12,
+               T.DIM_2, bold=True)
+        T.text(surf, "affinamenti, non aggiornamenti", (left.right - 16, left.y + 12), 11,
+               T.DIM_2, align="right")
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
@@ -383,15 +390,15 @@ class DevPage(Page):
         else:
             T.text(surf, "Nessun progetto in corso.", (right.x + 16, y + 4), 13, T.DIM)
             y += 34
-        T.text(surf, "NUOVO PACCHETTO", (right.x + 16, right.y + 128), 12, T.DIM_2, bold=True)
-        sy = right.y + 150 + 4 * 34 + 10
+        T.text(surf, "NUOVO PACCHETTO", (right.x + 16, right.y + 178), 12, T.DIM_2, bold=True)
+        sy = right.y + 200 + 4 * 34 + 10
         left = development.seasons_to_reset(gs)
         if left is not None and left <= 3:
             era = development.next_era(gs)
             f = era.get("focus", {})
             dom = max(f, key=f.get) if f else "aero"
             nome = {"pu": "power unit", "chassis": "telaio", "aero": "aerodinamica"}[dom]
-            ry = sy + 160
+            ry = sy + 244
             T.text(surf, f"REGOLAMENTO {era['from']}  -  fra {left} "
                          f"{'stagione' if left == 1 else 'stagioni'}",
                    (right.x + 16, ry), 12, T.GOLD, bold=True)
@@ -410,11 +417,38 @@ class DevPage(Page):
 
         cost = development.cost_of_upgrade(self.sel_part, self.sel_size)
         gain = development.expected_gain(gs, team, self.sel_part, self.sel_size)
-        risk = development.project_risk(team, self.sel_size)
-        races = {"piccolo": 1, "medio": 3, "grande": 6}[self.sel_size]
-        T.text(surf, f"Costo {cost:.2f} M$   |   Guadagno atteso +{gain:.1f}   |   "
-                     f"Tempo {races} gare   |   Rischio {risk*100:.0f}%",
-               (right.x + 16, sy + 44), 14, T.TEXT)
+        conf = development.project_confidence(gs, team, self.sel_part, self.sel_size)
+        odds = development.outcome_odds(conf, self.sel_size)
+        races = development.RACES_OF[self.sel_size]
+        T.text(surf, f"Costo {cost:.2f} M$   |   Sulla carta +{gain:.1f}   |   "
+                     f"Tempo {races} gare",
+               (right.x + 16, sy + 40), 14, T.TEXT)
+
+        col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
+        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 64), 13, T.DIM)
+        T.bar(surf, (right.x + 170, sy + 69, right.w - 260, 8), conf * 100, 100, col)
+        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 64), 13, col,
+               bold=True, align="right")
+
+        # come puo' finire: quattro bande, disegnate in proporzione
+        bx, bw = right.x + 16, right.w - 32
+        bande = (("fallito", T.BAD), ("sottotono", T.WARN),
+                 ("in linea", T.ACCENT), ("oltre", T.OK))
+        x = bx
+        for nome, colore in bande:
+            w = bw * odds[nome]
+            pygame.draw.rect(surf, colore, (int(x), sy + 92, max(2, int(w)), 10),
+                             border_radius=2)
+            x += w
+        T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
+                     f"sotto le attese {odds['sottotono']*100:.0f}%   "
+                     f"come previsto {odds['in linea']*100:.0f}%   "
+                     f"oltre {odds['oltre']*100:.0f}%",
+               (bx, sy + 108), 12, T.DIM_2, maxw=bw)
+        T.text(surf, development.weakest_link(gs, team, self.sel_part).capitalize()
+               if conf < 0.62 else
+               "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
+               (bx, sy + 128), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
         super().draw(surf)
 
 
@@ -498,6 +532,11 @@ class PowerUnitPage(Page):
         r = self.rect
         self.widgets = []
         gs, team = self.gs, self.team
+        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        if self._can_homologate():
+            self.widgets.append(Button((left.x + 16, left.bottom - 58, left.w - 32, 40),
+                                       "Omologa la specifica nuova",
+                                       self.homologate, "primary"))
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         self.budget_slider = Slider((right.x + 16, right.y + 40, right.w - 32, 28),
                                     "Budget power unit per gara", self.app.pu_budget, 0.0, 6.0,
@@ -528,6 +567,22 @@ class PowerUnitPage(Page):
 
     def start_program(self) -> None:
         ok, msg = powertrain.start_program(self.gs, self.team)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def _can_homologate(self) -> bool:
+        """La specifica la decide chi il motore lo costruisce."""
+        gs, team = self.gs, self.team
+        if not team.works or powertrain.locked(gs):
+            return False
+        sp = powertrain.spec(gs, team.engine)
+        return (powertrain.spec_value(sp) > 0.05
+                and powertrain.specs_left(gs, team.engine) > 0)
+
+    def homologate(self) -> None:
+        ok, msg = powertrain.homologate(self.gs, self.team.engine)
         self.app.toast(msg)
         if ok:
             self.gs.push(msg, "tecnico")
@@ -572,14 +627,67 @@ class PowerUnitPage(Page):
             y += 52
 
         y += 4
+        sp = powertrain.spec(gs, team.engine)
+        # i numeri del banco li vede solo chi il motore lo costruisce
+        nostro = team.works
         T.text(surf, "LA NOSTRA UNITA'", (left.x + 16, y), 12, T.DIM_2, bold=True)
+        if nostro:
+            T.text(surf, "in banco", (left.right - 16, y), 11, T.DIM_2, align="right")
         y += 22
         for attr, label in (("power", "Potenza termica"), ("ers", "Ibrido ed ERS"),
                             ("reliability", "Affidabilita'")):
             T.text(surf, label, (left.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{float(eng.get(attr, 85)):.1f}", (left.right - 16, y), 13,
-                   T.TEXT, bold=True, align="right")
+            T.text(surf, f"{float(eng.get(attr, 85)):.1f}",
+                   (left.right - (96 if nostro else 16), y), 13, T.TEXT,
+                   bold=True, align="right")
+            g = float(sp["gain"].get(attr, 0.0))
+            if nostro and g > 0.01:
+                T.text(surf, f"+{g:.1f}", (left.right - 16, y), 13, T.OK,
+                       bold=True, align="right")
             y += 20
+
+        # --- la specifica che sta crescendo al banco ----------------------
+        y += 12
+        T.text(surf, "SPECIFICA IN LAVORAZIONE", (left.x + 16, y), 12, T.DIM_2, bold=True)
+        y += 22
+        if powertrain.locked(gs):
+            T.text(surf, "Sviluppo congelato: si corre con quello che c'e'.",
+                   (left.x + 16, y), 13, T.WARN, maxw=left.w - 32)
+        elif not team.works:
+            costruttore = powertrain.builder_of(gs, team.engine)
+            chi = costruttore.short if costruttore else eng.get("name", "il motorista")
+            T.text(surf, f"La specifica la decide {chi}: noi la montiamo e basta. "
+                         f"E' il prezzo di comprare il motore invece di farlo.",
+                   (left.x + 16, y), 13, T.DIM, maxw=left.w - 32)
+        else:
+            valore = powertrain.spec_value(sp)
+            conf = powertrain.spec_confidence(gs, team.engine)
+            odds = powertrain.spec_odds(gs, team.engine)
+            rimaste = powertrain.specs_left(gs, team.engine)
+            T.text(surf, f"Vale {valore:+.2f} dopo {sp.get('races', 0)} gare di banco",
+                   (left.x + 16, y), 13, T.TEXT if valore > 0.05 else T.DIM,
+                   maxw=left.w - 32)
+            T.text(surf, f"{rimaste} su {powertrain.specs_allowed(gs)}",
+                   (left.right - 16, y), 13, T.GOLD if rimaste else T.BAD,
+                   bold=True, align="right")
+            y += 22
+            col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
+            T.text(surf, "Fiducia del banco", (left.x + 16, y), 13, T.DIM)
+            T.bar(surf, (left.x + 160, y + 5, left.w - 250, 8), conf * 100, 100, col)
+            T.text(surf, f"{conf*100:.0f}%", (left.right - 16, y), 13, col,
+                   bold=True, align="right")
+            y += 24
+            T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
+                         f"sotto le attese {odds['sottotono']*100:.0f}%   "
+                         f"oltre {odds['oltre']*100:.0f}%",
+                   (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
+            y += 20
+            if rimaste <= 0:
+                T.text(surf, "Gettoni finiti: il resto del lavoro va all'anno prossimo.",
+                       (left.x + 16, y), 12, T.WARN, maxw=left.w - 32)
+            elif sp.get("races", 0) < 5:
+                T.text(surf, "Piu' resta al banco, meno sorprese in pista.",
+                       (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
 
         # --- reparto e programma -----------------------------------------
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
@@ -655,16 +763,19 @@ class PowerUnitPage(Page):
                 T.text(surf, line, (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
                 y += 16
         elif not team.works:
-            T.text(surf, f"Compriamo la power unit da {eng.get('name', '-')} per "
-                         f"{team.engine_customer_cost:.0f} M$ a stagione. Fondando un reparto "
-                         f"nostro potremmo svilupparla in casa, ma servono anni e un buon "
-                         f"responsabile powertrain.",
-                   (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+            for riga in (f"Compriamo la power unit da {eng.get('name', '-')} per "
+                         f"{team.engine_customer_cost:.0f} M$ a stagione, e ci teniamo",
+                         "la specifica che decidono loro. Fondando un reparto nostro",
+                         "potremmo svilupparla in casa, ma servono anni e un buon",
+                         "responsabile powertrain."):
+                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+                y += 18
         else:
-            T.text(surf, "Costruiamo la nostra power unit: il budget qui sopra e' quello "
-                         "che il reparto motori spende a ogni gara. Sta fuori dal tetto di "
-                         "spesa della squadra.",
-                   (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+            for riga in ("Costruiamo la nostra power unit: il budget qui sopra e' quello",
+                         "che il reparto motori spende a ogni gara. Sta fuori dal tetto di",
+                         "spesa della squadra, come nella realta'."):
+                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
+                y += 18
         if getattr(self, "found_note", ""):
             T.text(surf, self.found_note, (r.x + 16, r.bottom - 26), 13, T.WARN,
                    maxw=r.w - 32)

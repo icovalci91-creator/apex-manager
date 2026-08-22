@@ -136,8 +136,8 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sei regolazioni di assetto (o delega agli ingegneri) |
-| Sviluppo | Ripartizione risorse fra le aree, budget di sviluppo per gara, pacchetti di aggiornamento con costo, tempi e rischio |
-| Power unit | Confronto fra i motoristi, budget del reparto motori, programma per costruirsi la propria unita' |
+| Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti |
+| Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Contratti, clausole, trattative con gradimento del pilota |
 | Staff tecnico | Organigramma completo e mercato del personale |
@@ -217,9 +217,34 @@ risolvono quando due monoposto sono davvero a contatto, e il confronto di passo 
 ritmo in aria libera (altrimenti chi insegue non passerebbe mai). Gomme, carburante,
 scia sporca, safety car, rotture e contatti sono simulati.
 
-**Sviluppo.** Le risorse si trasformano in prestazione con un'efficienza che dipende da
-direttore tecnico, reparti e strutture, moderata dalla scala ATR (chi vince ha meno ore di
-galleria del vento). I pacchetti di aggiornamento possono non correlare.
+**Sviluppo.** Due cose distinte, come nella realta'.
+
+Il *lavoro di reparto* - il budget continuo, ripartito fra le aree - non e' un
+aggiornamento: sono affinamenti. In prestazione pura rende poco (il 22% di quello che
+renderebbe se fosse sviluppo vero); quello che lascia davvero e' la **conoscenza della
+vettura**, che si vede il venerdi', quando si trova subito la finestra di assetto invece
+di passarci tre sessioni. A fine stagione ne resta un terzo: la macchina nuova e' un'altra
+macchina, ed e' il motivo per cui a marzo brancolano tutti. Dopo un cambio di regolamento
+ne resta il 15%.
+
+Il salto vero lo fanno i **pacchetti di aggiornamento**: si scelgono componente e taglia,
+si pagano, arrivano dopo una, tre o sei gare. E possono non funzionare. Quanto spesso
+dipende dalla *fiducia del reparto*, che mette insieme:
+
+| Cosa | Peso |
+|---|---|
+| Reparti (aero, meccanica, powertrain, pesati per il tipo di componente) | 42% |
+| Strumenti con cui si valida: galleria, CFD, ufficio tecnico, fabbrica, simulatore - e quanto sono vecchi | 28% |
+| Il direttore tecnico | 16% |
+| Ore di galleria concesse dalla scala ATR | 14% |
+| in aggiunta: correlazione dai test privati (+22%) e conoscenza della vettura (+10%) | |
+| in sottrazione: la taglia del pacchetto (medio -6%, grande -14%) | |
+
+Da li' escono quattro esiti: *fallito* (da -30% a +15% del previsto: la macchina peggiora
+e si rimonta la specifica vecchia), *sottotono*, *in linea*, *oltre le attese*. Con un
+pacchetto grande una squadra di vertice fallisce circa una volta su sei, una di coda una
+volta su tre. La pagina Sviluppo mostra la forbice prima di spendere, e gli ingegneri
+dicono cosa ci sta tradendo.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
@@ -229,9 +254,21 @@ il tetto di spesa nessuno riesce a tenere al passo tutte e nove le strutture, qu
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
 
-**Power unit.** Ogni motorista cresce gara dopo gara verso un tetto deciso da chi dirige il
-reparto e da quanto vale la fabbrica: assumere un buon responsabile powertrain alza quel
-tetto. Chi compra il motore da altri puo' fondare un reparto proprio, investirci per almeno
+**Power unit.** Le power unit sono omologate: non migliorano gara per gara, si cambia
+specifica. Quello che si fa al banco si accumula, e quando la si porta in pista arriva
+tutta insieme - o non arriva. Il regolamento concede due omologazioni a stagione
+(`sporting.pu_specs_per_season`), piu' quella invernale, che e' gratis e trasforma il
+lavoro rimasto in cantina nella power unit dell'anno nuovo.
+
+Anche qui l'esito non e' scontato: la fiducia del banco dipende dal responsabile
+powertrain (46%), dalla fabbrica (26%) e da quanto a lungo la specifica e' stata validata
+(28%). Una specifica sbagliata non toglie potenza - si torna a girare con la mappatura
+vecchia - ma brucia il gettone e peggiora l'affidabilita', che e' esattamente come va
+nella realta'.
+
+Il tetto raggiungibile lo decidono chi dirige il reparto e quanto vale la fabbrica:
+assumere un buon responsabile powertrain lo alza. Chi compra il motore da altri puo'
+fondare un reparto proprio, investirci per almeno
 due stagioni e poi decidere quando portarlo in pista: si parte dietro all'ultimo dei
 motoristi, e quanto si recupera dipende dai soldi messi e dagli ingegneri ingaggiati.
 
@@ -279,7 +316,7 @@ votato.
 Tutto il contenuto sta in `data/` ed è JSON leggibile:
 
 - `tracks.json` — 24 circuiti: lunghezza, giri, curve, caratteristiche, layout, tempo di riferimento
-- `teams.json` — 11 scuderie, motoristi, strutture, componenti di partenza
+- `teams.json` — 11 scuderie, motoristi, strutture, componenti di partenza e posizione nel costruttori 2025 (da cui escono ore di galleria, premi e valore per gli sponsor)
 - `drivers.json` — 22 titolari + svincolati, con attributi e contratti
 - `staff.json` — figure chiave nominate, staff libero, template dei ruoli
 - `regulations.json` — regolamento 2026, cicli storici, catalogo delle proposte votabili

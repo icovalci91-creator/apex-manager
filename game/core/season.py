@@ -249,6 +249,8 @@ def end_season(gs) -> dict:
         t.reset_season_finances()
         t.car.repair_all()
     testing.end_season(gs)
+    development.new_car_season(gs)
+    report["rules"] += powertrain.end_season(gs)
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1

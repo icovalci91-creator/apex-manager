@@ -58,6 +58,15 @@ INTEGRATION_SISTER = 0.50
 EXTERNAL_BUDGET = 3.0         # M$ a gara spesi da un motorista che non corre
 EXTERNAL_DEV_RATE = 1.30      # capacita' tecnica di una casa strutturata
 
+# Le power unit sono omologate: non migliorano gara per gara, si cambia
+# specifica. Quello che si fa al banco si accumula in una specifica nuova, e
+# quando la si porta in pista arriva tutta insieme - o non arriva, perche' al
+# banco funzionava e in gara no. Il regolamento dice quante volte all'anno lo
+# si puo' fare.
+SPEC_ATTRS = PU_ATTRS
+SPEC_WORTH = 0.6              # sotto questo guadagno medio non vale l'omologazione
+
+
 # Al banco si lavora alla cieca. Mancano i chilometri veri, le temperature
 # vere, il degrado vero: si sviluppa contro un modello, e il modello sbaglia.
 # Portare la power unit in pista costa prestazione subito - si corre con un
@@ -145,20 +154,153 @@ def _equalisation_boost(gs, eng: dict) -> float:
     return 1.0 + 0.85 * deficit
 
 
+# ----------------------------------------------------- la specifica in lavorazione
+def specs_allowed(gs) -> int:
+    return int(gs.regulations["sporting"].get("pu_specs_per_season", 2))
+
+
+def spec(gs, engine_id: str) -> dict:
+    """Il lavoro di banco accumulato, in attesa di diventare una specifica."""
+    tutte = getattr(gs, "pu_specs", None)
+    if tutte is None:
+        tutte = {}
+        gs.pu_specs = tutte
+    sp = tutte.get(engine_id)
+    if sp is None:
+        sp = {"gain": {a: 0.0 for a in SPEC_ATTRS}, "invested": 0.0,
+              "used": 0, "races": 0}
+        tutte[engine_id] = sp
+    sp.setdefault("gain", {a: 0.0 for a in SPEC_ATTRS})
+    return sp
+
+
+def spec_value(sp: dict) -> float:
+    """Quanto vale, in media sui tre attributi, la specifica in lavorazione."""
+    g = sp.get("gain", {})
+    return sum(float(g.get(a, 0.0)) for a in SPEC_ATTRS) / len(SPEC_ATTRS)
+
+
+def specs_left(gs, engine_id: str) -> int:
+    return max(0, specs_allowed(gs) - int(spec(gs, engine_id).get("used", 0)))
+
+
 # ------------------------------------------------------------------- sviluppo
-def _advance(eng: dict, ceil: float, rate: float, budget: float, rng) -> float:
-    """Avvicina una power unit al suo tetto. Ritorna il guadagno medio."""
+def _advance(gs, engine_id: str, eng: dict, ceil: float, rate: float,
+             budget: float, rng) -> float:
+    """Fa lavorare il banco. Il guadagno non va sul motore: va nella specifica."""
+    sp = spec(gs, engine_id)
     gained = 0.0
     push = min(2.5, max(0.0, budget) / 2.0)
-    for attr in PU_ATTRS:
-        cur = float(eng.get(attr, 85))
+    for attr in SPEC_ATTRS:
+        cur = float(eng.get(attr, 85)) + float(sp["gain"].get(attr, 0.0))
         gap = ceil - cur
         if gap <= 0:
             continue
         step = gap * CLOSE_RATE * push * rate * rng.uniform(0.55, 1.45)
-        eng[attr] = min(PU_MAX, cur + step)
+        sp["gain"][attr] = float(sp["gain"].get(attr, 0.0)) + step
         gained += step
-    return gained / len(PU_ATTRS)
+    sp["races"] = int(sp.get("races", 0)) + 1
+    sp["invested"] = float(sp.get("invested", 0.0)) + max(0.0, budget)
+    return gained / len(SPEC_ATTRS)
+
+
+# ------------------------------------------------------- portarla in pista
+def spec_confidence(gs, engine_id: str) -> float:
+    """Quanto ci si puo' fidare di quello che dice il banco.
+
+    Contano il responsabile powertrain, la fabbrica che costruisce i pezzi e
+    il tempo passato a validare: una specifica cotta in fretta arriva in pista
+    con problemi che al banco non erano usciti.
+    """
+    team = builder_of(gs, engine_id) or partner_of(gs, engine_id)
+    if team is None:
+        forza, fabbrica = 78.0, 78.0
+    else:
+        forza = team.pu_strength
+        fabbrica = float(team.facilities.get("factory", 65.0))
+    sp = spec(gs, engine_id)
+    maturita = min(1.0, int(sp.get("races", 0)) / 8.0)
+    c = (0.46 * max(0.0, min(1.0, (forza - 45.0) / 50.0))
+         + 0.26 * max(0.0, min(1.0, (fabbrica - 45.0) / 50.0))
+         + 0.28 * maturita)
+    return max(0.05, min(0.96, c))
+
+
+def spec_odds(gs, engine_id: str) -> dict:
+    from .development import outcome_odds
+    return outcome_odds(spec_confidence(gs, engine_id), "medio")
+
+
+def homologate(gs, engine_id: str, free: bool = False) -> tuple:
+    """Porta in pista la specifica nuova. Da qui in poi e' quella la power unit.
+
+    Con `free` e' l'omologazione di inizio anno: il lavoro dell'inverno diventa
+    la power unit della stagione nuova e non consuma nessun gettone.
+    """
+    eng = gs.engine_makers.get(engine_id)
+    if eng is None:
+        return False, "Non e' una power unit che conosciamo."
+    if locked(gs) and not free:
+        return False, "Il regolamento ha congelato lo sviluppo delle power unit."
+    sp = spec(gs, engine_id)
+    if not free and specs_left(gs, engine_id) <= 0:
+        return False, (f"Il regolamento concede {specs_allowed(gs)} specifiche a "
+                       f"stagione: le abbiamo gia' usate tutte.")
+    if spec_value(sp) < 0.05:
+        return False, "Al banco non c'e' ancora niente che valga un'omologazione."
+
+    from .development import BANDS, roll_outcome
+    promesso = spec_value(sp)
+    band = roll_outcome(gs, spec_odds(gs, engine_id))
+    lo, hi = BANDS[band]
+    # una specifica omologata non si butta: se non funziona si torna a girare
+    # con la mappatura vecchia, quindi si perde il gettone, non la potenza
+    mult = max(0.0, gs.rng.uniform(lo, hi))
+    for attr in SPEC_ATTRS:
+        eng[attr] = max(30.0, min(PU_MAX, float(eng.get(attr, 85))
+                                  + float(sp["gain"].get(attr, 0.0)) * mult))
+    # quello che si paga davvero e' l'affidabilita': i banchi non riproducono
+    # le temperature vere, e le rotture arrivano in gara
+    if band == "fallito":
+        eng["reliability"] = max(30.0, float(eng.get("reliability", 85))
+                                 - gs.rng.uniform(1.0, 3.0))
+    elif band == "sottotono":
+        eng["reliability"] = max(30.0, float(eng.get("reliability", 85))
+                                 - gs.rng.uniform(0.0, 1.2))
+    guadagno = promesso * mult
+    if not free:
+        sp["used"] = int(sp.get("used", 0)) + 1
+    sp["gain"] = {a: 0.0 for a in SPEC_ATTRS}
+    sp["races"] = 0
+    sp["invested"] = 0.0
+    gs.sync_engines()
+    testi = {
+        "fallito": (f"Specifica nuova in pista: al banco prometteva +{promesso:.1f}, "
+                    f"in gara non si vede niente e l'affidabilita' peggiora. "
+                    f"Gettone buttato."),
+        "sottotono": f"Specifica nuova omologata: rende meno del previsto ({guadagno:+.1f}).",
+        "in linea": f"Specifica nuova omologata: {guadagno:+.1f} come da programma.",
+        "oltre": f"Specifica nuova omologata: meglio del banco, {guadagno:+.1f}.",
+    }
+    return True, testi[band]
+
+
+def end_season(gs) -> list:
+    """L'inverno chiude i conti del banco.
+
+    Quello che i motoristi hanno accumulato e non hanno portato in pista
+    diventa la power unit dell'anno nuovo: e' l'omologazione di inizio
+    stagione, quella che non costa gettoni. Poi i gettoni tornano pieni.
+    """
+    msgs = []
+    for eid in list(gs.engine_makers):
+        sp = spec(gs, eid)
+        if spec_value(sp) > 0.05:
+            ok, msg = homologate(gs, eid, free=True)
+            if ok and gs.player.engine == eid:
+                msgs.append(f"Omologazione invernale. {msg}")
+        sp["used"] = 0
+    return msgs
 
 
 def ai_budget(gs, team) -> float:
@@ -185,9 +327,10 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
             if partner is None and not customers_of(gs, eid):
                 continue
             ref = partner or max(gs.teams.values(), key=lambda t: t.reputation)
-            _advance(eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
+            _advance(gs, eid, eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
                      EXTERNAL_DEV_RATE * EXTERNAL_DEV_PENALTY * _equalisation_boost(gs, eng),
                      EXTERNAL_BUDGET, gs.rng)
+            ai_homologate(gs, eid)
             continue
         if team.is_player:
             budget = max(0.0, float(player_budget))
@@ -204,10 +347,56 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
         if budget <= 0:
             continue
         rate = dev_rate(gs, team) * _equalisation_boost(gs, eng)
-        gain = _advance(eng, ceiling(gs, team), rate, budget, gs.rng)
-        if team.is_player and gain > 0.05:
-            msgs.append(f"Power unit: progressi in banco prova (+{gain:.2f}).")
+        _advance(gs, eid, eng, ceiling(gs, team), rate, budget, gs.rng)
+        if team.is_player:
+            sp = spec(gs, eid)
+            valore, rimaste = spec_value(sp), specs_left(gs, eid)
+            gare_restanti = len(gs.tracks) - gs.round
+            if rimaste > 0 and valore > SPEC_WORTH and sp["races"] == 6:
+                msgs.append(f"Al banco c'e' una specifica che vale {valore:+.1f}: "
+                            f"quando la vogliamo omologare?")
+            elif rimaste > 0 and valore > 0.3 and gare_restanti == 3:
+                msgs.append(f"Restano {rimaste} omologazioni e tre gare: quello che non "
+                            f"portiamo in pista adesso ({valore:+.1f}) lo avremo solo "
+                            f"l'anno prossimo.")
+        else:
+            ai_homologate(gs, eid)
     return msgs
+
+
+def ai_homologate(gs, engine_id: str) -> None:
+    """Quando un motorista del computer decide di cambiare specifica.
+
+    Non si omologa appena si ha qualcosa: si aspetta che il pacchetto valga il
+    gettone, perche' i gettoni sono contati. Ma non si arriva neanche a
+    dicembre con una specifica pronta in cantina.
+    """
+    left = specs_left(gs, engine_id)
+    if left <= 0:
+        return
+    sp = spec(gs, engine_id)
+    valore = spec_value(sp)
+    gare_restanti = max(0, len(gs.tracks) - gs.round)
+    # una soglia che si abbassa mano a mano che la stagione finisce
+    soglia = SPEC_WORTH * (0.5 + 1.4 * min(1.0, gare_restanti / (5.0 * max(1, left))))
+    if valore < max(0.15, soglia):
+        return
+    if sp.get("races", 0) < 4 and gare_restanti > 4:
+        return                     # lasciamola maturare ancora un po'
+    prima = rating(gs.engine_makers[engine_id])
+    ok, _ = homologate(gs, engine_id)
+    if not ok:
+        return
+    dopo = rating(gs.engine_makers[engine_id])
+    # se e' il motore che montiamo noi, la notizia ci riguarda comunque
+    if gs.player.engine == engine_id:
+        nome = gs.engine_makers[engine_id].get("name", "Il motorista")
+        if dopo - prima > 0.15:
+            gs.push(f"{nome} porta una specifica nuova: {dopo - prima:+.1f} "
+                    f"sulla power unit che montiamo.", "tecnico")
+        else:
+            gs.push(f"{nome} ha cambiato specifica, ma in pista non si vede "
+                    f"({dopo - prima:+.1f}).", "tecnico")
 
 
 def integration(gs, team) -> float:
