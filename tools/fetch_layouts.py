@@ -36,7 +36,7 @@ OVERPASS_HOSTS = (
     "https://overpass.private.coffee/api/interpreter",
     "https://overpass.osm.jp/api/interpreter",
 )
-PAUSE = 2.0                 # secondi fra una richiesta e l'altra
+PAUSE = 3.0                 # secondi fra una richiesta e l'altra
 TOLERANCE = 0.12            # scarto massimo accettato sulla lunghezza
 
 
@@ -122,61 +122,49 @@ def _looks_like_circuit(rel: dict) -> bool:
     return True
 
 
-def circuit_candidates(lat: float, lon: float, name: str) -> list:
-    """Tutti i modi plausibili di ricavare il tracciato, dal piu' affidabile.
+def circuit_candidates(lat: float, lon: float, name: str):
+    """Genera un candidato alla volta, dal piu' affidabile.
 
-    Un circuito puo' stare in OSM come relazione dedicata, come insieme di vie
-    da corsa sparse, o come relazione senza nome. Attorno ci sono spesso altri
-    tracciati - pista junior, anello sopraelevato, kartodromo - quindi si prova
-    anche con un raggio stretto, che li esclude. Chi chiama sceglie il
-    candidato la cui lunghezza torna con quella ufficiale.
+    E' un generatore di proposito: ogni fonte costa una richiesta a un servizio
+    pubblico che limita chi insiste, e chi chiama si ferma appena la lunghezza
+    torna. Interrogarle tutte in anticipo faceva sessanta richieste per
+    circuito e ci faceva bloccare prima di arrivare a quella giusta.
     """
     stop = {"circuit", "circuito", "autodromo", "international", "raceway",
             "racing", "course", "street", "park", "de", "di", "the", "nazionale"}
     words = [w for w in name.lower().replace("-", " ").split()
              if len(w) > 3 and w not in stop] or [name.lower()]
 
-    out = []
-    viste = set()
-
-    def aggiungi(etichetta, ways):
-        if not ways or len(ways) < 1:
-            return
-        firma = (len(ways), round(sum(len(w) for w in ways)))
-        if firma in viste:
-            return
-        viste.add(firma)
-        out.append((etichetta, ways))
-
-    for raggio in (4000, 2000):
-        res = _overpass(f'[out:json][timeout:90];'
-                        f'relation(around:{raggio},{lat},{lon})["highway"="raceway"];'
-                        f'out geom;')
+    def relazioni(query, etichetta):
+        res = _overpass(f"[out:json][timeout:90];{query}out geom;")
         rels = [e for e in res.get("elements", [])
                 if e.get("type") == "relation" and _looks_like_circuit(e)]
         rels.sort(key=lambda r: -sum(2 for w in words
                                      if w in (r.get("tags", {}).get("name", "") or "").lower()))
-        for rel in rels[:4]:
+        for rel in rels[:3]:
             nome = rel.get("tags", {}).get("name") or "senza nome"
-            aggiungi(f"relazione '{nome}' (r{raggio})", _geoms({"elements": [rel]}))
+            ways = _geoms({"elements": [rel]})
+            if ways:
+                yield f"{etichetta} '{nome}'", ways
 
-    res = _overpass(f'[out:json][timeout:90];'
-                    f'relation(around:4000,{lat},{lon})["name"~"{words[0]}",i];'
-                    f'out geom;')
-    rels = [e for e in res.get("elements", [])
-            if e.get("type") == "relation" and _looks_like_circuit(e)]
-    for rel in rels[:3]:
-        nome = rel.get("tags", {}).get("name") or "senza nome"
-        aggiungi(f"relazione per nome '{nome}'", _geoms({"elements": [rel]}))
-
-    for raggio in (1500, 2500, 4000):
+    # 1. la relazione dedicata: quando c'e', e' la fonte giusta
+    yield from relazioni(f'relation(around:4000,{lat},{lon})["highway"="raceway"];',
+                         "relazione")
+    # 2. i circuiti cittadini spesso non hanno vie da corsa ma sono taggati
+    #    come impianto sportivo: e' cosi' che si trova Albert Park
+    yield from relazioni(f'relation(around:3000,{lat},{lon})["sport"~"motor",i];',
+                         "relazione sportiva")
+    # 3. ricerca per nome, ultima spiaggia fra le relazioni
+    yield from relazioni(f'relation(around:4000,{lat},{lon})["name"~"{words[0]}",i];',
+                         "relazione per nome")
+    # 4. vie sciolte: il raggio stretto esclude pista junior, ovale e kartodromo
+    for raggio in (1500, 3000):
         res = _overpass(f'[out:json][timeout:90];'
                         f'way(around:{raggio},{lat},{lon})["highway"="raceway"];'
                         f'out geom;')
         ways = [w for w in _geoms(res) if len(w) >= 2]
-        aggiungi(f"{len(ways)} vie sciolte (r{raggio})", ways)
-
-    return out
+        if ways:
+            yield f"{len(ways)} vie sciolte (r{raggio})", ways
 
 
 # ------------------------------------------------------------------ geometria
@@ -290,14 +278,8 @@ def main() -> int:
             print("    non trovato su Nominatim")
             failed += 1
             continue
-        candidati = circuit_candidates(here[0], here[1], t["name"])
-        if not candidati:
-            print("    nessuna via da corsa nei dintorni")
-            failed += 1
-            continue
-
         migliore, best_err, best_lab = None, 9e9, ""
-        for etichetta, ways in candidati:
+        for etichetta, ways in circuit_candidates(here[0], here[1], t["name"]):
             ring, err = find_loop(ways, t["length_km"])
             if ring is None:
                 print(f"    {etichetta}: nessun anello chiuso")
@@ -309,7 +291,7 @@ def main() -> int:
                 break                      # gia' buono, inutile insistere
 
         if migliore is None:
-            print("    nessun anello chiuso fra i candidati")
+            print("    nessun tracciato utilizzabile nei dintorni")
             failed += 1
             continue
         if best_err > TOLERANCE:
