@@ -158,7 +158,71 @@ def end_of_season_finances(gs) -> list:
                 msgs.append(f"{team.short}: sforamento grave, {fine} M$ di multa e -{pen} punti.")
         if team.is_player:
             msgs.append(f"Premio FOM incassato: {prize} M$ per il {pos}o posto costruttori.")
+    # i conti col proprietario si chiudono dopo i premi, che e' quando si sa
+    # davvero com'e' andata
+    for team in gs.teams.values():
+        msgs += owner_settlement(gs, team)
     return msgs
+
+
+# ------------------------------------------------------------- il proprietario
+# Una squadra di Formula 1 non e' un salvadanaio. Chi guadagna distribuisce
+# l'utile - il proprietario e' li' per quello - e chi perde viene coperto, ma
+# non gratis: l'anno dopo si spende meno, perche' e' quello che succede quando
+# si va a chiedere i soldi a chi comanda.
+#
+# Senza questa regola il conto divergeva in tutte e due le direzioni: su otto
+# stagioni la prima della classe arrivava a 1661 M$ fermi in cassa, con il
+# tetto di spesa gia' saturo e quindi nessun modo di usarli, e l'ultima a -191
+# continuando a correre come se niente fosse.
+RESERVE_SHARE = 0.35     # riserva tenuta in cassa, in quote di tetto di spesa
+DIVIDEND_TRIGGER = 1.7   # oltre questa quota della riserva si distribuisce
+AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
+AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
+
+
+def reserve(gs) -> float:
+    return round(cap_limit(gs) * RESERVE_SHARE, 2)
+
+
+def owner_settlement(gs, team) -> list:
+    """Chiude i conti col proprietario: preleva l'utile o copre le perdite."""
+    msgs = []
+    ris = reserve(gs)
+    if team.cash < 0:
+        buco = -team.cash
+        team.add_income("Copertura perdite dal proprietario", round(buco + ris * 0.25, 2),
+                        category="proprieta")
+        # la stretta si somma a quella dell'anno prima, ma quella vecchia si
+        # allenta comunque: altrimenti chi perde poco tutti gli anni finirebbe
+        # per non spendere piu' niente, e sarebbe la fine e non una difficolta'
+        team.austerity = min(1.0, team.austerity * 0.75
+                             + AUSTERITY_STEP * min(2.0, buco / max(1.0, ris)))
+        if team.is_player:
+            msgs.append(f"Il proprietario ha coperto {buco:.0f} M$ di perdite, ma per l'anno "
+                        f"prossimo il budget e' stretto: si spende il "
+                        f"{(1 - team.austerity) * 100:.0f}% del normale.")
+        else:
+            msgs.append(f"{team.short}: perdite coperte dalla proprieta', stagione di magra.")
+    elif team.cash > ris * DIVIDEND_TRIGGER:
+        utile = round(team.cash - ris, 2)
+        team.add_expense("Utile distribuito alla proprieta'", utile, in_cap=False,
+                         category="proprieta")
+        if team.is_player:
+            msgs.append(f"Stagione in utile: {utile:.0f} M$ vanno alla proprieta', in cassa "
+                        f"resta la riserva di {ris:.0f} M$.")
+    else:
+        team.austerity = max(0.0, team.austerity * AUSTERITY_EASE)
+    return msgs
+
+
+def spending_room(gs, team) -> float:
+    """Quanto puo' permettersi di spendere, da 0 a 1.
+
+    Chi e' appena stato salvato dal proprietario tira la cinghia: non e' una
+    punizione, e' quello che succede davvero quando i conti non tornano.
+    """
+    return max(0.15, 1.0 - float(getattr(team, "austerity", 0.0)))
 
 
 def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:
@@ -186,6 +250,7 @@ CATEGORIE = {
     "gara": "Costi di gara e logistica",
     "danni": "Riparazioni",
     "sanzioni": "Multe e sanzioni",
+    "proprieta": "Utili e coperture della proprieta'",
     "altro": "Altro",
 }
 

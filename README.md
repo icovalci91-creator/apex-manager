@@ -442,6 +442,20 @@ Ferrari e il Red Bull Ring della Red Bull, cioe' proprieta' del gruppo e non del
 corse. Si paga con la cassa e basta - 140 M$ - ma da li' in poi mantenerlo e potenziarlo
 segue le regole di tutte le altre strutture.
 
+**Il proprietario.** Una squadra non e' un salvadanaio. A fine stagione chi ha chiuso in
+utile lo distribuisce alla proprieta' e tiene in cassa una riserva di lavoro (75 M$, un
+terzo del tetto di spesa); chi ha chiuso in perdita se la fa coprire, ma non gratis: l'anno
+dopo il budget e' stretto, e sviluppo, costruzioni e giornate di test scendono in
+proporzione. La stretta si allenta da sola quando i conti tornano.
+
+Senza questa regola il conto divergeva in tutte e due le direzioni, e su otto stagioni si
+vedeva bene: la prima della classe arrivava a **1661 M$** fermi in cassa - con il tetto di
+spesa gia' saturo al 99%, quindi senza nemmeno un modo di usarli - e l'ultima a **-191 M$**
+continuando a correre come se niente fosse. Adesso la piu' ricca oscilla fra 150 e 300 e la
+piu' povera fra -10 e -40, coperta e rimessa in riga ogni dicembre. Una squadra che perde
+poco tutti gli anni si stabilizza intorno al 35% di stretta: fatica, ma non muore, che e'
+quello che succede davvero in fondo alla griglia.
+
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
 punto l'anno, una struttura di poco piu' di uno, e in cima si perde di piu' che a meta'

@@ -189,7 +189,8 @@ def ai_plan(gs) -> None:
         # piu' giornate restano rispetto alle gare che mancano, piu' spesso si esce:
         # nessuno arriva a dicembre con meta' del pacchetto ancora in mano
         gare_restanti = max(1, len(gs.tracks) - gs.round)
-        voglia = days_left(gs, team) / (gare_restanti * 1.6)
+        from . import economy
+        voglia = days_left(gs, team) / (gare_restanti * 1.6) * economy.spending_room(gs, team)
         if gs.rng.random() > min(0.8, max(0.12, voglia)):
             continue                      # questo weekend non escono a girare
         giovani = [gs.drivers[d] for d in team.drivers

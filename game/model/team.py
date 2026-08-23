@@ -50,6 +50,7 @@ class Team:
 
     spent: float = 0.0          # speso nel cap tecnico questa stagione
     capex_log: dict = field(default_factory=dict)  # speso in costruzioni, per stagione
+    austerity: float = 0.0      # quanto si tira la cinghia dopo una stagione in perdita
     deals: list = field(default_factory=list)    # accordi commerciali firmati
     ledger: list = field(default_factory=list)   # movimenti datati
     cur_season: int = 0                          # quando siamo, per datare i movimenti

@@ -619,6 +619,7 @@ def ai_development(gs) -> None:
             continue
         headroom = budget_headroom(gs, team)
         budget = min(team.cash * 0.06, 1.4 + team.reputation / 60.0, headroom * 0.45)
+        budget *= economy.spending_room(gs, team)
         weak = min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]
         alloc = {k: 1.0 for k in team.car.parts}
         alloc[weak] = 3.0
