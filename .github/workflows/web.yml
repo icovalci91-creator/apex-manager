@@ -6,7 +6,10 @@ name: Build web e pubblica su Pages
 
 on:
   push:
-    branches: [main]
+    # main pubblica la versione buona; il ramo di lavoro serve a provare su
+    # iPad quello che non si puo' provare sul PC. L'ultimo push vince, quindi
+    # dopo un push su main il sito torna alla versione di main.
+    branches: [main, claude/game-analysis-l4v034]
     paths-ignore:
       - 'screenshots/**'
       - 'README.md'
