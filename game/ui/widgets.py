@@ -78,8 +78,45 @@ class Button(Widget):
         surf.blit(img, img.get_rect(center=self.rect.center))
 
 
+def _passo_tondo(x: float) -> float:
+    """Il passo "da persona" piu' vicino: 1, 2 o 5 per la potenza di dieci giusta."""
+    if x <= 0:
+        return 1.0
+    import math
+    e = math.floor(math.log10(x))
+    base = 10.0 ** e
+    for m in (5.0, 2.0, 1.0):
+        if m * base <= x + 1e-12:
+            return m * base
+    return base
+
+
+def _decimali(fmt: str) -> int:
+    """Quante cifre dopo la virgola mostra questo formato."""
+    testa = fmt.split("}")[0]
+    if "." in testa:
+        cifre = testa.split(".")[1]
+        cifre = "".join(c for c in cifre if c.isdigit())
+        return int(cifre) if cifre else 0
+    return 0
+
+
 class Slider(Widget):
-    def __init__(self, rect, label, value=50.0, lo=0.0, hi=100.0, on_change=None, fmt="{:.0f}"):
+    """Barra con i due pulsantini ai lati.
+
+    Trascinare va bene per capire dove si sta, ma per scegliere una cifra
+    precisa serve poter fare un passo alla volta: da qui i due tasti, che
+    tenuti premuti accelerano. Il passo si ricava dal formato - se il numero si
+    legge con due decimali, il passo non e' mai piu' grosso di quello che si
+    vede - e i valori restano sempre multipli tondi.
+    """
+
+    BTN = 22
+    DELAY = 0.35            # quanto si aspetta prima che il tasto tenuto ripeta
+    REPEAT = 0.055
+
+    def __init__(self, rect, label, value=50.0, lo=0.0, hi=100.0, on_change=None,
+                 fmt="{:.0f}", step=None):
         super().__init__(rect)
         self.label = label
         self.value = value
@@ -88,35 +125,131 @@ class Slider(Widget):
         self.drag = False
         self.fmt = fmt
         self.marker = None      # valore consigliato dagli ingegneri
+        self.step = step if step else self._passo_auto()
+        self._held = 0          # -1 meno, +1 piu', 0 fermo
+        self._t = 0.0
+        self._hover = 0
+
+    # ------------------------------------------------------------- geometria
+    def _passo_auto(self) -> float:
+        """Il passo piu' fine che si riesce a mostrare, senza esagerare.
+
+        Se la risoluzione del formato basta a coprire l'intervallo in un numero
+        ragionevole di scatti la si usa tale e quale; altrimenti si arrotonda,
+        perche' duemila clic per andare da un capo all'altro non li fa nessuno.
+        """
+        span = abs(self.hi - self.lo)
+        res = 10.0 ** -_decimali(self.fmt)
+        if span <= 0:
+            return res
+        return res if span / res <= 200 else max(res, _passo_tondo(span / 100.0))
+
+    @property
+    def label_w(self) -> int:
+        return max(96, min(206, int(self.rect.w * 0.42)))
+
+    @property
+    def VAL_W(self) -> int:
+        """Lo spazio per il numero: su un cursore stretto si accorcia."""
+        return min(84, max(58, int(self.rect.w * 0.20)))
+
+    @property
+    def minus_rect(self):
+        return pygame.Rect(self.rect.x + self.label_w, self.rect.centery - self.BTN // 2,
+                           self.BTN, self.BTN)
 
     @property
     def track_rect(self):
-        return pygame.Rect(self.rect.x + 190, self.rect.centery - 4, self.rect.w - 260, 8)
+        x = self.rect.x + self.label_w + self.BTN + 6
+        w = self.rect.w - self.label_w - 2 * self.BTN - 12 - self.VAL_W
+        return pygame.Rect(x, self.rect.centery - 4, max(24, w), 8)
+
+    @property
+    def plus_rect(self):
+        return pygame.Rect(self.track_rect.right + 6, self.rect.centery - self.BTN // 2,
+                           self.BTN, self.BTN)
+
+    # ---------------------------------------------------------------- valore
+    def _snap(self, v: float) -> float:
+        """Sempre un multiplo tondo del passo, dentro gli estremi."""
+        lo, hi = min(self.lo, self.hi), max(self.lo, self.hi)
+        v = lo + round((v - lo) / self.step) * self.step
+        return max(lo, min(hi, round(v, 6)))
+
+    def _emit(self, v: float) -> None:
+        v = self._snap(v)
+        if v != self.value:
+            self.value = v
+            if self.on_change:
+                self.on_change(self.value)
+
+    def nudge(self, verso: int) -> None:
+        self._emit(self.value + verso * self.step)
 
     def _set_from_x(self, x):
         tr = self.track_rect
         f = max(0.0, min(1.0, (x - tr.x) / max(1, tr.w)))
-        self.value = self.lo + f * (self.hi - self.lo)
-        if self.on_change:
-            self.on_change(self.value)
+        self._emit(self.lo + f * (self.hi - self.lo))
 
+    # ----------------------------------------------------------------- input
     def handle(self, ev) -> bool:
         if not self.enabled:
             return False
-        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            if self.rect.collidepoint(ev.pos) and ev.pos[0] > self.rect.x + 175:
+        if ev.type == pygame.MOUSEMOTION:
+            self._hover = (-1 if self.minus_rect.collidepoint(ev.pos) else
+                           1 if self.plus_rect.collidepoint(ev.pos) else 0)
+            if self.drag:
+                self._set_from_x(ev.pos[0])
+                return True
+        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if self.minus_rect.collidepoint(ev.pos):
+                self._held, self._t = -1, self.DELAY
+                self.nudge(-1)
+                return True
+            if self.plus_rect.collidepoint(ev.pos):
+                self._held, self._t = 1, self.DELAY
+                self.nudge(1)
+                return True
+            if self.track_rect.inflate(12, 20).collidepoint(ev.pos):
                 self.drag = True
                 self._set_from_x(ev.pos[0])
                 return True
         elif ev.type == pygame.MOUSEBUTTONUP:
             self.drag = False
-        elif ev.type == pygame.MOUSEMOTION and self.drag:
-            self._set_from_x(ev.pos[0])
-            return True
+            self._held = 0
+        elif ev.type == pygame.MOUSEWHEEL:
+            # la rotellina sopra la barra fa un passo, che e' il modo piu'
+            # rapido di aggiustare una cifra senza mirare a un pulsantino
+            if self.rect.collidepoint(pygame.mouse.get_pos()) and ev.y:
+                self.nudge(1 if ev.y > 0 else -1)
+                return True
         return False
 
+    def update(self, dt: float) -> None:
+        if not self._held:
+            return
+        self._t -= dt
+        while self._t <= 0.0:
+            self.nudge(self._held)
+            self._t += self.REPEAT
+
+    # ------------------------------------------------------------------ draw
+    def _draw_btn(self, surf, rect, segno) -> None:
+        acceso = self._held == segno
+        sopra = self._hover == segno
+        bg = T.ACCENT if acceso else (T.PANEL_3 if sopra else T.PANEL_2)
+        fg = (8, 14, 22) if acceso else (T.TEXT if sopra else T.DIM)
+        if not self.enabled:
+            bg, fg = T.PANEL, T.DIM_2
+        T.panel(surf, rect, bg, radius=6, border=T.LINE)
+        cx, cy = rect.center
+        pygame.draw.line(surf, fg, (cx - 5, cy), (cx + 5, cy), 2)
+        if segno > 0:
+            pygame.draw.line(surf, fg, (cx, cy - 5), (cx, cy + 5), 2)
+
     def draw(self, surf) -> None:
-        T.text(surf, self.label, (self.rect.x, self.rect.centery - 9), 15, T.DIM)
+        T.text(surf, self.label, (self.rect.x, self.rect.centery - 9), 15, T.DIM,
+               maxw=self.label_w - 8)
         tr = self.track_rect
         pygame.draw.rect(surf, T.PANEL_3, tr, border_radius=4)
         f = (self.value - self.lo) / max(1e-6, self.hi - self.lo)
@@ -128,6 +261,8 @@ class Slider(Widget):
         cx = tr.x + int(tr.w * f)
         pygame.draw.circle(surf, T.WHITE, (cx, tr.centery), 8)
         pygame.draw.circle(surf, T.ACCENT, (cx, tr.centery), 5)
+        self._draw_btn(surf, self.minus_rect, -1)
+        self._draw_btn(surf, self.plus_rect, 1)
         T.text(surf, self.fmt.format(self.value), (self.rect.right, self.rect.centery - 9),
                15, T.TEXT, bold=True, align="right")
 

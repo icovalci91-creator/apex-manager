@@ -16,6 +16,12 @@ Prima installazione delle dipendenze:
 python -m pip install -r requirements.txt
 ```
 
+Ogni cifra che si sceglie ha i due pulsantini ai lati del cursore: un clic vale un passo,
+tenendoli premuti si accelera, e la rotellina sopra la barra fa la stessa cosa. Il passo si
+ricava dal formato del numero - se si legge con due decimali, il passo non e' mai piu'
+grosso di quello che si vede - e i valori restano sempre multipli tondi, cosi' l'ingaggio
+si ferma a 26.5 M$ e non a 26.4837.
+
 La misura di riferimento e' 1600x900, ma la finestra si apre grande quanto ci sta
 davvero sullo schermo: un portatile a 1920x1080 con lo scaling di Windows al 125% ha un
 desktop da 1536x864, e aprire piu' grandi di cosi' taglia fuori il bordo destro e il

@@ -62,7 +62,9 @@ class Page:
                 return
 
     def update(self, dt: float) -> None:
-        pass
+        # serve ai pulsantini dei cursori, che tenuti premuti ripetono
+        for w in self.widgets:
+            w.update(dt)
 
     def draw(self, surf) -> None:
         for w in self.widgets:

@@ -42,7 +42,7 @@ class DriversPage(Page):
             ("bonus_win", "Bonus vittoria", 0.0, 6.0, "{:.2f} M$"),
             ("bonus_podium", "Bonus podio", 0.0, 3.0, "{:.2f} M$"),
             ("bonus_points", "Bonus a punto", 0.0, 0.30, "{:.3f} M$"),
-            ("release_clause", "Clausola rescissoria", 0.0, 250.0, "{:.0f} M$"),
+            ("release_clause", "Clausola", 0.0, 250.0, "{:.0f} M$"),
         ]
         self.sliders = {}
         for i, (key, lab, lo, hi, fmt) in enumerate(rows):
