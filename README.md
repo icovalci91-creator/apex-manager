@@ -244,6 +244,37 @@ resta un si/no - perche' cambiare il tipo di un campo sotto ai piedi del gioco l
 esplodere in un punto lontanissimo da li'. Una partita toccata con l'editor se lo porta
 scritto nel salvataggio.
 
+### Le gomme del weekend
+
+Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
+gamma - da C1, la piu' dura, a C6 - scelte in base a quanta energia il tracciato mette
+nelle gomme: **C1-C2-C3 a Losail**, **C2-C3-C4 a Bahrain e Silverstone**, **C4-C5-C6 a
+Monaco**. E non e' solo un'etichetta: la stessa "morbida" a Monaco e a Silverstone e' una
+gomma diversa, e dura di conseguenza.
+
+Poi si scelgono i set. Tredici per pilota (dodici nei weekend con la sprint), di cui tre
+li decide il regolamento - due mescole tenute per la gara e una morbida riservata al Q3 -
+e **dieci si dividono come si vuole**. La scelta si consegna prima di arrivare in pista e
+da quel momento e' pubblica: finche' non consegni la tua non sai cosa hanno in mano gli
+altri, e appena consegni le vedi tutte.
+
+Chi ha caricato morbide fa un giro secco migliore e finisce le gomme in gara; chi ha
+caricato dure vive peggio il venerdi' e meglio la domenica. Misurato su otto gare
+identiche ad Albert Park, con la stessa macchina e lo stesso pilota:
+
+| Scelta | Qualifica media | Arrivo medio |
+|---|---|---|
+| 8 morbide / 2 medie / 0 dure | **2.6** | 5.1 |
+| 6 / 3 / 1 | 4.9 | 6.9 |
+| 3 / 3 / 4 | 4.4 | **3.0** |
+
+E i set si consumano davvero: due per ogni sessione di libere, uno per ogni turno di
+qualifica, uno per ogni stint di gara. Se arrivi al sabato senza morbide nuove il giro
+buono lo fai con le medie e paghi tre decimi; se arrivi alla domenica senza dure, il piano
+soste te lo detta il camion e non il muretto. Le squadre del computer scelgono in base a
+dove sono in classifica: chi sta davanti difende la gara e carica dure, chi insegue si
+gioca la qualifica.
+
 ### Durante la gara
 
 - Velocità di simulazione: `II` pausa, `x1`, `x4`, `x12`, `x40`, oppure "Simula fino alla fine".

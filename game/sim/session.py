@@ -22,6 +22,9 @@ class WeekendState:
     race: RaceSim | None = None
     sprint: RaceSim | None = None
     grid_notes: list = field(default_factory=list)   # penalizzazioni scontate in griglia
+    tyre_choice: dict = field(default_factory=dict)  # team_id -> set scelti per mescola
+    tyre_stock: dict = field(default_factory=dict)   # driver_id -> set ancora a disposizione
+    tyres_published: bool = False                    # le scelte sono state rese pubbliche
 
 
 # --------------------------------------------------------------- base lap
@@ -97,6 +100,8 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
         team.car.evaluate_setup(track)
         team.car.wear(0.55, track)
 
+    from ..core import tyres
+    tyres.spend_practice(gs, ws)
     ws.practice_done += 1
     pt = gs.player
     q = SETUP.believed_quality(pt)
@@ -138,13 +143,16 @@ def run_qualifying(gs, ws: WeekendState) -> list:
     n = len(ents)
     cuts = [max(10, n - 6), 10]
 
+    from ..core import tyres
     for phase, keep in enumerate(cuts + [0]):
         results = []
         for e in alive:
             t = e.base_lap
             t += (85.0 - e.skill) * 0.046
             t += 8.0 * 0.032                                  # serbatoio da qualifica
-            t -= 0.35                                          # gomma nuova soft, pista gommata
+            # con cosa si scende in pista dipende da cosa e' rimasto nel camion
+            mescola = tyres.quali_run(gs, ws, e.driver_id) if ws.tyre_stock else "soft"
+            t -= tyres.QUALI_GAIN.get(mescola, 0.35)
             t *= 1.0 - 0.0016 * phase                          # evoluzione pista tra i turni
             if weather.wet > 0.05:
                 t += (85.0 - e.wet_skill) * 0.06 * weather.wet * 4.0
@@ -178,7 +186,12 @@ def run_qualifying(gs, ws: WeekendState) -> list:
 
 # -------------------------------------------------------------------- gara
 def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
-    """Piano soste scelto dal muretto: dipende da pista, gomme e qualita' dello stratega."""
+    """Piano soste scelto dal muretto: dipende da pista, gomme e da cosa c'e' ancora.
+
+    Il piano non si disegna sulla lavagna: si disegna su quello che e' rimasto
+    nel camion. Chi ha bruciato le morbide il venerdi' la domenica parte con
+    quello che ha.
+    """
     if weather.wet > 0.45:
         e.tyre = "wet"
         return []
@@ -193,17 +206,44 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
         stops = 2
     noise = (100.0 - e.strategy_skill) / 100.0
     plan = []
+    # i set si prenotano mano a mano: quello montato alla partenza non e' piu'
+    # disponibile per la sosta, ed e' cosi' che un venerdi' speso male si paga
+    # la domenica
+    resto = dict(e.stock) if e.stock else None
+
+    def prendi(prefer, diverso_da=None):
+        """Prenota la prima mescola che si ha davvero, fra quelle che si vorrebbero."""
+        if resto is None:
+            return prefer[0]
+        ordine = list(prefer) + [m for m in ("medium", "hard", "soft") if m not in prefer]
+        # il regolamento vuole due mescole diverse in gara: se si puo', si cambia
+        preferite = [m for m in ordine if m != diverso_da] + ([diverso_da] if diverso_da else [])
+        for m in preferite:
+            if m and resto.get(m, 0) > 0:
+                resto[m] -= 1
+                return m
+        return prefer[0]
+
     if stops == 1:
-        start, second = ("medium", "hard") if wear_t > 0.5 else ("soft", "medium")
+        if wear_t > 0.5:
+            start = prendi(("medium", "soft"))
+            second = prendi(("hard", "medium"), diverso_da=start)
+        else:
+            start = prendi(("soft", "medium"))
+            second = prendi(("medium", "hard"), diverso_da=start)
         lap = int(laps * gs.rng.uniform(0.36, 0.52) + gs.rng.gauss(0, 3.0 * noise))
         plan = [(max(6, min(laps - 5, lap)), second)]
     else:
-        start = "soft" if wear_t < 0.8 else "medium"
+        start = prendi(("soft", "medium")) if wear_t < 0.8 else prendi(("medium", "hard"))
         l1 = int(laps * gs.rng.uniform(0.24, 0.32) + gs.rng.gauss(0, 2.5 * noise))
         l2 = int(laps * gs.rng.uniform(0.58, 0.68) + gs.rng.gauss(0, 3.0 * noise))
-        plan = [(max(5, l1), "medium"), (max(l1 + 6, min(laps - 5, l2)), "hard")]
+        uno = prendi(("medium", "hard"), diverso_da=start)
+        due = prendi(("hard", "medium"))
+        plan = [(max(5, l1), uno), (max(l1 + 6, min(laps - 5, l2)), due)]
     e.tyre = start
     e.used_compounds.add(start)
+    if e.stock:
+        e.stock[start] = max(0, e.stock.get(start, 0) - 1)
     return plan
 
 
@@ -231,6 +271,7 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
         # benzina per i giri che si corrono davvero, con un filo di margine:
         # guidando normale si arriva, attaccando tutta la gara no
         e.fuel = min(C.FUEL_MASS_KG, laps * BURN_KG_PER_LAP * 1.04)
+        e.stock = ws.tyre_stock.get(did) if ws.tyre_stock else None
         e.plan = plan_strategy(gs, e, track, laps, weather) if kind == "gp" else []
         e.tyre_life = 25.0
         ordered.append(e)
