@@ -48,6 +48,7 @@ class GameState:
     player_is_constructor: bool = True
     seed: int = 0
     race_distance: float = 1.0     # durata delle gare rispetto alla realta'
+    editor_used: bool = False      # la partita e' stata toccata con l'editor
 
     tracks: list = field(default_factory=list)
     candidates: list = field(default_factory=list)   # circuiti fuori calendario
@@ -305,6 +306,7 @@ class GameState:
             "season": self.season, "round": self.round, "phase": self.phase,
             "player_team": self.player_team, "player_is_constructor": self.player_is_constructor,
             "seed": self.seed, "regulations": self.regulations,
+            "editor_used": bool(getattr(self, "editor_used", False)),
             "race_distance": self.race_distance,
             "pu_program": getattr(self, "pu_program", {}),
             "pu_specs": getattr(self, "pu_specs", {}),
@@ -364,6 +366,7 @@ class GameState:
         gs.round = data["round"]
         gs.phase = data["phase"]
         gs.race_distance = float(data.get("race_distance", 1.0))
+        gs.editor_used = bool(data.get("editor_used", False))
         gs.regulations = data["regulations"]
         gs.pu_program = data.get("pu_program", {})
         gs.pu_specs = data.get("pu_specs", {})

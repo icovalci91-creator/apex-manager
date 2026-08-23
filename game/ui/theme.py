@@ -74,6 +74,11 @@ def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
     return r
 
 
+def width(s: str, size: int = 16, bold: bool = False, mono: bool = False) -> int:
+    """Larghezza di una stringa: serve a piazzare il cursore nel campo di testo."""
+    return font(size, bold, mono).size(str(s))[0]
+
+
 _ELLIPSIS: dict = {}
 
 

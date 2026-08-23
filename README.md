@@ -151,6 +151,27 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
 | Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
 
+### Menu ed editor
+
+Il tasto **Menu** in fondo alla barra laterale apre un menu sopra la partita, senza
+abbandonarla: nuova partita, salva partita (con il nome che si vuole, o sovrascrivendo un
+salvataggio esistente), carica partita, e l'interruttore dell'**editor di gioco**.
+
+L'editor non ha un elenco di cose modificabili scelto da qualcuno: ha un percorso. Si parte
+dalle radici - squadre, piloti, staff, circuiti in calendario e candidati, regolamento,
+Commissione, proposte, motoristi, sponsor, cicli tecnici, risultati e le costanti di
+taratura di quattordici moduli - si scende dentro finche' non si arriva a un valore, e quel
+valore si riscrive. Sono **91.824 valori raggiungibili e scrivibili**, contati percorrendo
+tutto l'albero della partita: dalla prestazione di un fondo al bonus vittoria di un
+contratto, dalla singola coordinata di un tracciato a `TECH_DECAY`.
+
+Le voci calcolate dal gioco a partire da altre (la valutazione di una vettura, il valore di
+mercato di un pilota) si vedono ma non si scrivono, e il pannello lo dice: si cambiano
+quelle da cui dipendono. I tipi vengono rispettati - un numero resta un numero, un si/no
+resta un si/no - perche' cambiare il tipo di un campo sotto ai piedi del gioco lo farebbe
+esplodere in un punto lontanissimo da li'. Una partita toccata con l'editor se lo porta
+scritto nel salvataggio.
+
 ### Durante la gara
 
 - Velocità di simulazione: `II` pausa, `x1`, `x4`, `x12`, `x40`, oppure "Simula fino alla fine".

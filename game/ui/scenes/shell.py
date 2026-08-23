@@ -116,6 +116,9 @@ class GameShell(Scene):
         self.race_btn = Button((12, h - 116, NAV_W - 24, 48), "WEEKEND DI GARA",
                                self.goto_weekend, "primary")
         self.widgets.append(self.race_btn)
+        if getattr(self.app, "editor", False):
+            self.widgets.append(Button((12, h - 98, NAV_W - 24, 32), "EDITOR",
+                                       self.open_editor, "danger"))
         self.widgets.append(Button((12, h - 60, (NAV_W - 28) // 2, 34), "Salva", self.save, "ghost"))
         self.widgets.append(Button((12 + (NAV_W - 24) // 2, h - 60, (NAV_W - 28) // 2, 34),
                                    "Menu", self.to_menu, "ghost"))
@@ -152,8 +155,13 @@ class GameShell(Scene):
         self.app.toast(f"Partita salvata: {where}")
 
     def to_menu(self) -> None:
-        from .menu import MenuScene
-        self.app.replace(MenuScene(self.app))
+        """Apre il menu sopra la partita: nuova, salva, carica, editor."""
+        from .gamemenu import GameMenuScene
+        self.app.push(GameMenuScene(self.app))
+
+    def open_editor(self) -> None:
+        from .editor import EditorScene
+        self.app.push(EditorScene(self.app))
 
     # ------------------------------------------------------------------- loop
     def enter(self) -> None:

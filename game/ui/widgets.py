@@ -286,6 +286,69 @@ class Toggle(Widget):
         T.text(surf, self.label, (self.rect.x, self.rect.centery - 9), 15, T.TEXT)
 
 
+class TextInput(Widget):
+    """Campo di testo. Serve all'editor: e' l'unico modo per scrivere un valore
+    qualunque senza inventarsi un cursore per ogni tipo di dato."""
+
+    def __init__(self, rect, value="", on_commit=None, placeholder=""):
+        super().__init__(rect)
+        self.value = str(value)
+        self.on_commit = on_commit
+        self.placeholder = placeholder
+        self.focused = False
+        self.caret = 0.0
+
+    def focus(self) -> None:
+        self.focused = True
+        pygame.key.set_repeat(320, 34)
+
+    def blur(self) -> None:
+        self.focused = False
+
+    def handle(self, ev) -> bool:
+        if not self.enabled:
+            return False
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            dentro = self.rect.collidepoint(ev.pos)
+            if dentro and not self.focused:
+                self.focus()
+            elif not dentro and self.focused:
+                self.blur()
+            return dentro
+        if not self.focused or ev.type != pygame.KEYDOWN:
+            return False
+        if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            if self.on_commit:
+                self.on_commit(self.value)
+            return True
+        if ev.key == pygame.K_ESCAPE:
+            self.blur()
+            return True
+        if ev.key == pygame.K_BACKSPACE:
+            self.value = self.value[:-1]
+            return True
+        ch = getattr(ev, "unicode", "")
+        if ch and ch.isprintable():
+            self.value += ch
+            return True
+        return False
+
+    def update(self, dt: float) -> None:
+        self.caret = (self.caret + dt) % 1.0
+
+    def draw(self, surf) -> None:
+        T.panel(surf, self.rect, T.PANEL_3 if self.focused else T.PANEL_2, radius=6,
+                border=T.ACCENT if self.focused else T.LINE)
+        testo = self.value if self.value else self.placeholder
+        col = T.TEXT if self.value else T.DIM_2
+        T.text(surf, testo, (self.rect.x + 10, self.rect.centery - 9), 15, col,
+               maxw=self.rect.w - 20)
+        if self.focused and self.caret < 0.5:
+            x = min(self.rect.right - 8, self.rect.x + 12 + T.width(self.value, 15))
+            pygame.draw.line(surf, T.ACCENT, (x, self.rect.y + 7),
+                             (x, self.rect.bottom - 7), 2)
+
+
 def stat_row(surf, rect, label, value, maxv=100.0, colour=None, suffix="", show_bar=True):
     T.text(surf, label, (rect.x, rect.centery - 9), 14, T.DIM)
     col = colour or T.stat_colour(value)
