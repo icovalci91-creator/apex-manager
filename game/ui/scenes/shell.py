@@ -18,6 +18,7 @@ NAV = [
     ("engineers", "Ingegneri"),
     ("testing",   "Test privati"),
     ("drivers",   "Piloti e mercato"),
+    ("academy",   "Vivaio"),
     ("staff",     "Staff tecnico"),
     ("workforce", "Organico reparti"),
     ("finance",   "Finanze e sponsor"),
@@ -85,7 +86,7 @@ class GameShell(Scene):
 
     # -------------------------------------------------------------- costruzione
     def _make_pages(self) -> None:
-        from ..pages import (core_pages, finance_pages, people_pages,
+        from ..pages import (academy_page, core_pages, finance_pages, people_pages,
                              testing_page, workforce_page, world_pages)
         self.pages = {
             "hq": core_pages.HQPage(self),
@@ -95,6 +96,7 @@ class GameShell(Scene):
             "engineers": core_pages.EngineersPage(self),
             "testing": testing_page.TestingPage(self),
             "drivers": people_pages.DriversPage(self),
+            "academy": academy_page.AcademyPage(self),
             "staff": people_pages.StaffPage(self),
             "workforce": workforce_page.WorkforcePage(self),
             "finance": finance_pages.FinancePage(self),

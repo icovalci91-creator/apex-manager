@@ -125,6 +125,13 @@ def race_costs(gs, team, damage_cost: float) -> list:
     drv_salaries = sum(gs.drivers[d].salary for d in tutti if d in gs.drivers) / n
     in_cap = not gs.regulations.get("cost_cap_excludes_driver_salaries", True)
     items.append(("Ingaggi piloti", round(drv_salaries, 3), in_cap, "piloti"))
+    from . import academy
+    vivaio = academy.running_cost(gs, team)
+    if vivaio > 0:
+        # il vivaio sta fuori dal tetto di spesa, come nella realta': e' un
+        # programma della casa, non un costo della monoposto
+        items.append((f"Vivaio ({team.academy_name})", round(vivaio / n, 3),
+                      False, "piloti"))
     return items
 
 
@@ -292,6 +299,8 @@ def season_room(gs, team) -> float:
     # e chi fa il budget senza metterli in conto sbaglia il budget
     fisse = team.staff_cost + team.facility_upkeep + TRAVEL_PER_RACE * gare
     fisse += DAMAGE_RESERVE
+    from . import academy as _acc
+    fisse += _acc.running_cost(gs, team)
     fisse += sum(gs.drivers[d].salary
                  for d in list(team.drivers) + list(team.reserves) + list(team.academy)
                  if d in gs.drivers)

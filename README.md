@@ -187,6 +187,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
+| Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
 | Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
 | Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
@@ -600,6 +601,29 @@ delle formule minori, Slater a 18 anni con 89 di potenziale - e **56 ingegneri**
 almeno due per ogni ruolo, con qualche pezzo pregiato da 78-88 in mezzo a tanta gente
 onesta. Ogni inverno ne arrivano altri quattordici e cinque-nove giovani salgono dalle
 minori; il mercato tiene i migliori centocinquanta e lascia andare la coda.
+
+**Il terzo pilota.** Ogni contratto ha un posto: titolare o riserva. Una riserva costa il
+30% di un titolare, ma chi un volante ce l'ha non firma per stare fermo, e piu' uno vale
+piu' vuole essere pagato per aspettare. Serve davvero: quando un titolare sconta una
+squalifica prende il suo posto invece di far correre una macchina sola, e nei test privati
+e' lui che sale in macchina.
+
+**Il vivaio.** Otto squadre su undici ne hanno uno, con i ragazzi che ci stanno davvero -
+Camara, Taponen e Wharton in Ferrari, Ugochukwu e Dunne in McLaren, Goethe e Tramnitz in
+Red Bull, Browning e Voisin in Williams. Racing Bulls, Haas e Cadillac no.
+
+Aprirlo costa **15 M$** una volta sola e poi **4-6 M$ l'anno** di gestione, fuori dal tetto
+di spesa: e' un programma della casa, non un costo della monoposto. Ed e' li' il punto -
+non e' una spesa che si fa e finisce, e' un conto che torna solo se lo si regge per anni,
+perche' un ragazzo entra a sedici anni e ne servono tre prima che valga qualcosa. Chi non
+ha margine nel bilancio non lo apre: Cadillac, con quello che le avanza, non lo tiene
+aperto un anno.
+
+Che gente arriva dipende da osservatori, struttura e nome della squadra: un top team pesca
+ragazzi da 72-75 con 85-92 di potenziale, una squadra di meta' gruppo da 58-62. Crescono
+ogni stagione, e le giornate di test private li fanno crescere il doppio. A 24 anni il
+percorso finisce: o salgono in prima squadra o lasciano il programma. E chi il vivaio non
+ce l'ha compra i ragazzi degli altri, pagandoli.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo

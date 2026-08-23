@@ -67,7 +67,9 @@ class Button(Widget):
         elif self.hover:
             bg = T.PANEL_3
         if not self.enabled:
-            bg, fg = T.PANEL, T.DIM_2
+            # senza il bordo un pulsante spento sparisce dentro il pannello,
+            # e non si capisce che c'e' qualcosa che non si puo' fare
+            bg, fg, border = T.PANEL, T.DIM_2, T.LINE
         T.panel(surf, self.rect, bg, radius=8, border=border)
         if self.style == "tab" and self.active:
             pygame.draw.rect(surf, T.ACCENT, (self.rect.x, self.rect.bottom - 3, self.rect.w, 3),

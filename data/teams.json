@@ -92,7 +92,12 @@
       "pu_reason": "Nessuna struttura motoristica: dal 1993 e' sempre stata cliente",
       "pu_status": "customer",
       "parent_team": "",
-      "last_position": 1
+      "last_position": 1,
+      "academy_name": "McLaren Driver Development",
+      "academy": [
+        "ugochukwu",
+        "dunne"
+      ]
     },
     {
       "id": "ferrari",
@@ -143,7 +148,13 @@
       "last_position": 4,
       "private_track_name": "Fiorano",
       "heritage": true,
-      "private_track_id": "fiorano"
+      "private_track_id": "fiorano",
+      "academy_name": "Ferrari Driver Academy",
+      "academy": [
+        "camara",
+        "taponen",
+        "wharton"
+      ]
     },
     {
       "id": "redbull",
@@ -193,7 +204,12 @@
       "parent_team": "",
       "last_position": 3,
       "private_track_name": "Red Bull Ring",
-      "private_track_id": "redbullring"
+      "private_track_id": "redbullring",
+      "academy_name": "Red Bull Junior Team",
+      "academy": [
+        "goethe",
+        "tramnitz"
+      ]
     },
     {
       "id": "mercedes",
@@ -241,7 +257,9 @@
       "pu_reason": "Mercedes-AMG High Performance Powertrains a Brixworth",
       "pu_status": "works",
       "parent_team": "",
-      "last_position": 2
+      "last_position": 2,
+      "academy_name": "Mercedes-AMG Junior Programme",
+      "academy": []
     },
     {
       "id": "astonmartin",
@@ -289,7 +307,9 @@
       "pu_reason": "La power unit la firma Honda: il gruppo non ha un reparto motori da corsa",
       "pu_status": "partner",
       "parent_team": "",
-      "last_position": 7
+      "last_position": 7,
+      "academy_name": "Aston Martin Driver Development",
+      "academy": []
     },
     {
       "id": "alpine",
@@ -337,7 +357,11 @@
       "pu_reason": "Renault possiede la squadra e lo stabilimento motori di Viry-Chatillon",
       "pu_status": "customer",
       "parent_team": "",
-      "last_position": 10
+      "last_position": 10,
+      "academy_name": "Alpine Academy",
+      "academy": [
+        "meguetounif"
+      ]
     },
     {
       "id": "williams",
@@ -385,7 +409,12 @@
       "pu_reason": "Squadra indipendente senza casa automobilistica alle spalle",
       "pu_status": "customer",
       "parent_team": "",
-      "last_position": 5
+      "last_position": 5,
+      "academy_name": "Williams Racing Driver Academy",
+      "academy": [
+        "browning",
+        "voisin"
+      ]
     },
     {
       "id": "racingbulls",
@@ -433,7 +462,9 @@
       "pu_reason": "Seconda squadra del gruppo: la power unit arriva da Red Bull Powertrains",
       "pu_status": "customer",
       "parent_team": "redbull",
-      "last_position": 6
+      "last_position": 6,
+      "academy_name": "",
+      "academy": []
     },
     {
       "id": "haas",
@@ -481,7 +512,9 @@
       "pu_reason": "Modello a fornitura esterna: telaio Dallara, power unit Ferrari",
       "pu_status": "customer",
       "parent_team": "",
-      "last_position": 9
+      "last_position": 9,
+      "academy_name": "",
+      "academy": []
     },
     {
       "id": "audi",
@@ -529,7 +562,9 @@
       "pu_reason": "Reparto motori Audi a Neuburg",
       "pu_status": "works",
       "parent_team": "",
-      "last_position": 8
+      "last_position": 8,
+      "academy_name": "Audi Driver Programme",
+      "academy": []
     },
     {
       "id": "cadillac",
@@ -577,7 +612,9 @@
       "pu_reason": "General Motors sta sviluppando una propria power unit",
       "pu_status": "customer",
       "parent_team": "",
-      "last_position": 11
+      "last_position": 11,
+      "academy_name": "",
+      "academy": []
     }
   ]
 }

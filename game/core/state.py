@@ -114,6 +114,7 @@ class GameState:
                 last_position=td.get("last_position", 6),
                 track_name=td.get("private_track_name", ""),
                 track_id=td.get("private_track_id", ""),
+                academy_name=td.get("academy_name", ""),
                 heritage=bool(td.get("heritage", False)),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
@@ -132,6 +133,7 @@ class GameState:
             team.hired_this_season = {}
             gs.teams[team.id] = team
 
+        gs._vivai = {td["id"]: list(td.get("academy") or []) for td in teamdata["teams"]}
         ddata = _load("drivers.json")
         for d in ddata["drivers"]:
             drv = Driver.from_dict(d)
@@ -140,6 +142,29 @@ class GameState:
                 gs.teams[drv.team].drivers.append(drv.id)
         for d in ddata["free_agents"]:
             gs.free_agents.append(Driver.from_dict(d))
+
+        # i ragazzi dei vivai esistenti passano dagli svincolati alla squadra
+        # che li segue davvero: e' li' che stanno, non sul mercato libero
+        for tid, ragazzi in getattr(gs, "_vivai", {}).items():
+            squadra = gs.teams.get(tid)
+            if squadra is None:
+                continue
+            for did in ragazzi:
+                drv = next((x for x in gs.free_agents if x.id == did), None)
+                if drv is None:
+                    continue
+                gs.free_agents.remove(drv)
+                gs.drivers[drv.id] = drv
+                drv.team = tid
+                drv.seat = "academy"
+                drv.salary = round(max(0.2, drv.salary * 0.35), 2)
+                squadra.academy.append(drv.id)
+        # un vivaio aperto non sta mai vuoto: chi non ha ragazzi noti ne ha
+        # comunque di suoi, solo che non li conosce ancora nessuno
+        from . import academy as _acc
+        for squadra in gs.teams.values():
+            if _acc.has(squadra) and len(squadra.academy) < 2:
+                _acc.intake(gs, squadra, 2 - len(squadra.academy))
 
         gs.sponsor_pool = _load("sponsors.json")["sponsors"]
         gs._calibrate_tracks()
@@ -318,7 +343,10 @@ class GameState:
 
     # ---------------------------------------------------------- classifiche
     def driver_standings(self) -> list:
-        ds = [d for d in self.drivers.values() if d.team]
+        # nel mondiale ci sono i titolari e chi ha corso al posto loro: un
+        # terzo pilota che non e' mai salito in macchina non e' in classifica
+        ds = [d for d in self.drivers.values()
+              if d.team and (d.seat == "titolare" or d.points or d.races)]
         ds.sort(key=lambda d: (-d.points, -d.wins, -d.podiums))
         return ds
 
