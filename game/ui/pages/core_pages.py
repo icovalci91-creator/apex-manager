@@ -10,7 +10,7 @@ from ...sim import session as S
 from .. import theme as T
 from .. import trackdraw
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, Slider, card, stat_row
+from ..widgets import Button, ScrollList, Slider, Toggle, card, stat_row
 
 
 # =========================================================== QUARTIER GENERALE
@@ -187,6 +187,9 @@ class CarPage(Page):
                                    self.delegate_all, "ghost"))
         self.widgets.append(Button((x + bw + 10, y + 44, bw, 34), "Assetto neutro",
                                    self.neutral, "ghost"))
+        self.widgets.append(Toggle((x, y + 88, larg, 30),
+                                   "Se ne occupano gli ingegneri di pista",
+                                   self.team.auto_setup, on_change=self._set_auto_setup))
 
         # le parti che il regolamento conta: si cambiano quando sono finite,
         # sapendo cosa costa farlo fuori contingente
@@ -205,6 +208,10 @@ class CarPage(Page):
         self.app.toast(msg)
         if ok:
             self.gs.push(msg, "tecnico")
+        self.build()
+
+    def _set_auto_setup(self, v) -> None:
+        self.team.auto_setup = bool(v)
         self.build()
 
     def _pick_driver(self, p) -> None:
@@ -355,7 +362,7 @@ class CarPage(Page):
                    (right.x + 16, right.y + 118), 13, T.DIM)
         else:
             T.text(surf, "Nessuna gara in programma.", (right.x + 16, right.y + 40), 15, T.DIM)
-        yy = right.y + 182 + len(SETUP_KEYS) * 36 + 96
+        yy = right.y + 182 + len(SETUP_KEYS) * 36 + 140
         if nt and d is not None:
             T.text(surf, "RISCONTRO DEGLI INGEGNERI", (right.x + 16, yy), 12, T.DIM_2, bold=True)
             yy += 22
@@ -427,8 +434,14 @@ class DevPage(Page):
             b.active = (sz == self.sel_size)
             self.size_buttons.append(b)
             self.widgets.append(b)
-        self.widgets.append(Button((bx, sy + 204, right.w - 32, 40), "Avvia progetto",
-                                   self.start_project, "primary"))
+        self.auto_toggle = Toggle((left.x + 16, y + 50, left.w - 32, 30),
+                                  "Decide il reparto", self.team.auto_dev,
+                                  on_change=self._set_auto)
+        self.widgets.append(self.auto_toggle)
+        b = Button((bx, sy + 204, right.w - 32, 40), "Avvia progetto",
+                   self.start_project, "primary")
+        b.enabled = not self.team.auto_dev
+        self.widgets.append(b)
         self.reg_slider = None
         if development.seasons_to_reset(self.gs) not in (None,) and \
                 development.seasons_to_reset(self.gs) <= 3:
@@ -437,6 +450,10 @@ class DevPage(Page):
                 self.team.next_reg_share * 100.0, 0.0, 90.0,
                 on_change=self._set_reg_share, fmt="{:.0f}%")
             self.widgets.append(self.reg_slider)
+
+    def _set_auto(self, v) -> None:
+        self.team.auto_dev = bool(v)
+        self.build()
 
     def _alloc(self, k, v) -> None:
         self.team.resource_alloc[k] = max(0.0, v) / 100.0
@@ -633,10 +650,9 @@ class DevPage(Page):
                      f"({liberi} libere)   -   materiali {conto['materiali']:.2f} M$, "
                      f"straordinari {conto['lavoro']:.2f}",
                (right.x + 16, sy + 62), 12, col_p, maxw=right.w - 32)
-        resta = economy.room_left(gs, team)
-        T.text(surf, f"Dopo questo pacchetto resterebbero {max(0.0, resta - cost):.0f} M$ "
-                     f"per la stagione, su {resta:.0f}.",
-               (right.x + 16, sy + 78), 12, T.DIM_2, maxw=right.w - 32)
+        stato, parere = economy.cap_advice(gs, team, cost)
+        col_cfo = {"male": T.BAD, "attento": T.WARN, "ok": T.DIM}[stato]
+        T.text(surf, parere, (right.x + 16, sy + 78), 12, col_cfo, maxw=right.w - 32)
 
         col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
         T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 102), 13, T.DIM)

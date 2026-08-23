@@ -17,7 +17,7 @@ ROLE_LEVEL_FROM_REP = {
     "technical_director": 1.00, "chief_designer": 0.95, "head_of_aero": 0.97,
     "head_of_powertrain": 0.93, "head_of_strategy": 0.96, "race_engineer": 0.92,
     "performance_engineer": 0.90, "chief_mechanic": 0.90, "head_of_scouting": 0.86,
-    "team_principal": 1.02,
+    "team_principal": 1.02, "financial_director": 0.94,
 }
 
 
@@ -431,6 +431,7 @@ class GameState:
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup, "setups": t.setups or {},
+                    "auto_dev": t.auto_dev, "auto_setup": t.auto_setup,
                     "balance": t.car.balance,
                 } for t in self.teams.values()
             },
@@ -517,6 +518,8 @@ class GameState:
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
             t.car.balance = float(td.get("balance", 0.0))
+            t.auto_dev = bool(td.get("auto_dev", False))
+            t.auto_setup = bool(td.get("auto_setup", True))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()

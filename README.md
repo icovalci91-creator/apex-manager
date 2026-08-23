@@ -681,6 +681,32 @@ il tetto di spesa nessuno riesce a tenere al passo tutte le strutture, quindi
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
 
+**Delegare, e a chi.** Il reparto puo' lavorare da solo: si accende "decide il reparto"
+nella pagina Sviluppo e da li' in poi ripartizione, pacchetti e taglie li sceglie lui. Non
+e' gratis ne' uguale per tutti - quanto viene bene lo dice la **lucidita'**, che nasce dal
+direttore tecnico e dal team principal. Un reparto lucido apre il pacchetto giusto sulla
+parte giusta; uno meno lucido ogni tanto insegue quella sbagliata e sceglie la taglia
+sbagliata. Su dodici gare simulate, delegando a un reparto forte la macchina cresce di
++0,27 contro +0,06 lasciando fare al minimo sindacale, spendendo pure un po' meno.
+
+Lo stesso vale per l'assetto: **"se ne occupano gli ingegneri di pista"** e' acceso per
+difetto. Il reparto prepara il riferimento al simulatore da solo prima di ogni weekend, e
+chi ha buoni ingegneri ne fa due sessioni invece di una. Dimenticarsene porta il
+riferimento da +/-6 punti a +/-19, che e' la differenza fra arrivare in pista sapendo dove
+si va e arrivarci a tentoni.
+
+**Il direttore finanziario.** Una figura nuova nell'organigramma, e serve a una cosa sola:
+sapere in anticipo dove si andra' a finire col tetto di spesa. Somma quello che e' gia'
+uscito, quello a cui ci si e' impegnati con i pacchetti aperti e quello che le gare che
+restano si porteranno via comunque, e ne esce una previsione con una forbice.
+
+La forbice la decide lui: da **+/-18 M$** con un direttore scarso a **+/-2,5 M$** con uno
+bravo. Non fa risparmiare un milione - fa sapere quanto si puo' impegnare senza rischiare,
+che nel tetto di spesa e' la stessa cosa. Nella pagina Finanze c'e' il conto intero con la
+barra di quanto e' gia' impegnato e dove cade la stima; e prima di aprire un pacchetto e'
+lui a dire se ci sta: *"siamo al limite, il margine e' 4 M$ con un'incertezza di 6. Non ci
+metterei altro."*
+
 **Il verdetto arriva dalla pista.** Quando un pacchetto e' pronto va in macchina, ma quanto
 ha portato non lo dice la galleria: lo dicono i cronometri dopo un weekend. Alla gara dopo
 arriva il verdetto - *"porta +2.9 sulla vecchia, meno dei +5.4 promessi"* - e con lui

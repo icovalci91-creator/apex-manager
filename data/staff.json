@@ -11,6 +11,15 @@
       "slots": 1,
       "base_salary": 3.0
     },
+    "financial_director": {
+      "label": "Direttore Finanziario",
+      "weights": {
+        "management": 1.2,
+        "analysis": 1.0
+      },
+      "slots": 1,
+      "base_salary": 1.1
+    },
     "technical_director": {
       "label": "Direttore Tecnico",
       "weights": {

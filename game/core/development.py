@@ -721,6 +721,59 @@ def budget_headroom(gs, team) -> float:
     return max(0.0, room)
 
 
+def lucidita(team) -> float:
+    """Quanto bene il reparto sceglie da solo, da 0.35 a 1.
+
+    Non e' la stessa cosa lasciar fare a un direttore tecnico da novanta o a
+    uno da sessanta: il primo apre il pacchetto giusto sulla parte giusta, il
+    secondo ogni tanto insegue la cosa sbagliata. Delegare non e' gratis, e'
+    esattamente affidarsi a quanto valgono le persone che si sono assunte.
+    """
+    td = team._s("technical_director", "development", 55.0)
+    tp = team._s("team_principal", "management", 55.0)
+    return max(0.30, min(1.0, 0.30 + 0.75 * _n(0.7 * td + 0.3 * tp)))
+
+
+def run_department(gs, team) -> None:
+    """Una gara di lavoro del reparto, deciso dal reparto stesso.
+
+    E' la stessa testa che usano le scuderie del computer. Quando il giocatore
+    delega, delega a questa - e quanto viene bene lo dice chi ha in squadra.
+    """
+    headroom = budget_headroom(gs, team)
+    # quello che resta dopo i costi fissi e dopo quello gia' speso, diviso
+    # per le gare che mancano: e' cosi' che si fa un budget, non guardando
+    # quanto si ha in banca
+    resta = economy.room_left(gs, team)
+    gare_restanti = max(1, len(gs.tracks) - gs.round)
+    # chi ha capitale in cassa non si ferma a quello che incassa: lo mette
+    # sul tavolo, fino a dove arriva il tetto di spesa
+    fame = economy.spending_appetite(gs, team)
+    budget = min(resta / gare_restanti * (0.55 + 0.40 * fame),
+                 headroom * (0.45 + 0.45 * fame))
+    budget = max(0.0, budget * economy.spending_room(gs, team))
+    # un reparto in mano a gente brava lavora sulla parte giusta; uno meno
+    # lucido ogni tanto insegue quella sbagliata
+    q = lucidita(team)
+    parti = sorted(team.car.parts.items(), key=lambda kv: kv[1].perf)
+    weak = parti[0][0] if gs.rng.random() < q else gs.rng.choice(parti[:4])[0]
+    alloc = {k: 1.0 for k in team.car.parts}
+    alloc[weak] = 1.0 + 2.0 * q
+    if team.philosophy == "aero":
+        for k in ("floor", "front_wing", "rear_wing", "active_aero"):
+            alloc[k] = alloc.get(k, 1.0) + 1.2
+    elif team.philosophy == "mechanical":
+        for k in ("suspension", "chassis", "gearbox"):
+            alloc[k] = alloc.get(k, 1.0) + 1.2
+    elif team.philosophy == "powertrain":
+        for k in ("cooling", "gearbox", "sidepods"):
+            alloc[k] = alloc.get(k, 1.0) + 1.0
+    team.next_reg_share = ai_reg_share(gs, team)
+    team.resource_alloc = alloc
+    passive_development(gs, team, budget)
+    ai_start_package(gs, team, weak, headroom, economy.room_left(gs, team))
+
+
 def ai_development(gs) -> None:
     """Sviluppo delle scuderie gestite dal computer.
 
@@ -732,36 +785,9 @@ def ai_development(gs) -> None:
     for team in gs.teams.values():
         if team.is_player:
             continue
-        headroom = budget_headroom(gs, team)
-        # quello che resta dopo i costi fissi e dopo quello gia' speso, diviso
-        # per le gare che mancano: e' cosi' che si fa un budget, non guardando
-        # quanto si ha in banca
-        resta = economy.room_left(gs, team)
-        gare_restanti = max(1, len(gs.tracks) - gs.round)
-        # chi ha capitale in cassa non si ferma a quello che incassa: lo mette
-        # sul tavolo, fino a dove arriva il tetto di spesa
-        fame = economy.spending_appetite(gs, team)
-        budget = min(resta / gare_restanti * (0.55 + 0.40 * fame),
-                     headroom * (0.45 + 0.45 * fame))
-        budget = max(0.0, budget * economy.spending_room(gs, team))
-        weak = min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]
-        alloc = {k: 1.0 for k in team.car.parts}
-        alloc[weak] = 3.0
-        if team.philosophy == "aero":
-            for k in ("floor", "front_wing", "rear_wing", "active_aero"):
-                alloc[k] = alloc.get(k, 1.0) + 1.2
-        elif team.philosophy == "mechanical":
-            for k in ("suspension", "chassis", "gearbox"):
-                alloc[k] = alloc.get(k, 1.0) + 1.2
-        elif team.philosophy == "powertrain":
-            for k in ("cooling", "gearbox", "sidepods"):
-                alloc[k] = alloc.get(k, 1.0) + 1.0
-        team.next_reg_share = ai_reg_share(gs, team)
-        team.resource_alloc = alloc
-        passive_development(gs, team, budget)
+        run_department(gs, team)
         check_trials(gs, team)
         advance_projects(gs, team)
-        ai_start_package(gs, team, weak, headroom, economy.room_left(gs, team))
 
 
 def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) -> None:
@@ -799,7 +825,11 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
     if not scelte:
         return
     scelte.sort(reverse=True)
-    start_project(gs, team, part, scelte[0][1])
+    # il migliore lo prende chi ci vede chiaro; gli altri ogni tanto sbagliano
+    if gs.rng.random() < lucidita(team) or len(scelte) == 1:
+        start_project(gs, team, part, scelte[0][1])
+    else:
+        start_project(gs, team, part, gs.rng.choice(scelte)[1])
 
 
 def new_car_season(gs) -> None:

@@ -222,21 +222,27 @@ def new_weekend(gs) -> None:
         if track is None:
             continue
         ensure_paper(gs, team, track)
-        if not team.is_player:
+        # chi ha lasciato fare agli ingegneri se lo ritrova pronto: e' il
+        # motivo per cui dimenticarsene non manda all'aria il weekend
+        if not team.is_player or team.auto_setup:
             _ai_prepare(gs, team, track)
 
 
 def _ai_prepare(gs, team, track) -> None:
-    """Quante sessioni si concede una scuderia del computer.
+    """Quante sessioni si concede una squadra che prepara da sola.
 
     Nessuno arriva in pista senza aver provato niente, ma chi ha il bilancio
-    corto ne fa meno: e' la stessa scelta che ha davanti il giocatore.
+    corto ne fa meno. Vale per le scuderie del computer e per il giocatore che
+    ha lasciato fare agli ingegneri: quanto viene bene dipende da chi ci sta
+    al simulatore.
     """
     from . import economy
     salute = economy.budget_health(gs, team)
     # una sessione la fanno tutti: arrivare in pista senza aver provato niente
-    # non lo fa nessuno. La seconda si paga se il bilancio la regge
-    voglia = 1 + int(salute > 0.5)
+    # non lo fa nessuno. La seconda si paga se il bilancio la regge, e la
+    # fanno volentieri quelli che sanno cosa cercarci
+    bravi = team.setup_strength >= 70.0
+    voglia = 1 + int(salute > 0.5 and bravi)
     for _ in range(min(SIM_MAX, voglia)):
         ok, _m = run_simulator(gs, team, track)
         if not ok:

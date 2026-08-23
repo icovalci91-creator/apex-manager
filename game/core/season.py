@@ -214,7 +214,12 @@ def after_race(gs, dev_budget: float | None = None, pu_budget: float | None = No
         auto_dev, auto_pu = player_budgets(gs)
         dev_budget = auto_dev if dev_budget is None else dev_budget
         pu_budget = auto_pu if pu_budget is None else pu_budget
-    development.passive_development(gs, player, dev_budget)
+    if player.auto_dev:
+        # delega al reparto: decide lui allocazione, pacchetti e taglie, e
+        # quanto viene bene dipende da chi ci sta dentro
+        development.run_department(gs, player)
+    else:
+        development.passive_development(gs, player, dev_budget)
     # prima il verdetto su quello che gia' gira, poi quello che arriva adesso:
     # una specifica nuova non puo' essere giudicata dalla gara appena corsa
     msgs += development.check_trials(gs, player)

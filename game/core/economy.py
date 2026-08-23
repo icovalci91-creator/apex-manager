@@ -345,6 +345,86 @@ def budget_health(gs, team) -> float:
     return max(0.0, min(1.0, room_left(gs, team) / DISCRETIONARY_REF))
 
 
+# ------------------------------------------------------- il direttore finanziario
+# Quanto e' larga la forbice della previsione, da un direttore scarso a uno
+# bravo. Non e' che uno spenda meno: e' che sa dove andra' a finire, e nel
+# tetto di spesa saperlo in anticipo vale quanto averli, i soldi.
+FORECAST_ERR_MAX = 18.0
+FORECAST_ERR_MIN = 2.5
+
+
+def committed(gs, team) -> float:
+    """Quello che si e' gia' impegnati a pagare e non e' ancora uscito."""
+    aperti = sum(max(0.0, pr.budget - pr.invested) for pr in team.dev_projects)
+    prove = sum(t.cost * 0.06 * 3 for t in team.spec_trials
+                if t.state == "affinamento")
+    return round(aperti + prove, 2)
+
+
+def forecast_error(team) -> float:
+    """Di quanto puo' sbagliare la previsione, in milioni."""
+    q = max(0.0, min(1.0, (team.finance_strength - 45.0) / 45.0))
+    return round(FORECAST_ERR_MAX - (FORECAST_ERR_MAX - FORECAST_ERR_MIN) * q, 1)
+
+
+def cap_forecast(gs, team) -> dict:
+    """Dove si andra' a finire col tetto di spesa, se si va avanti cosi'.
+
+    Somma quello che e' gia' uscito, quello a cui ci si e' impegnati e quello
+    che le gare che restano si porteranno via comunque. La forbice attorno alla
+    previsione la decide il direttore finanziario.
+    """
+    limite = cap_limit(gs)
+    gare = max(0, len(gs.tracks) - gs.round)
+    n = max(1, len(gs.tracks))
+    fissi_gara = (team.staff_cost + team.facility_upkeep) / n + TRAVEL_PER_RACE
+    fissi_gara += DAMAGE_RESERVE / n
+    previsto = team.spent + committed(gs, team) + fissi_gara * gare
+    err = forecast_error(team)
+    margine = limite - previsto
+    # il rischio di sforare: la previsione e' una forbice, non un numero
+    if err <= 0.01:
+        rischio = 1.0 if margine < 0 else 0.0
+    else:
+        rischio = max(0.0, min(1.0, 0.5 - margine / (2.0 * err)))
+    return {"speso": round(team.spent, 2), "limite": limite,
+            "impegnato": committed(gs, team), "fissi": round(fissi_gara * gare, 2),
+            "previsto": round(previsto, 2), "margine": round(margine, 2),
+            "errore": err, "rischio": round(rischio, 3), "gare": gare}
+
+
+def spendable(gs, team) -> float:
+    """Quanto si puo' ancora impegnare restando ragionevolmente al sicuro.
+
+    E' il margine previsto meno la forbice: un direttore bravo lascia poco
+    inutilizzato, uno scarso costringe a tenersi larghi.
+    """
+    f = cap_forecast(gs, team)
+    return round(max(0.0, f["margine"] - f["errore"]), 2)
+
+
+def cap_advice(gs, team, spesa: float = 0.0) -> tuple:
+    """Cosa direbbe il direttore finanziario davanti a una spesa. (colore, frase)."""
+    f = cap_forecast(gs, team)
+    margine = f["margine"] - spesa
+    err = f["errore"]
+    nome = "Il direttore finanziario"
+    d = team.role("financial_director")
+    if d is not None:
+        nome = d.name
+    if margine < -err:
+        return "male", (f"{nome}: cosi' si sfora di sicuro, siamo "
+                        f"{abs(margine):.0f} M$ oltre il tetto.")
+    if margine < err:
+        return "attento", (f"{nome}: siamo al limite, il margine e' {margine:.0f} M$ "
+                           f"con un'incertezza di {err:.0f}. Non ci metterei altro.")
+    if margine < err * 2.5:
+        return "ok", (f"{nome}: ci sta, restano {margine:.0f} M$ di margine su una "
+                      f"previsione a +/-{err:.0f}.")
+    return "ok", (f"{nome}: nessun problema, avanzano {margine:.0f} M$ e la "
+                  f"previsione e' buona a +/-{err:.0f}.")
+
+
 def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:
     if team.cash < amount:
         return False, "Liquidita' insufficiente."

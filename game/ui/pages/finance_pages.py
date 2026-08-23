@@ -165,9 +165,13 @@ class FinancePage(Page):
              f"{tot['in']:.1f} M$", "sponsor, premi, cessioni", accent=T.OK)
         card(surf, (r.x + 2 * (cw + 16), y0, cw, 86), f"Uscite {anno}",
              f"{tot['out']:.1f} M$", "tutte le voci di costo", accent=T.BAD)
-        card(surf, (r.x + 3 * (cw + 16), y0, cw, 86), "Saldo di stagione",
-             f"{tot['net']:+.1f} M$", "entrate meno uscite",
-             colour=T.OK if tot["net"] >= 0 else T.BAD, accent=T.GOLD)
+        prev = economy.cap_forecast(gs, team)
+        col_r = (T.BAD if prev["rischio"] > 0.4 else
+                 T.WARN if prev["rischio"] > 0.12 else T.OK)
+        card(surf, (r.x + 3 * (cw + 16), y0, cw, 86), "Tetto di spesa a fine anno",
+             f"{prev['previsto']:.0f} / {prev['limite']:.0f}",
+             f"+/-{prev['errore']:.0f} M$  -  rischio di sforare {prev['rischio']*100:.0f}%",
+             colour=col_r, accent=T.GOLD)
 
         # ---- mese per mese
         left = pygame.Rect(r.x, y0 + 100, r.w * 0.46, r.h - 146)
@@ -202,13 +206,49 @@ class FinancePage(Page):
                    T.OK if a["net"] >= 0 else T.BAD, bold=True, align="right")
             yy += 20
 
-        # ---- categorie
+        # ---- il conto del direttore finanziario
         right = pygame.Rect(r.x + r.w * 0.48, y0 + 100, r.w * 0.52 - 4, r.h - 146)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "DA DOVE ARRIVANO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+        cfo = team.role("financial_director")
+        T.text(surf, "TETTO DI SPESA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, cfo.name if cfo else "nessun direttore finanziario",
+               (right.right - 16, right.y + 12), 11,
+               T.DIM_2 if cfo else T.BAD, align="right")
+        yy = right.y + 36
+        for lab, val, colr in (
+                ("Gia' speso", f"{prev['speso']:.1f} M$", T.TEXT),
+                ("Impegnato sui pacchetti aperti", f"{prev['impegnato']:.1f} M$", T.WARN),
+                (f"Costi fissi delle {prev['gare']} gare che restano",
+                 f"{prev['fissi']:.1f} M$", T.DIM),
+                ("Previsione a fine stagione",
+                 f"{prev['previsto']:.1f} su {prev['limite']:.0f}", col_r),
+                ("Margine", f"{prev['margine']:+.1f} M$  (+/-{prev['errore']:.0f})", col_r),
+                ("Si puo' ancora impegnare",
+                 f"{economy.spendable(gs, team):.1f} M$", T.OK)):
+            T.text(surf, lab, (right.x + 16, yy), 13, T.DIM, maxw=right.w * 0.6)
+            T.text(surf, val, (right.right - 16, yy), 13, colr, bold=True, align="right")
+            yy += 22
+        # la barra: quanto del tetto e' gia' impegnato, e dove finisce la stima
+        bar = pygame.Rect(right.x + 16, yy + 8, right.w - 32, 14)
+        T.panel(surf, bar, T.PANEL_3, radius=4)
+        lim = max(1.0, prev["limite"])
+        pygame.draw.rect(surf, T.ACCENT,
+                         (bar.x, bar.y, int(bar.w * min(1.0, prev["speso"] / lim)), bar.h),
+                         border_radius=4)
+        pygame.draw.rect(surf, T.WARN,
+                         (bar.x + int(bar.w * min(1.0, prev["speso"] / lim)), bar.y,
+                          int(bar.w * min(1.0, prev["impegnato"] / lim)), bar.h))
+        px = bar.x + int(bar.w * min(1.15, prev["previsto"] / lim))
+        pygame.draw.line(surf, col_r, (px, bar.y - 5), (px, bar.bottom + 5), 3)
+        yy += 34
+        _c, frase = economy.cap_advice(gs, team)
+        T.text(surf, frase, (right.x + 16, yy), 13, col_r, maxw=right.w - 32)
+        yy += 30
+
+        T.text(surf, "DA DOVE ARRIVANO", (right.x + 16, yy), 12, T.DIM_2, bold=True)
         entrate = economy.by_category(team, anno, "in")
         mx_in = max([v["amount"] for v in entrate] + [1.0])
-        yy = right.y + 36
+        yy += 24
         for v in entrate:
             T.text(surf, v["label"], (right.x + 16, yy), 13, T.TEXT, maxw=250)
             T.bar(surf, (right.x + 280, yy + 4, right.w - 380, 8), v["amount"], mx_in, T.OK)
@@ -226,14 +266,7 @@ class FinancePage(Page):
             T.text(surf, f"{v['amount']:.1f}", (right.right - 16, yy), 13, T.TEXT,
                    bold=True, align="right")
             yy += 22
-        yy += 14
-        spent, limit, frac = economy.cap_usage(gs, team)
-        T.text(surf, "TETTO DI SPESA", (right.x + 16, yy), 12, T.DIM_2, bold=True)
-        yy += 22
-        T.bar(surf, (right.x + 16, yy, right.w - 32, 12), spent, limit,
-              T.BAD if frac > 1 else (T.WARN if frac > 0.85 else T.OK))
-        T.text(surf, f"{spent:.1f} di {limit:.0f} M$ ({frac*100:.0f}%) - non tutte le "
-                     f"voci ci rientrano", (right.x + 16, yy + 18), 12, T.DIM)
+
 
     def _draw_sponsor(self, surf) -> None:
         r, gs, team = self.rect, self.gs, self.team

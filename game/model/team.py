@@ -52,6 +52,8 @@ class Team:
     academy: list = field(default_factory=list)      # ragazzi del vivaio
     academy_name: str = ""       # come si chiama il vivaio, se c'e'
     setups: dict = None          # assetto montato, pilota per pilota
+    auto_dev: bool = False       # il reparto tecnico decide da solo gli aggiornamenti
+    auto_setup: bool = True      # gli ingegneri di pista preparano l'assetto da soli
     staff: list = field(default_factory=list)        # oggetti Staff
     points: float = 0.0
     wins: int = 0
@@ -176,6 +178,17 @@ class Team:
         fac = 0.5 * self._fac("factory") + 0.5 * self._fac("design_office")
         raw = 0.45 * td + 0.20 * mgmt + 0.35 * fac
         return 0.50 + 1.10 * (raw / 100.0)
+
+    @property
+    def finance_strength(self) -> float:
+        """Quanto la squadra sa dove sono i suoi soldi.
+
+        Un direttore finanziario bravo non fa risparmiare: fa sapere in
+        anticipo quanto si sta per spendere, che nel tetto di spesa e' la
+        stessa cosa. Senza di lui si naviga a vista e si sfora per sbaglio.
+        """
+        return (0.62 * self._s("financial_director", "management", 48.0)
+                + 0.38 * self._s("financial_director", "analysis", 48.0))
 
     @property
     def scouting_strength(self) -> float:
