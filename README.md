@@ -506,19 +506,47 @@ la meta' della griglia sta fra -10 e +20, e i due costruttori nuovi - Audi e Cad
 perdono 20-30 M$ costruendosi il reparto motori, che e' esattamente quello che sembra un
 ingresso in Formula 1.
 
-**Il proprietario.** Una squadra non e' un salvadanaio. A fine stagione chi ha chiuso in
-utile lo distribuisce alla proprieta' e tiene in cassa una riserva di lavoro (75 M$, un
-terzo del tetto di spesa); chi ha chiuso in perdita se la fa coprire, ma non gratis: l'anno
-dopo il budget e' stretto, e sviluppo, costruzioni e giornate di test scendono in
-proporzione. La stretta si allenta da sola quando i conti tornano.
+**Il proprietario, e perche' l'utile resta dentro.** A fine stagione chi ha chiuso in
+perdita se la fa coprire dalla proprieta', ma non gratis: l'anno dopo il budget e' stretto,
+e sviluppo, costruzioni e giornate di test scendono in proporzione. La stretta si allenta
+da sola quando i conti tornano, cosi' chi perde poco tutti gli anni si stabilizza intorno
+al 35%: fatica, ma non muore, che e' quello che succede davvero in fondo alla griglia.
 
-Senza questa regola il conto divergeva in tutte e due le direzioni, e su otto stagioni si
-vedeva bene: la prima della classe arrivava a **1661 M$** fermi in cassa - con il tetto di
-spesa gia' saturo al 99%, quindi senza nemmeno un modo di usarli - e l'ultima a **-191 M$**
-continuando a correre come se niente fosse. Adesso la piu' ricca oscilla fra 190 e 320 e la
-piu' povera fra 0 e -8, coperta e rimessa in riga ogni dicembre. Una squadra che perde
-poco tutti gli anni si stabilizza intorno al 35% di stretta: fatica, ma non muore, che e'
-quello che succede davvero in fondo alla griglia.
+L'utile invece **non viene prelevato**: resta in cassa. Il proprietario di una scuderia non
+e' un azionista che stacca il dividendo, e soprattutto quei soldi servono, perche' non
+tutto passa dal tetto di spesa. Basta guardare quanto incassa ogni squadra e quanto
+potrebbe spendere al massimo - il tetto di spesa piu' gli ingaggi dei piloti, la power
+unit e la quota annua per le costruzioni:
+
+| | Entrate | Spesa massima | Saldo |
+|---|---|---|---|
+| McLaren | 405 | 291 | **+114** |
+| Mercedes | 348 | 294 | +54 |
+| Red Bull | 322 | 331 | -9 |
+| Ferrari | 335 | 365 | -30 |
+| Williams | 220 | 277 | -57 |
+| Aston Martin | 199 | 271 | -72 |
+| Haas | 147 | 264 | -117 |
+| Alpine | 139 | 269 | -130 |
+| Cadillac | 119 | 278 | **-159** |
+
+Nove squadre su undici non arrivano nemmeno a riempire il budget che il regolamento gli
+concederebbe: per loro il vincolo non e' il tetto di spesa, e' la liquidita'. Togliergli
+l'utile a dicembre significherebbe togliergli l'unico modo di uscire da li'. Solo le prime
+due generano piu' di quanto possano spendere, e quel margine si vede in cassa invece di
+sparire.
+
+**E i soldi si spendono.** Perche' la liquidita' conti davvero, chi ha capitale oltre la
+riserva di lavoro (75 M$) spinge su tutto quello che il denaro puo' comprare: mette sul
+tavolo fino al 95% di quello che avanza invece del 55%, apre pacchetti piu' grossi, usa
+tutta la quota per le costruzioni ogni anno invece di alternarla, e paga fino al 40% sopra
+il valore di mercato per prendersi il pilota che vuole.
+
+Ed e' arrivato anche il mercato degli uomini per le scuderie del computer, che prima non
+esisteva: il loro organigramma restava quello del primo giorno per sempre. Adesso chi ha
+capitale interviene sul ruolo messo peggio - direttore tecnico, responsabile aerodinamica,
+capo progettista, powertrain, strategia - e se lo compra dal mercato dei liberi. E' la leva
+piu' diretta che ha una squadra per andare piu' forte, e adesso ce l'hanno tutti.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo

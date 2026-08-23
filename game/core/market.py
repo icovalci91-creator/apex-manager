@@ -198,8 +198,12 @@ def run_transfer_window(gs) -> list:
         while len(team.drivers) < 2 and gs.free_agents:
             pool = sorted(gs.free_agents, key=lambda d: -(d.overall + d.potential * 0.35))
             pick = None
+            fame = economy.spending_appetite(gs, team)
             for cand in pool[:6]:
-                salary = round(cand.market_value * gs.rng.uniform(0.95, 1.2), 1)
+                # una squadra con la cassa piena si compra il pilota che vuole:
+                # e' cosi' che si spiegano gli ingaggi che fanno notizia
+                salary = round(cand.market_value * gs.rng.uniform(0.95, 1.2)
+                               * (1.0 + 0.40 * fame), 1)
                 if driver_interest(gs, cand, team, salary, 2) > gs.rng.random():
                     pick = (cand, salary)
                     break
@@ -216,6 +220,60 @@ def run_transfer_window(gs) -> list:
         gs.free_staff.append(generate_staff(role, gs.rng.uniform(50, 80), gs.rng,
                                             pool, gs.season, None))
     del gs.free_staff[40:]
+    news += ai_staff_market(gs)
+    return news
+
+
+# ------------------------------------------------------- il mercato degli uomini
+# I ruoli che spostano davvero qualcosa: da questi escono la forza dei reparti,
+# la fiducia nei pacchetti e il modo in cui si legge una gara.
+KEY_ROLES = ("technical_director", "head_of_aero", "chief_designer",
+             "head_of_powertrain", "head_of_strategy", "chief_mechanic",
+             "team_principal")
+
+
+def role_score(gs, person, role: str) -> float:
+    """Quanto vale una persona in quel ruolo, con i pesi del ruolo stesso."""
+    if person is None:
+        return 0.0
+    w = gs.staff_roles.get(role, {}).get("weights", {})
+    tot = sum(w.values()) or 1.0
+    return round(sum(getattr(person, a, 60.0) * k for a, k in w.items()) / tot, 2)
+
+
+def ai_staff_market(gs) -> list:
+    """Le scuderie del computer si rinforzano anche fuori dalla pista.
+
+    Senza questo l'organigramma delle IA restava quello del primo giorno per
+    sempre: potevano accumulare denaro senza nessun modo di trasformarlo in
+    ingegneri, che e' poi la leva piu' diretta che ha una squadra per andare
+    piu' forte. Chi ha capitale in cassa sceglie per primo e paga di piu', ed
+    e' cosi' che nella realta' un reparto si svuota e un altro si riempie.
+    """
+    news = []
+    ruoli = [r for r in KEY_ROLES if r in gs.staff_roles]
+    ordine = sorted((t for t in gs.teams.values() if not t.is_player),
+                    key=lambda t: -economy.spending_appetite(gs, t))
+    for team in ordine:
+        fame = economy.spending_appetite(gs, team)
+        if fame < 0.20 or gs.rng.random() > 0.25 + 0.55 * fame:
+            continue
+        # si interviene dove si e' messi peggio, non dove si e' gia' forti
+        voti = {r: role_score(gs, team.role(r), r) for r in ruoli}
+        if not voti:
+            continue
+        role = min(voti, key=voti.get)
+        candidati = [p for p in gs.free_staff if p.role == role]
+        if not candidati:
+            continue
+        best = max(candidati, key=lambda p: role_score(gs, p, role))
+        if role_score(gs, best, role) < voti[role] + 3.0:
+            continue                     # cambiare per cambiare non serve
+        salario = round(best.market_value * (1.05 + 0.35 * fame), 2)
+        ok, _msg = hire_staff(gs, team, best, salario, gs.rng.randint(2, 4))
+        if ok:
+            news.append(f"{team.short}: {best.name} arriva come "
+                        f"{gs.staff_roles[role]['label']} ({salario:.1f} M$).")
     return news
 
 

@@ -192,27 +192,48 @@ def end_of_season_finances(gs) -> list:
 
 
 # ------------------------------------------------------------- il proprietario
-# Una squadra di Formula 1 non e' un salvadanaio. Chi guadagna distribuisce
-# l'utile - il proprietario e' li' per quello - e chi perde viene coperto, ma
-# non gratis: l'anno dopo si spende meno, perche' e' quello che succede quando
-# si va a chiedere i soldi a chi comanda.
+# L'utile resta in squadra. Il proprietario di una scuderia di Formula 1 non e'
+# un azionista che stacca il dividendo e se ne va: mette i soldi quando servono
+# e li lascia dentro quando ci sono, perche' l'unica cosa che gli interessa e'
+# che la macchina vada piu' forte.
 #
-# Senza questa regola il conto divergeva in tutte e due le direzioni: su otto
-# stagioni la prima della classe arrivava a 1661 M$ fermi in cassa, con il
-# tetto di spesa gia' saturo e quindi nessun modo di usarli, e l'ultima a -191
-# continuando a correre come se niente fosse.
-RESERVE_SHARE = 0.35     # riserva tenuta in cassa, in quote di tetto di spesa
-DIVIDEND_TRIGGER = 1.7   # oltre questa quota della riserva si distribuisce
+# E i soldi in cassa servono davvero, perche' non tutto passa dal tetto di
+# spesa: costruzioni, ingaggi dei piloti e indennizzi per portare via un
+# ingegnere a un'altra squadra si pagano con la liquidita'. Chi ne ha poca non
+# riesce nemmeno a riempire il budget che il regolamento gli concederebbe, ed
+# e' esattamente la differenza fra il fondo e la testa della griglia.
+#
+# Quello che il proprietario fa sul serio e' l'altro lato: copre le perdite, e
+# l'anno dopo si spende meno.
+RESERVE_SHARE = 0.35     # riserva di lavoro, in quote di tetto di spesa
 AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
 AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
 
 
 def reserve(gs) -> float:
+    """La liquidita' che una squadra tiene da parte per far girare la baracca."""
     return round(cap_limit(gs) * RESERVE_SHARE, 2)
 
 
+def war_chest(gs, team) -> float:
+    """Quello che c'e' in cassa oltre la riserva: capitale, non fondo cassa."""
+    return round(team.cash - reserve(gs), 2)
+
+
+def spending_appetite(gs, team) -> float:
+    """Da 0 a 1: quanto una squadra puo' permettersi di spingere oltre il minimo.
+
+    Chi ha solo la riserva vive di quello che incassa, gara per gara. Chi ha
+    capitale in cassa lo mette sul tavolo - strutture, ingegneri, piloti,
+    pacchetti - perche' i soldi fermi non fanno punti.
+    """
+    if team.cash <= 0:
+        return 0.0
+    return max(0.0, min(1.0, war_chest(gs, team) / max(1.0, reserve(gs) * 0.6)))
+
+
 def owner_settlement(gs, team) -> list:
-    """Chiude i conti col proprietario: preleva l'utile o copre le perdite."""
+    """Chiude i conti col proprietario: copre le perdite. L'utile resta dentro."""
     msgs = []
     ris = reserve(gs)
     if team.cash < 0:
@@ -230,15 +251,12 @@ def owner_settlement(gs, team) -> list:
                         f"{(1 - team.austerity) * 100:.0f}% del normale.")
         else:
             msgs.append(f"{team.short}: perdite coperte dalla proprieta', stagione di magra.")
-    elif team.cash > ris * DIVIDEND_TRIGGER:
-        utile = round(team.cash - ris, 2)
-        team.add_expense("Utile distribuito alla proprieta'", utile, in_cap=False,
-                         category="proprieta")
-        if team.is_player:
-            msgs.append(f"Stagione in utile: {utile:.0f} M$ vanno alla proprieta', in cassa "
-                        f"resta la riserva di {ris:.0f} M$.")
     else:
         team.austerity = max(0.0, team.austerity * AUSTERITY_EASE)
+        if team.is_player and war_chest(gs, team) > 0:
+            msgs.append(f"Stagione chiusa in utile: {team.cash:.0f} M$ restano in cassa, "
+                        f"{war_chest(gs, team):.0f} oltre la riserva di lavoro. Sono i "
+                        f"soldi per costruire, per gli ingaggi e per i pacchetti.")
     return msgs
 
 

@@ -623,7 +623,11 @@ def ai_development(gs) -> None:
         # quanto si ha in banca
         resta = economy.room_left(gs, team)
         gare_restanti = max(1, len(gs.tracks) - gs.round)
-        budget = min(resta / gare_restanti * 0.55, headroom * 0.45)
+        # chi ha capitale in cassa non si ferma a quello che incassa: lo mette
+        # sul tavolo, fino a dove arriva il tetto di spesa
+        fame = economy.spending_appetite(gs, team)
+        budget = min(resta / gare_restanti * (0.55 + 0.40 * fame),
+                     headroom * (0.45 + 0.45 * fame))
         budget = max(0.0, budget * economy.spending_room(gs, team))
         weak = min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]
         alloc = {k: 1.0 for k in team.car.parts}
@@ -670,7 +674,8 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
         # quello che ci si e' gia' impegnati a pagare conta: un pacchetto per
         # volta ci sta sempre, tutti insieme no
         impegnato = sum(max(0.0, x.budget - x.invested) for x in team.dev_projects)
-        if impegnato + costo > max(3.0, avanza * 0.75):
+        tetto = avanza * (0.75 + 0.55 * economy.spending_appetite(gs, team))
+        if impegnato + costo > max(3.0, tetto):
             continue                     # non ce lo possiamo permettere
         conf = project_confidence(gs, team, part, size)
         atteso = expected_gain(gs, team, part, size) * (
