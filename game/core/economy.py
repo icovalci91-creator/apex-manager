@@ -191,6 +191,9 @@ def end_of_season_finances(gs) -> list:
                 pen = min(30, int(over / 3))
                 team.points = max(0.0, team.points - pen)
                 msgs.append(f"{team.short}: sforamento grave, {fine} M$ di multa e -{pen} punti.")
+            # una violazione accertata e' l'unico motivo, oltre alla sicurezza,
+            # per cui la federazione puo' cambiare le carte in corsa
+            gs.regulations["violation_pending"] = True
         if team.is_player:
             msgs.append(f"Premio FOM incassato: {prize} M$ per il {pos}o posto costruttori.")
     # i conti col proprietario si chiudono dopo i premi, che e' quando si sa

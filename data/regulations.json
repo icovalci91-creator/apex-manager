@@ -101,7 +101,9 @@
       ],
       "deg_multiplier": 1.0,
       "sets_per_weekend": 13
-    }
+    },
+    "pending_changes": [],
+    "pit_lane_penalty_s": 0.0
   },
   "commission": {
     "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. Le riunioni ordinarie stanno nei primi mesi della stagione e trattano ritocchi al regolamento in vigore. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
@@ -1042,6 +1044,83 @@
         "constructor_team": -0.8,
         "small_budget": 0.7
       }
+    },
+    {
+      "id": "raffreddamento_pilota",
+      "title": "Obbligo di raffreddamento del pilota oltre i 31 gradi",
+      "category": "sicurezza",
+      "desc": "Gilet refrigerante e presa d'aria dedicata quando la federazione dichiara il rischio da caldo. Pesa qualche chilo e va montato subito.",
+      "effects": {
+        "min_weight_kg": 2
+      },
+      "appeal": {
+        "reputation": 0.2
+      },
+      "area": "chassis",
+      "reset": 0.0,
+      "safety": true
+    },
+    {
+      "id": "strutture_rinforzate",
+      "title": "Rinforzare le strutture anti-intrusione laterali",
+      "category": "sicurezza",
+      "desc": "Prove di schiacciamento piu' severe sui fianchi della cellula. Costa peso, ma di sicurezza non si discute.",
+      "effects": {
+        "min_weight_kg": 5
+      },
+      "appeal": {
+        "reputation": 0.3
+      },
+      "area": "chassis",
+      "reset": 0.05,
+      "safety": true
+    },
+    {
+      "id": "pit_lane_lenta",
+      "title": "Abbassare il limite in corsia box a 60 km/h",
+      "category": "sicurezza",
+      "desc": "Dopo l'ennesimo meccanico sfiorato in pit lane. Allunga ogni sosta.",
+      "effects": {
+        "pit_lane_penalty_s": 0.5
+      },
+      "appeal": {
+        "reputation": 0.1
+      },
+      "area": "sporting",
+      "reset": 0.0,
+      "safety": true
+    },
+    {
+      "id": "metrica_porpoising",
+      "title": "Metrica obbligatoria contro il saltellamento",
+      "category": "sicurezza",
+      "desc": "Un limite misurato alle oscillazioni verticali: chi lo supera alza la macchina. Toglie carico a tutti, ma le schiene sono una sola.",
+      "effects": {
+        "downforce_index": -0.02
+      },
+      "appeal": {
+        "aero_strong": -0.4,
+        "reputation": 0.2
+      },
+      "area": "aero",
+      "reset": 0.1,
+      "safety": true
+    },
+    {
+      "id": "test_ali_severi",
+      "title": "Stringere i test di flessibilita' delle ali",
+      "category": "direttiva",
+      "desc": "Direttiva tecnica dopo una violazione accertata: prove di carico piu' severe, in vigore dal prossimo gran premio.",
+      "effects": {
+        "downforce_index": -0.03
+      },
+      "appeal": {
+        "aero_strong": -0.8,
+        "small_budget": 0.5
+      },
+      "area": "aero",
+      "reset": 0.1,
+      "directive": true
     }
   ]
 }

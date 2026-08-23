@@ -223,21 +223,44 @@ class RulesPage(Page):
         if not self.proposals:
             self._read_proposals()
         y = right.y + 60
+        # quello che e' gia' passato ma non e' ancora in vigore: si sa in
+        # anticipo, ed e' con quello che si progetta la macchina dell'anno dopo
+        in_arrivo = rules.pending(gs)
+        if in_arrivo:
+            T.text(surf, "GIA' APPROVATE, IN VIGORE PIU' AVANTI",
+                   (right.x + 16, y), 12, T.GOLD, bold=True)
+            y += 20
+            for voce in in_arrivo[:3]:
+                T.text(surf, f"dal {voce['season']}", (right.x + 24, y), 12, T.GOLD)
+                T.text(surf, voce["title"], (right.x + 92, y), 13, T.TEXT,
+                       maxw=right.w - 120)
+                y += 19
+            y += 10
         for item in self.proposals:
             p = item["p"]
             T.panel(surf, (right.x + 12, y, right.w - 24, 96), T.PANEL_2, radius=8)
             T.text(surf, p["title"], (right.x + 24, y + 10), 15, T.TEXT, bold=True,
                    maxw=right.w - 140)
-            T.text(surf, p["category"].upper(), (right.right - 24, y + 12), 11, T.ACCENT,
+            col_cat = (T.WARN if p.get("safety") else
+                       T.BAD if p.get("directive") else T.ACCENT)
+            T.text(surf, p["category"].upper(), (right.right - 24, y + 12), 11, col_cat,
                    bold=True, align="right")
+            if p.get("safety") or p.get("directive"):
+                T.text(surf, "in vigore da subito", (right.right - 24, y + 27), 10,
+                       col_cat, align="right")
             T.text(surf, p["desc"], (right.x + 24, y + 32), 12, T.DIM, maxw=right.w - 48)
             T.text(surf, f"Per noi: {item['verdict']}", (right.x + 24, y + 68), 13,
                    item["colour"], bold=True)
             T.text(surf, f"scuderie favorevoli stimate: {item['yes']}/{len(gs.teams)}",
                    (right.right - 24, y + 68), 12, T.DIM, align="right")
             y += 104
-        T.text(surf, "Le votazioni si tengono a fine stagione.", (right.x + 16, right.bottom - 28),
-               12, T.DIM_2)
+        for i, riga in enumerate((
+                "Quello che passa entra in vigore dalla stagione successiva: a",
+                "campionato in corso non si cambiano le carte. Fanno eccezione la",
+                "sicurezza e le direttive tecniche dopo una violazione accertata,",
+                "che valgono dal gran premio dopo.")):
+            T.text(surf, riga, (right.x + 16, right.bottom - 84 + i * 17), 12, T.DIM_2,
+                   maxw=right.w - 32)
         super().draw(surf)
 
 

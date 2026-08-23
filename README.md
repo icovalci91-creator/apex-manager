@@ -710,6 +710,26 @@ le squadre votano. Non e' un sorteggio cieco - se una scuderia sta scappando si 
 riequilibrio, se i conti sono tesi si parla di costi - e ogni squadra vota secondo il
 proprio interesse sportivo ed economico, con FIA e FOM che guardano a costi e spettacolo.
 
+**Da quando vale quello che passa.** Non da subito. Una norma approvata a maggio entra in
+vigore **dalla stagione successiva**, e nella pagina Regolamento si legge dall'anno prima
+sotto "gia' approvate, in vigore piu' avanti": e' con quella che si progetta la macchina.
+A campionato in corso non si cambiano le carte, perche' una squadra la monoposto la
+disegna d'inverno e spostare i paletti a meta' anno manderebbe all'aria dodici mesi di
+lavoro.
+
+Le eccezioni sono due, e sono quelle vere:
+
+- **La sicurezza non aspetta il primo gennaio.** Raffreddamento obbligatorio del pilota
+  oltre i 31 gradi, strutture anti-intrusione rinforzate, limite in corsia box a 60 km/h,
+  metrica contro il saltellamento: se passano, valgono dal gran premio dopo.
+- **La direttiva tecnica dopo una violazione accertata.** Non sta nemmeno sul tavolo
+  finche' nessuno ha sforato: compare fra le proposte solo dopo che una squadra e' stata
+  sanzionata, e allora si stringono i test - per esempio quelli di flessibilita' delle ali
+  - con effetto immediato.
+
+Nella pagina si riconoscono dalla targhetta: SICUREZZA in arancione, DIRETTIVA in rosso,
+tutte e due con scritto "in vigore da subito".
+
 Il **cambiamento profondo** non passa di li'. Ogni quattro o cinque anni la FIA apre un
 **tavolo tecnico**, e quello ha bisogno di quattro o cinque riunioni prima di arrivare a un
 accordo - cinque se le posizioni sono lontane fra loro. Al tavolo non si vota: si tratta.

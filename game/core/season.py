@@ -329,6 +329,9 @@ def end_season(gs) -> dict:
 
     gs.season += 1
     gs.regulations["season"] = gs.season
+    # quello che era stato votato per quest'anno entra in vigore adesso, non
+    # il giorno in cui e' stato approvato
+    report["rules"] += rules.apply_pending(gs)
     for t in gs.teams.values():          # anno nuovo: si riparte da gennaio
         t.set_clock(gs.season, 1, 0)
     gs.round = 0

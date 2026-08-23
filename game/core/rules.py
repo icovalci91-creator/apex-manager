@@ -103,7 +103,11 @@ def tally(gs, proposal: dict, player_vote: bool | None = None) -> dict:
 
 
 def apply_effects(gs, proposal: dict) -> list:
-    """Applica gli effetti di una proposta approvata."""
+    """Applica gli effetti di una proposta approvata.
+
+    Vale sia per una proposta appena votata sia per una voce rimasta in coda
+    da una stagione all'altra: dentro c'e' solo quello che serve.
+    """
     eff = proposal.get("effects", {})
     reg = gs.regulations
     sport = reg["sporting"]
@@ -130,6 +134,9 @@ def apply_effects(gs, proposal: dict) -> list:
             reg["aero"]["downforce_index"] = max(0.35, reg["aero"]["downforce_index"] + v)
             for t in gs.teams.values():
                 t.car.reg_downforce_index = reg["aero"]["downforce_index"]
+        elif k == "pit_lane_penalty_s":
+            reg["pit_lane_penalty_s"] = round(reg.get("pit_lane_penalty_s", 0.0) + v, 2)
+            notes.append(f"Soste piu' lunghe di {reg['pit_lane_penalty_s']:.1f} s")
         elif k == "points":
             sport["points"] = list(v)
             notes.append("Nuovo sistema di punteggio")
@@ -253,8 +260,13 @@ def draw_proposals(gs, n: int = 3, rng=None) -> list:
     # al tavolo ordinario si discutono ritocchi: un cambiamento profondo non si
     # decide alzando la mano in una riunione, ha bisogno del suo percorso
     soglia = float(gs.commission.get("ordinary_reset_max", 0.35))
+    # una direttiva tecnica non si vota per capriccio: sta sul tavolo solo se
+    # c'e' stata una violazione accertata, ed e' l'unico caso in cui il
+    # regolamento puo' cambiare a stagione in corso oltre alla sicurezza
+    violazione = bool(gs.regulations.get("violation_pending"))
     pool = [p for p in gs.proposals
-            if p["id"] not in applied and float(p.get("reset", 0.0)) <= soglia]
+            if p["id"] not in applied and float(p.get("reset", 0.0)) <= soglia
+            and (violazione or not p.get("directive"))]
     if not pool:
         return []
     r = rng or gs.rng
@@ -332,13 +344,66 @@ def open_meeting(gs) -> list:
     return gs.pending_votes
 
 
+def is_immediate(proposal: dict) -> bool:
+    """Se puo' entrare in vigore a stagione in corso.
+
+    Solo due casi: la sicurezza, che non aspetta il primo gennaio, e la
+    direttiva tecnica che risponde a una violazione accertata. Tutto il resto
+    si vota adesso e si applica dall'anno prossimo, perche' una squadra la
+    macchina la progetta d'inverno e cambiare le carte a meta' stagione
+    manderebbe all'aria un lavoro di dodici mesi.
+    """
+    return bool(proposal.get("safety") or proposal.get("directive"))
+
+
+def schedule(gs, proposal: dict, season: int) -> None:
+    """Mette una norma approvata in coda per la stagione in cui entrera'."""
+    coda = gs.regulations.setdefault("pending_changes", [])
+    coda.append({"season": int(season), "id": proposal["id"],
+                 "title": proposal["title"], "area": proposal.get("area", ""),
+                 "effects": dict(proposal.get("effects", {}))})
+
+
+def pending(gs) -> list:
+    """Le norme gia' approvate che aspettano di entrare in vigore."""
+    return list(gs.regulations.get("pending_changes", []))
+
+
+def apply_pending(gs) -> list:
+    """Fa entrare in vigore quello che era stato votato per questa stagione."""
+    coda = gs.regulations.get("pending_changes") or []
+    if not coda:
+        return []
+    restano, note = [], []
+    for voce in coda:
+        if int(voce.get("season", 0)) > gs.season:
+            restano.append(voce)
+            continue
+        fatte = apply_effects(gs, voce)
+        note.append(f"Entra in vigore: {voce['title']}."
+                    + (" " + "; ".join(fatte) if fatte else ""))
+    gs.regulations["pending_changes"] = restano
+    return note
+
+
 def close_meeting(gs, player_votes: dict) -> list:
-    """Conta i voti, applica cio' che passa, accumula la spinta al cambiamento."""
+    """Conta i voti, decide da quando vale cio' che passa, accumula la spinta."""
     esiti = []
     for pr in list(gs.pending_votes):
         res = tally(gs, pr, (player_votes or {}).get(pr["id"]))
-        note = apply_effects(gs, pr) if res["passed"] else []
+        note = []
         if res["passed"]:
+            if is_immediate(pr):
+                perche = ("questione di sicurezza" if pr.get("safety")
+                          else "direttiva dopo una violazione accertata")
+                note.append(f"In vigore da subito: {perche}.")
+                note += apply_effects(gs, pr)
+                if pr.get("directive"):
+                    gs.regulations["violation_pending"] = False
+            else:
+                schedule(gs, pr, gs.season + 1)
+                note.append(f"In vigore dalla stagione {gs.season + 1}: "
+                            f"a campionato in corso non si cambia.")
             _accumula_ciclo(gs, pr)
         esiti.append((pr, res, note))
         gs.push(("APPROVATA: " if res["passed"] else "RESPINTA: ") + pr["title"]

@@ -47,7 +47,8 @@ def build_entrants(gs, track, weather: Weather) -> list:
     for team in gs.teams.values():
         base = base_lap_for(gs, team, track, weather)
         base += gs.rng.gauss(0.0, 0.13)          # come lavora il pacchetto su questa pista
-        pit = 3.30 - 1.15 * (team.pit_strength / 100.0)
+        pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
+               + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
         for d in gs.lineup_of(team.id):
             col = _hex(team.colour)
             out.append(Entrant(
