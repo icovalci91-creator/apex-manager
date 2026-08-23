@@ -3,19 +3,45 @@ from __future__ import annotations
 
 from .. import config as C
 
-# quota del montepremi in base alla posizione nel costruttori
-PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058, 0.052, 0.046]
+# Il montepremi non e' una scala sola. Nella realta' ha due colonne: una parte
+# uguale per tutte le squadre che ne hanno diritto, e una legata al piazzamento
+# nel costruttori. Meta' del piatto non dipende da dove sei arrivato, ed e' il
+# motivo per cui una squadra di coda sta in piedi: senza quella colonna il
+# rapporto fra primo e ultimo era 3,26, cioe' l'ultima incassava meno di un
+# terzo della prima e in fondo alla griglia non tornavano i conti.
 PRIZE_POOL = 1150.0        # M$ distribuiti dal promoter
+PRIZE_EQUAL_SHARE = 0.45   # quota del piatto divisa in parti uguali
+# quota della seconda colonna, quella legata al piazzamento
+PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058, 0.052, 0.046]
+# Il premio di anzianita': chi c'e' da sempre porta pubblico e sponsor a tutto
+# il campionato, e da sempre se lo fa pagare. E' il caso della Ferrari.
+PRIZE_HERITAGE = 0.05
 TRAVEL_PER_RACE = 0.42     # M$ di logistica per gara
+DAMAGE_RESERVE = 8.0       # M$ a stagione di riparazioni, che arrivano sempre
 
 
-def prize_money(gs, position: int, flatten: float = 0.0) -> float:
+def prize_money(gs, position: int, flatten: float = 0.0, team=None) -> float:
+    """Quanto incassa dal promoter chi chiude in quella posizione."""
+    n = max(1, len(gs.teams))
+    quota_uguale = PRIZE_POOL * PRIZE_EQUAL_SHARE / n
     idx = max(0, min(len(PRIZE_SHARE) - 1, position - 1))
     share = PRIZE_SHARE[idx]
     if flatten > 0:
-        flat = 1.0 / len(gs.teams)
+        flat = 1.0 / n
         share = share * (1 - flatten) + flat * flatten
-    return round(PRIZE_POOL * share, 2)
+    # la seconda colonna si normalizza sulle quote in gioco, cosi' il piatto
+    # distribuito resta quello indipendentemente da quante squadre ci sono
+    tot = sum(PRIZE_SHARE[:n]) or 1.0
+    # il premio di anzianita' esce dal piatto, non si aggiunge: quello che
+    # prende la Ferrari lo mettono tutti gli altri
+    merito = PRIZE_POOL * (1.0 - PRIZE_EQUAL_SHARE - PRIZE_HERITAGE) * share / tot
+    extra = PRIZE_POOL * PRIZE_HERITAGE if team is not None and heritage(team) else 0.0
+    return round(quota_uguale + merito + extra, 2)
+
+
+def heritage(team) -> bool:
+    """Chi ha il premio di anzianita'."""
+    return bool(getattr(team, "heritage", False))
 
 
 def sponsor_income(gs, team, race_points: float, position: int) -> float:
@@ -108,7 +134,7 @@ def prize_advance(gs, team) -> float:
     squadra resterebbe in rosso da maggio a dicembre pur essendo in attivo.
     """
     flatten = float(gs.regulations.get("prize_flatten", 0.0))
-    return round(prize_money(gs, team.last_position, flatten) / max(1, len(gs.tracks)), 3)
+    return round(prize_money(gs, team.last_position, flatten, team) / max(1, len(gs.tracks)), 3)
 
 
 def apply_race_finances(gs, team, race_points: float, position: int, damage_cost: float) -> dict:
@@ -131,10 +157,10 @@ def end_of_season_finances(gs) -> list:
     limit = cap_limit(gs)
     thr = gs.regulations["sporting"].get("budget_penalty_threshold_pct", 5) / 100.0
     for pos, team in enumerate(gs.constructor_standings(), 1):
-        prize = prize_money(gs, pos, flatten)
+        prize = prize_money(gs, pos, flatten, team)
         # durante l'anno sono gia' state pagate le rate sul piazzamento
         # precedente: a dicembre si versa solo la differenza
-        anticipato = round(prize_money(gs, team.last_position, flatten), 2)
+        anticipato = round(prize_money(gs, team.last_position, flatten, team), 2)
         saldo = round(prize - anticipato, 2)
         if saldo >= 0:
             team.add_income(f"Conguaglio FOM ({pos}o posto)", saldo, category="premi")
@@ -223,6 +249,66 @@ def spending_room(gs, team) -> float:
     punizione, e' quello che succede davvero quando i conti non tornano.
     """
     return max(0.15, 1.0 - float(getattr(team, "austerity", 0.0)))
+
+
+def season_room(gs, team) -> float:
+    """Quanto resta per lo sviluppo dopo i costi che non si possono evitare.
+
+    Una squadra non decide quanto spendere guardando la cassa: guarda quello
+    che incassa e quello che deve pagare comunque - stipendi, strutture,
+    piloti, motore, trasferte - e mette sul tavolo la differenza. Senza questo
+    conto le scuderie del computer spendevano in proporzione a quanto avevano
+    in banca, quindi dare piu' soldi a una squadra di coda non la salvava: ne
+    spendeva di piu' e chiudeva in perdita lo stesso.
+    """
+    from . import powertrain, sponsors
+    gare = max(1, len(gs.tracks))
+    flatten = float(gs.regulations.get("prize_flatten", 0.0))
+    entrate = prize_money(gs, team.last_position, flatten, team)
+    entrate += sponsors.annual_income(team)
+    entrate += team.budget_base * 0.18
+
+    # i danni non si scelgono ma si sanno: una stagione di gare li porta sempre,
+    # e chi fa il budget senza metterli in conto sbaglia il budget
+    fisse = team.staff_cost + team.facility_upkeep + TRAVEL_PER_RACE * gare
+    fisse += DAMAGE_RESERVE
+    fisse += sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers)
+    if team.works:
+        fisse += powertrain.PU_OPERATING_COST
+    else:
+        fisse += team.engine_customer_cost
+    return round(max(0.0, entrate - fisse), 2)
+
+
+# Quanto avanza a una squadra in salute, dopo i costi fissi: serve a dire se
+# una scuderia puo' permettersi il ritmo normale di sviluppo, test e simulatore
+# o deve andarci piano.
+DISCRETIONARY_REF = 40.0
+
+# Le voci che si scelgono: sviluppo, pacchetti, simulatore, test privati. Il
+# resto - stipendi, strutture, trasferte - si paga e basta.
+VOCI_SCELTE = ("sviluppo",)
+
+
+def spent_discretionary(gs, team) -> float:
+    """Quanto ha gia' speso in cose facoltative in questa stagione."""
+    return round(sum(m["amount"] for m in team.ledger
+                     if m["kind"] == "out" and m.get("season") == gs.season
+                     and m.get("category") in VOCI_SCELTE), 2)
+
+
+def room_left(gs, team) -> float:
+    """Quello che resta da spendere in questa stagione, dopo il gia' speso.
+
+    E' il portafoglio vero: un vincolo sul singolo impegno non basta, perche'
+    chiuso un pacchetto se ne apre un altro e a fine anno il conto e' triplo.
+    """
+    return round(max(0.0, season_room(gs, team) - spent_discretionary(gs, team)), 2)
+
+
+def budget_health(gs, team) -> float:
+    """0 se non resta niente, 1 se resta quanto a una squadra tranquilla."""
+    return max(0.0, min(1.0, room_left(gs, team) / DISCRETIONARY_REF))
 
 
 def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:

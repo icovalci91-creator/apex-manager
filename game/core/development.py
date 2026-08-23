@@ -618,8 +618,13 @@ def ai_development(gs) -> None:
         if team.is_player:
             continue
         headroom = budget_headroom(gs, team)
-        budget = min(team.cash * 0.06, 1.4 + team.reputation / 60.0, headroom * 0.45)
-        budget *= economy.spending_room(gs, team)
+        # quello che resta dopo i costi fissi e dopo quello gia' speso, diviso
+        # per le gare che mancano: e' cosi' che si fa un budget, non guardando
+        # quanto si ha in banca
+        resta = economy.room_left(gs, team)
+        gare_restanti = max(1, len(gs.tracks) - gs.round)
+        budget = min(resta / gare_restanti * 0.55, headroom * 0.45)
+        budget = max(0.0, budget * economy.spending_room(gs, team))
         weak = min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]
         alloc = {k: 1.0 for k in team.car.parts}
         alloc[weak] = 3.0
@@ -637,11 +642,17 @@ def ai_development(gs) -> None:
         passive_development(gs, team, budget)
         check_trials(gs, team)
         advance_projects(gs, team)
-        ai_start_package(gs, team, weak, headroom)
+        ai_start_package(gs, team, weak, headroom, economy.room_left(gs, team))
 
 
-def ai_start_package(gs, team, weak: str, headroom: float) -> None:
-    """Decide se aprire un pacchetto e quanto grande farlo."""
+def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) -> None:
+    """Decide se aprire un pacchetto e quanto grande farlo.
+
+    `avanza` e' quello che resta della stagione dopo i costi fissi e dopo quello
+    gia' speso: un pacchetto e' un impegno grosso e non lo si apre se non ci sta
+    dentro, per quanto spazio ci sia nel tetto di spesa. Sono due vincoli
+    diversi e servono tutti e due.
+    """
     # due cantieri aperti alla volta: il terzo slot resta al giocatore, che se
     # lo puo' permettere solo tenendo il reparto sotto pressione
     if len(team.dev_projects) >= 2 or gs.rng.random() > 0.55:
@@ -656,6 +667,11 @@ def ai_start_package(gs, team, weak: str, headroom: float) -> None:
         costo = cost_of_upgrade(part, size)
         if costo > headroom * gare * 0.9 or costo / gare > team.cash * 0.5:
             continue
+        # quello che ci si e' gia' impegnati a pagare conta: un pacchetto per
+        # volta ci sta sempre, tutti insieme no
+        impegnato = sum(max(0.0, x.budget - x.invested) for x in team.dev_projects)
+        if impegnato + costo > max(3.0, avanza * 0.75):
+            continue                     # non ce lo possiamo permettere
         conf = project_confidence(gs, team, part, size)
         atteso = expected_gain(gs, team, part, size) * (
             1.0 - 1.3 * outcome_odds(conf, size)["fallito"])

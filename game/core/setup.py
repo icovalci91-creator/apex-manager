@@ -204,7 +204,11 @@ def _ai_prepare(gs, team, track) -> None:
     Nessuno arriva in pista senza aver provato niente, ma chi ha il bilancio
     corto ne fa meno: e' la stessa scelta che ha davanti il giocatore.
     """
-    voglia = 1 + int(team.cash > 40.0) + int(team.reputation > 72.0)
+    from . import economy
+    salute = economy.budget_health(gs, team)
+    # una sessione la fanno tutti: arrivare in pista senza aver provato niente
+    # non lo fa nessuno. La seconda si paga se il bilancio la regge
+    voglia = 1 + int(salute > 0.5)
     for _ in range(min(SIM_MAX, voglia)):
         ok, _m = run_simulator(gs, team, track)
         if not ok:

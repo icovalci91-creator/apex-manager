@@ -197,7 +197,11 @@ def ai_invest(gs) -> None:
         # il budget delle costruzioni e' quello che resta nel periodo, e non si
         # spende mai tutto in un colpo: si tiene qualcosa per l'anno dopo
         budget = min(economy.capex_left(gs, team), max(0.0, team.cash - 25.0))
-        budget *= (0.55 if gs.season % CAPEX_SPREAD else 1.0) * economy.spending_room(gs, team)
+        # chi sta perdendo soldi non apre cantieri: il capitale e' un budget a
+        # parte, ma la firma la mette lo stesso proprietario
+        budget *= ((0.55 if gs.season % CAPEX_SPREAD else 1.0)
+                   * economy.spending_room(gs, team)
+                   * (0.30 + 0.70 * economy.budget_health(gs, team)))
         # chi nuota nei soldi prima o poi si costruisce la pista di casa, e
         # quella la paga il gruppo: non tocca nessuno dei due tetti
         for key in OPTIONAL:

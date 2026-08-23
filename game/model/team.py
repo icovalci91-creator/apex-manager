@@ -32,7 +32,8 @@ class Team:
     pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
     facility_age: dict = None    # stagioni dall'ultimo intervento, per struttura
-    track_name: str = ""         # come si chiama la pista di proprieta', se c'e' 
+    track_name: str = ""         # come si chiama la pista di proprieta', se c'e'
+    heritage: bool = False       # premio di anzianita' dal promoter
     test_days_used: int = 0      # giornate di test private gia' spese
     correlation: float = 0.0     # quanto la galleria del vento dice il vero
     setup_knowledge: dict = None # conoscenza d'assetto accumulata, per circuito

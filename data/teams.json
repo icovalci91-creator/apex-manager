@@ -141,7 +141,8 @@
       "pu_status": "works",
       "parent_team": "",
       "last_position": 4,
-      "private_track_name": "Fiorano"
+      "private_track_name": "Fiorano",
+      "heritage": true
     },
     {
       "id": "redbull",

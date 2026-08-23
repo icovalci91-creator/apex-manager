@@ -442,6 +442,33 @@ Ferrari e il Red Bull Ring della Red Bull, cioe' proprieta' del gruppo e non del
 corse. Si paga con la cassa e basta - 140 M$ - ma da li' in poi mantenerlo e potenziarlo
 segue le regole di tutte le altre strutture.
 
+**Il montepremi ha due colonne.** Come nella realta': una parte del piatto e' uguale per
+tutti - 47 M$ a testa, il 45% dei 1150 distribuiti dal promoter - e il resto va a scalare
+sul piazzamento nel costruttori. Meta' di quello che incassa una squadra non dipende da
+dove e' arrivata, ed e' il motivo per cui una di coda sta in piedi. C'e' anche il premio di
+anzianita', il 5% del piatto, che nella realta' prende chi c'e' da sempre e porta pubblico
+e sponsor a tutto il campionato: nel gioco e' un flag in `data/teams.json`, oggi acceso
+sulla Ferrari.
+
+Prima c'era una sola scala, tutta legata al piazzamento: il primo prendeva 172 M$ e
+l'ultimo 53, un rapporto di **3,26**. Adesso sono 137 e 75, cioe' **1,84**, e la Ferrari da
+prima arriva a 195 con l'anzianita'.
+
+**Le scuderie del computer fanno il budget come si fa un budget.** Prima spendevano in
+proporzione a quanto avevano in banca, e si vedeva: dare piu' soldi a una squadra di coda
+non la salvava, ne spendeva di piu' e chiudeva in perdita lo stesso. Adesso partono da
+quello che incassano, tolgono i costi che non si possono evitare - stipendi, strutture,
+piloti, motore, trasferte, e una riserva per i danni, che arrivano sempre - e mettono sul
+tavolo quello che resta. E' un portafoglio di stagione, non un limite sul singolo impegno:
+un vincolo per pacchetto non bastava, perche' chiuso uno se ne apriva un altro e a fine
+anno il conto era triplo. Chi resta senza margine smette di provare al simulatore, salta le
+giornate di test e non apre cantieri.
+
+Il risultato e' un bilancio che si legge: McLaren chiude a +68 con quasi 400 M$ di sponsor,
+la meta' della griglia sta fra -10 e +20, e i due costruttori nuovi - Audi e Cadillac -
+perdono 20-30 M$ costruendosi il reparto motori, che e' esattamente quello che sembra un
+ingresso in Formula 1.
+
 **Il proprietario.** Una squadra non e' un salvadanaio. A fine stagione chi ha chiuso in
 utile lo distribuisce alla proprieta' e tiene in cassa una riserva di lavoro (75 M$, un
 terzo del tetto di spesa); chi ha chiuso in perdita se la fa coprire, ma non gratis: l'anno
@@ -451,8 +478,8 @@ proporzione. La stretta si allenta da sola quando i conti tornano.
 Senza questa regola il conto divergeva in tutte e due le direzioni, e su otto stagioni si
 vedeva bene: la prima della classe arrivava a **1661 M$** fermi in cassa - con il tetto di
 spesa gia' saturo al 99%, quindi senza nemmeno un modo di usarli - e l'ultima a **-191 M$**
-continuando a correre come se niente fosse. Adesso la piu' ricca oscilla fra 150 e 300 e la
-piu' povera fra -10 e -40, coperta e rimessa in riga ogni dicembre. Una squadra che perde
+continuando a correre come se niente fosse. Adesso la piu' ricca oscilla fra 190 e 320 e la
+piu' povera fra 0 e -8, coperta e rimessa in riga ogni dicembre. Una squadra che perde
 poco tutti gli anni si stabilizza intorno al 35% di stretta: fatica, ma non muore, che e'
 quello che succede davvero in fondo alla griglia.
 
