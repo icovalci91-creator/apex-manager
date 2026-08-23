@@ -105,14 +105,19 @@ class GameShell(Scene):
         w, h = self.app.screen.get_size()
         self.widgets = []
         self.nav_buttons = []
+        # la barra si stringe quando la finestra e' bassa: prima le ultime voci
+        # finivano sotto il pulsante del weekend e non si potevano cliccare
         y = TOPBAR_H + 16
+        spazio = max(120, h - 132 - y)
+        passo = min(42, spazio / max(1, len(NAV)))
+        alto = max(24, passo - 4)
         for pid, label in NAV:
-            b = Button((12, y, NAV_W - 24, 38), label, style="tab")
+            b = Button((12, int(y), NAV_W - 24, int(alto)), label, style="tab")
             b.on_click = (lambda p=pid: self.go(p))
             b.active = (pid == self.page_id)
             self.nav_buttons.append(b)
             self.widgets.append(b)
-            y += 42
+            y += passo
         self.race_btn = Button((12, h - 116, NAV_W - 24, 48), "WEEKEND DI GARA",
                                self.goto_weekend, "primary")
         self.widgets.append(self.race_btn)

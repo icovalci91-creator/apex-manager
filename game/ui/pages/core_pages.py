@@ -439,6 +439,47 @@ class CarPage(Page):
         f.gap(6)
         f.par("Recuperare dove le gare rimaste non premiano niente e' fatica sprecata: "
               "conviene guardare insieme il distacco e la colonna qui accanto.")
+        f.gap(10)
+        self._pacchetti_griglia(f)
+
+    def _pacchetti_griglia(self, f) -> None:
+        """Chi ha portato cosa in pista, e cosa ci ha guadagnato.
+
+        Quello che portano gli altri lo si vede: un fondo nuovo in griglia non
+        si nasconde, e la stampa scrive di che pacchetto si tratta. Quanto vale
+        davvero e' un'altra cosa: quello lo sanno loro, e noi lo stimiamo dai
+        cronometri, tanto meglio quanto piu' sappiamo guardare.
+        """
+        gs, team = self.gs, self.team
+        voci = []
+        for t in gs.teams.values():
+            for v in (t.upgrade_log or [])[-6:]:
+                if v.get("stagione") == gs.season:
+                    voci.append((t, v))
+        voci.sort(key=lambda x: -x[1].get("gara", 0))
+        f.head("Chi ha portato cosa, in questa stagione")
+        if not voci:
+            f.par("Nessuno ha ancora portato un pacchetto: si corre con le macchine di "
+                  "inizio anno.")
+            return
+        for t, v in voci[:14]:
+            noi = (t.id == team.id)
+            riga = f.box(20, gap=3)
+            if not f.surf:
+                continue
+            T.text(f.surf, f"g{v['gara']}", (riga.x, riga.y), 12, T.DIM_2)
+            pygame.draw.rect(f.surf, T.hex_rgb(t.colour), (riga.x + 34, riga.y + 3, 3, 13))
+            T.text(f.surf, t.short, (riga.x + 44, riga.y), 13, T.TEXT if noi else T.DIM,
+                   bold=noi, maxw=150)
+            T.text(f.surf, f"{v['label']} - pacchetto {v['size']}", (riga.x + 200, riga.y),
+                   13, T.TEXT, maxw=300)
+            if noi:
+                T.text(f.surf, f"{v['reso']:+.1f} sui {v['atteso']:+.1f} promessi",
+                       (riga.x + 520, riga.y), 13, _esito_colore(v), bold=True)
+                T.text(f.surf, v["esito"], (riga.x + 760, riga.y), 12, T.DIM_2)
+            else:
+                giudizio, colore = _giudizio_esterno(gs, team, t, v)
+                T.text(f.surf, giudizio, (riga.x + 520, riga.y), 13, colore)
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
@@ -482,6 +523,25 @@ class CarPage(Page):
                           "sotto. Clicca la macchina o l'elenco per cambiare pezzo.",
                     (cr.x + 16, y), 11, T.DIM_2, cr.w - 32)
         super().draw(surf)
+
+
+def _giudizio_esterno(gs, team, rivale, v: dict) -> tuple:
+    """Cosa si riesce a capire di un pacchetto altrui, senza i loro dati.
+
+    Si vede se sono andati avanti o no, non di quanto: il numero preciso resta
+    in fabbrica loro. Piu' e' bravo il nostro scouting, meno vaga e' la lettura.
+    """
+    skill = (0.55 * team.scouting_strength
+             + 0.45 * team._s("technical_director", "analysis")) / 100.0
+    rng = gs.view_rng("pacchetti", team.id, rivale.id, str(v.get("gara", 0)))
+    letto = v.get("reso", 0.0) + rng.gauss(0.0, (1.0 - 0.7 * skill) * 1.5)
+    if letto > 1.4:
+        return "sembra aver funzionato bene", T.OK
+    if letto > 0.4:
+        return "qualcosa hanno trovato", (150, 200, 90)
+    if letto > -0.2:
+        return "non si e' visto niente", T.WARN
+    return "sembra che siano andati indietro", T.BAD
 
 
 def _esito_colore(v: dict):
@@ -1053,6 +1113,29 @@ class PowerUnitPage(Page):
             f.par("Sviluppo power unit congelato dal regolamento.", 13, T.WARN, bold=True)
         if gs.regulations.get("pu_equalisation"):
             f.par("Equalizzazione in vigore: chi e' indietro sviluppa di piu'.", 12, T.DIM)
+
+        # il contingente: si perdono posizioni in griglia per unita' montate
+        # oltre quelle concesse, e finora quel conto non lo vedeva nessuno
+        f.head("Contingente componenti")
+        max_pu = int(gs.regulations["power_unit"].get("units_per_season", 4))
+        max_cambi = int(gs.regulations["sporting"].get("gearbox_units", 5))
+        for d in gs.drivers_of(team.id):
+            riga = f.box(20, gap=2)
+            if f.surf:
+                T.text(f.surf, d.short, (riga.x, riga.y), 13, T.TEXT, maxw=180)
+                cp = T.BAD if d.pu_used > max_pu else (T.WARN if d.pu_used >= max_pu else T.OK)
+                T.text(f.surf, f"power unit {d.pu_used}/{max_pu}", (riga.x + 200, riga.y),
+                       13, cp, bold=True)
+                cc = (T.BAD if d.gearbox_used > max_cambi else
+                      (T.WARN if d.gearbox_used >= max_cambi else T.OK))
+                T.text(f.surf, f"cambi {d.gearbox_used}/{max_cambi}", (riga.x + 360, riga.y),
+                       13, cc, bold=True)
+                if d.grid_penalty:
+                    T.text(f.surf, f"{d.grid_penalty} posizioni da scontare",
+                           (riga.x + riga.w, riga.y), 13, T.BAD, bold=True, align="right")
+        f.par("Le unita' si sostituiscono quando cedono, e quanto spesso cedano dipende "
+              "dall'affidabilita' del progetto. Superato il contingente si parte "
+              "indietro: e' il prezzo nascosto di una power unit fragile.", gap=14)
 
         p = powertrain.program(gs)
         if powertrain.has_program(gs):
