@@ -102,12 +102,23 @@ def release_driver(gs, team, driver: Driver) -> tuple:
 
 
 # ------------------------------------------------------------------- staff
+def staff_interest(gs, team, person: Staff, salary: float) -> float:
+    """Da 0 a 1: quante probabilita' ci sono che dica di si'.
+
+    Contano quanto si offre rispetto a quello che vale e il nome della
+    squadra: a parita' di stipendio nessuno lascia un posto in cima per
+    andare in fondo alla griglia.
+    """
+    v = (0.42 + 0.30 * (team.reputation / 100.0)
+         + 0.42 * (salary / max(0.2, person.market_value) - 1.0))
+    return max(0.05, min(0.95, v))
+
+
 def hire_staff(gs, team, person: Staff, salary: float, years: int) -> tuple:
     ok, why = economy.can_afford(team, salary, gs)
     if not ok:
         return False, why
-    interest = 0.42 + 0.30 * (team.reputation / 100.0) + 0.42 * (salary / max(0.2, person.market_value) - 1.0)
-    if gs.rng.random() > max(0.05, min(0.95, interest)):
+    if gs.rng.random() > staff_interest(gs, team, person, salary):
         return False, f"{person.name} declina l'offerta."
     old = gs.teams.get(person.team)
     if old:

@@ -188,7 +188,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
-| Staff tecnico | Organigramma completo e mercato del personale |
+| Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
 | Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |

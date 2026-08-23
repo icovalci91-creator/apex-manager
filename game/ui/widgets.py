@@ -193,7 +193,7 @@ class Slider(Widget):
 
     # ----------------------------------------------------------------- input
     def handle(self, ev) -> bool:
-        if not self.enabled:
+        if not (self.enabled and self.visible):
             return False
         if ev.type == pygame.MOUSEMOTION:
             self._hover = (-1 if self.minus_rect.collidepoint(ev.pos) else
@@ -248,6 +248,8 @@ class Slider(Widget):
             pygame.draw.line(surf, fg, (cx, cy - 5), (cx, cy + 5), 2)
 
     def draw(self, surf) -> None:
+        if not self.visible:
+            return
         T.text(surf, self.label, (self.rect.x, self.rect.centery - 9), 15, T.DIM,
                maxw=self.label_w - 8)
         tr = self.track_rect
