@@ -129,9 +129,9 @@ def days_left(gs, team) -> int:
 # Una giornata di prove private non e' un weekend di gara: si gira con una
 # monoposto di due anni fa, con mezza squadra e senza ospitalita'. I materiali
 # valgono qualche centinaio di migliaia di dollari al giorno, non un milione.
-NOLEGGIO = 0.12            # M$ al giorno per affittare una pista che non e' nostra
-TRASFERTA = 0.15           # M$ al giorno di logistica, restando dalle nostre parti
-TRASFERTA_LONTANO = 0.55   # e quanto costa in piu' andare lontano da casa
+NOLEGGIO = 0.30            # M$ al giorno per affittare una pista che non e' nostra
+TRASFERTA = 0.30           # M$ al giorno di logistica, restando dalle nostre parti
+TRASFERTA_LONTANO = 1.00   # e quanto costa in piu' andare lontano da casa
 
 
 def cost_breakdown(gs, team, track, programme: str, days: int) -> dict:
@@ -246,6 +246,7 @@ def end_season(gs) -> list:
     msgs = []
     for team in gs.teams.values():
         team.test_days_used = 0
+        team.preseason_done = []
         team.correlation *= DECADIMENTO_CORRELAZIONE
         # la conoscenza di un circuito invecchia con la macchina
         team.setup_knowledge = {k: v * 0.55 for k, v in (team.setup_knowledge or {}).items()
@@ -294,3 +295,103 @@ def ai_plan(gs) -> None:
                 pista = gs.rng.choice(vicine)
         giorni = min(days_left(gs, team), gs.rng.randint(1, 2))
         run(gs, team, pista, giovani[0] if giovani else None, prog, giorni)
+
+# ================================================ i test collettivi di inizio anno
+# Prima che cominci il campionato la Formula 1 organizza le prove collettive:
+# due sessioni di tre o quattro giorni, tutte le squadre insieme sulla stessa
+# pista. Si va dove fa caldo e dove l'asfalto e' buono - Barcellona e il Bahrein
+# da sempre - e si gira con la macchina dell'anno, che e' la sola occasione di
+# tutta la stagione: da marzo in poi il regolamento lo vieta.
+#
+# Non si portano via giornate di test privati: sono due conti diversi. E sono
+# l'unico momento in cui si scopre davvero la macchina nuova.
+PRESEASON_COST = 0.55        # M$ al giorno: la squadra intera, per giorni interi
+COMPRENSIONE_GIORNO = 0.055  # quanto si capisce della macchina, per giornata
+CORRELAZIONE_PRE = 0.035     # e quanta correlazione si porta a casa
+
+
+def preseason_sessions(gs) -> list:
+    """Le sessioni collettive di quest'anno, con la pista e i giorni."""
+    out = []
+    for voce in gs.regulations["sporting"].get("preseason_tests", []):
+        pista = next((t for t in list(gs.tracks) + list(gs.candidates)
+                      if t.id == voce.get("track")), None)
+        if pista is not None:
+            out.append({"track": pista, "days": int(voce.get("days", 3))})
+    return out
+
+
+def preseason_done(team, idx: int) -> bool:
+    return idx in (team.preseason_done or [])
+
+
+def preseason_cost(gs, team, sessione) -> float:
+    """Costa la trasferta e il materiale, come una prova qualunque.
+
+    Il noleggio no: la pista la paga il campionato, che le organizza.
+    """
+    giorni = sessione["days"]
+    lontano = 0.0 if _vicino(team, sessione["track"]) else TRASFERTA_LONTANO
+    return round((PRESEASON_COST + TRASFERTA + lontano) * giorni, 2)
+
+
+def run_preseason(gs, team, idx: int, programme: str = "correlazione",
+                  forzato: bool = False) -> tuple:
+    """Manda la squadra alle prove collettive. Ritorna (riuscito, messaggio).
+
+    `forzato` salta il controllo di cassa: alle collettive non si rinuncia
+    perche' mancano tre milioni, si taglia da un'altra parte. E' il motivo per
+    cui in Formula 1 ci sono sempre tutti.
+    """
+    sessioni = preseason_sessions(gs)
+    if idx >= len(sessioni):
+        return False, "Questa sessione non esiste."
+    if preseason_done(team, idx):
+        return False, "Ci siamo gia' stati."
+    if gs.phase != "preseason":
+        return False, "Le prove collettive si fanno prima che cominci il campionato."
+    ses = sessioni[idx]
+    prezzo = preseason_cost(gs, team, ses)
+    if not forzato:
+        ok, why = economy.can_afford(team, prezzo, gs)
+        if not ok:
+            return False, why
+    team.add_expense(f"Prove collettive a {ses['track'].name}", prezzo, in_cap=True,
+                     category="sviluppo")
+    if team.preseason_done is None:
+        team.preseason_done = []
+    team.preseason_done.append(idx)
+
+    giorni = ses["days"]
+    qualita = 0.55 + 0.45 * (team.setup_strength / 100.0)
+    # e' la macchina di quest'anno: qui si capisce com'e' fatta
+    team.car_understanding = min(1.0, team.car_understanding
+                                 + COMPRENSIONE_GIORNO * giorni * qualita)
+    team.correlation = min(CORRELAZIONE_MAX,
+                           team.correlation + CORRELAZIONE_PRE * giorni * qualita)
+    if team.setup_knowledge is None:
+        team.setup_knowledge = {}
+    prima = team.setup_knowledge.get(ses["track"].id, 0.0)
+    team.setup_knowledge[ses["track"].id] = min(1.0, prima + 0.18 * giorni)
+    if programme == "affidabilita":
+        for p in team.car.parts.values():
+            p.condition = min(100.0, p.condition + USURA_RECUPERO * giorni * 0.6)
+    elif programme == "giovani":
+        giovani = [gs.drivers[d] for d in team.drivers
+                   if d in gs.drivers and gs.drivers[d].age <= 23]
+        for d in giovani:
+            _cresci(gs, d, giorni)
+    return True, (f"{giorni} giorni di prove collettive a {ses['track'].name} per "
+                  f"{prezzo:.2f} M$: conoscenza della vettura al "
+                  f"{team.car_understanding*100:.0f}%, correlazione al "
+                  f"{team.correlation*100:.0f}%.")
+
+
+def ai_preseason(gs) -> None:
+    """Alle prove collettive ci vanno tutti: e' l'unica occasione dell'anno."""
+    for team in gs.teams.values():
+        if team.is_player:
+            continue
+        for i, _ses in enumerate(preseason_sessions(gs)):
+            if not preseason_done(team, i):
+                run_preseason(gs, team, i, "correlazione", forzato=True)

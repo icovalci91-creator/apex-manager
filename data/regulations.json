@@ -61,7 +61,17 @@
       "gearbox_units": 5,
       "budget_penalty_threshold_pct": 5,
       "private_test_days": 8,
-      "pu_specs_per_season": 2
+      "pu_specs_per_season": 2,
+      "preseason_tests": [
+        {
+          "track": "barcelona",
+          "days": 3
+        },
+        {
+          "track": "bahrain",
+          "days": 3
+        }
+      ]
     },
     "aero_testing_restriction": {
       "_note": "Ore di galleria del vento e run CFD assegnate in base alla posizione nel costruttori dell'anno precedente. 100 = riferimento.",

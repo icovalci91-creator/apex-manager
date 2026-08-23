@@ -328,6 +328,9 @@ def end_season(gs) -> dict:
         t.set_clock(gs.season, 1, 0)
     gs.round = 0
     gs.phase = "preseason"
+    # le prove collettive di inizio anno: ci vanno tutti, e le squadre del
+    # computer non stanno ad aspettare che qualcuno glielo dica
+    testing.ai_preseason(gs)
     gs.results = [r for r in gs.results if r.season >= gs.season - 3]
     return report
 

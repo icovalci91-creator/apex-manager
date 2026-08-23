@@ -340,7 +340,8 @@ class GameState:
                     "track_id": t.track_id, "track_name": t.track_name,
                     "reputation": t.reputation, "facilities": t.facilities,
                     "facility_age": t.facility_age or {},
-                    "test_days_used": t.test_days_used, "correlation": t.correlation,
+                    "test_days_used": t.test_days_used,
+                    "preseason_done": list(t.preseason_done or []), "correlation": t.correlation,
                     "setup_knowledge": t.setup_knowledge or {},
                     "setup_paper": t.setup_paper or {},
                     "setup_paper_track": t.setup_paper_track,
@@ -402,6 +403,7 @@ class GameState:
             t.facilities = td["facilities"]
             t.facility_age = dict(td.get("facility_age") or {})
             t.test_days_used = td.get("test_days_used", 0)
+            t.preseason_done = list(td.get("preseason_done") or [])
             t.correlation = td.get("correlation", 0.0)
             t.setup_knowledge = dict(td.get("setup_knowledge") or {})
             t.setup_paper = dict(td.get("setup_paper") or {})

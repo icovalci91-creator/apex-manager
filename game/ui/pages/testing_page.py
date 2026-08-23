@@ -48,7 +48,29 @@ class TestingPage(Page):
         self.widgets.append(self.s_days)
         self.widgets.append(Button((right.x + 16, right.y + 328, 250, 40),
                                    "Manda la squadra in pista", self.run, "primary"))
+
+        # prove collettive: ci sono solo prima che cominci il campionato
+        self.pre_buttons = []
+        if self.gs.phase == "preseason":
+            y = right.bottom - 150
+            for i, ses in enumerate(TT.preseason_sessions(self.gs)):
+                fatta = TT.preseason_done(self.team, i)
+                b = Button((right.x + 16 + i * ((right.w - 44) / 2 + 12), y,
+                            (right.w - 44) / 2, 36),
+                           ("Fatto: " if fatta else "Vai a ") + ses["track"].name,
+                           style="ghost" if fatta else "primary")
+                b.on_click = (lambda k=i: self.run_preseason(k))
+                b.enabled = not fatta
+                self.pre_buttons.append((b, ses, fatta))
+                self.widgets.append(b)
         self._fill()
+
+    def run_preseason(self, idx: int) -> None:
+        ok, msg = TT.run_preseason(self.gs, self.team, idx, self.programme)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
 
     def _mark_prog(self) -> None:
         """L'attivo si stacca dagli altri: sul pannello scuro il tab spento sparisce."""
@@ -200,10 +222,25 @@ class TestingPage(Page):
                 T.text(surf, "fuori dal calendario: si gira e basta",
                        (right.x + 244, right.y + 514), 12, T.DIM_2)
 
-        T.text(surf, "Il regolamento vieta di provare con la vettura dell'anno:",
-               (right.x + 16, right.bottom - 52), 12, T.DIM_2, maxw=right.w - 32)
-        T.text(surf, "si gira con monoposto di due stagioni fa. Serve ai piloti e alla",
-               (right.x + 16, right.bottom - 36), 12, T.DIM_2, maxw=right.w - 32)
-        T.text(surf, "correlazione, non a rendere piu' veloce la macchina di adesso.",
-               (right.x + 16, right.bottom - 20), 12, T.DIM_2, maxw=right.w - 32)
+        if gs.phase == "preseason" and getattr(self, "pre_buttons", None):
+            T.text(surf, "PROVE COLLETTIVE DI INIZIO STAGIONE", (right.x + 16, right.bottom - 176),
+                   12, T.GOLD, bold=True)
+            righe = []
+            for _b, ses, fatta in self.pre_buttons:
+                prezzo = TT.preseason_cost(gs, team, ses)
+                righe.append(f"{ses['track'].name}: {ses['days']} giorni, {prezzo:.2f} M$"
+                             + ("  gia' fatte" if fatta else ""))
+            T.text(surf, "   -   ".join(righe), (right.x + 16, right.bottom - 158), 12,
+                   T.DIM, maxw=right.w - 32)
+            T.text(surf, "Si gira con la macchina di quest'anno, l'unica volta in tutto "
+                         "l'anno: e' li' che si capisce com'e' fatta. Non tolgono giornate "
+                         "di test privati.",
+                   (right.x + 16, right.bottom - 104), 12, T.DIM_2, maxw=right.w - 32)
+        else:
+            T.text(surf, "Il regolamento vieta di provare con la vettura dell'anno:",
+                   (right.x + 16, right.bottom - 52), 12, T.DIM_2, maxw=right.w - 32)
+            T.text(surf, "si gira con monoposto di due stagioni fa. Serve ai piloti e alla",
+                   (right.x + 16, right.bottom - 36), 12, T.DIM_2, maxw=right.w - 32)
+            T.text(surf, "correlazione, non a rendere piu' veloce la macchina di adesso.",
+                   (right.x + 16, right.bottom - 20), 12, T.DIM_2, maxw=right.w - 32)
         super().draw(surf)

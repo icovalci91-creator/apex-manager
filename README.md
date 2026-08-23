@@ -130,17 +130,30 @@ vada, perche' la macchina consuma quello che consuma. Il **noleggio** della pist
 | Dove | materiali | noleggio | trasferta | totale |
 |---|---|---|---|---|
 | Fiorano, casa propria | 0,90 | - | - | **0,90** |
-| Silverstone | 0,90 | 0,36 | 0,45 | **1,71** |
-| Losail | 0,90 | 0,36 | 2,10 | **3,36** |
+| Silverstone | 0,90 | 0,90 | 0,90 | **2,70** |
+| Losail | 0,90 | 0,90 | 3,90 | **5,70** |
 
 In casa propria l'uso della pista non si paga: si accende la luce e si gira. Quello che si
 paga comunque e' il mantenimento dell'impianto, tutto l'anno che ci si giri o no, e le
 migliorie, che passano dal budget delle costruzioni come ogni altra struttura.
 
-Una giornata di prove costa fra i 0,47 e gli 0,81 M$ a seconda di dove si va, e una
-stagione intera fra 1 e 6,5: non e' un weekend di gara, si gira con una monoposto di due
-anni fa e mezza squadra. Il vincolo vero non sono i soldi ma le giornate, che il
-regolamento conta - ed e' esattamente cosi' anche nella realta'.
+I materiali sono pochi perche' non e' un weekend di gara: si gira con una monoposto di due
+anni fa e mezza squadra. A pesare e' andare a casa d'altri - noleggio della pista,
+marshall, cronometraggio, camion - e su otto giornate la differenza fra girare in casa e
+andare a Silverstone e' di 4,8 M$ l'anno.
+
+### Le prove collettive
+
+Prima che cominci il campionato la Formula 1 organizza le prove collettive: **due sessioni
+di tre giorni**, tutte le squadre insieme sulla stessa pista, tradizionalmente **Barcellona
+e il Bahrein**. Li' si gira con la macchina dell'anno, che e' la sola occasione di tutta la
+stagione: da marzo in poi il regolamento lo vieta. Non tolgono giornate di test privati -
+sono due conti diversi - e non si saltano per mancanza di fondi, semmai si taglia altrove.
+
+E' li' che si scopre la macchina nuova. Su una stagione intera, una Ferrari che ci va
+arriva al 66% di conoscenza della vettura e al 20% di correlazione, contro il 51% e lo zero
+di una che le salta - e sono 451 punti contro 289. Non e' un vantaggio: e' la base da cui
+partono tutti, e non andarci e' una ferita che ci si fa da soli.
 
 Tutto questo sta dentro il tetto di spesa, quindi ogni prova e' sviluppo in meno. Si puo' girare anche fuori dal calendario:
 Tsukuba, Mugello, Paul Ricard, Portimao e gli altri candidati sono li' apposta.
@@ -164,7 +177,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
 | Staff tecnico | Organigramma completo e mercato del personale |
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
-| Test privati | Otto giornate l'anno (dieci con una pista di proprieta'): dove girare, con chi, per quale programma |
+| Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
 | Classifiche / Calendario / Storico | Mondiali, i tracciati con la scheda di ogni gran premio, cicli tecnici e albo d'oro |

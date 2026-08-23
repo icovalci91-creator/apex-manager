@@ -36,6 +36,7 @@ class Team:
     track_id: str = ""           # e quale circuito e', per andarci a provare
     heritage: bool = False       # premio di anzianita' dal promoter
     test_days_used: int = 0      # giornate di test private gia' spese
+    preseason_done: list = field(default_factory=list)  # prove collettive gia' fatte
     correlation: float = 0.0     # quanto la galleria del vento dice il vero
     setup_knowledge: dict = None # conoscenza d'assetto accumulata, per circuito
     setup_paper: dict = None     # l'assetto sulla carta per il weekend in corso
