@@ -86,7 +86,7 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
                 continue
             dmg += e.damage
             if e.damage > 0:
-                _distribute_damage(gs, team, e.damage)
+                _distribute_damage(gs, team, e.damage, gs.drivers.get(e.driver_id))
         # l'usura segue i chilometri percorsi: la sprint e' circa un terzo di GP
         team.car.wear(2.6 * min(1.0, sim.laps / max(1, track.laps)), track)
         # i costi fissi del weekend (logistica, stipendi, strutture) e i ricavi
@@ -160,11 +160,18 @@ def _pay_bonuses(gs, d, team, pos: int, pts: float, status: str, kind: str) -> N
         team.add_expense(f"Premi contratto {d.last}", round(due, 3), in_cap=in_cap)
 
 
-def _distribute_damage(gs, team, amount: float) -> None:
+def _distribute_damage(gs, team, amount: float, driver=None) -> None:
+    from . import kits
     keys = list(team.car.parts.keys())
     hits = gs.rng.sample(keys, k=min(3, len(keys)))
     for k in hits:
         team.car.damage(k, amount * gs.rng.uniform(0.2, 0.5))
+    # un contatto leggero si raddrizza, una botta vera porta via il pezzo: e se
+    # quel pezzo era la specifica nuova, quella macchina torna indietro
+    if driver is not None and amount >= 26.0:
+        riga = kits.wreck(gs, team, driver, kits._pezzo_colpito(gs))
+        if riga:
+            gs.push(f"{team.name}: {riga}", "tecnico")
 
 
 def _update_morale(gs, d, team, pos: int, status: str) -> None:

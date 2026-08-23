@@ -54,6 +54,7 @@ class Team:
     setups: dict = None          # assetto montato, pilota per pilota
     kits: list = None            # pezzi nuovi usciti dalla fabbrica, da montare
     part_delta: dict = None      # specifiche montate su una macchina sola
+    last_spec: dict = None       # la specifica precedente, se un pezzo si distrugge
     auto_dev: bool = False       # il reparto tecnico decide da solo gli aggiornamenti
     auto_setup: bool = True      # gli ingegneri di pista preparano l'assetto da soli
     staff: list = field(default_factory=list)        # oggetti Staff

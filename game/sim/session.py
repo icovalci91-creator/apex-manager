@@ -120,6 +120,17 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
             quota = 0.45      # il giocatore tiene in mano i regolatori
         SETUP.apply_paper(gs, team, quota)
         team.car.wear(0.55, track)
+        # e ogni tanto qualcuno ci finisce dentro: e' l'unico modo in cui una
+        # squadra che porta sempre due pezzi uguali si ritrova con le macchine
+        # diverse
+        from ..core import kits
+        for d in drivers:
+            riga = kits.practice_off(gs, team, d, track, ws.weather)
+            if not riga:
+                continue
+            if team.id == gs.player_team:
+                notes.append(riga)
+            gs.push(f"{team.name}: {riga}", "tecnico")
 
     from ..core import tyres
     tyres.spend_practice(gs, ws)

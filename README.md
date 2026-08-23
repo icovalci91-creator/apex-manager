@@ -746,21 +746,31 @@ rispetto al riferimento del ciclo, un pallino segnala il pezzo nuovo appena mont
 quello che sta per finire, e a lato si apre la scheda con prestazione, stato e cosa c'e'
 in fabbrica.
 
-**E dalla fabbrica ne esce uno, non due.** Quando un pacchetto e' pronto arriva un solo
-esemplare, e chi lo monta lo decide il muretto: da quel momento le due monoposto sono
-diverse davvero, in tutto - simulatore, prove, qualifica, gara. Il secondo esemplare
-arriva dopo, e quante gare ci vuole lo dicono la fabbrica e la gente che ci lavora:
+**Quanti esemplari escono lo dice la fabbrica.** Una squadra grande non ha mai fatto
+distinzioni fra i due box: il pezzo nuovo arriva doppio e le macchine restano uguali.
+Una squadra piccola, su un pacchetto importante, ne porta uno solo - e li' comincia una
+scelta. La soglia la decidono il capannone e la gente che ci lavora dentro:
 
 | Fabbrica | pacchetto piccolo | medio | grande |
 |---|---|---|---|
-| grande squadra | subito su tutte e due | 1 gara | 2 gare |
-| meta' classifica | 1 gara | 1 gara | 3 gare |
-| squadra piccola | 1 gara | 2 gare | 3 gare |
+| Ferrari, Mercedes, Red Bull, McLaren, Aston | 2 subito | 2 subito | 2 subito |
+| Williams, Audi, Alpine, Racing Bulls | 2 subito | 2 subito | 1, il secondo fra 3 gare |
+| Haas, Cadillac | 2 subito | 1, il secondo fra 2 gare | 1, il secondo fra 3-4 gare |
 
 Finche' c'e' un esemplare solo, montarlo su un pilota vuol dire non montarlo sull'altro -
-e l'altro lo sa. Quando il secondo arriva e va in macchina, la specifica nuova diventa
-quella di squadra e le due vetture tornano uguali. Le scuderie del computer non tirano a
-sorte: il pezzo lo mettono a chi sta piu' avanti in classifica.
+e l'altro lo sa. Da quel momento le due monoposto sono diverse davvero, in tutto:
+simulatore, prove, qualifica, gara. Quando il secondo arriva e va in macchina, la
+specifica nuova diventa quella di squadra e le vetture tornano uguali. Le scuderie del
+computer non tirano a sorte: il pezzo lo mettono a chi sta piu' avanti in classifica.
+
+**E poi c'e' il muro.** Per una squadra grande e' l'unico modo in cui le due macchine
+finiscono diverse. Nelle libere si va a sbattere - piu' spesso chi guida sul filo, chi
+sbaglia di piu' e quando piove - e ogni tanto quello che si porta via e' il pezzo nuovo.
+Succede anche in gara, dopo una botta vera. Se il ricambio non c'e', quella monoposto
+rimonta la specifica precedente e ci corre finche' la fabbrica non ne rifa' un altro:
+sulla pagina della vettura il componente diventa **"pezzo distrutto, in ricostruzione"**,
+e non c'e' niente da decidere se non aspettare. Su una stagione intera capita a mezza
+squadra: raro abbastanza da essere una notizia, frequente abbastanza da farsi sentire.
 
 Ogni pacchetto ha un suo carattere: rifare l'ala anteriore fa girare la macchina, lavorare
 dietro la pianta. Chi stacca tardi e vuole l'anteriore che morde si trova subito con una

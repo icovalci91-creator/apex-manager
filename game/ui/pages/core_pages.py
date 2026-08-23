@@ -239,6 +239,10 @@ class CarPage(Page):
             bw = left.right - 16 - bx
             for i, pil in enumerate(self._piloti()):
                 montato = pil.id in k.fitted
+                # su un pezzo distrutto non si smonta niente: si aspetta il
+                # ricambio e lo si rimette sulla macchina rimasta indietro
+                if montato and k.reason == "danno":
+                    continue
                 b = Button((bx, self.car_rect.y + 206 + i * 32, bw, 26),
                            ("Togli da " if montato else "Monta su ") + pil.short,
                            style="danger" if montato else "primary")
@@ -378,20 +382,24 @@ class CarPage(Page):
 
         kit = self._kit_for(self.sel_part)
         if kit is not None:
-            T.text(surf, "SPECIFICA NUOVA IN FABBRICA", (px, self.car_rect.y + 112), 11,
-                   T.ACCENT, bold=True, maxw=pw)
+            danno = kit.reason == "danno"
+            T.text(surf, "PEZZO DISTRUTTO, IN RICOSTRUZIONE" if danno
+                   else "SPECIFICA NUOVA IN FABBRICA", (px, self.car_rect.y + 112), 11,
+                   T.BAD if danno else T.ACCENT, bold=True, maxw=pw)
             T.text(surf, f"{kit.old_perf:.1f}  ->  {kit.perf:.1f}   ({kit.gain:+.1f})",
                    (px, self.car_rect.y + 132), 15, T.OK if kit.gain > 0 else T.BAD,
                    bold=True, maxw=pw)
-            T.text(surf, f"esemplari pronti {kit.ready} su 2, montati "
+            T.text(surf, f"esemplari integri {kit.ready} su 2, montati "
                          f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12, T.DIM,
                    maxw=pw)
+            gare = max(0, kits.build_time(team, kit.size) - (gs.round - kit.round_ready))
+            quando = "alla prossima gara" if gare <= 1 else f"fra {gare} gare"
             if kit.gain <= 0:
                 T.text(surf, "e' andata peggio della vecchia: non conviene montarla",
                        (px, self.car_rect.y + 172), 12, T.BAD, maxw=pw)
             elif kit.spare <= 0 and len(kit.fitted) < 2:
-                gare = kits.build_time(team, kit.size) - (gs.round - kit.round_ready)
-                T.text(surf, f"il secondo esce fra {max(0, gare)} gare",
+                T.text(surf, (f"il pezzo rifatto arriva {quando}" if danno
+                              else f"il secondo esemplare esce {quando}"),
                        (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
             elif len(kit.fitted) == 1:
                 T.text(surf, "una macchina aggiornata, l'altra no",
