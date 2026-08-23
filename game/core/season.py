@@ -4,7 +4,7 @@ from __future__ import annotations
 from .. import config as C
 from ..model.car import Part
 from . import (calendar, development, economy, facilities, market, penalties,
-               powertrain, rules, sponsors, testing)
+               powertrain, rules, setup, sponsors, testing)
 from .state import RaceResult
 
 
@@ -171,6 +171,9 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
         gs.phase = "offseason"
     elif rules.meeting_due(gs):
         rules.open_meeting(gs)
+    # nuovo appuntamento, foglio bianco: l'assetto di domenica scorsa non dice
+    # niente sulla pista di domenica prossima
+    setup.new_weekend(gs)
     return msgs
 
 

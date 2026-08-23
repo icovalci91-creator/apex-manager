@@ -139,7 +139,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sezione | Cosa fai |
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
-| Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sei regolazioni di assetto (o delega agli ingegneri) |
+| Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sessioni al simulatore e sei regolazioni d'assetto attorno al riferimento del reparto |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
@@ -229,6 +229,46 @@ carico e più resistenza, esattamente come in pista.
 risolvono quando due monoposto sono davvero a contatto, e il confronto di passo usa il
 ritmo in aria libera (altrimenti chi insegue non passerebbe mai). Gomme, carburante,
 scia sporca, safety car, rotture e contatti sono simulati.
+
+**Assetto.** Trovarlo non costa niente: e' il lavoro del weekend. Quello che costa viene
+prima. Nei giorni precedenti si va al simulatore - una sessione costa fra 0,1 e 0,25 M$
+dentro il tetto di spesa, e se ne possono fare due, perche' alla terza il modello ha gia'
+detto quello che sapeva - e da li' esce un **assetto sulla carta**, che e' una previsione,
+non una verita'. Quanto ci prende dipende da che simulatore si ha, da quanto quel
+simulatore assomiglia alla realta' (la correlazione dai test), da quanto si conosce il
+circuito, da quanto si e' capita la macchina e dall'avere o no una pista di proprieta':
+
+| | senza simulatore | una sessione | due sessioni |
+|---|---|---|---|
+| Ferrari (simulatore 90, Fiorano) | +/-17 punti | +/-9 | +/-5 |
+| Williams (simulatore 84) | +/-20 | +/-11 | +/-6 |
+
+Poi si va in pista e la pista risponde. A ogni sessione di prove i piloti dicono cosa fa la
+macchina e gli ingegneri leggono i dati: il riferimento si sposta verso quello che serve
+davvero, ma di poco per volta e con un residuo di rumore, perche' gomme, benzina, vento e
+asfalto raccontano ogni volta una storia leggermente diversa. Quanto si impara dipende
+dalle persone - il feedback dei piloti, i performance engineer, il direttore tecnico, il
+race engineer - e non dagli strumenti: quelli hanno gia' detto la loro al simulatore.
+
+Il giocatore non vede mai l'assetto giusto. Vede il riferimento del reparto (il triangolo
+dorato sui cursori), quanto quel riferimento e' affidabile, e quanto la macchina gli e'
+vicina: si puo' essere convinti di avere tutto a posto e prendere mezzo secondo. La verita'
+si legge solo sul cronometro.
+
+Quanto pesa dipende da quante prove libere ci sono. In un weekend normale sono tre, e tre
+sessioni rimediano gran parte di un riferimento sbagliato: si perde il venerdi', non la
+domenica. In un weekend sprint ce n'e' una sola, e li' quello che non si e' preparato prima
+non si recupera piu':
+
+| Perdita al giro dopo tutte le prove | senza simulatore | una sessione | due sessioni |
+|---|---|---|---|
+| Weekend normale (3 prove libere) | +0,20 s | +0,07 s | +0,06 s |
+| Weekend sprint (1 prova libera) | +0,78 s | +0,38 s | +0,11 s |
+
+Su una stagione intera si vede in griglia: la Ferrari passa da 6,8 di media senza mai
+toccare il simulatore a 6,1 preparando ogni weekend, la Williams da 12,5 a 10,9. Costa
+dai 5 ai 12 M$ a stagione dentro il tetto di spesa, cioe' meno di un pacchetto grande di
+aggiornamenti.
 
 **Sviluppo.** Due cose distinte, come nella realta'.
 

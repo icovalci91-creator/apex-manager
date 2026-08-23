@@ -150,6 +150,8 @@ class GameState:
         sponsors.bootstrap(gs)
 
         gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
+        from .setup import new_weekend
+        new_weekend(gs)
         return gs
 
     def _restore_calendar(self, calendario, candidati) -> None:
@@ -323,6 +325,9 @@ class GameState:
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used, "correlation": t.correlation,
                     "setup_knowledge": t.setup_knowledge or {},
+                    "setup_paper": t.setup_paper or {},
+                    "setup_paper_track": t.setup_paper_track,
+                    "sim_sessions": t.sim_sessions,
                     "car_understanding": t.car_understanding,
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
@@ -376,6 +381,9 @@ class GameState:
             t.test_days_used = td.get("test_days_used", 0)
             t.correlation = td.get("correlation", 0.0)
             t.setup_knowledge = dict(td.get("setup_knowledge") or {})
+            t.setup_paper = dict(td.get("setup_paper") or {})
+            t.setup_paper_track = td.get("setup_paper_track", "")
+            t.sim_sessions = td.get("sim_sessions", 0)
             t.car_understanding = td.get("car_understanding", 0.0)
             t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]

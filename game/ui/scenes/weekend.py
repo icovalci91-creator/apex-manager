@@ -30,9 +30,8 @@ class WeekendScene(Scene):
         self.pts = None
         self.applied = False
         self.sprint_pending = self.track.sprint
-        for t in gs.teams.values():
-            if not t.is_player:
-                S.auto_setup(gs, t, self.track)
+        # la preparazione delle squadre del computer e' gia' stata fatta quando
+        # il calendario e' avanzato: qui si corre e basta
         self.build()
 
     # ------------------------------------------------------------ costruzione
@@ -52,8 +51,9 @@ class WeekendScene(Scene):
         x = w - bw - 40
         y = h - 140
         if self.stage == "prove":
+            tot = S.practice_sessions(self.track)
             self.widgets.append(Button((x, y - 56, bw, bh),
-                                       f"Prove libere {self.ws.practice_done + 1}/3",
+                                       f"Prove libere {min(tot, self.ws.practice_done + 1)}/{tot}",
                                        self.do_practice, "normal"))
             self.widgets.append(Button((x, y, bw, bh), "Vai alla qualifica",
                                        self.to_quali, "primary"))
@@ -130,8 +130,9 @@ class WeekendScene(Scene):
                 return
 
     def do_practice(self) -> None:
-        if self.ws.practice_done >= 3:
-            self.app.toast("Prove libere terminate.")
+        if self.ws.practice_done >= S.practice_sessions(self.track):
+            self.app.toast("Prove libere terminate: in un weekend sprint ce n'e' una sola."
+                           if self.track.sprint else "Prove libere terminate.")
             return
         S.run_practice(self.gs, self.ws)
         self.build()
@@ -253,15 +254,22 @@ class WeekendScene(Scene):
 
         if self.stage == "prove":
             T.text(surf, "LAVORO SULL'ASSETTO", (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
-            car = gs.player.car
-            q = car.setup_quality
-            T.text(surf, f"Sessioni completate: {ws.practice_done}/3", (right.x + 20, right.y + 40),
-                   16, T.TEXT)
-            T.text(surf, "Efficacia assetto", (right.x + 20, right.y + 70), 14, T.DIM)
-            T.bar(surf, (right.x + 180, right.y + 74, 260, 12), q * 100)
+            from ...core import setup as SETUP
+            pt = gs.player
+            q = SETUP.believed_quality(pt)
+            err = SETUP.paper_error(pt, tr, pt.sim_sessions)
+            T.text(surf, f"Sessioni completate: {ws.practice_done}/{S.practice_sessions(tr)}",
+                   (right.x + 20, right.y + 40), 16, T.TEXT)
+            T.text(surf, f"{pt.sim_sessions} al simulatore prima di partire",
+                   (right.right - 20, right.y + 42), 13, T.DIM_2, align="right")
+            T.text(surf, "Vicinanza al riferimento", (right.x + 20, right.y + 70), 14, T.DIM)
+            T.bar(surf, (right.x + 220, right.y + 74, 220, 12), q * 100)
             T.text(surf, f"{q*100:.0f}%", (right.x + 456, right.y + 66), 17,
                    T.stat_colour(q * 100, 60, 88), bold=True)
-            y = right.y + 108
+            T.text(surf, f"e il riferimento stesso vale +/-{err:.0f} punti: la pista lo "
+                         f"corregge sessione dopo sessione",
+                   (right.x + 20, right.y + 92), 12, T.DIM_2, maxw=right.w - 40)
+            y = right.y + 122
             for line in (ws.practice_notes or ["Nessuna sessione ancora disputata."]):
                 T.text(surf, line, (right.x + 20, y), 14, T.TEXT if not line.startswith("-") else T.DIM,
                        maxw=right.w - 40)

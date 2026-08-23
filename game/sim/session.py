@@ -5,7 +5,6 @@ import random
 from dataclasses import dataclass, field
 
 from .. import config as C
-from ..model.car import SETUP_KEYS
 from .weekend import BURN_KG_PER_LAP, Entrant, RaceSim, Weather
 
 
@@ -72,31 +71,40 @@ def _hex(h: str) -> tuple:
 
 
 # ------------------------------------------------------------ prove libere
+def practice_sessions(track) -> int:
+    """Quante prove libere concede il regolamento su questo weekend.
+
+    In un fine settimana sprint ce n'e' una sola: si va in parco chiuso subito
+    dopo, quindi quello che non si e' preparato prima non si recupera piu'.
+    """
+    return 1 if track.sprint else 3
+
+
 def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
-    """Una sessione di prove: affina l'assetto e produce riscontri tecnici."""
-    from ..core import testing
+    """Una sessione di prove: la pista risponde e l'assetto si avvicina.
+
+    Non si scopre l'assetto giusto guardandolo: si scopre girandoci. Quello che
+    il reparto crede - l'assetto sulla carta preparato al simulatore - viene
+    corretto da quello che dicono i piloti e i dati, e i meccanici montano sulla
+    macchina quello a cui si e' arrivati.
+    """
+    from ..core import setup as SETUP
     track = ws.track
     notes = []
     for team in gs.teams.values():
-        car = team.car
-        opt = car.optimal_setup(track)
         drivers = gs.drivers_of(team.id)
         fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
-        quality = (0.35 + 0.45 * (team.setup_strength / 100.0) + 0.20 * (fb / 100.0)
-                   + 0.25 * testing.setup_bonus(team, track)
-                   + 0.18 * team.car_understanding)
-        quality = min(0.97, quality * (0.75 + 0.25 * (ws.practice_done + 1) / 3.0))
+        SETUP.learn_from_track(gs, team, track, fb)
+        quota = 1.0
         if team.id == gs.player_team and not delegate_player:
-            quality *= 0.55        # il giocatore lavora da solo: gli ingegneri aiutano meno
-        for k in SETUP_KEYS:
-            cur = car.setup.get(k, 50.0)
-            car.setup[k] = cur + (opt[k] - cur) * quality * gs.rng.uniform(0.6, 1.0)
-        car.evaluate_setup(track)
-        car.wear(0.55, track)
+            quota = 0.45      # il giocatore tiene in mano i regolatori
+        SETUP.apply_paper(team, quota)
+        team.car.evaluate_setup(track)
+        team.car.wear(0.55, track)
 
     ws.practice_done += 1
     pt = gs.player
-    q = pt.car.setup_quality
+    q = SETUP.believed_quality(pt)
     eng = pt.role("technical_director")
     who = eng.name if eng else "Il muretto"
     if q > 0.9:
@@ -105,50 +113,23 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
         notes.append(f"{who}: ci siamo quasi, manca un po' di equilibrio in percorrenza.")
     else:
         notes.append(f"{who}: siamo fuori finestra, servono modifiche importanti.")
-    notes.extend(setup_hints(pt.car, track))
+    notes.extend(SETUP.hints(pt, track))
     ws.practice_notes = notes
     return notes
 
 
-def setup_hints(car, track) -> list:
-    """Indicazioni comprensibili su cosa cambiare nell'assetto."""
-    opt = car.optimal_setup(track)
-    hints = []
-    phrase = {
-        "wing": ("troppo carico: siamo lenti sui rettilinei", "poco carico: la macchina scivola in curva"),
-        "ride_height": ("troppo alta: perdiamo carico dal fondo", "troppo bassa: strisciamo sui cordoli"),
-        "stiffness": ("troppo rigida: salta sulle sconnessioni", "troppo morbida: rolla e consuma le gomme"),
-        "camber": ("campanatura eccessiva: surriscalda l'anteriore", "campanatura scarsa: manca inserimento"),
-        "gearing": ("rapporti troppo lunghi: non spinge in uscita", "rapporti troppo corti: tocchiamo il limitatore"),
-        "brake_bias": ("freno troppo indietro: instabile in staccata", "freno troppo avanti: blocca l'anteriore"),
-    }
-    for k, (hi, lo) in phrase.items():
-        d = car.setup.get(k, 50.0) - opt[k]
-        if d > 14:
-            hints.append(f"- {SETUP_KEYS[k]}: {hi}")
-        elif d < -14:
-            hints.append(f"- {SETUP_KEYS[k]}: {lo}")
-    if not hints:
-        hints.append("- Nessuna correzione rilevante: possiamo lavorare sul passo gara.")
-    return hints
+def setup_hints(team, track) -> list:
+    """Indicazioni comprensibili su cosa cambiare, secondo il reparto."""
+    from ..core import setup as SETUP
+    return SETUP.hints(team, track)
 
 
 def auto_setup(gs, team, track, quality: float | None = None) -> None:
-    """Delega completamente l'assetto agli ingegneri."""
-    from ..core import testing
-    car = team.car
-    opt = car.optimal_setup(track)
-    if quality is None:
-        # chi ha girato qui in test parte gia' dentro la finestra giusta
-        q = min(0.98, 0.55 + 0.45 * (team.setup_strength / 100.0)
-                + 0.30 * testing.setup_bonus(team, track)
-                + 0.16 * team.car_understanding)
-    else:
-        q = quality
-    for k in SETUP_KEYS:
-        car.setup[k] = opt[k] + gs.rng.gauss(0.0, (1.0 - q) * 22.0)
-        car.setup[k] = max(0.0, min(100.0, car.setup[k]))
-    car.evaluate_setup(track)
+    """Monta l'assetto che il reparto ritiene giusto per questa pista."""
+    from ..core import setup as SETUP
+    SETUP.ensure_paper(gs, team, track)
+    SETUP.apply_paper(team)
+    team.car.evaluate_setup(track)
 
 
 # ---------------------------------------------------------------- qualifica

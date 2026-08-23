@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import development, economy, engineering, powertrain
+from ...core import development, economy, engineering, powertrain, setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
@@ -143,8 +143,13 @@ class CarPage(Page):
             y += 36
         y += 8
         bw = (r.w * 0.58 - 42) / 2
-        self.widgets.append(Button((x, y, bw, 38), "Delega agli ingegneri", self.delegate, "primary"))
-        self.widgets.append(Button((x + bw + 10, y, bw, 38), "Assetto neutro", self.neutral, "ghost"))
+        nt = self.gs.next_track
+        costo = SETUP.sim_cost(self.team)
+        self.widgets.append(Button((x, y, bw, 38), f"Simulatore  ({costo:.2f} M$)",
+                                   self.simulate, "normal"))
+        self.widgets.append(Button((x + bw + 10, y, bw, 38), "Monta l'assetto del reparto",
+                                   self.delegate, "primary"))
+        self.widgets.append(Button((x, y + 44, bw, 34), "Assetto neutro", self.neutral, "ghost"))
         self._update_markers()
 
     def _set(self, k, v) -> None:
@@ -154,14 +159,25 @@ class CarPage(Page):
             self.team.car.evaluate_setup(nt)
 
     def _update_markers(self) -> None:
+        """Il triangolo mostra quello che il reparto crede, non quello che e'."""
         nt = self.gs.next_track
         if not nt:
             return
-        opt = self.team.car.optimal_setup(nt)
-        known = min(1.0, 0.30 + 0.70 * self.team.setup_strength / 100.0)
+        SETUP.ensure_paper(self.gs, self.team, nt)
+        paper = self.team.setup_paper or {}
         for k, s in self.sliders.items():
-            s.marker = opt[k] if known > 0.55 else None
+            s.marker = paper.get(k)
         self.team.car.evaluate_setup(nt)
+
+    def simulate(self) -> None:
+        nt = self.gs.next_track
+        if not nt:
+            return
+        ok, msg = SETUP.run_simulator(self.gs, self.team, nt)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+            self.build()
 
     def delegate(self) -> None:
         nt = self.gs.next_track
@@ -170,7 +186,7 @@ class CarPage(Page):
         S.auto_setup(self.gs, self.team, nt)
         for k, s in self.sliders.items():
             s.value = self.team.car.setup[k]
-        self.app.toast("Gli ingegneri hanno impostato la vettura.")
+        self.app.toast("I meccanici hanno montato l'assetto preparato dal reparto.")
 
     def neutral(self) -> None:
         for k, s in self.sliders.items():
@@ -217,15 +233,21 @@ class CarPage(Page):
         T.text(surf, "ASSETTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         nt = gs.next_track
         if nt:
-            q = car.setup_quality
+            q = SETUP.believed_quality(team)
             qc = T.OK if q > 0.85 else (T.WARN if q > 0.6 else T.BAD)
             T.text(surf, f"per {nt.name}", (right.x + 16, right.y + 32), 16, T.TEXT, bold=True)
-            T.text(surf, "Efficacia assetto", (right.x + 16, right.y + 62), 13, T.DIM)
+            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 62), 13, T.DIM)
             T.bar(surf, (right.x + 160, right.y + 66, 220, 10), q * 100)
             T.text(surf, f"{q*100:.0f}%", (right.x + 396, right.y + 60), 15, qc, bold=True)
             lost = (1.0 - car.apply_setup_effects() / 1.0) * 0
-            T.text(surf, "Il triangolo dorato indica il valore suggerito dal reparto.",
-                   (right.x + 16, right.y + 92), 12, T.DIM_2)
+            err = SETUP.paper_error(team, nt, team.sim_sessions)
+            fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
+            T.text(surf, f"Riferimento del reparto: +/-{err:.0f} punti", (right.x + 440, right.y + 62),
+                   13, T.stat_colour(fid * 100, 40, 75), bold=True)
+            T.text(surf, f"Il triangolo dorato e' quello che il reparto crede sia giusto: "
+                         f"{team.sim_sessions} sessioni al simulatore su {SETUP.SIM_MAX}. "
+                         f"Il resto lo dira' la pista.",
+                   (right.x + 16, right.y + 92), 12, T.DIM_2, maxw=right.w - 32)
             T.text(surf, f"Downforce {car.downforce:.2f}  |  Drag {car.drag:.2f}  |  "
                          f"Potenza {car.power:.2f}  |  Grip {car.mech_grip:.2f}",
                    (right.x + 16, right.y + 114), 13, T.DIM)
@@ -235,7 +257,7 @@ class CarPage(Page):
         if nt:
             T.text(surf, "RISCONTRO DEGLI INGEGNERI", (right.x + 16, yy), 12, T.DIM_2, bold=True)
             yy += 22
-            for line in S.setup_hints(car, nt)[:6]:
+            for line in S.setup_hints(team, nt)[:6]:
                 T.text(surf, line, (right.x + 16, yy), 13, T.DIM, maxw=right.w - 32)
                 yy += 20
         super().draw(surf)

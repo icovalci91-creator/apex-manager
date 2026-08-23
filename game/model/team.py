@@ -36,6 +36,9 @@ class Team:
     test_days_used: int = 0      # giornate di test private gia' spese
     correlation: float = 0.0     # quanto la galleria del vento dice il vero
     setup_knowledge: dict = None # conoscenza d'assetto accumulata, per circuito
+    setup_paper: dict = None     # l'assetto sulla carta per il weekend in corso
+    setup_paper_track: str = ""  # per quale pista vale
+    sim_sessions: int = 0        # sessioni di simulatore fatte per quel weekend
     car_understanding: float = 0.0  # quanto abbiamo capito la macchina di quest'anno
     car: Car = None
     drivers: list = field(default_factory=list)      # id piloti
