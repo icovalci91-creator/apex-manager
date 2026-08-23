@@ -146,12 +146,15 @@ class Slider(Widget):
 
     @property
     def label_w(self) -> int:
-        return max(96, min(206, int(self.rect.w * 0.42)))
+        """Su un cursore stretto l'etichetta cede spazio, ma non troppo."""
+        quota = 0.36 if self.rect.w < 420 else 0.42
+        return max(96, min(206, int(self.rect.w * quota)))
 
     @property
     def VAL_W(self) -> int:
-        """Lo spazio per il numero: su un cursore stretto si accorcia."""
-        return min(84, max(58, int(self.rect.w * 0.20)))
+        """Lo spazio per il numero. Non scende sotto quello che serve a
+        scrivere una cifra con tre decimali e l'unita'."""
+        return min(88, max(70, int(self.rect.w * 0.22)))
 
     @property
     def minus_rect(self):
