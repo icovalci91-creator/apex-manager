@@ -70,7 +70,13 @@ class GameState:
 
     # ------------------------------------------------------------- creazione
     @classmethod
-    def new_game(cls, team_id: str, constructor: bool = True, seed: int | None = None) -> "GameState":
+    def new_game(cls, team_id: str, constructor: bool = True, seed: int | None = None,
+                 founding: dict | None = None) -> "GameState":
+        """Comincia una carriera.
+
+        Con `founding` non si prende in mano una squadra che c'e' gia': se ne
+        mette in griglia una nuova, che paga per entrare e parte da niente.
+        """
         seed = seed if seed is not None else random.randrange(1 << 30)
         gs = cls(player_team=team_id, player_is_constructor=constructor, seed=seed)
         gs.rng = random.Random(seed)
@@ -133,6 +139,14 @@ class GameState:
             team.hired_this_season = {}
             gs.teams[team.id] = team
 
+        # la dodicesima squadra: non e' nei dati, la si fonda adesso
+        if founding:
+            from . import newteam
+            founding = dict(founding)
+            founding["id"] = team_id
+            gs.founding = founding
+            newteam.create(gs, founding)
+
         gs._vivai = {td["id"]: list(td.get("academy") or []) for td in teamdata["teams"]}
         ddata = _load("drivers.json")
         for d in ddata["drivers"]:
@@ -166,6 +180,12 @@ class GameState:
             if _acc.has(squadra) and len(squadra.academy) < 2:
                 _acc.intake(gs, squadra, 2 - len(squadra.academy))
 
+        # e i due che accettano di salirci sopra: vanno presi fra gli svincolati
+        # prima che il mercato e gli sponsor guardino chi c'e' in griglia
+        if founding:
+            from . import newteam
+            newteam.first_lineup(gs, gs.teams[team_id])
+
         gs.sponsor_pool = _load("sponsors.json")["sponsors"]
         gs._calibrate_tracks()
         gs._build_staff()
@@ -191,7 +211,14 @@ class GameState:
         pezzi = [p.perf for t in gs.teams.values() for p in t.car.parts.values()]
         gs.regulations["cycle_base"] = round(sum(pezzi) / max(1, len(pezzi)), 2)
 
-        gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
+        if founding:
+            from . import newteam
+            newteam.welcome(gs, pt)
+            gs.push(f"{pt.name} entra in Formula 1. Stagione {gs.season}: si "
+                    f"comincia da zero, e da ultimi.", "team")
+        else:
+            gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: "
+                    f"nuovo ciclo tecnico.", "team")
         from .setup import new_weekend
         new_weekend(gs)
         return gs
@@ -379,6 +406,7 @@ class GameState:
             "editor_used": bool(getattr(self, "editor_used", False)),
             "track_history": self.track_history,
             "race_distance": self.race_distance,
+            "founding": getattr(self, "founding", None),
             "pu_program": getattr(self, "pu_program", {}),
             "pu_specs": getattr(self, "pu_specs", {}),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
@@ -402,6 +430,7 @@ class GameState:
                     "spent": t.spent, "capex_log": t.capex_log or {}, "austerity": t.austerity,
                     "track_id": t.track_id, "track_name": t.track_name,
                     "reputation": t.reputation, "facilities": t.facilities,
+                    "entry_season": t.entry_season,
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used,
                     "preseason_done": list(t.preseason_done or []), "correlation": t.correlation,
@@ -444,8 +473,10 @@ class GameState:
 
     @classmethod
     def from_dict(cls, data: dict) -> "GameState":
+        # una squadra fondata dal giocatore non sta in teams.json: si rifonda
+        # com'era e poi le si rimettono sopra i valori del salvataggio
         gs = cls.new_game(data["player_team"], data.get("player_is_constructor", True),
-                          seed=data.get("seed"))
+                          seed=data.get("seed"), founding=data.get("founding"))
         base_sprints = gs.regulations["sporting"].get("sprint_events")
         gs.season = data["season"]
         gs.round = data["round"]
@@ -470,6 +501,7 @@ class GameState:
             t = gs.teams[tid]
             t.cash = td["cash"]; t.points = td["points"]; t.wins = td["wins"]
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
+            t.entry_season = int(td.get("entry_season", 0) or 0)
             t.capex_log = dict(td.get("capex_log") or {})
             t.austerity = float(td.get("austerity", 0.0))
             t.track_id = td.get("track_id", t.track_id)

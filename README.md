@@ -72,6 +72,14 @@ nel browser quindi si usa quello incluso in pygame.
    e mettono tutto sulla macchina. Il vincolo e' il campo `pu_capable` in
    `data/teams.json`, con accanto la motivazione: se non sei d'accordo, cambialo.
 
+   Oppure la squadra non la scegli: la **fondi**. Il pulsante *Fonda una scuderia*
+   apre l'iscrizione al campionato come dodicesima squadra, e da li' si comincia da
+   niente - senza montepremi, senza sponsor, senza fabbrica. Sotto c'e' come funziona.
+
+   Oppure la squadra non la scegli: la **fondi**. Il pulsante *Fonda una scuderia*
+   apre l'iscrizione al campionato come dodicesima squadra, e da li' si comincia da
+   niente - senza montepremi, senza sponsor, senza fabbrica. Sotto c'e' come funziona.
+
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
 4. A fine stagione arrivano premi, mercato e **votazioni sul regolamento**.
@@ -541,6 +549,112 @@ Fiorano sta nei dati come tracciato (2,976 km, 14 curve) insieme a un modello ge
 chi se ne costruisce una, che prende il nome della squadra; il Red Bull Ring c'era gia',
 perche' e' anche una gara del mondiale. Girarci non costa niente oltre ai materiali: e' li'
 che una pista di proprieta' comincia a ripagarsi.
+
+**Fondare una squadra, e cosa vuol dire davvero.** Si sceglie un nome, una sede, una
+livrea e il motorista a cui chiedere la power unit; poi si decide quanto si mette sul
+tavolo, ed e' l'unica scelta che conti perche' da li' dipende tutto il resto.
+
+| | sul tavolo | dopo la quota | reputazione |
+|---|---|---|---|
+| Casa costruttrice | 900 M$ | 450 M$ | 42 |
+| Progetto privato | 650 M$ | 200 M$ | 30 |
+| Sfida da garage | 600 M$ | 150 M$ | 22 |
+
+La differenza sono i **450 M$ di quota di ingresso**, che non restano in cassa: vanno
+alle undici squadre gia' iscritte, quaranta milioni a testa, a compensarle del piatto che
+da adesso si divide in dodici. Si chiama anti-diluizione ed e' cosi' che si entra
+davvero.
+
+Quello che si trova il giorno dopo:
+
+- **Dal promoter, il primo anno, non arriva niente.** Il montepremi si divide fra chi si
+  e' classificato nei campionati scorsi, e uno che e' appena arrivato nei campionati
+  scorsi non c'era. Il secondo anno arriva la sola colonna di merito, meno della meta';
+  dal terzo si conta come tutti. E' la cosa che piu' di ogni altra rende dura la prima
+  stagione, ed e' successa alla Haas.
+- **Una macchina un secondo e mezzo dietro l'ultima**, e piu' di tre dietro la prima.
+  Cambio e freni si comprano gia' fatti da chi li fa per mezza griglia, tutto il resto
+  e' disegnato da zero da gente che quella macchina non l'ha mai vista girare.
+- **Galleria del vento in affitto, nessun simulatore, una fabbrica da tirare su.**
+  Portare tutte le strutture al livello di una squadra di meta' gruppo costa circa
+  **400 M$**: con il limite ordinario in conto capitale non ci si arriva nemmeno avendoli,
+  quindi il regolamento concede a chi entra fino a **190 M$ in piu' all'anno**, che si
+  spengono nell'arco di sei stagioni. E' quello che rende il capitale iniziale una scelta
+  e non un numero.
+- **Il proprietario paga il buco, e non e' poco.** Una squadra nuova perde circa **60 M$
+  l'anno** solo per esistere: gli incassi sono 15-25, i costi fissi 76-80. Il capitale e'
+  l'autonomia, e quello che avanza dopo aver coperto il buco e' il budget di sviluppo -
+  66 M$ l'anno per una casa costruttrice, 20 per un progetto privato, 11 per un garage.
+- **Uno sponsor, forse due.** Gli accordi grossi chiedono un nome che non si ha. Restano
+  l'officina di provincia e il distributore regionale, che pagano poco e ci credono.
+- **Due piloti che hanno detto di si'**: un veterano che sa dire se la macchina va, e un
+  ragazzo che si prende l'occasione dove gliela danno. Contratti di un anno, pagati sopra
+  il loro valore, perche' quello e' il prezzo per convincere qualcuno a salire su una
+  macchina che non esiste.
+- **Si parte ultimi, e per una volta conviene**: la scala ATR da' a chi sta in fondo tutte
+  le ore di galleria. E' l'unico vantaggio che c'e', e va speso.
+
+**E si sale piano.** Con una casa costruttrice dietro, giocando bene, il distacco
+dall'ultima delle altre passa da un secondo a nove decimi in sei stagioni: prima si
+peggiora - mentre si costruisce la fabbrica gli altri sviluppano - e solo dopo si comincia
+a recuperare. Con un progetto privato si galleggia intorno al secondo e mezzo finche' non
+arrivano montepremi e sponsor. Con un garage si sopravvive, e basta. Non e' una difficolta'
+tarata a tavolino: e' quello che esce dai conti, ed e' anche quello che succede davvero a
+chi entra in Formula 1.
+
+**Il nome se lo si fa, e ci vogliono anni.** La reputazione non era mai cambiata in tutta
+la carriera: adesso a fine stagione ogni squadra si muove di un quarto verso quello che i
+risultati dicono che vale, e chi e' entrato da poco ha comunque un tetto che si alza da
+solo, una stagione per volta. Serve a rendere vero quello che si sente giocando una
+squadra nuova: all'inizio dicono di no tutti - ingegneri, piloti, sponsor - e non c'e'
+niente da fare se non arrivare davanti a qualcuno. Una scuderia che sale di un posto
+l'anno passa da 30 a 57 in sette stagioni, e a quel punto le porte cominciano ad aprirsi.
+
+**Fondare una squadra, e cosa vuol dire davvero.** Si sceglie un nome, una sede, una
+livrea e il motorista a cui chiedere la power unit; poi si decide quanto si mette sul
+tavolo, ed e' l'unica scelta che conti perche' da li' dipende tutto il resto.
+
+| | sul tavolo | dopo la quota | reputazione |
+|---|---|---|---|
+| Casa costruttrice | 900 M$ | 450 M$ | 42 |
+| Progetto privato | 650 M$ | 200 M$ | 30 |
+| Sfida da garage | 520 M$ | 70 M$ | 22 |
+
+La differenza sono i **450 M$ di quota di ingresso**, che non restano in cassa: vanno
+alle undici squadre gia' iscritte, quaranta milioni a testa, a compensarle del piatto che
+da adesso si divide in dodici. Si chiama anti-diluizione ed e' cosi' che si entra
+davvero.
+
+Quello che si trova il giorno dopo:
+
+- **Dal promoter, il primo anno, non arriva niente.** Il montepremi si divide fra chi si
+  e' classificato nei campionati scorsi, e uno che e' appena arrivato nei campionati
+  scorsi non c'era. Il secondo anno arriva la sola colonna di merito, meno della meta';
+  dal terzo si conta come tutti. E' la cosa che piu' di ogni altra rende dura la prima
+  stagione, ed e' successa alla Haas.
+- **Una macchina un secondo e mezzo dietro l'ultima**, e piu' di tre dietro la prima.
+  Cambio e freni si comprano gia' fatti da chi li fa per mezza griglia, tutto il resto
+  e' disegnato da zero da gente che quella macchina non l'ha mai vista girare.
+- **Galleria del vento in affitto, nessun simulatore, una fabbrica da tirare su.** Con
+  il limite normale in conto capitale non ci si arriva, quindi il regolamento concede a
+  chi entra **190 M$ in piu'** per mettersi in pari: e' quello che rende il capitale
+  iniziale una scelta e non un numero.
+- **Uno sponsor, forse due.** Gli accordi grossi chiedono un nome che non si ha. Restano
+  l'officina di provincia e il distributore regionale, che pagano poco e ci credono.
+- **Due piloti che hanno detto di si'**: un veterano che sa dire se la macchina va, e un
+  ragazzo che si prende l'occasione dove gliela danno. Contratti di un anno, pagati sopra
+  il loro valore, perche' quello e' il prezzo per convincere qualcuno a salire su una
+  macchina che non esiste.
+- **Si parte ultimi, e per una volta conviene**: la scala ATR da' a chi sta in fondo tutte
+  le ore di galleria. E' l'unico vantaggio che c'e', e va speso.
+
+**Il nome se lo si fa, e ci vogliono anni.** La reputazione non era mai cambiata in tutta
+la carriera: adesso a fine stagione ogni squadra si muove di un quarto verso quello che i
+risultati dicono che vale, e chi e' entrato da poco ha comunque un tetto che si alza da
+solo, una stagione per volta. Serve a rendere vero quello che si sente giocando una
+squadra nuova: all'inizio dicono di no tutti - ingegneri, piloti, sponsor - e non c'e'
+niente da fare se non arrivare davanti a qualcuno. Una scuderia che sale di un posto
+l'anno passa da 30 a 57 in sette stagioni, e a quel punto le porte cominciano ad aprirsi.
 
 **Il montepremi ha due colonne.** Come nella realta': una parte del piatto e' uguale per
 tutti - 47 M$ a testa, il 45% dei 1150 distribuiti dal promoter - e il resto va a scalare

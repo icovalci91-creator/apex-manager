@@ -289,6 +289,11 @@ def end_season(gs) -> dict:
         if t.is_player and premi > 0.01:
             report["finance"].append(f"Bonus di risultato dagli sponsor: {premi:.2f} M$.")
 
+    # il nome della squadra segue i risultati, con calma: una stagione buona
+    # non fa una scuderia importante, cinque si'
+    from . import newteam
+    report["finance"] += newteam.drift_reputation(gs)
+
     # crescita/declino dei piloti
     for d in list(gs.drivers.values()) + list(gs.free_agents):
         team = gs.teams.get(d.team)

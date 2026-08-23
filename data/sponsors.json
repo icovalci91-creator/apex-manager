@@ -720,6 +720,102 @@
       "prestige": 40,
       "loyalty": 78,
       "desc": "Sicurezza informatica: budget modesto, contratto senza pretese."
+    },
+    {
+      "id": "borgomeccanica",
+      "name": "Borgo Meccanica",
+      "sector": "utensili",
+      "tier": "technical",
+      "base": 1.1,
+      "min_reputation": 18,
+      "wants_position": 12,
+      "years": [
+        1,
+        2
+      ],
+      "bonus_win": 0.04,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.2,
+      "prestige": 22,
+      "loyalty": 90,
+      "desc": "Officina meccanica di provincia: ci mettono il nome perche' ci credono."
+    },
+    {
+      "id": "tellurio",
+      "name": "Tellurio Logistica",
+      "sector": "logistica",
+      "tier": "technical",
+      "base": 1.6,
+      "min_reputation": 20,
+      "wants_position": 12,
+      "years": [
+        1,
+        3
+      ],
+      "bonus_win": 0.05,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.25,
+      "prestige": 26,
+      "loyalty": 86,
+      "desc": "Trasporti su gomma: il camion ce l'hanno gia', il nome sopra e' gratis."
+    },
+    {
+      "id": "kestrelfuel",
+      "name": "Kestrel Fuel",
+      "sector": "carburanti",
+      "tier": "secondary",
+      "base": 2.6,
+      "min_reputation": 22,
+      "wants_position": 12,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.08,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.4,
+      "prestige": 30,
+      "loyalty": 74,
+      "desc": "Distributore regionale che cerca visibilita' a poco prezzo."
+    },
+    {
+      "id": "veltrisrl",
+      "name": "Veltri Compositi",
+      "sector": "materiali",
+      "tier": "secondary",
+      "base": 2.2,
+      "min_reputation": 24,
+      "wants_position": 11,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.06,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.3,
+      "prestige": 32,
+      "loyalty": 80,
+      "desc": "Fibra di carbonio per l'industria: vogliono dire che la fanno anche in Formula 1."
+    },
+    {
+      "id": "novaterra",
+      "name": "Novaterra Energia",
+      "sector": "energia",
+      "tier": "primary",
+      "base": 6.5,
+      "min_reputation": 25,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.12,
+      "bonus_podium": 0.05,
+      "bonus_title": 0.6,
+      "prestige": 38,
+      "loyalty": 68,
+      "desc": "Fondo per le rinnovabili: sponsorizza chi comincia, e vuole crescerci insieme."
     }
+
   ]
 }

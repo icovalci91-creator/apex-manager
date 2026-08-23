@@ -12,7 +12,8 @@ from .. import config as C
 PRIZE_POOL = 1150.0        # M$ distribuiti dal promoter
 PRIZE_EQUAL_SHARE = 0.45   # quota del piatto divisa in parti uguali
 # quota della seconda colonna, quella legata al piazzamento
-PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058, 0.052, 0.046]
+PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058,
+               0.052, 0.046, 0.043]
 # Il premio di anzianita': chi c'e' da sempre porta pubblico e sponsor a tutto
 # il campionato, e da sempre se lo fa pagare. E' il caso della Ferrari.
 PRIZE_HERITAGE = 0.05
@@ -36,6 +37,14 @@ def prize_money(gs, position: int, flatten: float = 0.0, team=None) -> float:
     # prende la Ferrari lo mettono tutti gli altri
     merito = PRIZE_POOL * (1.0 - PRIZE_EQUAL_SHARE - PRIZE_HERITAGE) * share / tot
     extra = PRIZE_POOL * PRIZE_HERITAGE if team is not None and heritage(team) else 0.0
+    # chi e' appena entrato non ha diritto alla colonna uguale per tutti: quella
+    # si divide fra chi si e' classificato nei campionati scorsi, e lui non
+    # c'era. E' la cosa che piu' di ogni altra rende dura la prima stagione
+    if team is not None:
+        from . import newteam
+        f = newteam.prize_factor(gs, team)
+        if f < 1.0:
+            return round((quota_uguale + merito) * f, 2)
     return round(quota_uguale + merito + extra, 2)
 
 
@@ -79,7 +88,10 @@ def capex_limit(gs, team) -> float:
     base = float(gs.regulations.get("capex_limit_musd", 45.0))
     n = max(2, len(gs.teams))
     quota = (max(1, min(n, team.last_position)) - 1) / (n - 1)
-    return round(base * (1.0 + CAPEX_SCALE * quota), 2)
+    # a chi entra da zero il regolamento concede di piu': senza, una fabbrica
+    # non si tira su prima che la squadra sia gia' morta
+    from . import newteam
+    return round(base * (1.0 + CAPEX_SCALE * quota) + newteam.capex_bonus(gs, team), 2)
 
 
 def capex_spent(gs, team) -> float:
@@ -281,6 +293,12 @@ def spending_room(gs, team) -> float:
     return max(0.15, 1.0 - float(getattr(team, "austerity", 0.0)))
 
 
+# Quanta parte del capitale oltre la riserva un proprietario e' disposto a
+# bruciare in una stagione. Non tutto: chi svuota la cassa in un anno l'anno
+# dopo non c'e' piu'.
+OWNER_INJECTION = 0.18
+
+
 def season_room(gs, team) -> float:
     """Quanto resta per lo sviluppo dopo i costi che non si possono evitare.
 
@@ -311,7 +329,16 @@ def season_room(gs, team) -> float:
         fisse += powertrain.PU_OPERATING_COST
     else:
         fisse += team.engine_customer_cost
-    return round(max(0.0, entrate - fisse), 2)
+    # e poi c'e' il capitale, che e' la cosa che tiene in piedi chi non si regge
+    # ancora sui propri ricavi. Il proprietario prima paga il buco - le luci si
+    # accendono comunque - e di quello che avanza ne mette sul tavolo una parte.
+    # E' l'unico modo in cui una squadra appena entrata, che dal promoter non
+    # prende niente, sviluppa qualcosa invece di limitarsi a sopravvivere.
+    scoperto = max(0.0, fisse - entrate)
+    capitale = max(0.0, team.cash - reserve(gs) * 0.35)
+    coperto = min(capitale, scoperto)
+    resta = capitale - coperto
+    return round(max(0.0, entrate + coperto + resta * OWNER_INJECTION - fisse), 2)
 
 
 # Quanto avanza a una squadra in salute, dopo i costi fissi: serve a dire se
