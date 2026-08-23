@@ -215,11 +215,17 @@ def run_transfer_window(gs) -> list:
     # ricambio dello staff libero
     from .state import _load
     pool = _load("staff.json")["name_pool"]
-    for _ in range(4):
+    for _ in range(14):
         role = gs.rng.choice(list(gs.staff_roles.keys()))
-        gs.free_staff.append(generate_staff(role, gs.rng.uniform(50, 80), gs.rng,
+        lvl = gs.rng.gauss(64.0, 9.0)
+        if gs.rng.random() < 0.12:
+            lvl = gs.rng.uniform(78.0, 88.0)
+        gs.free_staff.append(generate_staff(role, max(46.0, min(90.0, lvl)), gs.rng,
                                             pool, gs.season, None))
-    del gs.free_staff[40:]
+    # il mercato resta profondo, ma chi non trova squadra per anni smette:
+    # si tengono i migliori e si lascia andare la coda
+    gs.free_staff.sort(key=lambda x: -x.market_value)
+    del gs.free_staff[150:]
     news += ai_staff_market(gs)
     return news
 
@@ -282,7 +288,7 @@ def new_talents(gs) -> list:
     from .state import _load
     pool = _load("staff.json")["name_pool"]
     out = []
-    for _ in range(gs.rng.randint(2, 4)):
+    for _ in range(gs.rng.randint(5, 9)):
         first = gs.rng.choice(pool["first"])
         last = gs.rng.choice(pool["last"])
         base = gs.rng.uniform(68, 79)

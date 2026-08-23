@@ -511,6 +511,9 @@ def start_program(gs, team) -> tuple:
         return False, why
     team.add_expense("Fondazione reparto power unit", PROGRAM_START_COST,
                      in_cap=False, category="powertrain")
+    # da adesso il reparto motori va riempito di gente come quello di chiunque
+    # altro: comprarlo era un'altra cosa
+    team.pu_building = True
     p.update({"own": False, "started": True, "level": base_level(gs),
               "invested": PROGRAM_START_COST, "ready_season": gs.season + PROGRAM_MIN_SEASONS})
     return True, (f"Reparto power unit fondato: la prima unita' nostra non potra' "

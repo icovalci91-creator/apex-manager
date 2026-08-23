@@ -162,8 +162,10 @@ class Staff:
     def market_value(self) -> float:
         best = max(getattr(self, a) for a in STAFF_ATTRS)
         avg = sum(getattr(self, a) for a in STAFF_ATTRS) / len(STAFF_ATTRS)
+        # meta' di prima: il costo di un reparto adesso lo paga l'organico, e
+        # quello che si legge qui e' l'ingaggio di una persona sola
         v = max(0.0, ((0.6 * best + 0.4 * avg) - 55.0) / 10.0)
-        return round(max(0.3, v ** 2.1 * 0.55), 2)
+        return round(max(0.2, v ** 2.1 * 0.27), 2)
 
     def to_dict(self) -> dict:
         return asdict(self)

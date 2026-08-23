@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import (calendar, development, economy, facilities, market, penalties,
+from . import (calendar, departments, development, economy, facilities, market, penalties,
                powertrain, rules, setup, sponsors, testing)
 from .state import RaceResult
 
@@ -300,6 +300,8 @@ def end_season(gs) -> dict:
         t.podiums = 0
         t.reset_season_finances()
         t.car.repair_all()
+    report["market"] += departments.ai_plan(gs)
+    departments.new_season(gs)
     testing.end_season(gs)
     development.new_car_season(gs)
     report["rules"] += powertrain.end_season(gs)

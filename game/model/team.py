@@ -43,6 +43,9 @@ class Team:
     setup_paper_track: str = ""  # per quale pista vale
     sim_sessions: int = 0        # sessioni di simulatore fatte per quel weekend
     car_understanding: float = 0.0  # quanto abbiamo capito la macchina di quest'anno
+    workforce: dict = None       # quanti ingegneri lavorano in ogni reparto
+    hired_this_season: dict = None  # quanti se ne sono assunti quest'anno, per reparto
+    pu_building: bool = False    # ha fondato il reparto motori e lo sta costruendo
     car: Car = None
     drivers: list = field(default_factory=list)      # id piloti
     staff: list = field(default_factory=list)        # oggetti Staff
@@ -115,18 +118,21 @@ class Team:
     @property
     def aero_strength(self) -> float:
         people = 0.55 * self._s("head_of_aero", "aero") + 0.45 * self._s("technical_director", "aero")
+        people *= self._org("aero")
         tools = (0.42 * self._fac("windtunnel") + 0.30 * self._fac("cfd") + 0.28 * self._fac("aero_dept"))
         return 0.58 * people + 0.42 * tools
 
     @property
     def mech_strength(self) -> float:
         people = 0.55 * self._s("chief_designer", "mechanical") + 0.45 * self._s("technical_director", "mechanical")
+        people *= self._org("progetto")
         tools = 0.55 * self._fac("design_office") + 0.45 * self._fac("factory")
         return 0.60 * people + 0.40 * tools
 
     @property
     def pu_strength(self) -> float:
-        return 0.70 * self._s("head_of_powertrain", "powertrain") + 0.30 * self._fac("factory")
+        return (0.70 * self._s("head_of_powertrain", "powertrain") * self._org("powertrain")
+                + 0.30 * self._fac("factory"))
 
     @property
     def strategy_strength(self) -> float:
@@ -140,15 +146,15 @@ class Team:
 
     @property
     def reliability_strength(self) -> float:
-        return (0.40 * self._s("chief_designer", "reliability")
-                + 0.30 * self._s("chief_mechanic", "reliability")
+        return ((0.40 * self._s("chief_designer", "reliability")
+                 + 0.30 * self._s("chief_mechanic", "reliability")) * self._org("affidabilita")
                 + 0.30 * self._fac("factory"))
 
     @property
     def setup_strength(self) -> float:
         pe = self.roles("performance_engineer")
         pe_v = sum(p.analysis for p in pe) / len(pe) if pe else 60.0
-        base = (0.42 * pe_v + 0.30 * self._fac("simulator")
+        base = (0.42 * pe_v * self._org("simulazione") + 0.30 * self._fac("simulator")
                 + 0.28 * self._s("technical_director", "analysis"))
         # chi ha una pista propria ci gira quando vuole: arriva al weekend con
         # meno da scoprire
@@ -171,8 +177,20 @@ class Team:
     def scouting_strength(self) -> float:
         return 0.65 * self._s("head_of_scouting", "scouting") + 0.35 * self._fac("academy")
 
+    def _org(self, area: str) -> float:
+        """Quanto l'organico di quel reparto moltiplica i suoi responsabili."""
+        from ..core import departments
+        return departments.size_factor(self, area)
+
     @property
     def staff_cost(self) -> float:
+        """I responsabili piu' tutte le persone che lavorano sotto di loro."""
+        from ..core import departments
+        return round(sum(s.salary for s in self.staff) + departments.payroll(self), 2)
+
+    @property
+    def leaders_cost(self) -> float:
+        """Solo i nomi dell'organigramma, senza l'organico che dirigono."""
         return round(sum(s.salary for s in self.staff), 2)
 
     @property

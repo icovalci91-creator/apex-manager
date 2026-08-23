@@ -176,6 +176,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
 | Staff tecnico | Organigramma completo e mercato del personale |
+| Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
@@ -547,6 +548,45 @@ esisteva: il loro organigramma restava quello del primo giorno per sempre. Adess
 capitale interviene sul ruolo messo peggio - direttore tecnico, responsabile aerodinamica,
 capo progettista, powertrain, strategia - e se lo compra dal mercato dei liberi. E' la leva
 piu' diretta che ha una squadra per andare piu' forte, e adesso ce l'hanno tutti.
+
+**L'organico dei reparti.** Un capo aerodinamico da solo non disegna una macchina.
+Dietro ogni nome dell'organigramma ci sono decine di persone, e quante sono conta quanto
+sono bravi quelli che le dirigono. Cinque reparti, ognuno con una dimensione di
+riferimento - quella di una squadra di vertice in salute:
+
+| Reparto | Riferimento | Costo a persona | Cosa muove |
+|---|---|---|---|
+| Aerodinamica | 90 | 0,094 M$ | carico e efficienza |
+| Progettazione | 70 | 0,102 M$ | telaio, sospensioni, trasmissione |
+| Powertrain | 50 | 0,107 M$ | la power unit, per chi se la costruisce |
+| Simulazione e dati | 45 | 0,098 M$ | quanto si azzecca l'assetto |
+| Qualita' e affidabilita' | 35 | 0,086 M$ | le rotture che non capitano |
+
+L'organico moltiplica i responsabili da **x0,62** (reparto vuoto) a **x1,2** (molto sopra
+il riferimento), con rendimenti decrescenti: oltre un certo punto le persone si
+intralciano invece di aiutarsi. Chi compra il motore tiene solo il gruppo che lo integra,
+un terzo del riferimento, e il metro torna quello di tutti dal giorno in cui fonda il
+reparto motori.
+
+Gli stipendi stanno **dentro il tetto di spesa**: ogni persona in piu' e' un pezzo di
+aggiornamento in meno, ed e' letteralmente la scelta che il cost cap ha imposto a mezza
+griglia. Assumere costa una ricerca una tantum e non e' istantaneo - non si cresce di piu'
+del 28% del riferimento in una stagione - e mandare a casa costa una buonuscita fuori dal
+cap. Le scuderie del computer fanno lo stesso conto: chi incassa assume, chi non ce la fa
+taglia fino al 40% del riferimento e poi si ferma, perche' sotto quella soglia un reparto
+non esiste piu'.
+
+Il monte stipendi dei responsabili e' stato dimezzato: quello che si legge adesso e'
+l'ingaggio di una persona sola, mentre il costo del reparto lo paga l'organico. I conti
+totali restano dove erano - Ferrari 67 M$ di personale, Cadillac 20 - solo che adesso si
+vede da cosa sono fatti.
+
+**Un mercato vero.** Prima c'erano 12 piloti svincolati e una manciata di ingegneri
+liberi. Adesso sono **42 piloti** - da Ricciardo e Magnussen senza sedile fino ai ragazzi
+delle formule minori, Slater a 18 anni con 89 di potenziale - e **56 ingegneri** al via,
+almeno due per ogni ruolo, con qualche pezzo pregiato da 78-88 in mezzo a tanta gente
+onesta. Ogni inverno ne arrivano altri quattordici e cinque-nove giovani salgono dalle
+minori; il mercato tiene i migliori centocinquanta e lascia andare la coda.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo

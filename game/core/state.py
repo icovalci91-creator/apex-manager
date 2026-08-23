@@ -126,6 +126,10 @@ class GameState:
             from .facilities import GRACE_SEASONS
             team.facility_age = {k: GRACE_SEASONS * 0.5 for k in team.facilities}
             team.setup_knowledge = {}
+            # l'organico dei reparti, tarato su quanto pesa l'organigramma
+            from .departments import starting_workforce
+            team.workforce = starting_workforce(team)
+            team.hired_this_season = {}
             gs.teams[team.id] = team
 
         ddata = _load("drivers.json")
@@ -228,10 +232,16 @@ class GameState:
 
         for s in sdata["free_staff"]:
             self.free_staff.append(Staff.from_dict(s))
-        for _ in range(14):
-            role = self.rng.choice(list(self.staff_roles.keys()))
-            self.free_staff.append(generate_staff(role, self.rng.uniform(52, 76), self.rng,
-                                                  pool, self.season, None))
+        # un mercato degli ingegneri vero: tanta gente onesta, qualcuno molto
+        # bravo, e sempre almeno un paio di nomi per ogni ruolo
+        ruoli = list(self.staff_roles.keys())
+        for i in range(48):
+            role = ruoli[i % len(ruoli)] if i < len(ruoli) * 2 else self.rng.choice(ruoli)
+            lvl = self.rng.gauss(64.0, 8.5)
+            if self.rng.random() < 0.12:
+                lvl = self.rng.uniform(78.0, 88.0)      # il pezzo pregiato
+            self.free_staff.append(generate_staff(role, max(46.0, min(90.0, lvl)),
+                                                  self.rng, pool, self.season, None))
 
     # -------------------------------------------------------------- utility
     @property
@@ -347,6 +357,8 @@ class GameState:
                     "setup_paper_track": t.setup_paper_track,
                     "sim_sessions": t.sim_sessions,
                     "car_understanding": t.car_understanding,
+                    "workforce": t.workforce or {}, "pu_building": t.pu_building,
+                    "hired_this_season": t.hired_this_season or {},
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
@@ -410,6 +422,12 @@ class GameState:
             t.setup_paper_track = td.get("setup_paper_track", "")
             t.sim_sessions = td.get("sim_sessions", 0)
             t.car_understanding = td.get("car_understanding", 0.0)
+            t.workforce = dict(td.get("workforce") or {})
+            t.pu_building = bool(td.get("pu_building", False))
+            t.hired_this_season = dict(td.get("hired_this_season") or {})
+            if not t.workforce:
+                from .departments import starting_workforce
+                t.workforce = starting_workforce(t)
             t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
