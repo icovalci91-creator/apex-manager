@@ -27,7 +27,7 @@ class Button(Widget):
         super().__init__(rect)
         self.label = label
         self.on_click = on_click
-        self.style = style          # normal | primary | ghost | danger | tab
+        self.style = style          # normal | primary | ghost | danger | tab | invisible
         self.icon = icon
         self.tip = tip
         self.hover = False
@@ -47,6 +47,12 @@ class Button(Widget):
 
     def draw(self, surf) -> None:
         if not self.visible:
+            return
+        if self.style == "invisible":
+            # zona cliccabile sopra qualcosa che si disegna da solo: si limita a
+            # far capire che ci si puo' cliccare
+            if self.hover:
+                pygame.draw.rect(surf, T.ACCENT, self.rect, 2, border_radius=10)
             return
         bg, fg, border = T.PANEL_2, T.TEXT, None
         if self.style == "primary":

@@ -149,7 +149,33 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta'): dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
-| Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
+| Classifiche / Calendario / Storico | Mondiali, i tracciati con la scheda di ogni gran premio, cicli tecnici e albo d'oro |
+
+### La scheda di un gran premio
+
+Dal calendario si clicca su un circuito e si apre la sua scheda, che tiene insieme tutto
+quello che riguarda quel gran premio:
+
+- **Il tracciato** disegnato in grande, con lunghezza, curve, giri (quelli veri di questa
+  carriera, se si corre a distanza ridotta) e perdita ai box.
+- **Com'e' fatto**: carico, potenza, frenata, consumo gomme, possibilita' di sorpasso e
+  sconnessioni.
+- **Che macchina ci vuole**: le caratteristiche del circuito tradotte nelle aree su cui si
+  sviluppa, ognuna col nostro livello a fianco. Se su quelle che contano qui siamo sotto, lo
+  dice: *"Qui ci mancano: potenza, frenata."*
+- **Il gran premio di quest'anno** se e' gia' stato corso: ordine d'arrivo, ritiri con la
+  causa, punti, pole e giro veloce. Se non e' ancora stato corso, quante gare mancano e
+  quanto conosciamo il circuito dai test privati.
+- **L'albo d'oro**: stagione per stagione vincitore, squadra, pole con il tempo, giro veloce
+  e meteo. Si riempie gara dopo gara e resta anche per i circuiti che escono dal calendario,
+  perche' i risultati veri si conservano solo tre stagioni mentre l'albo no. Chi vince piu'
+  volte sulla stessa pista viene chiamato per nome: *"Il re di questa pista e' Charles
+  Leclerc, con 3 vittorie."*
+
+Sulla griglia del calendario, in alto a destra, c'e' la stessa lettura fatta sull'insieme:
+**cosa chiedono le gare che restano** e su quali di quelle aree siamo indietro. E' la
+risposta alla domanda "dove mando i soldi adesso", che dipende da quali gran premi mancano
+e non da quello di domenica.
 
 ### Menu ed editor
 

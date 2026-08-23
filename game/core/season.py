@@ -99,7 +99,34 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             gs.push(m, "gara")
 
     gs.results.append(rr)
+    if kind == "gp":
+        _albo(gs, ws, rr, order, fastest)
     return rr
+
+
+def _albo(gs, ws, rr, order, fastest) -> None:
+    """Segna il gran premio nell'albo d'oro del circuito.
+
+    I risultati veri si tengono solo per tre stagioni, altrimenti il salvataggio
+    cresce senza fine: l'albo e' la riga che resta per sempre, come sta scritta
+    sui muri dei circuiti.
+    """
+    vincitore = gs.drivers.get(order[0].driver_id) if order else None
+    pole = gs.drivers.get(ws.pole)
+    veloce = gs.drivers.get(fastest.driver_id) if fastest else None
+    riga = {
+        "season": gs.season,
+        "vincitore": vincitore.name if vincitore else "",
+        "squadra": gs.teams[order[0].team_id].short if order else "",
+        "pole": pole.name if pole else "",
+        "pole_squadra": gs.teams[pole.team].short if pole and pole.team in gs.teams else "",
+        "giro_veloce": veloce.name if veloce else "",
+        "tempo_pole": round(ws.quali_times.get(ws.pole, 0.0), 3),
+        "meteo": ws.weather.label,
+    }
+    storia = gs.track_history.setdefault(ws.track.id, [])
+    storia[:] = [x for x in storia if x.get("season") != gs.season] + [riga]
+    storia.sort(key=lambda x: -x["season"])
 
 
 def _pay_bonuses(gs, d, team, pos: int, pts: float, status: str, kind: str) -> None:

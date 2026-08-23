@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import economy, facilities, rules
+from ...core import calendar as CAL, economy, engineering, facilities, rules
 from .. import theme as T
 from .. import trackdraw
 from ..scenes.shell import Page
@@ -279,14 +279,56 @@ class StandingsPage(Page):
 
 
 class CalendarPage(Page):
+    """Il calendario, e la scheda di ogni gran premio quando ci si clicca sopra."""
+
+    COLS = 6
+    CARD_H = 150
+
+    def __init__(self, shell):
+        super().__init__(shell)
+        self.sel = None            # circuito aperto
+
+    def _griglia(self) -> list:
+        """Dove finisce ogni scheda: serve al disegno e ai clic."""
+        r = self.rect
+        cw = (r.w - (self.COLS - 1) * 12) / self.COLS
+        top = r.y + 22
+        out = []
+        for i, t in enumerate(self.gs.tracks):
+            x = r.x + (i % self.COLS) * (cw + 12)
+            y = top + (i // self.COLS) * (self.CARD_H + 12)
+            out.append((i, t, pygame.Rect(int(x), int(y), int(cw), self.CARD_H)))
+        return out
+
     def build(self) -> None:
         self.widgets = []
+        if self.sel is not None:
+            r = self.rect
+            self.widgets.append(Button((r.x, r.y, 200, 34), "< Torna al calendario",
+                                       self.chiudi, "ghost"))
+            return
+        # ogni scheda del calendario e' un pulsante trasparente
+        for i, t, rect in self._griglia():
+            b = Button(rect, "", style="invisible")
+            b.on_click = (lambda tr=t: self.apri(tr))
+            self.widgets.append(b)
+
+    def apri(self, track) -> None:
+        self.sel = track
+        self.build()
+
+    def chiudi(self) -> None:
+        self.sel = None
+        self.build()
 
     def refresh(self) -> None:
         self.build()
 
     def draw(self, surf) -> None:
-        from ...core import calendar as CAL
+        if self.sel is not None:
+            _scheda_circuito(surf, self.rect, self.gs, self.sel)
+            super().draw(surf)
+            return
         r, gs = self.rect, self.gs
         rias = CAL.summary(gs)
         T.text(surf, f"{rias['gare']} GARE  -  {rias['canoni']:.0f} M$ DI CANONI ALL'ANNO",
@@ -294,15 +336,23 @@ class CalendarPage(Page):
         if rias["in_scadenza"]:
             nomi = ", ".join(t.name for t in rias["in_scadenza"][:3])
             T.text(surf, f"in scadenza: {nomi}", (r.x + 380, r.y), 12, T.WARN,
-                   maxw=r.w - 400)
-        cols = 6
-        cw = (r.w - (cols - 1) * 12) / cols
-        ch = 150
+                   maxw=r.w * 0.38)
+        # cosa chiedono le gare che restano: e' li' che vanno mandati i soldi
+        restanti = gs.tracks[gs.round:]
+        if restanti:
+            bias = engineering.calendar_bias(gs, restanti)
+            prof = engineering.car_profile(gs.player, gs)
+            top = sorted(bias.items(), key=lambda kv: -kv[1])[:3]
+            testo = ", ".join(engineering.AREAS[a].lower() for a, _v in top)
+            T.text(surf, f"le {len(restanti)} gare che restano chiedono: {testo}",
+                   (r.right - 16, r.y), 12, T.GOLD, align="right", maxw=r.w * 0.44)
+            manca = [engineering.AREAS[a].lower() for a, _v in top if prof.get(a, 50) < 55]
+            if manca:
+                T.text(surf, "e noi siamo indietro su " + ", ".join(manca),
+                       (r.right - 16, r.y + 14), 11, T.WARN, align="right", maxw=r.w * 0.44)
+        cols, ch = self.COLS, self.CARD_H
         top = r.y + 22
-        for i, t in enumerate(gs.tracks):
-            x = r.x + (i % cols) * (cw + 12)
-            y = top + (i // cols) * (ch + 12)
-            rect = pygame.Rect(x, y, cw, ch)
+        for i, t, rect in self._griglia():
             done = i < gs.round
             nxt = (i == gs.round)
             T.panel(surf, rect, T.PANEL_2 if nxt else T.PANEL, radius=10,
@@ -349,6 +399,175 @@ class CalendarPage(Page):
                 T.bar(surf, (cx + r.w / 4 - 70, yy + 4, 50, 7),
                       CAL.candidate_score(gs, t) * 100, 100, T.ACCENT)
         super().draw(surf)
+
+
+# ------------------------------------------------------------ scheda circuito
+TRATTI = [
+    ("downforce", "Carico aerodinamico", "curve veloci e appoggio"),
+    ("power", "Potenza", "rettilinei e allunghi"),
+    ("braking", "Frenata", "staccate forti"),
+    ("tyre_wear", "Consumo gomme", "asfalto e curve lunghe"),
+    ("overtaking", "Possibilita' di sorpasso", "quanto si puo' fare in gara"),
+    ("bumpiness", "Sconnessioni", "cordoli e asfalto"),
+]
+
+
+def _scheda_circuito(surf, r, gs, t) -> None:
+    """Tutto quello che riguarda un gran premio, in una schermata sola."""
+    giro = gs.tracks.index(t) + 1 if t in gs.tracks else 0
+    corso = giro and giro <= gs.round
+
+    # ------------------------------------------------------------- intestazione
+    T.text(surf, t.gp.upper(), (r.x + 220, r.y), 24, T.TEXT, bold=True, maxw=r.w - 460)
+    stato = ("gia' disputato" if corso else
+             ("il prossimo appuntamento" if giro == gs.round + 1 else f"gara {giro}"))
+    T.text(surf, f"{t.name}  -  {t.country}  -  {stato}", (r.x + 220, r.y + 28), 14, T.DIM)
+    if t.sprint:
+        T.text(surf, "WEEKEND SPRINT", (r.right - 16, r.y), 13, T.GOLD, bold=True, align="right")
+    T.text(surf, f"contratto fino al {t.contract_until}  -  canone {t.fee:.0f} M$",
+           (r.right - 16, r.y + 28), 13, T.DIM_2, align="right")
+
+    # ------------------------------------------------------------- il tracciato
+    sx = pygame.Rect(r.x, r.y + 56, r.w * 0.40, r.h * 0.52)
+    T.panel(surf, sx, T.PANEL, radius=10, border=T.LINE)
+    trackdraw.draw_track(surf, t, sx.inflate(-28, -78), width=9)
+    T.text(surf, f"{t.length_km:.3f} km   -   {t.corners} curve   -   {t.laps} giri",
+           (sx.x + 16, sx.bottom - 52), 14, T.TEXT, bold=True)
+    giri = int(round(t.laps * gs.race_distance))
+    T.text(surf, f"in questa carriera si corre su {giri} giri  ({gs.race_distance*100:.0f}%), "
+                 f"perdita ai box {t.pit_loss:.1f} s",
+           (sx.x + 16, sx.bottom - 30), 12, T.DIM, maxw=sx.w - 32)
+
+    # -------------------------------------------------- cosa chiede alla macchina
+    cx = pygame.Rect(sx.right + 14, r.y + 56, r.w * 0.28, r.h * 0.52)
+    T.panel(surf, cx, T.PANEL, radius=10, border=T.LINE)
+    T.text(surf, "COM'E' FATTO", (cx.x + 16, cx.y + 12), 12, T.DIM_2, bold=True)
+    y = cx.y + 38
+    for chiave, nome, _spiega in TRATTI:
+        v = float(t.traits.get(chiave, 0.5))
+        T.text(surf, nome, (cx.x + 16, y), 12, T.DIM, maxw=cx.w - 130)
+        T.bar(surf, (cx.right - 106, y + 4, 90, 8), v * 100, 100,
+              T.stat_colour(v * 100, 35, 70))
+        y += 22
+    y += 8
+    T.text(surf, "CHE MACCHINA CI VUOLE", (cx.x + 16, y), 12, T.GOLD, bold=True)
+    y += 24
+    bias = engineering.track_bias(t)
+    ordinate = sorted(bias.items(), key=lambda kv: -kv[1])
+    prof = engineering.car_profile(gs.player, gs)
+    for area, peso in ordinate[:5]:
+        nome = engineering.AREAS[area]
+        mia = prof.get(area, 50.0)
+        col = T.OK if mia > 66 else (T.WARN if mia > 40 else T.BAD)
+        T.text(surf, nome, (cx.x + 16, y), 12, T.TEXT if peso > 0.6 else T.DIM,
+               bold=peso > 0.6, maxw=cx.w - 150)
+        T.bar(surf, (cx.right - 126, y + 4, 60, 8), peso * 100, 100, T.GOLD)
+        T.text(surf, f"noi {mia:.0f}", (cx.right - 16, y), 12, col, align="right")
+        y += 20
+    manca = [engineering.AREAS[a] for a, p in ordinate[:3] if prof.get(a, 50) < 55]
+    if manca:
+        T.text(surf, "Qui ci mancano: " + ", ".join(x.lower() for x in manca) + ".",
+               (cx.x + 16, y + 6), 12, T.WARN, maxw=cx.w - 32)
+
+    # ------------------------------------------------------ il gran premio di quest'anno
+    dx = pygame.Rect(cx.right + 14, r.y + 56, r.right - cx.right - 14, r.h * 0.52)
+    T.panel(surf, dx, T.PANEL, radius=10, border=T.LINE)
+    res = next((x for x in gs.results if x.track_id == t.id and x.season == gs.season
+                and x.kind == "gp"), None)
+    if res:
+        T.text(surf, f"GRAN PREMIO {gs.season}", (dx.x + 16, dx.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, res.weather, (dx.right - 16, dx.y + 12), 12, T.DIM, align="right")
+        y = dx.y + 38
+        for riga in res.order[:10]:
+            d = gs.drivers.get(riga["driver"])
+            sq = gs.teams.get(riga["team"])
+            if not d:
+                continue
+            col = T.hex_rgb(sq.colour) if sq else T.DIM
+            T.text(surf, f"{riga['pos']}", (dx.x + 16, y), 12, T.DIM)
+            pygame.draw.rect(surf, col, (dx.x + 40, y + 3, 3, 12))
+            T.text(surf, d.short, (dx.x + 50, y), 13,
+                   T.TEXT if riga["status"] == "finished" else T.BAD, maxw=dx.w * 0.42)
+            T.text(surf, sq.short if sq else "", (dx.x + dx.w * 0.55, y), 12, T.DIM,
+                   maxw=dx.w * 0.24)
+            if riga["status"] != "finished":
+                T.text(surf, riga.get("reason") or "ritirato", (dx.right - 16, y), 11,
+                       T.BAD, align="right", maxw=dx.w * 0.2)
+            else:
+                T.text(surf, f"{riga['points']:.0f}" if riga["points"] else "",
+                       (dx.right - 16, y), 12, T.GOLD, align="right")
+            y += 19
+        pole = gs.drivers.get(res.pole)
+        vel = gs.drivers.get(res.fastest_lap)
+        y += 6
+        if pole:
+            T.text(surf, f"pole {pole.short}", (dx.x + 16, y), 12, T.ACCENT)
+        if vel:
+            T.text(surf, f"giro veloce {vel.short}", (dx.x + dx.w * 0.5, y), 12, T.ACCENT)
+    else:
+        T.text(surf, "GRAN PREMIO NON ANCORA DISPUTATO", (dx.x + 16, dx.y + 12), 12,
+               T.DIM_2, bold=True)
+        mancano = giro - gs.round
+        T.text(surf, (f"manca {mancano} gara" if mancano == 1 else f"mancano {mancano} gare")
+               if mancano > 0 else "in programma",
+               (dx.x + 16, dx.y + 40), 15, T.TEXT)
+        sap = None
+        try:
+            from ...core import testing as TT
+            sap = TT.setup_bonus(gs.player, t)
+        except Exception:
+            sap = None
+        if sap is not None:
+            T.text(surf, f"conoscenza del circuito: {sap*100:.0f}%",
+                   (dx.x + 16, dx.y + 66), 13, T.OK if sap > 0.2 else T.DIM)
+            T.text(surf, "si alza girandoci nei test privati: al ritorno in gara si parte "
+                         "gia' vicini alla finestra d'assetto.",
+                   (dx.x + 16, dx.y + 86), 12, T.DIM_2, maxw=dx.w - 32)
+
+    # ------------------------------------------------------------------ albo d'oro
+    bassa = pygame.Rect(r.x, r.y + 56 + r.h * 0.52 + 14, r.w, r.bottom - (r.y + 56 + r.h * 0.52 + 14))
+    T.panel(surf, bassa, T.PANEL, radius=10, border=T.LINE)
+    T.text(surf, "ALBO D'ORO", (bassa.x + 16, bassa.y + 12), 12, T.GOLD, bold=True)
+    storia = list(gs.track_history.get(t.id, []))
+    if not storia:
+        T.text(surf, "Nessuna edizione ancora disputata in questa carriera: l'albo si "
+                     "riempie gara dopo gara.", (bassa.x + 16, bassa.y + 40), 14, T.DIM)
+    else:
+        T.text(surf, "STAGIONE", (bassa.x + 16, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "VINCITORE", (bassa.x + 110, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "SQUADRA", (bassa.x + 340, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "POLE", (bassa.x + 470, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "TEMPO", (bassa.x + 700, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "GIRO VELOCE", (bassa.x + 800, bassa.y + 36), 11, T.DIM_2, bold=True)
+        T.text(surf, "METEO", (bassa.x + 1010, bassa.y + 36), 11, T.DIM_2, bold=True)
+        y = bassa.y + 56
+        for riga in storia:
+            if y > bassa.bottom - 20:
+                break
+            T.text(surf, str(riga["season"]), (bassa.x + 16, y), 13, T.TEXT, bold=True)
+            T.text(surf, riga.get("vincitore", ""), (bassa.x + 110, y), 13, T.GOLD,
+                   maxw=220)
+            T.text(surf, riga.get("squadra", ""), (bassa.x + 340, y), 13, T.DIM, maxw=120)
+            T.text(surf, riga.get("pole", ""), (bassa.x + 470, y), 13, T.TEXT, maxw=220)
+            tp = riga.get("tempo_pole") or 0
+            T.text(surf, _mmss(tp) if tp else "-", (bassa.x + 700, y), 13, T.ACCENT)
+            T.text(surf, riga.get("giro_veloce", ""), (bassa.x + 800, y), 13, T.DIM, maxw=200)
+            T.text(surf, riga.get("meteo", ""), (bassa.x + 1010, y), 12, T.DIM_2, maxw=140)
+            y += 20
+        vinte = {}
+        for riga in storia:
+            vinte[riga.get("vincitore", "")] = vinte.get(riga.get("vincitore", ""), 0) + 1
+        re_pista = max(vinte.items(), key=lambda kv: kv[1]) if vinte else None
+        if re_pista and re_pista[1] > 1:
+            T.text(surf, f"Il re di questa pista e' {re_pista[0]}, con {re_pista[1]} vittorie.",
+                   (bassa.right - 16, bassa.y + 12), 13, T.GOLD, bold=True, align="right")
+
+
+def _mmss(sec: float) -> str:
+    if not sec:
+        return "-"
+    m = int(sec // 60)
+    return f"{m}:{sec - m*60:06.3f}" if m else f"{sec:.3f}"
 
 
 class HistoryPage(Page):

@@ -113,16 +113,32 @@ def priorities(gs, limit: int = 3) -> list:
     return [(a, r) for _s, a, r in scored[:limit]]
 
 
-def _calendar_bias(gs) -> dict:
-    """Quanto contano le varie aree sulle piste che restano in calendario."""
-    rest = gs.tracks[gs.round:] or gs.tracks
+def track_bias(track) -> dict:
+    """Che macchina chiede un circuito, area per area.
+
+    E' la traduzione delle sue caratteristiche in quello su cui conviene
+    lavorare: molto carico a Monaco, potenza a Monza. Da qui si capisce dove
+    mandare i soldi guardando le gare che restano, non quella di domenica.
+    """
+    tr = track.traits
+    df, pw = tr["downforce"], tr["power"]
+    return {"carico": df, "efficienza": 1.0 - df * 0.5, "potenza": pw,
+            "trazione": 0.5 + 0.3 * df, "frenata": tr["braking"],
+            "gomme": tr["tyre_wear"], "affidabilita": 0.55}
+
+
+def calendar_bias(gs, tracks=None) -> dict:
+    """La stessa cosa, mediata sulle piste che restano da correre."""
+    rest = tracks if tracks is not None else (gs.tracks[gs.round:] or gs.tracks)
+    if not rest:
+        rest = gs.tracks
     n = len(rest)
-    df = sum(t.traits["downforce"] for t in rest) / n
-    pw = sum(t.traits["power"] for t in rest) / n
-    tw = sum(t.traits["tyre_wear"] for t in rest) / n
-    br = sum(t.traits["braking"] for t in rest) / n
-    return {"carico": df, "efficienza": 1.0 - df * 0.5, "potenza": pw, "trazione": 0.5 + 0.3 * df,
-            "frenata": br, "gomme": tw, "affidabilita": 0.55}
+    voci = [track_bias(t) for t in rest]
+    return {k: sum(v[k] for v in voci) / n for k in voci[0]}
+
+
+def _calendar_bias(gs) -> dict:
+    return calendar_bias(gs)
 
 
 def suggested_allocation(gs) -> dict:
