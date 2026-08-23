@@ -68,7 +68,8 @@
         "design_office": 90,
         "pit_crew": 92,
         "academy": 78,
-        "logistics": 88
+        "logistics": 88,
+        "private_track": 0
       },
       "car": {
         "front_wing": 91,
@@ -115,7 +116,8 @@
         "design_office": 90,
         "pit_crew": 88,
         "academy": 90,
-        "logistics": 89
+        "logistics": 89,
+        "private_track": 84
       },
       "car": {
         "front_wing": 86.7,
@@ -138,7 +140,8 @@
       "pu_reason": "Costruisce power unit a Maranello dal 1950",
       "pu_status": "works",
       "parent_team": "",
-      "last_position": 4
+      "last_position": 4,
+      "private_track_name": "Fiorano"
     },
     {
       "id": "redbull",
@@ -162,7 +165,8 @@
         "design_office": 92,
         "pit_crew": 95,
         "academy": 88,
-        "logistics": 90
+        "logistics": 90,
+        "private_track": 76
       },
       "car": {
         "front_wing": 87.4,
@@ -185,7 +189,8 @@
       "pu_reason": "Red Bull Powertrains con Ford a Milton Keynes",
       "pu_status": "works",
       "parent_team": "",
-      "last_position": 3
+      "last_position": 3,
+      "private_track_name": "Red Bull Ring"
     },
     {
       "id": "mercedes",
@@ -209,7 +214,8 @@
         "design_office": 91,
         "pit_crew": 90,
         "academy": 82,
-        "logistics": 91
+        "logistics": 91,
+        "private_track": 0
       },
       "car": {
         "front_wing": 87.2,
@@ -256,7 +262,8 @@
         "design_office": 86,
         "pit_crew": 82,
         "academy": 62,
-        "logistics": 82
+        "logistics": 82,
+        "private_track": 0
       },
       "car": {
         "front_wing": 80.6,
@@ -303,7 +310,8 @@
         "design_office": 78,
         "pit_crew": 76,
         "academy": 74,
-        "logistics": 76
+        "logistics": 76,
+        "private_track": 0
       },
       "car": {
         "front_wing": 76.1,
@@ -350,7 +358,8 @@
         "design_office": 82,
         "pit_crew": 84,
         "academy": 68,
-        "logistics": 78
+        "logistics": 78,
+        "private_track": 0
       },
       "car": {
         "front_wing": 83.2,
@@ -397,7 +406,8 @@
         "design_office": 79,
         "pit_crew": 82,
         "academy": 86,
-        "logistics": 80
+        "logistics": 80,
+        "private_track": 0
       },
       "car": {
         "front_wing": 80.6,
@@ -444,7 +454,8 @@
         "design_office": 74,
         "pit_crew": 74,
         "academy": 52,
-        "logistics": 70
+        "logistics": 70,
+        "private_track": 0
       },
       "car": {
         "front_wing": 78.2,
@@ -491,7 +502,8 @@
         "design_office": 78,
         "pit_crew": 74,
         "academy": 60,
-        "logistics": 76
+        "logistics": 76,
+        "private_track": 0
       },
       "car": {
         "front_wing": 78.9,
@@ -538,7 +550,8 @@
         "design_office": 68,
         "pit_crew": 64,
         "academy": 45,
-        "logistics": 66
+        "logistics": 66,
+        "private_track": 0
       },
       "car": {
         "front_wing": 73.5,

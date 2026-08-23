@@ -274,7 +274,7 @@ class DevPage(Page):
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         self.budget_slider = Slider((right.x + 16, right.y + 34, right.w - 32, 28),
-                                    "Budget sviluppo per gara", self.dev_budget, 0.0, 6.0,
+                                    "Affinamenti per gara", self.dev_budget, 0.0, 6.0,
                                     on_change=self._set_budget, fmt="{:.2f} M$")
         self.widgets.append(self.budget_slider)
         bx, by = right.x + 16, right.y + 200
@@ -449,6 +449,14 @@ class DevPage(Page):
                if conf < 0.62 else
                "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
                (bx, sy + 128), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
+        # quanto lavoro d'assetto rimette in discussione, e chi lo ritrova prima
+        upset = development.setup_upset(team, self.sel_size)
+        quanto = "poco" if upset < 0.15 else ("parecchio" if upset < 0.32 else "molto")
+        casa = (f"il simulatore e {team.private_track_name} ce lo fanno ritrovare prima"
+                if team.has_private_track else "senza pista di proprieta' si ritrova il venerdi'")
+        T.text(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
+                     f"che sappiamo della vettura). {casa.capitalize()}.",
+               (bx, sy + 148), 12, T.GOLD, maxw=bw)
         super().draw(surf)
 
 

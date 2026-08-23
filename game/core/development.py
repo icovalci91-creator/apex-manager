@@ -246,6 +246,31 @@ def weakest_link(gs, team, part: str) -> str:
 
 RACES_OF = {"piccolo": 1, "medio": 3, "grande": 6}
 
+# Quanto un pacchetto rimette in discussione il lavoro d'assetto. Un fondo
+# nuovo non e' un pezzo in piu' sulla stessa macchina: e' un'altra macchina, e
+# quello che si sapeva su come farla funzionare vale meno di prima. Piu' grande
+# e' il pacchetto, piu' c'e' da ritrovare.
+UPSET = {"piccolo": 0.10, "medio": 0.26, "grande": 0.45}
+
+
+def setup_upset(team, size: str) -> float:
+    """Quota di conoscenza che il pacchetto manda in fumo, da 0 a 1.
+
+    Chi ha simulatore e pista di proprieta' ritrova la finestra molto prima:
+    e' li' che si fa il lavoro che altrimenti tocca fare il venerdi'.
+    """
+    sim = float(team.facilities.get("simulator", 60.0)) / 100.0
+    pista = float(team.facilities.get("private_track", 0.0)) / 100.0
+    return max(0.02, UPSET[size] * (1.15 - 0.30 * sim - 0.25 * pista))
+
+
+def _unsettle(team, quota: float) -> None:
+    """Sposta indietro conoscenza della vettura e dei circuiti."""
+    team.car_understanding = max(0.0, team.car_understanding * (1.0 - quota))
+    if team.setup_knowledge:
+        team.setup_knowledge = {k: v * (1.0 - quota * 0.8)
+                                for k, v in team.setup_knowledge.items()}
+
 
 def start_project(gs, team, part: str, size: str) -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
@@ -281,8 +306,15 @@ def deliver(gs, team, pr: Project) -> list:
     gain = pr.expected * gs.rng.uniform(lo, hi)
     part.perf = max(40.0, min(PERF_CEILING, part.perf + gain))
     team.upgrades_done += 1
+    # anche quando funziona, l'assetto va ritrovato: la macchina non e' piu'
+    # quella su cui si erano presi i riferimenti. Un pacchetto rimontato via
+    # costa meno, ma qualche sessione l'ha bruciata comunque
+    quota = setup_upset(team, pr.size) * (0.5 if band == "fallito" else 1.0)
+    _unsettle(team, quota)
     if not team.is_player:
         return []
+    assetto = (f" Ci vorranno un paio di sessioni per ritrovare la finestra "
+               f"d'assetto." if quota > 0.18 else "")
     if band == "fallito":
         why = weakest_link(gs, team, pr.part)
         if gain < -0.05:
@@ -292,10 +324,10 @@ def deliver(gs, team, pr: Project) -> list:
                 f"+{pr.expected:.1f}). {why.capitalize()}."]
     if band == "sottotono":
         return [f"{nome}: in pista rende meno che al banco, +{gain:.1f} sui "
-                f"+{pr.expected:.1f} promessi."]
+                f"+{pr.expected:.1f} promessi.{assetto}"]
     if band == "oltre":
-        return [f"{nome}: il pacchetto va oltre le attese, +{gain:.1f}."]
-    return [f"{nome}: aggiornamento in pista, +{gain:.1f} come previsto."]
+        return [f"{nome}: il pacchetto va oltre le attese, +{gain:.1f}.{assetto}"]
+    return [f"{nome}: aggiornamento in pista, +{gain:.1f} come previsto.{assetto}"]
 
 
 def advance_projects(gs, team) -> list:

@@ -59,6 +59,10 @@ FACILITIES = {
     "pit_crew":      {"label": "Squadra ai box",     "cost": 1.8, "boost": "pitstop"},
     "academy":       {"label": "Academy",            "cost": 2.2, "boost": "youth"},
     "logistics":     {"label": "Logistica",          "cost": 2.0, "boost": "cost"},
+    # Una pista di proprieta': chi ce l'ha prova quando vuole invece di
+    # aspettare le prove libere. Costruirla da zero e' un investimento a parte.
+    "private_track": {"label": "Pista di proprieta'", "cost": 5.5, "boost": "testing",
+                      "build_cost": 140.0},
 }
 
 POINTS_DEFAULT = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]

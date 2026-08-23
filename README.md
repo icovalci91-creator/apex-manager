@@ -127,6 +127,10 @@ trasferta pesa: una squadra inglese che va a girare in Europa spende molto meno 
 si porta tutto dall'altra parte del mondo. Si puo' girare anche fuori dal calendario:
 Tsukuba, Mugello, Paul Ricard, Portimao e gli altri candidati sono li' apposta.
 
+Chi ha una pista di proprieta' gioca un altro campionato: due giornate in piu' all'anno,
+perche' un filming day in casa si organizza senza chiedere niente a nessuno, e il 30% in
+meno di costo, perche' buona parte del lavoro si fa senza muovere i camion.
+
 A fine stagione le giornate si azzerano, la correlazione si dimezza e la conoscenza dei
 circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 
@@ -139,10 +143,10 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
-| Piloti e mercato | Contratti, clausole, trattative con gradimento del pilota |
+| Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
 | Staff tecnico | Organigramma completo e mercato del personale |
-| Infrastrutture | Nove strutture da potenziare, stato di obsolescenza, confronto con gli avversari |
-| Test privati | Otto giornate l'anno: dove girare, con chi, per quale programma |
+| Infrastrutture | Dieci strutture da potenziare o costruire, stato di obsolescenza, confronto con gli avversari |
+| Test privati | Otto giornate l'anno (dieci con una pista di proprieta'): dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione |
 | Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
@@ -187,6 +191,15 @@ quel periodo non perde nulla: e' il premio di chi investe. Dopo comincia a resta
 e piu' passa il tempo piu' in fretta lo fa, perche' nel frattempo gli altri sono andati
 avanti. Un potenziamento azzera il contatore. Tenere una galleria del vento di livello 90
 costa circa 4 M$ l'anno spalmati, non ventitre come nella prima versione del modello.
+
+**Piste di proprieta'.** Ferrari ha Fiorano e Red Bull il Red Bull Ring: chi ce l'ha gia'
+non paga niente per averla, se la ritrova nel bilancio come qualsiasi altra struttura. Chi
+non ce l'ha puo' costruirla, e costa: 140 M$ dentro il tetto di spesa per aprirla al
+livello 55, poi la si potenzia come le altre (circa 19 M$ il primo gradino, oltre 36 a
+livello 80) e la si mantiene per sempre. In cambio si prova quando si vuole: due giornate
+di test in piu', prove che costano il 30% in meno, assetto piu' vicino alla finestra
+gia' al venerdi', aggiornamenti che si digeriscono prima e giovani che crescono di piu'.
+Anche le scuderie del computer se la costruiscono, quando la cassa lo permette.
 
 **Il calendario non e' fisso.** Ogni circuito ha un contratto con una scadenza, un canone
 annuo e un grado di tradizione. Alla scadenza si rinnova o si esce, e a decidere sono tre
@@ -246,11 +259,30 @@ pacchetto grande una squadra di vertice fallisce circa una volta su sei, una di 
 volta su tre. La pagina Sviluppo mostra la forbice prima di spendere, e gli ingegneri
 dicono cosa ci sta tradendo.
 
+C'e' un terzo costo, oltre ai soldi e al tempo: **l'assetto va ritrovato**. Un fondo nuovo
+non e' un pezzo in piu' sulla stessa macchina, e quello che si sapeva su come farla
+funzionare vale meno di prima. Un pacchetto grande manda in fumo fino al 45% della
+conoscenza della vettura e buona parte del lavoro fatto sui singoli circuiti; uno piccolo
+quasi niente. Anche un pacchetto fallito costa la meta' di quel disturbo, perche' in pista
+ci e' comunque andato. Simulatore e pista di proprieta' riducono il conto: e' li' che si
+fa il lavoro che altrimenti tocca fare il venerdi'.
+
+**Contratti.** Rinnovi e acquisti passano da una trattativa vera, non da un si' o un no.
+Il pilota apre con una richiesta e si risponde con un'offerta su cinque voci: ingaggio
+fisso, durata, bonus vittoria, bonus podio, bonus per punto iridato e clausola
+rescissoria. Lui giudica il pacchetto intero, non il fisso, e ai bonus da' il valore
+atteso: quante vittorie, quanti podi e quanti punti si aspetta da quel sedile in un anno.
+In una squadra da mondiale spostare meta' dell'ingaggio sui premi non gli cambia quasi
+niente; in fondo alla griglia un bonus vittoria vale zero e lo sa. La clausola abbassa il
+valore percepito - e' un vincolo a suo carico - ma e' l'unica cosa che protegge davvero da
+chi lo vuole: se c'e', si paga quella cifra invece dell'indennizzo. Le trattative hanno un
+numero limitato di giri: sparare basso per vedere l'effetto le brucia.
+
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
 punto l'anno, una struttura di poco piu' di uno, e in cima si perde di piu' che a meta'
 gruppo. Per stare fermi bisogna investire, per migliorare bisogna investire parecchio: con
-il tetto di spesa nessuno riesce a tenere al passo tutte e nove le strutture, quindi
+il tetto di spesa nessuno riesce a tenere al passo tutte le strutture, quindi
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
 

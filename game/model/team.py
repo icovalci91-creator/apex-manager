@@ -32,6 +32,7 @@ class Team:
     pu_reason: str = ""         # perche' si o perche' no, mostrato al giocatore
 
     facility_age: dict = None    # stagioni dall'ultimo intervento, per struttura
+    track_name: str = ""         # come si chiama la pista di proprieta', se c'e' 
     test_days_used: int = 0      # giornate di test private gia' spese
     correlation: float = 0.0     # quanto la galleria del vento dice il vero
     setup_knowledge: dict = None # conoscenza d'assetto accumulata, per circuito
@@ -97,6 +98,10 @@ class Team:
     def _fac(self, key: str) -> float:
         return float(self.facilities.get(key, 60.0))
 
+    @property
+    def private_track_name(self) -> str:
+        return self.track_name or "pista di proprieta'"
+
     # ------------------------------------------------------------- reparti
     @property
     def aero_strength(self) -> float:
@@ -134,7 +139,15 @@ class Team:
     def setup_strength(self) -> float:
         pe = self.roles("performance_engineer")
         pe_v = sum(p.analysis for p in pe) / len(pe) if pe else 60.0
-        return 0.42 * pe_v + 0.30 * self._fac("simulator") + 0.28 * self._s("technical_director", "analysis")
+        base = (0.42 * pe_v + 0.30 * self._fac("simulator")
+                + 0.28 * self._s("technical_director", "analysis"))
+        # chi ha una pista propria ci gira quando vuole: arriva al weekend con
+        # meno da scoprire
+        return base * (1.0 + 0.16 * self.facilities.get("private_track", 0.0) / 100.0)
+
+    @property
+    def has_private_track(self) -> bool:
+        return float(self.facilities.get("private_track", 0.0)) > 0.0
 
     @property
     def dev_rate(self) -> float:
@@ -162,6 +175,8 @@ class Team:
         """
         tot = 0.0
         for v in self.facilities.values():
+            if float(v) <= 0.0:
+                continue        # una struttura che non esiste non si mantiene
             tot += 1.1 + 5.2 * (float(v) / 100.0) ** 2.3
         return round(tot, 2)
 

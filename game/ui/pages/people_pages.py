@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pygame
 
-from ...core import market
+from ...core import economy, market
 from ...model.people import STAFF_ATTRS
 from .. import theme as T
 from ..scenes.shell import Page
@@ -14,18 +14,18 @@ class DriversPage(Page):
     def __init__(self, shell):
         super().__init__(shell)
         self.sel = None
-        self.offer_salary = 5.0
-        self.offer_years = 2
-        self.filter = "liberi"
+        self.filter = "nostri"
+        self.neg = None                       # trattativa aperta
+        self.offer = market.Offer()
 
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)
         self.tabs = []
-        for i, (key, lab) in enumerate([("liberi", "Svincolati"), ("tutti", "Tutta la griglia"),
-                                        ("giovani", "Giovani promesse")]):
-            b = Button((right.x + 16 + i * 150, right.y + 36, 144, 30), lab, style="tab")
+        for i, (key, lab) in enumerate([("nostri", "I nostri (rinnovo)"), ("liberi", "Svincolati"),
+                                        ("tutti", "Tutta la griglia"), ("giovani", "Giovani")]):
+            b = Button((right.x + 16 + i * 118, right.y + 36, 112, 30), lab, style="tab")
             b.on_click = (lambda k=key: self.set_filter(k))
             b.active = (key == self.filter)
             self.tabs.append(b)
@@ -33,30 +33,50 @@ class DriversPage(Page):
         self.list = ScrollList((right.x + 12, right.y + 74, right.w - 24, r.h * 0.42),
                                row_h=40, draw_row=self._row, on_select=self._select)
         self.widgets.append(self.list)
-        oy = right.y + 74 + r.h * 0.42 + 16
-        self.sal = Slider((right.x + 16, oy + 46, right.w - 32, 28), "Ingaggio proposto",
-                          self.offer_salary, 0.5, 70.0,
-                          on_change=lambda v: setattr(self, "offer_salary", v), fmt="{:.1f} M$")
-        self.yrs = Slider((right.x + 16, oy + 82, right.w - 32, 28), "Durata contratto",
-                          self.offer_years, 1, 5,
-                          on_change=lambda v: setattr(self, "offer_years", int(round(v))),
-                          fmt="{:.0f} anni")
-        self.widgets += [self.sal, self.yrs]
-        self.widgets.append(Button((right.x + 16, oy + 122, 220, 38), "Presenta offerta",
-                                   self.offer, "primary"))
-        self.widgets.append(Button((right.x + 248, oy + 122, 200, 38), "Libera il pilota",
+        oy = right.y + 74 + r.h * 0.42 + 10
+        self.offer_y = oy
+        half = (right.w - 44) / 2
+        rows = [
+            ("salary", "Ingaggio fisso", 0.5, 70.0, "{:.1f} M$"),
+            ("years", "Durata", 1, 5, "{:.0f} anni"),
+            ("bonus_win", "Bonus vittoria", 0.0, 6.0, "{:.2f} M$"),
+            ("bonus_podium", "Bonus podio", 0.0, 3.0, "{:.2f} M$"),
+            ("bonus_points", "Bonus a punto", 0.0, 0.30, "{:.3f} M$"),
+            ("release_clause", "Clausola rescissoria", 0.0, 250.0, "{:.0f} M$"),
+        ]
+        self.sliders = {}
+        for i, (key, lab, lo, hi, fmt) in enumerate(rows):
+            x = right.x + 16 + (i % 2) * (half + 12)
+            y = oy + 34 + (i // 2) * 34
+            sl = Slider((x, y, half, 26), lab, getattr(self.offer, key), lo, hi,
+                        on_change=(lambda v, k=key: self._set(k, v)), fmt=fmt)
+            self.sliders[key] = sl
+            self.widgets.append(sl)
+        by = oy + 34 + 3 * 34 + 8
+        bw = (right.w - 44) / 3
+        self.widgets.append(Button((right.x + 16, by, bw, 36),
+                                   "Proponi" if self.neg and self.neg.open else "Apri trattativa",
+                                   self.negotiate, "primary"))
+        self.widgets.append(Button((right.x + 28 + bw, by, bw, 36), "Lascia perdere",
+                                   self.drop, "ghost"))
+        self.widgets.append(Button((right.x + 40 + 2 * bw, by, bw, 36), "Libera il pilota",
                                    self.release, "danger"))
         self._fill()
 
+    def _set(self, key, v) -> None:
+        setattr(self.offer, key, int(round(v)) if key == "years" else v)
+
     def set_filter(self, k) -> None:
         self.filter = k
-        for b, key in zip(self.tabs, ("liberi", "tutti", "giovani")):
+        for b, key in zip(self.tabs, ("nostri", "liberi", "tutti", "giovani")):
             b.active = (key == k)
         self._fill()
 
     def _fill(self) -> None:
         gs = self.gs
-        if self.filter == "liberi":
+        if self.filter == "nostri":
+            items = gs.drivers_of(self.team.id)
+        elif self.filter == "liberi":
             items = list(gs.free_agents)
         elif self.filter == "giovani":
             items = [d for d in list(gs.drivers.values()) + gs.free_agents if d.age <= 23]
@@ -65,14 +85,19 @@ class DriversPage(Page):
         items.sort(key=lambda d: -d.overall)
         self.list.items = items
         if items and self.sel not in items:
-            self.sel = items[0]
-            self.offer_salary = max(0.5, self.sel.market_value)
-            self.sal.value = self.offer_salary
+            self._select(0, items[0])
 
     def _select(self, i, item) -> None:
+        if self.sel is not item:
+            self.neg = None
         self.sel = item
-        self.offer_salary = max(0.5, item.market_value)
-        self.sal.value = self.offer_salary
+        self.offer = market.Offer(salary=max(0.5, item.market_value), years=2,
+                                  release_clause=round(item.market_value * 2.5, 0))
+        self._sync_sliders()
+
+    def _sync_sliders(self) -> None:
+        for k, sl in getattr(self, "sliders", {}).items():
+            sl.value = getattr(self.offer, k)
 
     def _row(self, surf, rect, i, d) -> None:
         team = self.gs.teams.get(d.team)
@@ -89,16 +114,39 @@ class DriversPage(Page):
                bold=True, align="right")
         T.text(surf, f"contratto fino al {d.contract_until}", (rect.x + 18, rect.y + 21), 11, T.DIM_2)
 
-    def offer(self) -> None:
+    def negotiate(self) -> None:
         if not self.sel:
             return
-        res, msg = market.offer_contract(self.gs, self.team, self.sel,
-                                         round(self.offer_salary, 1), self.offer_years)
-        self.app.toast(msg)
-        self.gs.push(msg, "mercato")
-        if res == "accepted":
+        gs, team, d = self.gs, self.team, self.sel
+        if self.neg is None or not self.neg.open or self.neg.driver_id != d.id:
+            if len(team.drivers) >= 2 and d.id not in team.drivers:
+                self.app.toast("Hai gia' due piloti sotto contratto: liberane uno prima.")
+                return
+            self.neg = market.open_negotiation(gs, team, d)
+            self.offer = self.neg.demand.copy()
+            self._sync_sliders()
+            self.app.toast(self.neg.last)
+            self.build()
+            return
+        # in cassa serve solo l'indennizzo per portarlo via: l'ingaggio si paga
+        # gara per gara, non in un colpo alla firma
+        fee = market.buyout_cost(gs, d) if d.team and d.team != team.id else 0.0
+        if fee > 0:
+            ok, why = economy.can_afford(team, fee, gs, check_cap=False)
+            if not ok:
+                self.app.toast(why)
+                return
+        self.neg = market.propose(gs, team, d, self.neg, self.offer)
+        self.app.toast(self.neg.last)
+        if self.neg.state == "accordo":
+            self.gs.push(self.neg.last, "mercato")
             self._fill()
             self.shell.build()
+        self.build()
+
+    def drop(self) -> None:
+        self.neg = None
+        self.build()
 
     def release(self) -> None:
         drs = self.gs.drivers_of(self.team.id)
@@ -153,18 +201,43 @@ class DriversPage(Page):
         right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "MERCATO PILOTI", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
-        oy = right.y + 74 + r.h * 0.42 + 16
+        oy = getattr(self, "offer_y", right.y + 74 + r.h * 0.42 + 10)
         if self.sel:
-            d = self.sel
-            interest = market.driver_interest(self.gs, d, team, self.offer_salary, self.offer_years)
-            T.text(surf, f"Trattativa: {d.name}", (right.x + 16, oy + 6), 17, T.TEXT, bold=True)
-            fee = market.buyout_cost(self.gs, d) if d.team else 0.0
-            T.text(surf, f"Clausola: {fee:.1f} M$" if fee else "Svincolato: nessuna clausola",
-                   (right.x + 16, oy + 28), 13, T.DIM)
-            T.text(surf, "Gradimento", (right.right - 250, oy + 6), 13, T.DIM)
-            T.bar(surf, (right.right - 160, oy + 10, 120, 10), interest * 100)
-            T.text(surf, f"{interest*100:.0f}%", (right.right - 16, oy + 2), 15,
-                   T.stat_colour(interest * 100, 35, 70), bold=True, align="right")
+            d, gs = self.sel, self.gs
+            T.text(surf, f"TRATTATIVA: {d.name.upper()}", (right.x + 16, oy), 13,
+                   T.TEXT, bold=True, maxw=right.w * 0.5)
+            # quanto costerebbe portarlo via, con o senza clausola
+            if d.team and d.team != team.id:
+                fee = market.buyout_cost(gs, d)
+                has = getattr(d, "release_clause", 0.0) > 0
+                T.text(surf, f"{'clausola' if has else 'indennizzo'} {fee:.0f} M$",
+                       (right.right - 16, oy), 12, T.GOLD, align="right", bold=True)
+            elif not d.team:
+                T.text(surf, "svincolato", (right.right - 16, oy), 12, T.OK, align="right")
+
+            # il valore complessivo di quello che stiamo offrendo, come lo vede lui
+            mine = market.offer_value(gs, team, d, self.offer)
+            T.text(surf, f"la nostra offerta vale {mine:.1f} M$ l'anno per lui",
+                   (right.x + 16, oy + 16), 12, T.DIM, maxw=right.w * 0.55)
+            if self.neg and self.neg.driver_id == d.id:
+                want = market.demand_value(gs, team, d, self.neg)
+                col = T.OK if mine >= want * 0.98 else (T.WARN if mine >= want * 0.85 else T.BAD)
+                T.text(surf, f"lui ne chiede {want:.1f}", (right.right - 16, oy + 16), 12,
+                       col, align="right", bold=True)
+
+            by = oy + 34 + 3 * 34 + 8
+            if self.neg and self.neg.driver_id == d.id:
+                colour = {"aperta": T.TEXT, "accordo": T.OK, "rotta": T.BAD}[self.neg.state]
+                T.text(surf, self.neg.last, (right.x + 16, by + 42), 13, colour,
+                       maxw=right.w - 32)
+                if self.neg.open:
+                    left_r = max(0, self.neg.patience - self.neg.rounds)
+                    T.text(surf, f"ancora {left_r} giri di trattativa prima che si alzi dal tavolo",
+                           (right.x + 16, by + 62), 11, T.DIM_2, maxw=right.w - 32)
+            else:
+                T.text(surf, "Apri la trattativa per sentire cosa chiede: ingaggio, durata, "
+                             "premi e clausola si negoziano tutti insieme.",
+                       (right.x + 16, by + 42), 12, T.DIM_2, maxw=right.w - 32)
         super().draw(surf)
 
 

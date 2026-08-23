@@ -21,7 +21,8 @@ class FacilitiesPage(Page):
         self.buttons = {}
         y = r.y + 92
         for k in C.FACILITIES:
-            b = Button((r.x + r.w * 0.5 - 130, y, 130, 30), "Potenzia", style="normal")
+            lab = "Potenzia" if facilities.is_built(self.team, k) else "Costruisci"
+            b = Button((r.x + r.w * 0.5 - 130, y, 130, 30), lab, style="normal")
             b.on_click = (lambda k=k: self.upgrade(k))
             self.buttons[k] = b
             self.widgets.append(b)
@@ -41,16 +42,17 @@ class FacilitiesPage(Page):
         cw = (r.w - 32) / 3
         card(surf, (r.x, r.y, cw, 86), "Costo di gestione",
              f"{team.facility_upkeep:.2f} M$", "all'anno, dentro il cap", accent=T.WARN)
-        obs = sum(facilities.decay_of(v, facilities.age_of(team, k))
-                  for k, v in team.facilities.items()) / len(team.facilities)
-        avg = sum(team.facilities.values()) / len(team.facilities)
+        costruite = [k for k in team.facilities if facilities.is_built(team, k)]
+        obs = sum(facilities.decay_of(team.facilities[k], facilities.age_of(team, k))
+                  for k in costruite) / max(1, len(costruite))
+        avg = facilities.average(team)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Livello medio strutture", f"{avg:.0f}",
              _infra_rank(gs, team), accent=T.ACCENT)
-        fresche = sum(1 for k in team.facilities
+        fresche = sum(1 for k in costruite
                       if facilities.age_of(team, k) < facilities.GRACE_SEASONS)
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza",
              "nessuna" if obs < 0.01 else f"-{obs:.2f}",
-             f"{fresche} strutture su {len(team.facilities)} all'avanguardia",
+             f"{fresche} strutture su {len(costruite)} all'avanguardia",
              colour=T.OK if obs < 0.2 else T.BAD, accent=T.BAD if obs >= 0.2 else T.OK)
 
         panel = pygame.Rect(r.x, r.y + 92 - 12, r.w * 0.5 + 10, r.h - 92)
@@ -58,6 +60,17 @@ class FacilitiesPage(Page):
         y = r.y + 92
         for k, meta in C.FACILITIES.items():
             lvl = team.facilities.get(k, 60.0)
+            if not facilities.is_built(team, k):
+                # non c'e': al suo posto si mostra quanto costa tirarla su
+                T.text(surf, meta["label"], (panel.x + 16, y), 15, T.DIM, maxw=170)
+                T.text(surf, "da costruire", (panel.x + 190, y - 1), 13, T.DIM_2)
+                T.text(surf, f"{facilities.build_cost(k):.0f} M$ per averla",
+                       (panel.x + r.w * 0.5 - 146, y - 1), 13, T.GOLD, align="right")
+                T.text(surf, "si parte da un livello di "
+                             f"{facilities.BUILD_LEVEL:.0f}, poi si potenzia come le altre",
+                       (panel.x + 16, y + 20), 12, T.DIM_2, maxw=380)
+                y += 42
+                continue
             cost = facility_cost(lvl, meta["cost"])
             stato, eta = facilities.state_label(team, k)
             perdita = facilities.decay_of(lvl, eta)
@@ -85,10 +98,9 @@ class FacilitiesPage(Page):
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "CONFRONTO CON LA GRIGLIA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         y = right.y + 40
-        order = sorted(gs.teams.values(),
-                       key=lambda t: -sum(t.facilities.values()) / len(t.facilities))
+        order = sorted(gs.teams.values(), key=lambda t: -facilities.average(t))
         for i, t in enumerate(order, 1):
-            a = sum(t.facilities.values()) / len(t.facilities)
+            a = facilities.average(t)
             col = T.hex_rgb(t.colour)
             hl = (t.id == team.id)
             if hl:
@@ -113,7 +125,7 @@ class FacilitiesPage(Page):
 
 
 def _infra_rank(gs, team) -> str:
-    order = sorted(gs.teams.values(), key=lambda t: -sum(t.facilities.values()) / len(t.facilities))
+    order = sorted(gs.teams.values(), key=lambda t: -facilities.average(t))
     return f"{[t.id for t in order].index(team.id) + 1}a struttura della griglia"
 
 

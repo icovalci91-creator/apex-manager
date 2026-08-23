@@ -34,6 +34,12 @@ class Driver:
     salary: float
     contract_until: int
 
+    # voci del contratto oltre all'ingaggio fisso
+    bonus_win: float = 0.0        # M$ per vittoria
+    bonus_podium: float = 0.0     # M$ per podio
+    bonus_points: float = 0.0     # M$ per punto iridato
+    release_clause: float = 0.0   # M$ per portarlo via: 0 = nessuna clausola
+
     morale: float = 70.0
     form: float = 0.0          # -10..+10, oscilla nella stagione
     fitness: float = 100.0

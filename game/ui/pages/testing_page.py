@@ -133,8 +133,9 @@ class TestingPage(Page):
         cw = (r.w - 32) / 3
         restano = TT.days_left(gs, team)
         card(surf, (r.x, r.y, cw, 86), "Giornate di test",
-             f"{restano} su {TT.days_allowed(gs)}",
-             "il regolamento non ne concede altre",
+             f"{restano} su {TT.days_allowed(gs, team)}",
+             (f"due in piu': abbiamo {team.private_track_name}"
+              if team.has_private_track else "il regolamento non ne concede altre"),
              colour=T.OK if restano > 2 else T.WARN, accent=T.ACCENT)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Correlazione",
              f"{team.correlation*100:.0f}%",

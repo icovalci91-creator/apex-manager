@@ -23,6 +23,53 @@ DECAY_RAMP = 0.13     # e quanto accelera ogni anno che passa
 DECAY_MAX = 1.7       # oltre non si scivola, per quanto vecchia sia
 FLOOR = 35.0          # sotto questo livello non si scende: resta un capannone
 
+# Non tutte le strutture esistono per forza. Una pista di proprieta' ce l'ha
+# chi se l'e' costruita: Ferrari a Fiorano, Red Bull al Red Bull Ring. Gli
+# altri corrono a casa d'altri, e per averne una devono tirarla su da zero.
+OPTIONAL = ("private_track",)
+BUILD_LEVEL = 55.0    # con che livello nasce una struttura appena costruita
+
+
+def is_built(team, key: str) -> bool:
+    """Una struttura opzionale che nessuno ha costruito non esiste."""
+    if key not in OPTIONAL:
+        return True
+    return float(team.facilities.get(key, 0.0)) > 0.0
+
+
+def build_cost(key: str) -> float:
+    return float(C.FACILITIES[key].get("build_cost", 0.0))
+
+
+def build(gs, team, key: str) -> tuple:
+    """Tira su da zero una struttura opzionale. Costa molto, e giustamente.
+
+    Un autodromo privato non e' un potenziamento: e' terra, asfalto, permessi e
+    un reparto che ci lavora. Chi lo fa se ne accorge in bilancio per anni.
+    """
+    if is_built(team, key):
+        return False, "Questa struttura c'e' gia'."
+    price = build_cost(key)
+    if price <= 0:
+        return False, "Questa struttura non si costruisce."
+    ok, why = economy.can_afford(team, price, gs)
+    if not ok:
+        return False, why
+    team.add_expense(f"Costruzione {C.FACILITIES[key]['label']}", price, in_cap=True,
+                     category="strutture")
+    team.facilities[key] = BUILD_LEVEL
+    if team.facility_age is None:
+        team.facility_age = {}
+    team.facility_age[key] = 0.0
+    return True, (f"{C.FACILITIES[key]['label']} costruita: parte da "
+                  f"{BUILD_LEVEL:.0f} ed e' costata {price:.0f} M$.")
+
+
+def average(team) -> float:
+    """Livello medio, contando solo quello che esiste davvero."""
+    vals = [float(v) for k, v in team.facilities.items() if is_built(team, k)]
+    return sum(vals) / max(1, len(vals))
+
 
 def cost(level: float, base: float) -> float:
     """Costo per alzare di un gradino una struttura.
@@ -65,6 +112,8 @@ def state_label(team, key: str) -> tuple:
 
 def upgrade(gs, team, key: str) -> tuple:
     """Potenzia una struttura. Ritorna (riuscito, messaggio)."""
+    if not is_built(team, key):
+        return build(gs, team, key)
     lvl = float(team.facilities.get(key, 60.0))
     if lvl >= 99:
         return False, "Struttura gia' al massimo livello."
@@ -94,6 +143,8 @@ def decay(gs) -> float:
         if team.facility_age is None:
             team.facility_age = {}
         for k, v in team.facilities.items():
+            if not is_built(team, k):
+                continue        # non invecchia quello che non esiste
             eta = float(team.facility_age.get(k, GRACE_SEASONS))
             new = max(FLOOR, float(v) - decay_of(float(v), eta))
             if team.is_player:
@@ -114,7 +165,8 @@ def priorities(team) -> list:
     for k in focus:
         weights[k] = 1.8
     # a parita' di interesse si rimette in pari quella messa peggio
-    return sorted(C.FACILITIES,
+    costruite = [k for k in C.FACILITIES if is_built(team, k)]
+    return sorted(costruite,
                   key=lambda k: -(weights[k] * (100.0 - team.facilities.get(k, 60.0))))
 
 
@@ -129,6 +181,12 @@ def ai_invest(gs) -> None:
             continue
         # tengono da parte una riserva e spendono il resto, i piu' ricchi di piu'
         budget = max(0.0, (team.cash - 25.0) * 0.55)
+        # chi nuota nei soldi prima o poi si costruisce la pista di casa
+        for key in OPTIONAL:
+            if not is_built(team, key) and build_cost(key) <= budget * 0.75:
+                ok, _m = build(gs, team, key)
+                if ok:
+                    budget -= build_cost(key)
         for key in priorities(team):
             price = cost(team.facilities.get(key, 60.0), C.FACILITIES[key]["cost"])
             if price > budget:

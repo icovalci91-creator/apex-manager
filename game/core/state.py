@@ -106,6 +106,7 @@ class GameState:
                 # da qui escono ore di galleria, premi e valore per gli sponsor:
                 # senza, la prima stagione tratterebbe tutti come sesti
                 last_position=td.get("last_position", 6),
+                track_name=td.get("private_track_name", ""),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
             team.is_player = (td["id"] == team_id)

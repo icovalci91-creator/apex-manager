@@ -54,6 +54,7 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
                 if ws.pole == d.id:
                     d.poles += 1
             _update_morale(gs, d, team, pos, e.status)
+            _pay_bonuses(gs, d, team, pos, pts, e.status, kind)
         team.points += pts
         team_points[team.id] = team_points.get(team.id, 0.0) + pts
         rr.order.append({
@@ -99,6 +100,23 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
 
     gs.results.append(rr)
     return rr
+
+
+def _pay_bonuses(gs, d, team, pos: int, pts: float, status: str, kind: str) -> None:
+    """Paga i premi scritti nel contratto del pilota.
+
+    Sono soldi veri quanto l'ingaggio: e' la ragione per cui in trattativa
+    conviene spostare peso sui bonus quando la squadra non e' da vittorie.
+    """
+    due = float(getattr(d, "bonus_points", 0.0)) * pts
+    if kind == "gp" and status == "finished":
+        if pos == 1:
+            due += float(getattr(d, "bonus_win", 0.0))
+        if pos <= 3:
+            due += float(getattr(d, "bonus_podium", 0.0))
+    if due > 0.001:
+        in_cap = not gs.regulations.get("cost_cap_excludes_driver_salaries", True)
+        team.add_expense(f"Premi contratto {d.last}", round(due, 3), in_cap=in_cap)
 
 
 def _distribute_damage(gs, team, amount: float) -> None:
@@ -184,9 +202,10 @@ def end_season(gs) -> dict:
         team = gs.teams.get(d.team)
         quality = 0.5
         if team:
-            quality = (0.45 * (team.facilities.get("simulator", 60) / 100.0)
-                       + 0.35 * (team.facilities.get("academy", 60) / 100.0)
-                       + 0.20 * (team.role("race_engineer").communication / 100.0
+            quality = (0.38 * (team.facilities.get("simulator", 60) / 100.0)
+                       + 0.30 * (team.facilities.get("academy", 60) / 100.0)
+                       + 0.15 * (team.facilities.get("private_track", 0) / 100.0)
+                       + 0.17 * (team.role("race_engineer").communication / 100.0
                                  if team.role("race_engineer") else 0.6))
         notes = d.progress(quality, gs.rng)
         if team and team.is_player and notes:

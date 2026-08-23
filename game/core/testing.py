@@ -52,12 +52,20 @@ USURA_RECUPERO = 9.0          # punti di condizione recuperati sui componenti
 DECADIMENTO_CORRELAZIONE = 0.5
 
 
-def days_allowed(gs) -> int:
-    return int(gs.regulations["sporting"].get("private_test_days", 8))
+# Chi ha una pista di proprieta' non deve chiedere il permesso a nessuno per
+# girare: i filming day si organizzano in casa, con la squadra che gia' e' li'.
+GIORNI_PISTA_PROPRIA = 2
+
+
+def days_allowed(gs, team=None) -> int:
+    giorni = int(gs.regulations["sporting"].get("private_test_days", 8))
+    if team is not None and getattr(team, "has_private_track", False):
+        giorni += GIORNI_PISTA_PROPRIA
+    return giorni
 
 
 def days_left(gs, team) -> int:
-    return max(0, days_allowed(gs) - int(team.test_days_used))
+    return max(0, days_allowed(gs, team) - int(team.test_days_used))
 
 
 def cost_of(gs, team, track, programme: str, days: int) -> float:
@@ -68,7 +76,11 @@ def cost_of(gs, team, track, programme: str, days: int) -> float:
     """
     base = PROGRAMMI[programme]["cost"] * days
     lontano = 0.0 if _vicino(team, track) else 0.9
-    return round(base + lontano * days + 0.25 * days, 2)
+    tot = base + lontano * days + 0.25 * days
+    if getattr(team, "has_private_track", False):
+        # buona parte del lavoro si fa a casa: niente trasferta, niente noleggio
+        tot *= 0.70
+    return round(tot, 2)
 
 
 def _vicino(team, track) -> bool:
@@ -82,7 +94,7 @@ def can_run(gs, team, track, programme: str, days: int) -> tuple:
     if days <= 0:
         return False, "Serve almeno una giornata."
     if days > days_left(gs, team):
-        return False, (f"Il regolamento ne concede {days_allowed(gs)} a stagione: "
+        return False, (f"Il regolamento ne concede {days_allowed(gs, team)} a stagione: "
                        f"te ne restano {days_left(gs, team)}.")
     prezzo = cost_of(gs, team, track, programme, days)
     ok, why = economy.can_afford(team, prezzo, gs)
