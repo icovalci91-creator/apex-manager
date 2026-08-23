@@ -58,7 +58,7 @@ class TestingPage(Page):
 
     def _fill(self) -> None:
         gs = self.gs
-        piste = sorted(list(gs.tracks) + list(gs.candidates), key=lambda t: t.name)
+        piste = sorted(TT.venues(gs, self.team), key=lambda t: t.name)
         self.piste.items = piste
         if piste and self.track not in piste:
             self.track = piste[0]

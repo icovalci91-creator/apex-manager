@@ -442,6 +442,13 @@ Ferrari e il Red Bull Ring della Red Bull, cioe' proprieta' del gruppo e non del
 corse. Si paga con la cassa e basta - 140 M$ - ma da li' in poi mantenerlo e potenziarlo
 segue le regole di tutte le altre strutture.
 
+E una pista di proprieta' e' un posto vero: compare fra i circuiti dove andare a provare.
+Fiorano sta nei dati come tracciato (2,976 km, 14 curve) insieme a un modello generico per
+chi se ne costruisce una, che prende il nome della squadra; il Red Bull Ring c'era gia',
+perche' e' anche una gara del mondiale. Girare in casa costa il 45% in meno di una
+trasferta comoda e non paga ne' noleggio ne' logistica: e' li' che una pista di proprieta'
+comincia a ripagarsi.
+
 **Il montepremi ha due colonne.** Come nella realta': una parte del piatto e' uguale per
 tutti - 47 M$ a testa, il 45% dei 1150 distribuiti dal promoter - e il resto va a scalare
 sul piazzamento nel costruttori. Meta' di quello che incassa una squadra non dipende da

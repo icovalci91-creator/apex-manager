@@ -64,6 +64,52 @@ def days_allowed(gs, team=None) -> int:
     return giorni
 
 
+def home_track(gs, team):
+    """La pista di proprieta' della squadra, se ne ha una e se esiste davvero.
+
+    Il Red Bull Ring e' anche una gara del mondiale, Fiorano no: sta fra le
+    piste di proprieta', che non entrano mai in calendario. Chi se ne costruisce
+    una nuova prende quella generica e le da' il proprio nome.
+    """
+    if not getattr(team, "has_private_track", False):
+        return None
+    tid = getattr(team, "track_id", "") or ""
+    for t in gs.tracks:
+        if t.id == tid:
+            return t
+    if gs.private_tracks is None:
+        gs.private_tracks = {}
+    tr = gs.private_tracks.get(tid)
+    if tr is not None:
+        return tr
+    # una pista costruita non sta nei dati: si ricava dal modello generico e
+    # prende il nome della squadra. Una copia per ciascuno, altrimenti chi
+    # costruisce dopo rinominerebbe quella di chi ha costruito prima
+    base = gs.private_tracks.get("pista_privata")
+    if base is None or not tid:
+        return None
+    import copy
+    tr = copy.deepcopy(base)
+    tr.id = tid
+    tr.name = team.track_name or f"Pista {team.short}"
+    gs.private_tracks[tid] = tr
+    return tr
+
+
+def venues(gs, team) -> list:
+    """Dove si puo' andare a girare: il calendario, i candidati, e casa propria."""
+    piste = list(gs.tracks) + list(gs.candidates)
+    casa = home_track(gs, team)
+    if casa is not None and casa not in piste:
+        piste.append(casa)
+    return piste
+
+
+def is_home(team, track) -> bool:
+    tid = getattr(team, "track_id", "")
+    return bool(tid) and track is not None and track.id == tid
+
+
 def days_left(gs, team) -> int:
     return max(0, days_allowed(gs, team) - int(team.test_days_used))
 
@@ -75,6 +121,10 @@ def cost_of(gs, team, track, programme: str, days: int) -> float:
     e' per questo che le squadre europee provano in Spagna e in Italia.
     """
     base = PROGRAMMI[programme]["cost"] * days
+    if is_home(team, track):
+        # a casa propria non si paga ne' trasferta ne' noleggio: si accende la
+        # luce e si gira. E' il motivo per cui una pista di proprieta' si ripaga
+        return round(base * 0.55, 2)
     lontano = 0.0 if _vicino(team, track) else 0.9
     tot = base + lontano * days + 0.25 * days
     if getattr(team, "has_private_track", False):

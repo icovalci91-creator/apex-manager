@@ -75,8 +75,13 @@ def build(gs, team, key: str) -> tuple:
     if team.facility_age is None:
         team.facility_age = {}
     team.facility_age[key] = 0.0
+    if key == "private_track" and not getattr(team, "track_id", ""):
+        # da adesso c'e' un posto dove andare a girare, e ha un nome
+        team.track_id = f"pista_{team.id}"
+        team.track_name = team.track_name or f"Pista {team.short}"
     return True, (f"{C.FACILITIES[key]['label']} costruita: parte da "
-                  f"{BUILD_LEVEL:.0f} ed e' costata {price:.0f} M$.")
+                  f"{BUILD_LEVEL:.0f} ed e' costata {price:.0f} M$. Da ora si puo' "
+                  f"girare in casa quando si vuole.")
 
 
 def average(team) -> float:

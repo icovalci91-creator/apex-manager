@@ -21905,5 +21905,68 @@
         ]
       ]
     }
+  ],
+  "_private_note": "Piste di proprieta' delle squadre: non entrano mai in calendario e non sono candidate a un gran premio. Servono solo per i test privati di chi le possiede.",
+  "private": [
+    {
+      "id": "fiorano",
+      "name": "Pista di Fiorano",
+      "gp": "Prove private a Fiorano",
+      "country": "Italia",
+      "flag": "IT",
+      "length_km": 2.976,
+      "laps": 100,
+      "corners": 14,
+      "pit_loss": 14.0,
+      "sprint": false,
+      "ref_lap": 58.0,
+      "month": 1,
+      "fee": 0.0,
+      "tradition": 0.9,
+      "popularity": 20,
+      "traits": {
+        "downforce": 0.75,
+        "power": 0.35,
+        "tyre_wear": 0.45,
+        "braking": 0.7,
+        "overtaking": 0.1,
+        "bumpiness": 0.3
+      },
+      "layout": "S260 R70:3 S90 L60:2 S140 R110:1 S80 L45:4 S120 R80:2 S100 L90:2 S70 R50:4 S160 L75:2 S110 R95:1 S90 L55:3 S130 R65:3 S200",
+      "coords": [
+        44.5253,
+        10.8586
+      ]
+    },
+    {
+      "id": "pista_privata",
+      "name": "Pista di proprieta'",
+      "gp": "Prove private",
+      "country": "Europa",
+      "flag": "EU",
+      "length_km": 3.4,
+      "laps": 90,
+      "corners": 12,
+      "pit_loss": 15.0,
+      "sprint": false,
+      "ref_lap": 64.0,
+      "month": 1,
+      "fee": 0.0,
+      "tradition": 0.1,
+      "popularity": 15,
+      "traits": {
+        "downforce": 0.6,
+        "power": 0.5,
+        "tyre_wear": 0.5,
+        "braking": 0.6,
+        "overtaking": 0.3,
+        "bumpiness": 0.35
+      },
+      "layout": "S420 R90:2 S140 L70:3 S180 R60:3 S120 L100:1 S260 R85:2 S150 L65:3 S110 R75:2 S190 L110:1 S300",
+      "coords": [
+        45.0,
+        9.0
+      ]
+    }
   ]
 }

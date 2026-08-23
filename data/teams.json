@@ -142,7 +142,8 @@
       "parent_team": "",
       "last_position": 4,
       "private_track_name": "Fiorano",
-      "heritage": true
+      "heritage": true,
+      "private_track_id": "fiorano"
     },
     {
       "id": "redbull",
@@ -191,7 +192,8 @@
       "pu_status": "works",
       "parent_team": "",
       "last_position": 3,
-      "private_track_name": "Red Bull Ring"
+      "private_track_name": "Red Bull Ring",
+      "private_track_id": "redbullring"
     },
     {
       "id": "mercedes",

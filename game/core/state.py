@@ -53,6 +53,7 @@ class GameState:
 
     tracks: list = field(default_factory=list)
     candidates: list = field(default_factory=list)   # circuiti fuori calendario
+    private_tracks: dict = field(default_factory=dict)  # piste di proprieta' delle squadre
     teams: dict = field(default_factory=dict)
     drivers: dict = field(default_factory=dict)
     free_agents: list = field(default_factory=list)
@@ -78,6 +79,9 @@ class GameState:
         gs.tracks = [Track.from_dict(t) for t in tdata["tracks"]]
         # circuiti che non corrono ma potrebbero entrare in calendario
         gs.candidates = [Track.from_dict(t) for t in tdata.get("candidates", [])]
+        # le piste di proprieta' stanno fuori dal calendario e fuori dai
+        # candidati: non correranno mai un gran premio, servono per provare
+        gs.private_tracks = {t["id"]: Track.from_dict(t) for t in tdata.get("private", [])}
 
         regs = _load("regulations.json")
         gs.regulations = regs["current"]
@@ -109,6 +113,7 @@ class GameState:
                 # senza, la prima stagione tratterebbe tutti come sesti
                 last_position=td.get("last_position", 6),
                 track_name=td.get("private_track_name", ""),
+                track_id=td.get("private_track_id", ""),
                 heritage=bool(td.get("heritage", False)),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
@@ -331,7 +336,9 @@ class GameState:
             "teams": {
                 t.id: {
                     "cash": t.cash, "points": t.points, "wins": t.wins, "podiums": t.podiums,
-                    "spent": t.spent, "capex_log": t.capex_log or {}, "austerity": t.austerity, "reputation": t.reputation, "facilities": t.facilities,
+                    "spent": t.spent, "capex_log": t.capex_log or {}, "austerity": t.austerity,
+                    "track_id": t.track_id, "track_name": t.track_name,
+                    "reputation": t.reputation, "facilities": t.facilities,
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used, "correlation": t.correlation,
                     "setup_knowledge": t.setup_knowledge or {},
@@ -390,6 +397,8 @@ class GameState:
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
             t.capex_log = dict(td.get("capex_log") or {})
             t.austerity = float(td.get("austerity", 0.0))
+            t.track_id = td.get("track_id", t.track_id)
+            t.track_name = td.get("track_name", t.track_name)
             t.facilities = td["facilities"]
             t.facility_age = dict(td.get("facility_age") or {})
             t.test_days_used = td.get("test_days_used", 0)
