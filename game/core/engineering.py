@@ -27,6 +27,34 @@ AREA_PARTS = {
 }
 
 
+def part_field(gs) -> dict:
+    """Come sta messa la griglia, componente per componente.
+
+    Restituisce per ogni pezzo il minimo, la media e il massimo di tutte le
+    vetture. Serve a leggere la nostra macchina per quello che conta davvero -
+    dove siamo avanti e dove indietro rispetto agli altri - e non rispetto a un
+    numero assoluto che da solo non dice niente.
+    """
+    out = {}
+    for k in C.CAR_PARTS:
+        vals = [t.car.parts[k].perf for t in gs.teams.values()]
+        if not vals:
+            continue
+        out[k] = (min(vals), sum(vals) / len(vals), max(vals))
+    return out
+
+
+def part_standing(gs, team) -> dict:
+    """Per ogni pezzo: quanto siamo sopra o sotto la griglia, da -1 a +1."""
+    campo = part_field(gs)
+    out = {}
+    for k, (lo, media, hi) in campo.items():
+        v = team.car.parts[k].perf
+        span = max(1.5, (hi - lo) / 2.0)
+        out[k] = max(-1.0, min(1.0, (v - media) / span))
+    return out
+
+
 def raw_profile(team) -> dict:
     """Grandezze fisiche della vettura valutate con assetto neutro."""
     car = team.car

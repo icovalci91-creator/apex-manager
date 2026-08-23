@@ -370,6 +370,7 @@ def deliver(gs, team, pr: Project) -> list:
     prima = part.perf
     part.perf = max(40.0, part.perf + gain)
     team.upgrades_done += 1
+    log_upgrade(gs, team, pr, band, prima, part.perf)
     # anche quando funziona, l'assetto va ritrovato: la macchina non e' piu'
     # quella su cui si erano presi i riferimenti
     quota = setup_upset(team, pr.size)
@@ -393,6 +394,51 @@ def deliver(gs, team, pr: Project) -> list:
     if band == "oltre":
         return [f"{nome}: il pacchetto va oltre le attese, +{gain:.1f}.{assetto}"]
     return [f"{nome}: aggiornamento in pista, +{gain:.1f} come previsto.{assetto}"]
+
+
+def log_upgrade(gs, team, pr, band: str, prima: float, dopo: float) -> None:
+    """Scrive nel registro cosa e' stato portato in pista e come e' andata.
+
+    Il numero di aggiornamenti fatti non dice niente: quello che conta e' se
+    quello che il reparto prometteva si e' visto in pista. Qui restano
+    entrambi, promessa e risultato, gara per gara.
+    """
+    team.upgrade_log.append({
+        "stagione": gs.season,
+        "gara": gs.round + 1,
+        "gp": (gs.tracks[gs.round].gp if 0 <= gs.round < len(gs.tracks) else ""),
+        "part": pr.part,
+        "label": C.CAR_PARTS[pr.part]["label"],
+        "size": pr.size,
+        "costo": round(float(pr.budget), 2),
+        "atteso": round(float(pr.expected), 2),
+        "reso": round(float(dopo - prima), 2),
+        "prima": round(float(prima), 2),
+        "dopo": round(float(dopo), 2),
+        "esito": band,
+        "stato": "in verifica" if band == "fallito" else "chiuso",
+    })
+    if len(team.upgrade_log) > 120:
+        del team.upgrade_log[:-120]
+
+
+def _log_ultimo(team, part: str):
+    """L'ultima riga di registro che riguarda un componente ancora in verifica."""
+    for voce in reversed(team.upgrade_log):
+        if voce.get("part") == part and voce.get("stato") == "in verifica":
+            return voce
+    return None
+
+
+def _chiudi_log(team, tr, esito: str) -> None:
+    """Aggiorna il registro quando una specifica dubbia trova una fine."""
+    voce = _log_ultimo(team, tr.part)
+    if voce is None:
+        return
+    voce["stato"] = "chiuso"
+    voce["esito"] = esito
+    voce["dopo"] = round(float(team.car.parts[tr.part].perf), 2)
+    voce["reso"] = round(voce["dopo"] - float(voce.get("prima", 0.0)), 2)
 
 
 # ------------------------------------------------- specifiche che non vanno
@@ -429,6 +475,7 @@ def revert_spec(gs, team, tr: Trial) -> tuple:
     team.car.parts[tr.part].perf = tr.old_perf
     # si torna indietro, ma la macchina cambia di nuovo: l'assetto ne risente
     _unsettle(team, setup_upset(team, tr.size) * 0.5)
+    _chiudi_log(team, tr, "rimontata la vecchia")
     team.spec_trials.remove(tr)
     return True, (f"{tr.label}: rimontata la specifica precedente per {prezzo:.2f} M$. "
                   f"Recuperati {abs(perso):.1f} punti, persi i {tr.cost:.1f} M$ del "
@@ -511,6 +558,8 @@ def check_trials(gs, team) -> list:
             msgs.append(nota)
         if tr.races >= TRIAL_RACES + 1:
             buco = deficit(team, tr)
+            _chiudi_log(team, tr, "recuperata" if buco > 0.05 else
+                        ("pareggiata" if buco > -0.05 else "mai capita"))
             team.spec_trials.remove(tr)
             if not team.is_player:
                 continue

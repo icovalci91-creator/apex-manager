@@ -247,9 +247,9 @@ class EditorScene(Scene):
         T.panel(surf, pannello, T.PANEL, radius=8, border=T.LINE)
         if self.sel is None:
             T.text(surf, "Scegli una voce a sinistra.", (px + 16, 140), 15, T.DIM)
-            T.text(surf, "Le voci con la freccia contengono altre cose: cliccale per "
-                         "scendere. Le altre sono valori e si riscrivono qui.",
-                   (px + 16, 166), 13, T.DIM_2, maxw=pw - 32)
+            T.paragraph(surf, "Le voci con la freccia contengono altre cose: cliccale per "
+                              "scendere. Le altre sono valori e si riscrivono qui.",
+                        (px + 16, 166), 13, T.DIM_2, pw - 32)
         else:
             chiave, etichetta, valore = self.sel
             T.text(surf, str(etichetta), (px + 16, 140), 20, T.TEXT, bold=True, maxw=pw - 32)
@@ -257,9 +257,9 @@ class EditorScene(Scene):
             T.text(surf, f"valore attuale: {E.descrivi(valore)}   ({tipo})",
                    (px + 16, 172), 13, T.DIM, maxw=pw - 32)
             if chiave is None:
-                T.text(surf, "E' un valore calcolato dal gioco a partire da altri: si "
-                             "guarda, non si scrive. Cambia quelli da cui dipende.",
-                       (px + 16, 210), 13, T.WARN, maxw=pw - 32)
+                T.paragraph(surf, "E' un valore calcolato dal gioco a partire da altri: "
+                                  "si guarda, non si scrive. Cambia quelli da cui dipende.",
+                            (px + 16, 210), 13, T.WARN, pw - 32)
 
         # cosa e' stato cambiato in questa sessione
         y = h - 96 - min(4, len(self.storia)) * 18

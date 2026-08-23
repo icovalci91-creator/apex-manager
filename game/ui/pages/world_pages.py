@@ -120,22 +120,20 @@ class FacilitiesPage(Page):
             T.text(surf, f"{a:.0f}", (right.right - 16, y + 2), 13, T.TEXT, bold=True, align="right")
             y += 28
         y += 12
-        T.text(surf, f"Una struttura appena rifatta resta di riferimento per "
-                     f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo non perde "
-                     f"nulla. Poi comincia a restare indietro, sempre piu' in fretta.",
-               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
-        y += 34
-        T.text(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita dei giovani. "
-                     "Ogni anno invecchiano: quello che non si rinnova arretra, e nessuno puo' "
-                     "permettersi di tenerle tutte al passo.",
-               (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
-        y += 52
-        T.text(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
-                     f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro in "
-                     f"classifica ne ha di piu' - serve a lasciargli modo di rimettersi in "
-                     f"pari. Nel tetto tecnico resta la gestione di quello che si e' "
-                     f"costruito.",
-               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
+        y += T.paragraph(surf, f"Una struttura appena rifatta resta di riferimento per "
+                               f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo non "
+                               f"perde nulla. Poi comincia a restare indietro, sempre piu' in "
+                               f"fretta.", (right.x + 16, y), 12, T.GOLD, right.w - 32) + 12
+        y += T.paragraph(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita "
+                               "dei giovani. Ogni anno invecchiano: quello che non si rinnova "
+                               "arretra, e nessuno puo' permettersi di tenerle tutte al passo.",
+                         (right.x + 16, y), 12, T.DIM_2, right.w - 32) + 12
+        y += T.paragraph(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
+                               f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro "
+                               f"in classifica ne ha di piu' - serve a lasciargli modo di "
+                               f"rimettersi in pari. Nel tetto tecnico resta la gestione di "
+                               f"quello che si e' costruito.",
+                         (right.x + 16, y), 12, T.GOLD, right.w - 32)
         super().draw(surf)
 
 

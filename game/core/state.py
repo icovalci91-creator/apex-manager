@@ -349,6 +349,7 @@ class GameState:
                     "car_understanding": t.car_understanding,
                     "drivers": t.drivers, "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
+                    "upgrade_log": list(t.upgrade_log or [])[-120:],
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
                     "ledger": t.ledger[-1500:],
                     "deals": [d.to_dict() for d in t.deals],
@@ -413,6 +414,7 @@ class GameState:
             t.drivers = td["drivers"]
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
+            t.upgrade_log = list(td.get("upgrade_log") or [])
             t.next_reg_share = td.get("next_reg_share", 0.0)
             from .sponsors import Deal
             t.deals = [Deal(**x) for x in td.get("deals", [])]

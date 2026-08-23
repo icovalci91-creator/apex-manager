@@ -8,9 +8,10 @@ from ...core import development, economy, engineering, powertrain, rules, setup 
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
+from .. import cardraw
 from .. import trackdraw
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, Slider, card, stat_row
+from ..widgets import Button, ScrollList, ScrollPanel, Slider, card, stat_row
 
 
 # =========================================================== QUARTIER GENERALE
@@ -18,8 +19,8 @@ class HQPage(Page):
     def build(self) -> None:
         r = self.rect
         self.widgets = []
-        self.news = ScrollList((r.x + r.w * 0.68, r.y + 190, r.w * 0.32 - 4, r.h - 200),
-                               row_h=54, draw_row=self._draw_news)
+        self.news = ScrollList((r.x + r.w * 0.68 + 8, r.y + 124, r.w * 0.32 - 20, r.h - 132),
+                               row_h=70, draw_row=self._draw_news)
         self.widgets.append(self.news)
 
     def refresh(self) -> None:
@@ -32,17 +33,7 @@ class HQPage(Page):
         c = colours.get(item.get("kind"), T.DIM)
         pygame.draw.rect(surf, c, (rect.x + 4, rect.y + 8, 3, rect.h - 16))
         T.text(surf, item.get("kind", "info").upper(), (rect.x + 16, rect.y + 6), 11, c, bold=True)
-        words = item["text"].split()
-        line, lines = "", []
-        f = T.font(13)
-        for wd in words:
-            if f.size(line + " " + wd)[0] > rect.w - 30:
-                lines.append(line)
-                line = wd
-            else:
-                line = (line + " " + wd).strip()
-        lines.append(line)
-        for j, ln in enumerate(lines[:2]):
+        for j, ln in enumerate(T.wrap(item["text"], 13, rect.w - 30)[:3]):
             T.text(surf, ln, (rect.x + 16, rect.y + 21 + j * 15), 13, T.TEXT)
 
     def draw(self, surf) -> None:
@@ -134,28 +125,69 @@ def _car_rank_text(gs, team) -> str:
 
 # ================================================================== VETTURA
 class CarPage(Page):
+    """La macchina: com'e' fatta, com'e' messa, e dove sta rispetto agli altri.
+
+    Due sotto-pagine. Nella prima si guarda la nostra vettura, componente per
+    componente, con l'assetto del weekend accanto. Nella seconda si guarda
+    tutta la griglia, area per area: e' li' che si capisce dove conviene
+    spendere, perche' si vede in che cosa gli altri sono avanti.
+    """
+
+    SOTTO = [("vettura", "Vettura e assetto"), ("griglia", "Confronto con la griglia")]
+
+    def __init__(self, shell):
+        super().__init__(shell)
+        self.vista = "vettura"
+        self.sel_part = "floor"
+        self.zone: dict = {}
+
+    # ------------------------------------------------------------ costruzione
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         self.sliders = {}
-        x = r.x + r.w * 0.42 + 16
-        y = r.y + 150
-        for k, lab in SETUP_KEYS.items():
-            s = Slider((x, y, r.w * 0.58 - 32, 30), lab, self.team.car.setup.get(k, 50.0),
-                       on_change=(lambda v, k=k: self._set(k, v)))
-            self.sliders[k] = s
-            self.widgets.append(s)
-            y += 36
-        y += 8
-        bw = (r.w * 0.58 - 42) / 2
-        nt = self.gs.next_track
+        self.tab_buttons = []
+        for i, (key, lab) in enumerate(self.SOTTO):
+            b = Button((r.x + i * 232, r.y, 224, 34), lab, style="tab")
+            b.on_click = (lambda k=key: self._vista(k))
+            b.active = (key == self.vista)
+            self.tab_buttons.append(b)
+            self.widgets.append(b)
+        if self.vista == "griglia":
+            self.griglia = ScrollPanel((r.x, r.y + 44, r.w, r.h - 44), self._draw_griglia,
+                                       pad=18)
+            self.widgets.append(self.griglia)
+            self.griglia.layout()
+            return
+
+        top = r.y + 44
+        alt = r.h - 44
+        # tre colonne: la macchina, i suoi pezzi, il lavoro del weekend
+        self.car_rect = pygame.Rect(r.x, top, r.w * 0.26, alt)
+        self.comp = ScrollPanel((r.x + r.w * 0.27, top, r.w * 0.34, alt),
+                                self._draw_componenti, pad=16)
+        self.widgets.append(self.comp)
+
         costo = SETUP.sim_cost(self.team)
-        self.widgets.append(Button((x, y, bw, 38), f"Simulatore  ({costo:.2f} M$)",
-                                   self.simulate, "normal"))
-        self.widgets.append(Button((x + bw + 10, y, bw, 38), "Monta l'assetto del reparto",
-                                   self.delegate, "primary"))
-        self.widgets.append(Button((x, y + 44, bw, 34), "Assetto neutro", self.neutral, "ghost"))
+        self.b_sim = Button((0, 0, 10, 38), f"Simulatore  ({costo:.2f} M$)",
+                            self.simulate, "normal")
+        self.b_del = Button((0, 0, 10, 38), "Monta l'assetto del reparto",
+                            self.delegate, "primary")
+        self.b_neu = Button((0, 0, 10, 34), "Assetto neutro", self.neutral, "ghost")
+        for k, lab in SETUP_KEYS.items():
+            self.sliders[k] = Slider((0, 0, 10, 30), lab,
+                                     self.team.car.setup.get(k, 50.0),
+                                     on_change=(lambda v, k=k: self._set(k, v)))
+        self.assetto = ScrollPanel((r.x + r.w * 0.62, top, r.w * 0.38, alt),
+                                   self._draw_assetto, pad=16)
+        self.widgets.append(self.assetto)
         self._update_markers()
+        self.comp.layout()
+        self.assetto.layout()
+
+    def _vista(self, k) -> None:
+        self.vista = k
+        self.build()
 
     def _set(self, k, v) -> None:
         self.team.car.setup[k] = v
@@ -174,6 +206,7 @@ class CarPage(Page):
             s.marker = paper.get(k)
         self.team.car.evaluate_setup(nt)
 
+    # ------------------------------------------------------------------ azioni
     def simulate(self) -> None:
         nt = self.gs.next_track
         if not nt:
@@ -202,156 +235,329 @@ class CarPage(Page):
     def refresh(self) -> None:
         self.build()
 
-    def draw(self, surf) -> None:
-        r, team, gs = self.rect, self.team, self.gs
-        car = team.car
-        left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
-        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "COMPONENTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        T.text(surf, f"riferimento del ciclo {development.reference_level(gs):.0f}",
-               (left.right - 16, left.y + 12), 11, T.DIM_2, align="right")
-        y = left.y + 38
-        rif = development.reference_level(gs)
+    def handle(self, ev) -> None:
+        # un clic sulla macchina sceglie il componente che sta sotto il dito
+        if self.vista == "vettura" and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            for key, zona in sorted(self.zone.items(),
+                                    key=lambda kv: kv[1].w * kv[1].h):
+                if zona.collidepoint(ev.pos):
+                    self.sel_part = key
+                    return
+        super().handle(ev)
+
+    # ------------------------------------------------------------ contenuti
+    def _draw_componenti(self, f) -> None:
+        gs, team = self.gs, self.team
+        campo = engineering.part_field(gs)
+        pos = engineering.part_standing(gs, team)
+        f.head("Componenti")
+        f.line("livello, posizione in griglia e usura - il colore e' lo stesso "
+               "della macchina", 11, T.DIM_2, gap=8)
         for k, meta in C.CAR_PARTS.items():
-            p = car.parts[k]
-            T.text(surf, meta["label"], (left.x + 16, y), 14, T.TEXT)
-            # la scala non e' 0-100: si legge rispetto al riferimento del ciclo
-            T.bar(surf, (left.x + 170, y + 5, 120, 8), p.perf - rif + 20.0, 40.0,
-                  T.stat_colour(p.perf, rif - 12.0, rif))
-            T.text(surf, f"{p.perf:.0f}", (left.x + 300, y), 13, T.TEXT, bold=True)
-            cond_col = T.OK if p.condition > 80 else (T.WARN if p.condition > 55 else T.BAD)
-            T.bar(surf, (left.x + 330, y + 5, 90, 8), p.condition, 100, cond_col)
-            T.text(surf, f"{p.condition:.0f}%", (left.right - 16, y), 13, cond_col,
-                   bold=True, align="right")
-            y += 26
-        y += 10
-        T.text(surf, "PRESTAZIONI DERIVATE", (left.x + 16, y), 12, T.DIM_2, bold=True)
-        y += 22
+            p = team.car.parts[k]
+            lo, media, hi = campo.get(k, (p.perf, p.perf, p.perf))
+            scelto = (k == self.sel_part)
+            rango = 1 + sum(1 for t in gs.teams.values() if t.car.parts[k].perf > p.perf)
+            colore = (T.OK if pos.get(k, 0) > 0.25 else
+                      (T.BAD if pos.get(k, 0) < -0.25 else T.WARN))
+            riga = f.box(30, gap=0)
+            if f.surf:
+                if scelto:
+                    T.panel(f.surf, riga.inflate(8, 0), T.PANEL_3, radius=6)
+                T.text(f.surf, meta["label"], (riga.x, riga.y + 6), 14,
+                       T.TEXT if scelto else T.DIM, bold=scelto, maxw=riga.w * 0.40)
+                # la barra e' la griglia: dal peggiore al migliore, noi dentro
+                bx, bw = riga.x + riga.w * 0.42, riga.w * 0.26
+                pygame.draw.rect(f.surf, T.PANEL_3, (bx, riga.y + 11, bw, 7),
+                                 border_radius=3)
+                q = 0.5 if hi - lo < 0.01 else (p.perf - lo) / (hi - lo)
+                pygame.draw.rect(f.surf, colore,
+                                 (int(bx + max(0.0, min(1.0, q)) * bw) - 3, riga.y + 8,
+                                  6, 13), border_radius=2)
+                mq = 0.5 if hi - lo < 0.01 else (media - lo) / (hi - lo)
+                pygame.draw.line(f.surf, T.DIM, (int(bx + mq * bw), riga.y + 8),
+                                 (int(bx + mq * bw), riga.y + 21))
+                T.text(f.surf, f"{p.perf:.1f}", (riga.x + riga.w * 0.78, riga.y + 6), 13,
+                       T.TEXT, bold=True, align="right")
+                T.text(f.surf, f"{rango}i", (riga.x + riga.w * 0.86, riga.y + 6), 12,
+                       colore, bold=True, align="right")
+                cc = T.OK if p.condition > 80 else (T.WARN if p.condition > 55 else T.BAD)
+                T.text(f.surf, f"{p.condition:.0f}%", (riga.x + riga.w, riga.y + 6), 13,
+                       cc, bold=True, align="right")
+            b = Button(riga, "", None, "invisible")
+            b.on_click = (lambda k=k: setattr(self, "sel_part", k))
+            f.at(b, riga)
+            f.y = riga.bottom + 2
+        f.gap(10)
+
+        f.head("Prestazioni derivate")
         prof = engineering.car_profile(team, gs)
         for key, lab in engineering.AREAS.items():
-            stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 22), lab, prof[key])
-            y += 24
-        y += 8
-        cost = car.repair_cost()
-        T.text(surf, f"Costo di ripristino stimato: {cost:.2f} M$", (left.x + 16, y), 13,
-               T.WARN if cost > 0.5 else T.DIM)
+            f.bar_row(lab, prof[key])
+        f.gap(8)
+        cost = team.car.repair_cost()
+        f.line(f"Costo di ripristino stimato: {cost:.2f} M$", 13,
+               T.WARN if cost > 0.5 else T.DIM, gap=10)
 
-        right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)
-        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "ASSETTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+        f.head("Aggiornamenti recenti")
+        recenti = [v for v in reversed(team.upgrade_log or [])][:6]
+        if not recenti:
+            f.par("Nessun pacchetto portato in pista finora: quello che si vede e' la "
+                  "macchina con cui e' cominciata la stagione.")
+            return
+        for v in recenti:
+            col = _esito_colore(v)
+            f.kv(f"{v['label']} ({v['size']})",
+                 f"{v['reso']:+.1f} su {v['atteso']:+.1f} attesi", 12, col, gap=1)
+            f.line(f"stagione {v['stagione']}, gara {v['gara']} - {v['esito']}", 11,
+                   T.DIM_2, gap=6)
+
+    def _draw_assetto(self, f) -> None:
+        gs, team, car = self.gs, self.team, self.team.car
         nt = gs.next_track
-        if nt:
-            q = SETUP.believed_quality(team)
-            qc = T.OK if q > 0.85 else (T.WARN if q > 0.6 else T.BAD)
-            T.text(surf, f"per {nt.name}", (right.x + 16, right.y + 32), 16, T.TEXT, bold=True)
-            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 62), 13, T.DIM)
-            T.bar(surf, (right.x + 160, right.y + 66, 220, 10), q * 100)
-            T.text(surf, f"{q*100:.0f}%", (right.x + 396, right.y + 60), 15, qc, bold=True)
-            lost = (1.0 - car.apply_setup_effects() / 1.0) * 0
-            err = SETUP.paper_error(team, nt, team.sim_sessions)
-            fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
-            T.text(surf, f"Riferimento del reparto: +/-{err:.0f} punti", (right.x + 440, right.y + 62),
-                   13, T.stat_colour(fid * 100, 40, 75), bold=True)
-            T.text(surf, f"Il triangolo dorato e' quello che il reparto crede sia giusto: "
-                         f"{team.sim_sessions} sessioni al simulatore su {SETUP.SIM_MAX}. "
-                         f"Il resto lo dira' la pista.",
-                   (right.x + 16, right.y + 92), 12, T.DIM_2, maxw=right.w - 32)
-            T.text(surf, f"Downforce {car.downforce:.2f}  |  Drag {car.drag:.2f}  |  "
-                         f"Potenza {car.power:.2f}  |  Grip {car.mech_grip:.2f}",
-                   (right.x + 16, right.y + 114), 13, T.DIM)
-        else:
-            T.text(surf, "Nessuna gara in programma.", (right.x + 16, right.y + 40), 15, T.DIM)
-        yy = right.y + 150 + len(SETUP_KEYS) * 36 + 60
-        if nt:
-            T.text(surf, "RISCONTRO DEGLI INGEGNERI", (right.x + 16, yy), 12, T.DIM_2, bold=True)
-            yy += 22
-            for line in S.setup_hints(team, nt)[:6]:
-                T.text(surf, line, (right.x + 16, yy), 13, T.DIM, maxw=right.w - 32)
-                yy += 20
+        f.head("Assetto")
+        if not nt:
+            f.par("Nessuna gara in programma: l'assetto si prepara quando si sa dove "
+                  "si va a correre.", 13, T.DIM)
+            return
+        q = SETUP.believed_quality(team)
+        qc = T.OK if q > 0.85 else (T.WARN if q > 0.6 else T.BAD)
+        f.line(f"per {nt.name}", 16, T.TEXT, bold=True, gap=8)
+        riga = f.box(18, gap=4)
+        if f.surf:
+            T.text(f.surf, "Vicinanza al riferimento", (riga.x, riga.y), 13, T.DIM)
+            T.bar(f.surf, (riga.x + 170, riga.y + 4, riga.w - 230, 10), q * 100)
+            T.text(f.surf, f"{q*100:.0f}%", (riga.x + riga.w, riga.y), 14, qc,
+                   bold=True, align="right")
+        err = SETUP.paper_error(team, nt, team.sim_sessions)
+        fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
+        f.kv("Riferimento del reparto", f"+/-{err:.0f} punti", 13,
+             T.stat_colour(fid * 100, 40, 75))
+        f.par(f"Il triangolo dorato e' quello che il reparto crede sia giusto: "
+              f"{team.sim_sessions} sessioni al simulatore su {SETUP.SIM_MAX}. "
+              f"Il resto lo dira' la pista.")
+        f.line(f"Downforce {car.downforce:.2f}   Drag {car.drag:.2f}   "
+               f"Potenza {car.power:.2f}   Grip {car.mech_grip:.2f}", 12, T.DIM, gap=12)
+
+        for k in SETUP_KEYS:
+            f.widget(self.sliders[k], 30, gap=6)
+        f.gap(6)
+        f.row([self.b_sim, self.b_del], 38)
+        f.widget(self.b_neu, 34, gap=14)
+
+        f.head("Riscontro degli ingegneri")
+        for line in S.setup_hints(team, nt):
+            f.par(line, 12, T.DIM, gap=2)
+
+    def _draw_griglia(self, f) -> None:
+        """Tutta la griglia, area per area: dove siamo avanti e dove indietro."""
+        gs, team = self.gs, self.team
+        f.head("Confronto con la griglia")
+        f.par("Ogni casella e' quanto vale quella squadra in quell'area, da 0 a 100, "
+              "rapportato al resto della griglia. La nostra riga e' quella vera; le "
+              "altre sono stime del nostro scouting, e diventano piu' precise con le "
+              "gare disputate e con chi lavora in quel reparto.", 12, T.DIM_2, gap=12)
+
+        aree = list(engineering.AREAS.items())
+        righe = []
+        for t in gs.teams.values():
+            prof = (engineering.car_profile(t, gs) if t.id == team.id
+                    else engineering.estimate(gs, team, t))
+            tot = sum(prof[a] for a, _l in aree) / len(aree)
+            righe.append((t, prof, tot))
+        righe.sort(key=lambda x: -x[2])
+
+        nome_w = 190
+        tot_w = 84
+        col_w = max(70, (f.w - nome_w - tot_w - 12) / len(aree))
+        intest = f.box(46, gap=2)
+        if f.surf:
+            T.text(f.surf, "SQUADRA", (intest.x, intest.bottom - 16), 11, T.DIM_2, bold=True)
+            T.text(f.surf, "MEDIA", (intest.x + nome_w + tot_w - 8, intest.bottom - 16), 11,
+                   T.DIM_2, bold=True, align="right")
+            for i, (_a, lab) in enumerate(aree):
+                x = intest.x + nome_w + tot_w + i * col_w
+                for j, parola in enumerate(T.wrap(lab, 11, col_w - 16, bold=True)[:3]):
+                    T.text(f.surf, parola, (x, intest.y + j * 13), 11, T.DIM_2, bold=True,
+                           maxw=col_w - 10)
+
+        migliori = {a: max(r[1][a] for r in righe) for a, _l in aree}
+        for t, prof, tot in righe:
+            noi = (t.id == team.id)
+            riga = f.box(30, gap=2)
+            if not f.surf:
+                continue
+            if noi:
+                T.panel(f.surf, riga.inflate(10, 2), T.PANEL_3, radius=6)
+            col = T.hex_rgb(t.colour)
+            pygame.draw.rect(f.surf, col, (riga.x, riga.y + 5, 4, riga.h - 10))
+            T.text(f.surf, t.name, (riga.x + 12, riga.y + 6), 14,
+                   T.TEXT if noi else T.DIM, bold=noi, maxw=nome_w - 20)
+            T.text(f.surf, f"{tot:.0f}", (riga.x + nome_w + tot_w - 8, riga.y + 6), 15,
+                   T.stat_colour(tot, 40, 80), bold=True, align="right")
+            for i, (a, _lab) in enumerate(aree):
+                v = prof[a]
+                x = riga.x + nome_w + tot_w + i * col_w
+                cella = pygame.Rect(int(x), riga.y + 3, int(col_w - 6), riga.h - 6)
+                tinta = T.mix(T.PANEL_2, T.stat_colour(v, 35, 78), 0.30 + 0.55 * (v / 100.0))
+                pygame.draw.rect(f.surf, tinta, cella, border_radius=4)
+                if abs(v - migliori[a]) < 0.01:
+                    pygame.draw.rect(f.surf, T.GOLD, cella, 2, border_radius=4)
+                T.text(f.surf, f"{v:.0f}", (cella.centerx, cella.y + 5), 13,
+                       T.TEXT, bold=noi, align="center")
+        f.gap(14)
+
+        # dove conviene mettere i soldi, viste le gare che restano
+        f.head("Dove conviene lavorare")
+        bias = engineering.calendar_bias(gs)
+        rep = engineering.field_report(gs)
+        ordinati = sorted(engineering.AREAS.items(),
+                          key=lambda kv: -(max(0.0, rep[kv[0]]["best"] - rep[kv[0]]["mine"])
+                                           * (0.6 + 0.8 * bias.get(kv[0], 0.5))))
+        intest = f.box(18, gap=2)
+        if f.surf:
+            for lab, x in (("AREA", 0), ("POSIZIONE", 260), ("DAL MIGLIORE", 380),
+                           ("QUANTO LA CHIEDONO LE GARE CHE RESTANO", 520)):
+                T.text(f.surf, lab, (intest.x + x, intest.y), 11, T.DIM_2, bold=True)
+        for a, lab in ordinati:
+            d = rep[a]
+            gap = d["delta"]
+            colore = T.OK if gap >= -2 else (T.WARN if gap > -14 else T.BAD)
+            riga = f.box(22, gap=2)
+            if not f.surf:
+                continue
+            T.text(f.surf, lab, (riga.x, riga.y + 3), 13, T.TEXT, maxw=250)
+            T.text(f.surf, f"{d['rank']}i della griglia", (riga.x + 260, riga.y + 3), 13,
+                   T.DIM)
+            T.text(f.surf, f"{gap:+.0f} da {d['best_team']}", (riga.x + 380, riga.y + 3),
+                   13, colore, bold=True)
+            dom = bias.get(a, 0.5)
+            T.bar(f.surf, (riga.x + 520, riga.y + 8, 240, 8), dom * 100, 100,
+                  T.GOLD if dom > 0.6 else T.DIM)
+            T.text(f.surf, f"{dom*100:.0f}%", (riga.x + 776, riga.y + 3), 13,
+                   T.GOLD if dom > 0.6 else T.DIM)
+        f.gap(6)
+        f.par("Recuperare dove le gare rimaste non premiano niente e' fatica sprecata: "
+              "conviene guardare insieme il distacco e la colonna qui accanto.")
+
+    # ------------------------------------------------------------------ draw
+    def draw(self, surf) -> None:
+        r, team, gs = self.rect, self.team, self.gs
+        if self.vista == "griglia":
+            super().draw(surf)
+            return
+        T.panel(surf, self.car_rect, T.PANEL, radius=10, border=T.LINE)
+        cr = self.car_rect
+        T.text(surf, "LA NOSTRA MONOPOSTO", (cr.x + 16, cr.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, f"{team.car.rating:.1f}", (cr.right - 16, cr.y + 10), 16,
+               T.TEXT, bold=True, align="right")
+        stand = engineering.part_standing(gs, team)
+        zona = pygame.Rect(cr.x + 10, cr.y + 40, cr.w - 20, cr.h - 176)
+        self.zone = cardraw.draw_car(surf, zona, T.hex_rgb(team.colour), stand,
+                                     self.sel_part)
+        # la scheda del pezzo scelto, sotto la macchina
+        p = team.car.parts[self.sel_part]
+        meta = C.CAR_PARTS[self.sel_part]
+        campo = engineering.part_field(gs)
+        lo, media, hi = campo.get(self.sel_part, (p.perf, p.perf, p.perf))
+        v = stand.get(self.sel_part, 0.0)
+        colore = T.OK if v > 0.25 else (T.BAD if v < -0.25 else T.WARN)
+        y = cr.bottom - 128
+        T.text(surf, meta["label"], (cr.x + 16, y), 17, T.GOLD, bold=True, maxw=cr.w - 32)
+        y += 24
+        T.text(surf, "Livello", (cr.x + 16, y), 13, T.DIM)
+        T.text(surf, f"{p.perf:.1f}   ({p.perf - media:+.1f} sulla media)",
+               (cr.right - 16, y), 13, colore, bold=True, align="right")
+        y += 20
+        T.text(surf, "Il migliore della griglia", (cr.x + 16, y), 13, T.DIM)
+        T.text(surf, f"{hi:.1f}", (cr.right - 16, y), 13, T.TEXT, bold=True, align="right")
+        y += 20
+        pos = 1 + sum(1 for t in gs.teams.values()
+                      if t.car.parts[self.sel_part].perf > p.perf)
+        T.text(surf, "In griglia", (cr.x + 16, y), 13, T.DIM)
+        T.text(surf, f"{pos}i su {len(gs.teams)}   -   usura {p.condition:.0f}%",
+               (cr.right - 16, y), 13, T.TEXT, bold=True, align="right")
+        y += 22
+        T.paragraph(surf, "Verde dove siamo sopra la media della griglia, rosso dove siamo "
+                          "sotto. Clicca la macchina o l'elenco per cambiare pezzo.",
+                    (cr.x + 16, y), 11, T.DIM_2, cr.w - 32)
         super().draw(surf)
+
+
+def _esito_colore(v: dict):
+    return {"oltre": T.OK, "in linea": T.ACCENT, "sottotono": T.WARN,
+            "fallito": T.BAD, "recuperata": T.OK, "pareggiata": T.WARN,
+            "mai capita": T.BAD, "rimontata la vecchia": T.BAD}.get(v.get("esito"), T.DIM)
 
 
 # ================================================================= SVILUPPO
 class DevPage(Page):
+    """Sviluppo: dove limare, cosa costruire, e com'e' andata l'ultima volta.
+
+    I due pannelli scorrono: quello che c'e' da dire su un pacchetto - costo,
+    fiducia, come puo' finire, quanto assetto rimette in discussione - non sta
+    in uno schermo, e prima finiva sovrapposto al pulsante che lo avvia.
+    """
+
     SIZES = ["piccolo", "medio", "grande"]
 
     def __init__(self, shell):
         super().__init__(shell)
         self.sel_part = "floor"
         self.sel_size = "medio"
+        self._cache: dict = {}
 
     @property
     def dev_budget(self) -> float:
         return self.app.dev_budget
 
+    # ------------------------------------------------------------ costruzione
+    def _btn(self, key, label, action, style="normal"):
+        """Un pulsante che sopravvive ai ridisegni, cosi' il mouse lo vede."""
+        b = self._cache.get(key)
+        if b is None:
+            b = Button((0, 0, 10, 32), label, action, style)
+            self._cache[key] = b
+        b.label, b.on_click, b.style = label, action, style
+        return b
+
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         self.alloc_sliders = {}
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
-        y = left.y + 40
         for k, meta in C.CAR_PARTS.items():
-            s = Slider((left.x + 16, y, left.w - 32, 28), meta["label"],
-                       self.team.resource_alloc.get(k, 0.1) * 100.0, 0, 100,
-                       on_change=(lambda v, k=k: self._alloc(k, v)), fmt="{:.0f}%")
-            self.alloc_sliders[k] = s
-            self.widgets.append(s)
-            y += 32
-        self.widgets.append(Button((left.x + 16, y + 8, (left.w - 42) / 2, 34),
-                                   "Bilancia", self.balance, "ghost"))
-        self.widgets.append(Button((left.x + 26 + (left.w - 42) / 2, y + 8, (left.w - 42) / 2, 34),
-                                   "Consiglio ingegneri", self.suggest, "primary"))
-
-        # specifiche che non hanno convinto: si rimonta la vecchia o si insiste
-        self.trial_y = y + 76
-        ty = self.trial_y + 26
-        bw = (left.w - 42) / 2
-        for tr in self.team.spec_trials[:2]:
-            peggio = development.deficit(self.team, tr) < -0.05
-            if peggio:
-                self.widgets.append(Button((left.x + 16, ty + 40, bw, 30),
-                                           "Rimonta la vecchia",
-                                           (lambda t=tr: self.revert(t)), "danger"))
-            if tr.state == "in prova":
-                x = left.x + 26 + bw if peggio else left.x + 16
-                self.widgets.append(Button((x, ty + 40, bw, 30), "Tienila e affinala",
-                                           (lambda t=tr: self.keep(t)), "primary"))
-            ty += 84
-
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        self.budget_slider = Slider((right.x + 16, right.y + 34, right.w - 32, 28),
-                                    "Affinamenti per gara", self.dev_budget, 0.0, 6.0,
+            self.alloc_sliders[k] = Slider(
+                (0, 0, 10, 28), meta["label"],
+                self.team.resource_alloc.get(k, 0.1) * 100.0, 0, 100,
+                on_change=(lambda v, k=k: self._alloc(k, v)), fmt="{:.0f}%")
+        self.budget_slider = Slider((0, 0, 10, 28), "Affinamenti per gara",
+                                    self.dev_budget, 0.0, 6.0,
                                     on_change=self._set_budget, fmt="{:.2f} M$")
-        self.widgets.append(self.budget_slider)
-        bx, by = right.x + 16, right.y + 200
+        self.reg_slider = Slider((0, 0, 10, 28), "Risorse sul regolamento nuovo",
+                                 self.team.next_reg_share * 100.0, 0.0, 90.0,
+                                 on_change=self._set_reg_share, fmt="{:.0f}%")
         self.part_buttons = []
-        for i, (k, meta) in enumerate(C.CAR_PARTS.items()):
-            b = Button((bx + (i % 3) * ((right.w - 44) / 3 + 6), by + (i // 3) * 34,
-                        (right.w - 44) / 3, 30), meta["label"], style="tab")
+        for k, meta in C.CAR_PARTS.items():
+            b = Button((0, 0, 10, 30), meta["label"], style="tab")
             b.on_click = (lambda k=k: self._pick_part(k))
             b.active = (k == self.sel_part)
             self.part_buttons.append(b)
-            self.widgets.append(b)
-        sy = by + 4 * 34 + 10
         self.size_buttons = []
-        for i, sz in enumerate(self.SIZES):
-            b = Button((bx + i * ((right.w - 44) / 3 + 6), sy, (right.w - 44) / 3, 30),
-                       sz.capitalize(), style="tab")
+        for sz in self.SIZES:
+            b = Button((0, 0, 10, 30), sz.capitalize(), style="tab")
             b.on_click = (lambda s=sz: self._pick_size(s))
             b.active = (sz == self.sel_size)
             self.size_buttons.append(b)
-            self.widgets.append(b)
-        self.widgets.append(Button((bx, sy + 152, right.w - 32, 40), "Avvia progetto",
-                                   self.start_project, "primary"))
-        self.reg_slider = None
-        if development.seasons_to_reset(self.gs) not in (None,) and \
-                development.seasons_to_reset(self.gs) <= 3:
-            self.reg_slider = Slider(
-                (bx, sy + 206, right.w - 32, 28), "Risorse sul regolamento nuovo",
-                self.team.next_reg_share * 100.0, 0.0, 90.0,
-                on_change=self._set_reg_share, fmt="{:.0f}%")
-            self.widgets.append(self.reg_slider)
 
+        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        self.p_left = ScrollPanel(left, self._draw_left, pad=16)
+        self.p_right = ScrollPanel(right, self._draw_right, pad=16)
+        self.widgets += [self.p_left, self.p_right]
+        self.p_left.layout()
+        self.p_right.layout()
+
+    # ------------------------------------------------------------------ azioni
     def _alloc(self, k, v) -> None:
         self.team.resource_alloc[k] = max(0.0, v) / 100.0
 
@@ -410,6 +616,185 @@ class DevPage(Page):
     def refresh(self) -> None:
         self.build()
 
+    # ------------------------------------------------------------ contenuti
+    def _draw_left(self, f) -> None:
+        gs, team = self.gs, self.team
+        f.head("Lavoro di reparto: dove limare")
+        f.par("Non sono aggiornamenti: e' il lavoro continuo del reparto, che serve a "
+              "capire la macchina e a sfruttarla meglio. Il salto lo fanno i pacchetti, "
+              "qui accanto.")
+        for k in C.CAR_PARTS:
+            f.widget(self.alloc_sliders[k], 28, gap=4)
+        f.gap(6)
+        f.row([self._btn("bilancia", "Bilancia", self.balance, "ghost"),
+               self._btn("consiglio", "Consiglio ingegneri", self.suggest, "primary")], 34)
+        f.gap(10)
+
+        if team.spec_trials:
+            f.head("Specifiche in verifica", T.WARN)
+            for i, tr in enumerate(team.spec_trials):
+                buco = development.deficit(team, tr)
+                col = T.BAD if buco < -0.05 else (T.OK if buco > 0.05 else T.WARN)
+                f.kv(tr.label, f"{buco:+.1f} sulla vecchia", 14, col, key_colour=T.TEXT)
+                stato = ("da decidere" if tr.state == "in prova" else
+                         f"in affinamento, {max(0, development.TRIAL_RACES + 1 - tr.races)} gare")
+                f.par(f"{stato}  -  {tr.news}", 12, T.DIM, gap=4)
+                tetto = development.trial_ceiling(gs, team, tr) - tr.old_perf
+                f.par(f"Insistere puo' portarla a {tetto:+.1f} sulla vecchia e costa "
+                      f"{tr.cost * development.TRIAL_UPKEEP:.2f} M$ a gara, con un banco "
+                      f"occupato.", 11, T.DIM_2, gap=4)
+                riga = []
+                if buco < -0.05:
+                    riga.append(self._btn(
+                        ("rev", i), f"Rimonta la vecchia "
+                        f"({tr.cost * development.REVERT_SHARE:.2f} M$)",
+                        (lambda t=tr: self.revert(t)), "danger"))
+                if tr.state == "in prova":
+                    riga.append(self._btn(("keep", i), "Tienila e affinala",
+                                          (lambda t=tr: self.keep(t)), "primary"))
+                if riga:
+                    f.row(riga, 32)
+                f.gap(8)
+        elif team.dev_projects:
+            f.head("Specifiche in verifica")
+            f.par("Niente in discussione: quello che e' arrivato in pista ha funzionato.")
+
+        f.head("Aggiornamenti portati in pista")
+        log = list(reversed(team.upgrade_log or []))
+        if not log:
+            f.par("Il registro e' vuoto. Da qui in avanti ogni pacchetto lascia una riga: "
+                  "quanto prometteva, quanto ha reso, e come e' finita.")
+            return
+        reso = sum(v["reso"] for v in log)
+        atteso = sum(v["atteso"] for v in log)
+        resa = (reso / atteso * 100.0) if atteso > 0.01 else 0.0
+        f.kv("In totale", f"{reso:+.1f} punti su {atteso:+.1f} promessi ({resa:.0f}%)",
+             13, T.OK if resa > 85 else (T.WARN if resa > 55 else T.BAD))
+        f.gap(4)
+        for v in log:
+            col = _esito_colore(v)
+            riga = f.box(20, gap=1)
+            if f.surf:
+                T.text(f.surf, f"{v['stagione']}  g{v['gara']}", (riga.x, riga.y), 12,
+                       T.DIM_2)
+                T.text(f.surf, f"{v['label']} ({v['size']})", (riga.x + 74, riga.y), 13,
+                       T.TEXT, maxw=riga.w * 0.42)
+                T.text(f.surf, f"{v['atteso']:+.1f}", (riga.x + riga.w * 0.78, riga.y), 12,
+                       T.DIM, align="right")
+                T.text(f.surf, f"{v['reso']:+.1f}", (riga.x + riga.w, riga.y), 13, col,
+                       bold=True, align="right")
+            f.line(f"{v['esito']}  -  {v['costo']:.2f} M$"
+                   + (f"  -  {v['gp']}" if v.get("gp") else ""), 11, T.DIM_2, gap=5,
+                   indent=74)
+
+    def _draw_right(self, f) -> None:
+        gs, team = self.gs, self.team
+        f.head("Progetti in corso")
+        if team.dev_projects:
+            for pr in team.dev_projects:
+                riga = f.box(30, gap=4)
+                if f.surf:
+                    T.panel(f.surf, riga, T.PANEL_2, radius=6)
+                    T.text(f.surf, pr.label, (riga.x + 10, riga.y + 7), 13, T.TEXT,
+                           maxw=riga.w * 0.55)
+                    T.bar(f.surf, (riga.right - 160, riga.y + 12, 90, 8), pr.progress * 100)
+                    T.text(f.surf, f"{pr.races_left} gare", (riga.right - 10, riga.y + 7),
+                           12, T.DIM, align="right")
+        else:
+            f.line("Nessun progetto in corso.", 13, T.DIM, gap=6)
+        f.gap(4)
+        f.widget(self.budget_slider, 28, gap=14)
+
+        f.head("Nuovo pacchetto")
+        f.line("Su quale componente", 12, T.DIM, gap=6)
+        chiavi = list(self.part_buttons)
+        for i in range(0, len(chiavi), 3):
+            f.row(chiavi[i:i + 3], 30, gap=6)
+        f.gap(6)
+        f.line("Quanto grande", 12, T.DIM, gap=6)
+        f.row(self.size_buttons, 30, gap=10)
+
+        cost = development.cost_of_upgrade(self.sel_part, self.sel_size)
+        gain = development.expected_gain(gs, team, self.sel_part, self.sel_size)
+        conf = development.project_confidence(gs, team, self.sel_part, self.sel_size)
+        odds = development.outcome_odds(conf, self.sel_size)
+        races = development.RACES_OF[self.sel_size]
+        f.line(f"Costo {cost:.2f} M$   |   Sulla carta +{gain:.1f}   |   "
+               f"Tempo {races} gare", 14, T.TEXT, gap=8)
+
+        col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
+        riga = f.box(18, gap=6)
+        if f.surf:
+            T.text(f.surf, "Fiducia del reparto", (riga.x, riga.y), 13, T.DIM)
+            T.bar(f.surf, (riga.x + 170, riga.y + 5, riga.w - 240, 8), conf * 100, 100, col)
+            T.text(f.surf, f"{conf*100:.0f}%", (riga.x + riga.w, riga.y), 13, col,
+                   bold=True, align="right")
+        f.line("Come puo' finire", 11, T.DIM_2, gap=3)
+        bande = f.box(10, gap=4)
+        if f.surf:
+            x = bande.x
+            for nome, colore in (("fallito", T.BAD), ("sottotono", T.WARN),
+                                 ("in linea", T.ACCENT), ("oltre", T.OK)):
+                w = bande.w * odds[nome]
+                pygame.draw.rect(f.surf, colore, (int(x), bande.y, max(2, int(w)), 10),
+                                 border_radius=2)
+                x += w
+        f.line(f"fallisce {odds['fallito']*100:.0f}%   "
+               f"sotto le attese {odds['sottotono']*100:.0f}%   "
+               f"come previsto {odds['in linea']*100:.0f}%   "
+               f"oltre {odds['oltre']*100:.0f}%", 12, T.DIM_2, gap=6)
+        f.par(development.weakest_link(gs, team, self.sel_part).capitalize()
+              if conf < 0.62 else
+              "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
+              12, T.DIM if conf >= 0.62 else T.WARN)
+        upset = development.setup_upset(team, self.sel_size)
+        quanto = "poco" if upset < 0.15 else ("parecchio" if upset < 0.32 else "molto")
+        casa = (f"il simulatore e {team.private_track_name} ce lo fanno ritrovare prima"
+                if team.has_private_track else "senza pista di proprieta' si ritrova il venerdi'")
+        f.par(f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello che sappiamo "
+              f"della vettura). {casa[0].upper()}{casa[1:]}.", 12, T.GOLD)
+        f.widget(self._btn("avvia", "Avvia progetto", self.start_project, "primary"),
+                 40, gap=16)
+
+        # come e' andata l'ultima volta su questo stesso componente
+        storia = [v for v in (team.upgrade_log or []) if v["part"] == self.sel_part]
+        if storia:
+            u = storia[-1]
+            f.par(f"L'ultimo pacchetto su {u['label'].lower()} ({u['size']}, stagione "
+                  f"{u['stagione']}) prometteva {u['atteso']:+.1f} e ha reso "
+                  f"{u['reso']:+.1f}: {u['esito']}.", 12, _esito_colore(u), gap=14)
+
+        left = development.seasons_to_reset(gs)
+        if left is not None and left <= 3:
+            f.widget(self.reg_slider, 28, gap=12)
+
+        st = rules.talks(gs)
+        if st:
+            # il tavolo e' aperto: non si sa ancora la data, ma si sa la direzione
+            dom = max(st["aree"], key=st["aree"].get)
+            f.head(f"Tavolo tecnico  -  riunione {st['riunioni']} di {st['servono']}", T.GOLD)
+            f.par(f"Si sta andando verso {rules.ETICHETTA_AREA[dom]} "
+                  f"({st['aree'][dom]*100:.0f}%). Finche' non si firma puo' ancora "
+                  f"cambiare, e prepararsi adesso e' una scommessa.", 12, T.DIM)
+        if left is not None and left <= 3:
+            era = development.next_era(gs)
+            fo = era.get("focus", {})
+            dom = max(fo, key=fo.get) if fo else "aero"
+            nome = {"pu": "power unit", "chassis": "telaio", "aero": "aerodinamica"}[dom]
+            f.head(f"Regolamento {era['from']}  -  fra {left} "
+                   f"{'stagione' if left == 1 else 'stagioni'}", T.GOLD)
+            f.par(f"{era['label']}: a decidere sara' soprattutto {nome} "
+                  f"({fo.get(dom, 0)*100:.0f}%).", 12, T.DIM, gap=4)
+            conv = development.prep_conversion(gs, team, era)
+            rank = 1 + sum(1 for t in gs.teams.values()
+                           if development.prep_conversion(gs, t, era) > conv)
+            f.par(f"Con i nostri reparti convertiamo a {conv:.2f}: {rank}i della griglia "
+                  f"su questo fronte.", 12, T.DIM, gap=4)
+            if left == 1:
+                f.par("Ultima stagione utile: dopo il cambio la preparazione non conta piu'.",
+                      12, T.WARN)
+
+    # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
         r, gs, team = self.rect, self.gs, self.team
         atr = development.atr_factor(gs, team)
@@ -427,140 +812,13 @@ class DevPage(Page):
         card(surf, (r.x + 3 * (cw + 16), r.y, cw, 86), "Progetti attivi",
              f"{len(team.dev_projects)} / 3",
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
-
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
-        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "LAVORO DI REPARTO: DOVE LIMARE", (left.x + 16, left.y + 12), 12,
-               T.DIM_2, bold=True)
-        T.text(surf, "affinamenti, non aggiornamenti", (left.right - 16, left.y + 12), 11,
-               T.DIM_2, align="right")
-
-        ty = getattr(self, "trial_y", left.y + 460)
-        if team.spec_trials:
-            T.text(surf, "SPECIFICHE IN VERIFICA", (left.x + 16, ty), 12, T.WARN, bold=True)
-            ty += 26
-            for tr in team.spec_trials[:2]:
-                buco = development.deficit(team, tr)
-                col = T.BAD if buco < -0.05 else (T.OK if buco > 0.05 else T.WARN)
-                T.text(surf, tr.label, (left.x + 16, ty), 14, T.TEXT, bold=True, maxw=200)
-                T.text(surf, f"{buco:+.1f} sulla vecchia", (left.right - 16, ty), 13, col,
-                       bold=True, align="right")
-                stato = ("da decidere" if tr.state == "in prova" else
-                         f"in affinamento, {max(0, development.TRIAL_RACES + 1 - tr.races)} gare")
-                T.text(surf, f"{stato}  -  {tr.news}", (left.x + 16, ty + 19), 12, T.DIM,
-                       maxw=left.w - 32)
-                tetto = development.trial_ceiling(gs, team, tr) - tr.old_perf
-                nota = (f"insistere puo' portarla a {tetto:+.1f} sulla vecchia e costa "
-                        f"{tr.cost * development.TRIAL_UPKEEP:.2f} M$ a gara, con un "
-                        f"banco occupato")
-                if buco < -0.05:
-                    nota += (f"  -  rimontare la vecchia costa "
-                             f"{tr.cost * development.REVERT_SHARE:.2f} M$")
-                T.text(surf, nota, (left.x + 16, ty + 74), 11, T.DIM_2, maxw=left.w - 32)
-                ty += 84
-        elif team.dev_projects:
-            T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
-                         "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
-                   maxw=left.w - 32)
-
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "PROGETTI DI AGGIORNAMENTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
-        y = right.y + 76
-        if team.dev_projects:
-            for pr in team.dev_projects:
-                T.panel(surf, (right.x + 16, y, right.w - 32, 30), T.PANEL_2, radius=6)
-                T.text(surf, pr.label, (right.x + 26, y + 7), 13, T.TEXT, maxw=right.w - 200)
-                T.bar(surf, (right.right - 170, y + 12, 90, 8), pr.progress * 100)
-                T.text(surf, f"{pr.races_left} gare", (right.right - 26, y + 7), 12, T.DIM,
-                       align="right")
-                y += 34
-        else:
-            T.text(surf, "Nessun progetto in corso.", (right.x + 16, y + 4), 13, T.DIM)
-            y += 34
-        T.text(surf, "NUOVO PACCHETTO", (right.x + 16, right.y + 178), 12, T.DIM_2, bold=True)
-        sy = right.y + 200 + 4 * 34 + 10
-        st = rules.talks(gs)
-        if st:
-            # il tavolo e' aperto: non si sa ancora la data, ma si sa la direzione
-            dom = max(st["aree"], key=st["aree"].get)
-            ry = sy + 244
-            T.text(surf, f"TAVOLO TECNICO  -  RIUNIONE {st['riunioni']} DI {st['servono']}",
-                   (right.x + 16, ry), 12, T.GOLD, bold=True)
-            T.text(surf, f"Si sta andando verso {rules.ETICHETTA_AREA[dom]} "
-                         f"({st['aree'][dom]*100:.0f}%). Finche' non si firma puo' ancora "
-                         f"cambiare, e prepararsi adesso e' una scommessa.",
-                   (right.x + 16, ry + 18), 12, T.DIM, maxw=right.w - 32)
-        left = development.seasons_to_reset(gs)
-        if left is not None and left <= 3:
-            era = development.next_era(gs)
-            f = era.get("focus", {})
-            dom = max(f, key=f.get) if f else "aero"
-            nome = {"pu": "power unit", "chassis": "telaio", "aero": "aerodinamica"}[dom]
-            ry = sy + 244
-            T.text(surf, f"REGOLAMENTO {era['from']}  -  fra {left} "
-                         f"{'stagione' if left == 1 else 'stagioni'}",
-                   (right.x + 16, ry), 12, T.GOLD, bold=True)
-            T.text(surf, f"{era['label']}: a decidere sara' soprattutto {nome} "
-                         f"({f.get(dom, 0)*100:.0f}%).",
-                   (right.x + 16, ry + 18), 12, T.DIM, maxw=right.w - 32)
-            conv = development.prep_conversion(gs, team, era)
-            rank = 1 + sum(1 for t in gs.teams.values()
-                           if development.prep_conversion(gs, t, era) > conv)
-            T.text(surf, f"Con i nostri reparti convertiamo a {conv:.2f}: "
-                         f"{rank}i della griglia su questo fronte.",
-                   (right.x + 16, ry + 34), 12, T.DIM, maxw=right.w - 32)
-            if left == 1:
-                T.text(surf, "Ultima stagione utile: dopo il cambio la preparazione non conta piu'.",
-                       (right.x + 16, ry + 50), 12, T.WARN, maxw=right.w - 32)
-
-        cost = development.cost_of_upgrade(self.sel_part, self.sel_size)
-        gain = development.expected_gain(gs, team, self.sel_part, self.sel_size)
-        conf = development.project_confidence(gs, team, self.sel_part, self.sel_size)
-        odds = development.outcome_odds(conf, self.sel_size)
-        races = development.RACES_OF[self.sel_size]
-        T.text(surf, f"Costo {cost:.2f} M$   |   Sulla carta +{gain:.1f}   |   "
-                     f"Tempo {races} gare",
-               (right.x + 16, sy + 40), 14, T.TEXT)
-
-        col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
-        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 64), 13, T.DIM)
-        T.bar(surf, (right.x + 170, sy + 69, right.w - 260, 8), conf * 100, 100, col)
-        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 64), 13, col,
-               bold=True, align="right")
-
-        # come puo' finire: quattro bande, disegnate in proporzione
-        bx, bw = right.x + 16, right.w - 32
-        bande = (("fallito", T.BAD), ("sottotono", T.WARN),
-                 ("in linea", T.ACCENT), ("oltre", T.OK))
-        x = bx
-        for nome, colore in bande:
-            w = bw * odds[nome]
-            pygame.draw.rect(surf, colore, (int(x), sy + 92, max(2, int(w)), 10),
-                             border_radius=2)
-            x += w
-        T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
-                     f"sotto le attese {odds['sottotono']*100:.0f}%   "
-                     f"come previsto {odds['in linea']*100:.0f}%   "
-                     f"oltre {odds['oltre']*100:.0f}%",
-               (bx, sy + 108), 12, T.DIM_2, maxw=bw)
-        T.text(surf, development.weakest_link(gs, team, self.sel_part).capitalize()
-               if conf < 0.62 else
-               "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
-               (bx, sy + 128), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
-        # quanto lavoro d'assetto rimette in discussione, e chi lo ritrova prima
-        upset = development.setup_upset(team, self.sel_size)
-        quanto = "poco" if upset < 0.15 else ("parecchio" if upset < 0.32 else "molto")
-        casa = (f"il simulatore e {team.private_track_name} ce lo fanno ritrovare prima"
-                if team.has_private_track else "senza pista di proprieta' si ritrova il venerdi'")
-        T.text(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
-                     f"che sappiamo della vettura). {casa.capitalize()}.",
-               (bx, sy + 148), 12, T.GOLD, maxw=bw)
         super().draw(surf)
 
 
 # ================================================================ INGEGNERI
 class EngineersPage(Page):
+    """La riunione tecnica e il confronto con la griglia, area per area."""
+
     def build(self) -> None:
         r = self.rect
         self.widgets = []
@@ -568,6 +826,11 @@ class EngineersPage(Page):
                                    "Applica il piano suggerito", self.apply_plan, "primary"))
         self._brief = None
         self._report = None
+        left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 56, r.w * 0.52 - 4, r.h - 56)
+        self.p_left = ScrollPanel(left, self._draw_brief, pad=16)
+        self.p_right = ScrollPanel(right, self._draw_report, pad=16)
+        self.widgets += [self.p_left, self.p_right]
 
     def apply_plan(self) -> None:
         sug = engineering.suggested_allocation(self.gs)
@@ -578,55 +841,50 @@ class EngineersPage(Page):
         self.build()
         self._brief = engineering.briefing(self.gs)
         self._report = engineering.field_report(self.gs)
+        self.p_left.layout()
+        self.p_right.layout()
+
+    def _draw_brief(self, f) -> None:
+        f.head("Riunione con i responsabili")
+        for speaker, line in (self._brief or []):
+            f.line(speaker, 14, T.ACCENT, bold=True, gap=2)
+            f.par(line, 13, T.TEXT, indent=8, gap=12)
+
+    def _draw_report(self, f) -> None:
+        f.head("Dove siamo rispetto alla griglia")
+        intest = f.box(16, gap=6)
+        if f.surf:
+            for lab, x in (("AREA", 0), ("NOI", 250), ("MIGLIORE", 320), ("GAP", 440),
+                           ("POS", 520)):
+                T.text(f.surf, lab, (intest.x + x, intest.y), 11, T.DIM_2, bold=True)
+        for area, lab in engineering.AREAS.items():
+            d = (self._report or {}).get(area)
+            if not d:
+                continue
+            riga = f.box(34, gap=4)
+            if not f.surf:
+                continue
+            T.text(f.surf, lab, (riga.x, riga.y), 14, T.TEXT, maxw=230)
+            T.text(f.surf, f"{d['mine']:.0f}", (riga.x + 250, riga.y), 14,
+                   T.stat_colour(d["mine"], 40, 80), bold=True)
+            T.text(f.surf, f"{d['best']:.0f} {d['best_team']}", (riga.x + 320, riga.y), 13,
+                   T.DIM, maxw=110)
+            gap = d["delta"]
+            T.text(f.surf, f"{gap:+.0f}", (riga.x + 440, riga.y), 14,
+                   T.OK if gap >= -2 else (T.WARN if gap > -14 else T.BAD), bold=True)
+            T.text(f.surf, f"{d['rank']}o", (riga.x + 520, riga.y), 14, T.TEXT)
+            T.bar(f.surf, (riga.x, riga.y + 22, riga.w - 8, 5), d["mine"], 100,
+                  T.stat_colour(d["mine"], 40, 80))
+        f.gap(8)
+        f.par("Le stime sugli avversari migliorano con lo scouting e con le gare disputate. "
+              "Il confronto squadra per squadra sta nella pagina della vettura, sotto "
+              "\"Confronto con la griglia\".")
 
     def draw(self, surf) -> None:
         r = self.rect
         if self._brief is None:
             self.refresh()
         T.text(surf, "CONFRONTO TECNICO", (r.x, r.y + 10), 22, T.TEXT, bold=True)
-        left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
-        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        y = left.y + 40
-        for speaker, line in self._brief:
-            T.text(surf, speaker, (left.x + 16, y), 14, T.ACCENT, bold=True)
-            y += 20
-            f = T.font(13)
-            words, cur = line.split(), ""
-            for wd in words:
-                if f.size(cur + " " + wd)[0] > left.w - 44:
-                    T.text(surf, cur, (left.x + 24, y), 13, T.TEXT)
-                    y += 18
-                    cur = wd
-                else:
-                    cur = (cur + " " + wd).strip()
-            T.text(surf, cur, (left.x + 24, y), 13, T.TEXT)
-            y += 30
-
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 56, r.w * 0.52 - 4, r.h - 56)
-        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "DOVE SIAMO RISPETTO ALLA GRIGLIA", (right.x + 16, right.y + 12), 12,
-               T.DIM_2, bold=True)
-        hy = right.y + 40
-        for lab, x in (("AREA", 16), ("NOI", 250), ("MIGLIORE", 320), ("GAP", 440), ("POS", 520)):
-            T.text(surf, lab, (right.x + x, hy), 11, T.DIM_2, bold=True)
-        y = hy + 22
-        for area, lab in engineering.AREAS.items():
-            d = self._report[area]
-            T.text(surf, lab, (right.x + 16, y), 14, T.TEXT, maxw=220)
-            T.text(surf, f"{d['mine']:.0f}", (right.x + 250, y), 14,
-                   T.stat_colour(d["mine"], 40, 80), bold=True)
-            T.text(surf, f"{d['best']:.0f} {d['best_team']}", (right.x + 320, y), 13, T.DIM,
-                   maxw=110)
-            gap = d["delta"]
-            T.text(surf, f"{gap:+.0f}", (right.x + 440, y), 14,
-                   T.OK if gap >= -2 else (T.WARN if gap > -14 else T.BAD), bold=True)
-            T.text(surf, f"{d['rank']}o", (right.x + 520, y), 14, T.TEXT)
-            T.bar(surf, (right.x + 16, y + 20, right.w - 40, 5), d["mine"], 100,
-                  T.stat_colour(d["mine"], 40, 80))
-            y += 40
-        T.text(surf, "Le stime sugli avversari migliorano con lo scouting e con le gare disputate.",
-               (right.x + 16, right.bottom - 30), 12, T.DIM_2)
         super().draw(surf)
 
 
@@ -638,33 +896,30 @@ class PowerUnitPage(Page):
         self.found_note = ""
         r = self.rect
         self.widgets = []
-        gs, team = self.gs, self.team
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
-        if self._can_homologate():
-            self.widgets.append(Button((left.x + 16, left.bottom - 58, left.w - 32, 40),
-                                       "Omologa la specifica nuova",
-                                       self.homologate, "primary"))
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        self.budget_slider = Slider((right.x + 16, right.y + 40, right.w - 32, 28),
-                                    "Budget power unit per gara", self.app.pu_budget, 0.0, 6.0,
+        self.budget_slider = Slider((0, 0, 10, 28), "Budget power unit per gara",
+                                    self.app.pu_budget, 0.0, 6.0,
                                     on_change=self._set_budget, fmt="{:.2f} M$")
-        self.widgets.append(self.budget_slider)
-        y = right.y + 300
-        if powertrain.ready_to_debut(gs):
-            self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
-                                       "Porta in pista la nostra power unit",
-                                       self.debut, "primary"))
-        elif not team.works and not powertrain.has_program(gs):
-            can, why = powertrain.can_found(team)
-            b = Button(
-                (right.x + 16, y, right.w - 32, 42),
-                f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)"
-                if can else "Reparto motori fuori dalla nostra portata",
-                self.start_program, "primary" if can else "ghost")
-            b.enabled = can
-            b.tip = why
-            self.widgets.append(b)
-            self.found_note = "" if can else why
+        self.b_omologa = Button((0, 0, 10, 40), "Omologa la specifica nuova",
+                                self.homologate, "primary")
+        self.b_debutto = Button((0, 0, 10, 42), "Porta in pista la nostra power unit",
+                                self.debut, "primary")
+        can, why = powertrain.can_found(self.team)
+        self.b_fonda = Button(
+            (0, 0, 10, 42),
+            f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)"
+            if can else "Reparto motori fuori dalla nostra portata",
+            self.start_program, "primary" if can else "ghost")
+        self.b_fonda.enabled = can
+        self.b_fonda.tip = why
+        self.found_note = "" if can else why
+
+        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        self.p_left = ScrollPanel(left, self._draw_left, pad=16)
+        self.p_right = ScrollPanel(right, self._draw_right, pad=16)
+        self.widgets += [self.p_left, self.p_right]
+        self.p_left.layout()
+        self.p_right.layout()
 
     def refresh(self) -> None:
         self.build()
@@ -702,109 +957,81 @@ class PowerUnitPage(Page):
             self.gs.push(msg, "tecnico")
         self.build()
 
-    def draw(self, surf) -> None:
-        r, gs, team = self.rect, self.gs, self.team
+    # ------------------------------------------------------------ contenuti
+    def _draw_left(self, f) -> None:
+        gs, team = self.gs, self.team
         eng = powertrain.maker(gs, team)
-        T.text(surf, "POWER UNIT", (r.x, r.y + 10), 22, T.TEXT, bold=True)
-        status = ("costruttore" if team.works else
-                  "team ufficiale" if team.is_partner else
-                  "cliente, reparto in costruzione" if powertrain.has_program(gs) else "cliente")
-        T.text(surf, f"{eng.get('name', '-')} - {status}", (r.x, r.y + 42), 14, T.DIM)
-
-        # --- confronto fra i motoristi -----------------------------------
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
-        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "I MOTORISTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        y = left.y + 42
+        f.head("I motoristi")
         ranked = sorted(gs.engine_makers.items(), key=lambda kv: -powertrain.rating(kv[1]))
         for eid, m in ranked:
             mine = (eid == team.engine)
             builder = powertrain.builder_of(gs, eid)
             col = T.ACCENT if mine else T.TEXT
-            T.text(surf, m.get("name", eid), (left.x + 16, y), 14, col, bold=mine,
-                   maxw=left.w * 0.55)
-            T.text(surf, f"{powertrain.rating(m):.1f}", (left.right - 16, y), 14, col,
-                   bold=True, align="right")
+            f.kv(m.get("name", eid), f"{powertrain.rating(m):.1f}", 14, col,
+                 key_colour=col, gap=1)
             who = builder.short if builder else "nessuna squadra ufficiale"
             n = len(powertrain.customers_of(gs, eid))
-            T.text(surf, f"{who} - {n} client{'e' if n == 1 else 'i'}",
-                   (left.x + 16, y + 18), 11, T.DIM_2, maxw=left.w - 32)
-            T.bar(surf, (left.x + 16, y + 34, left.w - 32, 6), powertrain.rating(m), 100,
-                  T.ACCENT if mine else T.PANEL_3)
-            y += 52
+            f.line(f"{who} - {n} client{'e' if n == 1 else 'i'}", 11, T.DIM_2, gap=3)
+            riga = f.box(6, gap=7)
+            if f.surf:
+                T.bar(f.surf, riga, powertrain.rating(m), 100,
+                      T.ACCENT if mine else T.PANEL_3)
+        f.gap(6)
 
-        y += 4
         sp = powertrain.spec(gs, team.engine)
-        # i numeri del banco li vede solo chi il motore lo costruisce
         nostro = team.works
-        T.text(surf, "LA NOSTRA UNITA'", (left.x + 16, y), 12, T.DIM_2, bold=True)
-        if nostro:
-            T.text(surf, "in banco", (left.right - 16, y), 11, T.DIM_2, align="right")
-        y += 22
+        f.head("La nostra unita'" + ("  -  in banco" if nostro else ""))
         for attr, label in (("power", "Potenza termica"), ("ers", "Ibrido ed ERS"),
                             ("reliability", "Affidabilita'")):
-            T.text(surf, label, (left.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{float(eng.get(attr, 85)):.1f}",
-                   (left.right - (96 if nostro else 16), y), 13, T.TEXT,
-                   bold=True, align="right")
             g = float(sp["gain"].get(attr, 0.0))
-            if nostro and g > 0.01:
-                T.text(surf, f"+{g:.1f}", (left.right - 16, y), 13, T.OK,
-                       bold=True, align="right")
-            y += 20
+            extra = f"   +{g:.1f}" if (nostro and g > 0.01) else ""
+            f.kv(label, f"{float(eng.get(attr, 85)):.1f}{extra}", 13,
+                 T.OK if extra else T.TEXT)
+        f.gap(10)
 
-        # --- la specifica che sta crescendo al banco ----------------------
-        y += 12
-        T.text(surf, "SPECIFICA IN LAVORAZIONE", (left.x + 16, y), 12, T.DIM_2, bold=True)
-        y += 22
+        f.head("Specifica in lavorazione")
         if powertrain.locked(gs):
-            T.text(surf, "Sviluppo congelato: si corre con quello che c'e'.",
-                   (left.x + 16, y), 13, T.WARN, maxw=left.w - 32)
-        elif not team.works:
+            f.par("Sviluppo congelato: si corre con quello che c'e'.", 13, T.WARN)
+            return
+        if not team.works:
             costruttore = powertrain.builder_of(gs, team.engine)
             chi = costruttore.short if costruttore else eng.get("name", "il motorista")
-            T.text(surf, f"La specifica la decide {chi}: noi la montiamo e basta. "
-                         f"E' il prezzo di comprare il motore invece di farlo.",
-                   (left.x + 16, y), 13, T.DIM, maxw=left.w - 32)
-        else:
-            valore = powertrain.spec_value(sp)
-            conf = powertrain.spec_confidence(gs, team.engine)
-            odds = powertrain.spec_odds(gs, team.engine)
-            rimaste = powertrain.specs_left(gs, team.engine)
-            T.text(surf, f"Vale {valore:+.2f} dopo {sp.get('races', 0)} gare di banco",
-                   (left.x + 16, y), 13, T.TEXT if valore > 0.05 else T.DIM,
-                   maxw=left.w - 32)
-            T.text(surf, f"{rimaste} su {powertrain.specs_allowed(gs)}",
-                   (left.right - 16, y), 13, T.GOLD if rimaste else T.BAD,
+            f.par(f"La specifica la decide {chi}: noi la montiamo e basta. E' il prezzo "
+                  f"di comprare il motore invece di farlo.", 13, T.DIM)
+            return
+        valore = powertrain.spec_value(sp)
+        conf = powertrain.spec_confidence(gs, team.engine)
+        odds = powertrain.spec_odds(gs, team.engine)
+        rimaste = powertrain.specs_left(gs, team.engine)
+        f.kv(f"Vale {valore:+.2f} dopo {sp.get('races', 0)} gare di banco",
+             f"{rimaste} su {powertrain.specs_allowed(gs)}", 13,
+             T.GOLD if rimaste else T.BAD,
+             key_colour=T.TEXT if valore > 0.05 else T.DIM)
+        col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
+        riga = f.box(18, gap=6)
+        if f.surf:
+            T.text(f.surf, "Fiducia del banco", (riga.x, riga.y), 13, T.DIM)
+            T.bar(f.surf, (riga.x + 160, riga.y + 5, riga.w - 230, 8), conf * 100, 100, col)
+            T.text(f.surf, f"{conf*100:.0f}%", (riga.x + riga.w, riga.y), 13, col,
                    bold=True, align="right")
-            y += 22
-            col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
-            T.text(surf, "Fiducia del banco", (left.x + 16, y), 13, T.DIM)
-            T.bar(surf, (left.x + 160, y + 5, left.w - 250, 8), conf * 100, 100, col)
-            T.text(surf, f"{conf*100:.0f}%", (left.right - 16, y), 13, col,
-                   bold=True, align="right")
-            y += 24
-            T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
-                         f"sotto le attese {odds['sottotono']*100:.0f}%   "
-                         f"oltre {odds['oltre']*100:.0f}%",
-                   (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
-            y += 20
-            if rimaste <= 0:
-                T.text(surf, "Gettoni finiti: il resto del lavoro va all'anno prossimo.",
-                       (left.x + 16, y), 12, T.WARN, maxw=left.w - 32)
-            elif sp.get("races", 0) < 5:
-                T.text(surf, "Piu' resta al banco, meno sorprese in pista.",
-                       (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
+        f.par(f"fallisce {odds['fallito']*100:.0f}%   "
+              f"sotto le attese {odds['sottotono']*100:.0f}%   "
+              f"oltre {odds['oltre']*100:.0f}%", 12, T.DIM_2)
+        if rimaste <= 0:
+            f.par("Gettoni finiti: il resto del lavoro va all'anno prossimo.", 12, T.WARN)
+        elif sp.get("races", 0) < 5:
+            f.par("Piu' resta al banco, meno sorprese in pista.", 12, T.DIM_2)
+        if self._can_homologate():
+            f.widget(self.b_omologa, 40, gap=8)
 
-        # --- reparto e programma -----------------------------------------
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "IL NOSTRO REPARTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
-
+    def _draw_right(self, f) -> None:
+        gs, team = self.gs, self.team
+        eng = powertrain.maker(gs, team)
         hop = team.role("head_of_powertrain")
         ceil = powertrain.ceiling(gs, team)
         clients = powertrain.customers_of(gs, team.engine) if team.works else []
-        y = right.y + 96
+        f.head("Il nostro reparto")
+        f.widget(self.budget_slider, 28, gap=14)
         rows = [
             ("Responsabile powertrain", hop.name if hop else "nessuno"),
             ("Qualita' del reparto", f"{team.pu_strength:.0f} / 100"),
@@ -820,70 +1047,60 @@ class PowerUnitPage(Page):
         else:
             rows.append(("Fornitura che paghiamo", f"-{team.engine_customer_cost:.0f} M$ all'anno"))
         for k, v in rows:
-            T.text(surf, k, (right.x + 16, y), 13, T.DIM)
-            T.text(surf, v, (right.right - 16, y), 13, T.TEXT, bold=True, align="right",
-                   maxw=right.w * 0.5)
-            y += 22
-
-        y += 10
+            f.kv(k, v)
+        f.gap(8)
         if powertrain.locked(gs):
-            T.text(surf, "Sviluppo power unit congelato dal regolamento.",
-                   (right.x + 16, y), 13, T.WARN, bold=True, maxw=right.w - 32)
-            y += 24
+            f.par("Sviluppo power unit congelato dal regolamento.", 13, T.WARN, bold=True)
         if gs.regulations.get("pu_equalisation"):
-            T.text(surf, "Equalizzazione in vigore: chi e' indietro sviluppa di piu'.",
-                   (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
-            y += 22
+            f.par("Equalizzazione in vigore: chi e' indietro sviluppa di piu'.", 12, T.DIM)
 
         p = powertrain.program(gs)
         if powertrain.has_program(gs):
-            T.text(surf, "PROGRAMMA IN CORSO", (right.x + 16, y), 12, T.DIM_2, bold=True)
-            y += 22
-            T.text(surf, f"Livello raggiunto {p['level']:.1f} su un tetto di {ceil:.1f}",
-                   (right.x + 16, y), 13, T.TEXT, maxw=right.w - 32)
-            T.bar(surf, (right.x + 16, y + 22, right.w - 32, 8), p["level"], 100, T.OK)
-            y += 40
-            T.text(surf, f"Investiti {p['invested']:.0f} M$ - in pista dal {p['ready_season']}",
-                   (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
-            y += 26
+            f.head("Programma in corso")
+            f.line(f"Livello raggiunto {p['level']:.1f} su un tetto di {ceil:.1f}", 13,
+                   T.TEXT, gap=6)
+            riga = f.box(8, gap=8)
+            if f.surf:
+                T.bar(f.surf, riga, p["level"], 100, T.OK)
+            f.line(f"Investiti {p['invested']:.0f} M$ - in pista dal {p['ready_season']}",
+                   12, T.DIM, gap=12)
             o = powertrain.debut_outlook(gs, self.app.pu_budget)
-            T.text(surf, "QUANDO PORTARLA IN PISTA", (right.x + 16, y), 12, T.DIM_2, bold=True)
-            y += 22
+            f.head("Quando portarla in pista")
             gap = o["gap_now"]
-            T.text(surf, "Oggi il nostro motore vale", (right.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{o['now']:.1f}", (right.x + 240, y), 13, T.TEXT, bold=True)
-            T.text(surf, f"contro il {o['supplied']:.1f} che compriamo ({gap:+.1f})",
-                   (right.x + 280, y), 13, T.OK if gap >= 0 else T.BAD)
-            y += 22
-            T.text(surf, f"Fra {o['horizon']} gare, se debutta subito",
-                   (right.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{o['if_debut_now']:.1f}", (right.x + 240, y), 13, T.OK, bold=True)
-            y += 20
-            T.text(surf, f"Fra {o['horizon']} gare, se resta al banco",
-                   (right.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{o['if_wait']:.1f}", (right.x + 240, y), 13, T.WARN, bold=True)
-            y += 24
-            for line in (f"Al banco si sviluppa al {o['bench_penalty']*100:.0f}% del ritmo: "
-                         f"mancano i dati veri.",
-                         "Correre con un motore acerbo costa punti adesso, ma lo fa",
-                         "crescere piu' in fretta."):
-                T.text(surf, line, (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
-                y += 16
+            f.kv("Oggi il nostro motore vale",
+                 f"{o['now']:.1f}  contro il {o['supplied']:.1f} che compriamo ({gap:+.1f})",
+                 13, T.OK if gap >= 0 else T.BAD)
+            f.kv(f"Fra {o['horizon']} gare, se debutta subito", f"{o['if_debut_now']:.1f}",
+                 13, T.OK)
+            f.kv(f"Fra {o['horizon']} gare, se resta al banco", f"{o['if_wait']:.1f}",
+                 13, T.WARN)
+            f.par(f"Al banco si sviluppa al {o['bench_penalty']*100:.0f}% del ritmo: "
+                  f"mancano i dati veri. Correre con un motore acerbo costa punti "
+                  f"adesso, ma lo fa crescere piu' in fretta.")
+            if powertrain.ready_to_debut(gs):
+                f.widget(self.b_debutto, 42, gap=8)
         elif not team.works:
-            for riga in (f"Compriamo la power unit da {eng.get('name', '-')} per "
-                         f"{team.engine_customer_cost:.0f} M$ a stagione, e ci teniamo",
-                         "la specifica che decidono loro. Fondando un reparto nostro",
-                         "potremmo svilupparla in casa, ma servono anni e un buon",
-                         "responsabile powertrain."):
-                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
-                y += 18
+            f.head("Comprare o costruire")
+            f.par(f"Compriamo la power unit da {eng.get('name', '-')} per "
+                  f"{team.engine_customer_cost:.0f} M$ a stagione, e ci teniamo la "
+                  f"specifica che decidono loro. Fondando un reparto nostro potremmo "
+                  f"svilupparla in casa, ma servono anni e un buon responsabile "
+                  f"powertrain.", 13, T.DIM)
+            f.widget(self.b_fonda, 42, gap=8)
+            if self.found_note:
+                f.par(self.found_note, 12, T.WARN)
         else:
-            for riga in ("Costruiamo la nostra power unit: il budget qui sopra e' quello",
-                         "che il reparto motori spende a ogni gara. Sta fuori dal tetto di",
-                         "spesa della squadra, come nella realta'."):
-                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
-                y += 18
-        if getattr(self, "found_note", ""):
-            T.text(surf, self.found_note, (r.x + 16, r.bottom - 26), 13, T.WARN,
-                   maxw=r.w - 32)
+            f.par("Costruiamo la nostra power unit: il budget qui sopra e' quello che il "
+                  "reparto motori spende a ogni gara. Sta fuori dal tetto di spesa della "
+                  "squadra, come nella realta'.", 13, T.DIM)
+
+    # ------------------------------------------------------------------ draw
+    def draw(self, surf) -> None:
+        r, gs, team = self.rect, self.gs, self.team
+        eng = powertrain.maker(gs, team)
+        T.text(surf, "POWER UNIT", (r.x, r.y + 10), 22, T.TEXT, bold=True)
+        status = ("costruttore" if team.works else
+                  "team ufficiale" if team.is_partner else
+                  "cliente, reparto in costruzione" if powertrain.has_program(gs) else "cliente")
+        T.text(surf, f"{eng.get('name', '-')} - {status}", (r.x, r.y + 42), 14, T.DIM)
         super().draw(surf)

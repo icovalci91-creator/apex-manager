@@ -179,10 +179,10 @@ class GameMenuScene(Scene):
         }[self.modo]
         T.text(surf, sotto, (w // 2, 150), 15, T.DIM, align="center")
         if self.modo == "principale":
-            T.text(surf, "L'editor permette di modificare qualunque valore della partita: "
-                         "squadre, piloti, vetture, circuiti, regolamento e costanti di "
-                         "taratura. Da usare sapendo che si sta barando.",
-                   (w // 2 - 200, h - 92), 12, T.DIM_2, maxw=400)
+            T.paragraph(surf, "L'editor permette di modificare qualunque valore della "
+                              "partita: squadre, piloti, vetture, circuiti, regolamento e "
+                              "costanti di taratura. Da usare sapendo che si sta barando.",
+                        (w // 2 - 200, h - 92), 12, T.DIM_2, 400)
         if self.modo == "carica" and not self.saves:
             T.text(surf, "Nessun salvataggio.", (w // 2, 260), 16, T.DIM, align="center")
         super().draw(surf)

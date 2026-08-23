@@ -99,6 +99,59 @@ def ellipsize(s: str, f: pygame.font.Font, maxw: int) -> str:
     return out
 
 
+_WRAP: dict = {}
+
+
+def wrap(s: str, size: int = 13, maxw: int = 200, bold: bool = False,
+         mono: bool = False) -> list:
+    """Spezza un testo in righe che ci stanno in `maxw`.
+
+    Prima ogni pagina si spezzava le frasi per conto suo, a mano, contando le
+    righe a occhio: e' cosi' che due blocchi finivano uno sopra l'altro. Qui la
+    misura si fa una volta sola e si tiene in cache, e chi scrive sa quante
+    righe occupera'.
+    """
+    key = (s, size, maxw, bold, mono)
+    out = _WRAP.get(key)
+    if out is not None:
+        return out
+    if len(_WRAP) >= _SURF_MAX:
+        _WRAP.clear()
+    f = font(size, bold, mono)
+    righe, cur = [], ""
+    for parola in str(s).split():
+        prova = (cur + " " + parola).strip()
+        if cur and f.size(prova)[0] > maxw:
+            righe.append(cur)
+            cur = parola
+        else:
+            cur = prova
+    if cur or not righe:
+        righe.append(cur)
+    _WRAP[key] = righe
+    return righe
+
+
+def paragraph(surf, s: str, pos, size: int = 12, colour=DIM_2, maxw: int = 200,
+              bold: bool = False, leading: int = 0) -> int:
+    """Scrive un testo mandandolo a capo, e dice quanto spazio ha occupato.
+
+    `text(..., maxw=...)` taglia la frase con i puntini: va bene per
+    un'etichetta, non per una spiegazione. Qui la frase si legge tutta.
+    """
+    y = pos[1]
+    passo = line_h(size, bold) + leading
+    for riga in wrap(s, size, maxw, bold):
+        text(surf, riga, (pos[0], y), size, colour, bold=bold)
+        y += passo
+    return y - pos[1]
+
+
+def line_h(size: int, bold: bool = False) -> int:
+    """Altezza di una riga di testo, interlinea compresa."""
+    return font(size, bold).get_linesize()
+
+
 def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1):
     pygame.draw.rect(surf, colour, rect, border_radius=radius)
     if border:

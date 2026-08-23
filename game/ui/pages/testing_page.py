@@ -7,7 +7,7 @@ from ...core import testing as TT
 from .. import theme as T
 from .. import trackdraw
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, Slider, card
+from ..widgets import Button, ScrollList, ScrollPanel, Slider, card
 
 
 class TestingPage(Page):
@@ -27,43 +27,37 @@ class TestingPage(Page):
                                 row_h=34, draw_row=self._row_track, on_select=self._pick_track)
         self.widgets.append(self.piste)
 
-        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
         self.prog_buttons = []
-        bw = (right.w - 44) / 2
-        for i, (key, meta) in enumerate(TT.PROGRAMMI.items()):
-            b = Button((right.x + 16 + (i % 2) * (bw + 8),
-                        right.y + 34 + (i // 2) * 36, bw, 30), meta["label"])
+        for key, meta in TT.PROGRAMMI.items():
+            b = Button((0, 0, 10, 30), meta["label"])
             b.on_click = (lambda k=key: self._pick_prog(k))
             self.prog_buttons.append(b)
-            self.widgets.append(b)
         self._mark_prog()
 
-        self.piloti = ScrollList((right.x + 16, right.y + 154, right.w - 32, 122),
-                                 row_h=30, draw_row=self._row_driver, on_select=self._pick_driver)
-        self.widgets.append(self.piloti)
-
-        self.s_days = Slider((right.x + 16, right.y + 292, right.w - 32, 28), "Giornate",
-                             self.days, 1, max(1, TT.days_left(self.gs, self.team)),
+        self.piloti = ScrollList((0, 0, 10, 122), row_h=30, draw_row=self._row_driver,
+                                 on_select=self._pick_driver)
+        self.s_days = Slider((0, 0, 10, 28), "Giornate", self.days, 1,
+                             max(1, TT.days_left(self.gs, self.team)),
                              on_change=self._set_days, fmt="{:.0f}")
-        self.widgets.append(self.s_days)
-        self.widgets.append(Button((right.x + 16, right.y + 328, 250, 40),
-                                   "Manda la squadra in pista", self.run, "primary"))
+        self.b_run = Button((0, 0, 10, 40), "Manda la squadra in pista", self.run, "primary")
 
         # prove collettive: ci sono solo prima che cominci il campionato
         self.pre_buttons = []
         if self.gs.phase == "preseason":
-            y = right.bottom - 150
             for i, ses in enumerate(TT.preseason_sessions(self.gs)):
                 fatta = TT.preseason_done(self.team, i)
-                b = Button((right.x + 16 + i * ((right.w - 44) / 2 + 12), y,
-                            (right.w - 44) / 2, 36),
+                b = Button((0, 0, 10, 36),
                            ("Fatto: " if fatta else "Vai a ") + ses["track"].name,
                            style="ghost" if fatta else "primary")
                 b.on_click = (lambda k=i: self.run_preseason(k))
                 b.enabled = not fatta
                 self.pre_buttons.append((b, ses, fatta))
-                self.widgets.append(b)
+
+        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
+        self.pannello = ScrollPanel(right, self._draw_right, pad=16)
+        self.widgets.append(self.pannello)
         self._fill()
+        self.pannello.layout()
 
     def run_preseason(self, idx: int) -> None:
         ok, msg = TT.run_preseason(self.gs, self.team, idx, self.programme)
@@ -80,7 +74,11 @@ class TestingPage(Page):
 
     def _fill(self) -> None:
         gs = self.gs
-        piste = sorted(TT.venues(gs, self.team), key=lambda t: t.name)
+        # casa nostra in cima: e' il posto dove si gira piu' spesso e costa meno,
+        # e in fondo a un elenco alfabetico non la trovava nessuno
+        piste = sorted(TT.venues(gs, self.team),
+                       key=lambda t: (0 if TT.is_home(self.team, t) else
+                                      (1 if t in gs.tracks else 2), t.name))
         self.piste.items = piste
         if piste and self.track not in piste:
             self.track = piste[0]
@@ -134,7 +132,9 @@ class TestingPage(Page):
         prezzo = TT.cost_of(gs, self.team, t, self.programme, self.days)
         T.text(surf, f"{prezzo:.1f} M$", (rect.right - 14, rect.y + 8), 13,
                T.GOLD, align="right")
-        if not in_cal:
+        if TT.is_home(self.team, t):
+            T.text(surf, "casa nostra", (rect.x + 14, rect.y + 22), 10, T.OK)
+        elif not in_cal:
             T.text(surf, "fuori calendario", (rect.x + 14, rect.y + 22), 10, T.DIM_2)
 
     def _row_driver(self, surf, rect, i, d) -> None:
@@ -148,6 +148,78 @@ class TestingPage(Page):
                col, align="right")
         if not proprio:
             T.text(surf, "svincolato", (rect.x + 262, rect.y + 7), 11, T.DIM_2)
+
+    # ------------------------------------------------------------ contenuti
+    def _draw_right(self, f) -> None:
+        gs, team = self.gs, self.team
+        f.head("Programma")
+        for i in range(0, len(self.prog_buttons), 2):
+            f.row(self.prog_buttons[i:i + 2], 30, gap=6)
+        f.gap(4)
+        f.par(TT.PROGRAMMI[self.programme]["desc"], 13, T.DIM)
+
+        f.head("Chi mandiamo" + ("" if self.programme == "giovani"
+                                 else "  (per questo programma il pilota conta poco)"))
+        f.widget(self.piloti, 122, gap=14)
+
+        f.widget(self.s_days, 28, gap=10)
+        f.widget(self.b_run, 40, width=280, gap=16)
+
+        if self.track:
+            voci = TT.cost_breakdown(gs, team, self.track, self.programme, self.days)
+            prezzo = sum(voci.values())
+            ok, why = TT.can_run(gs, team, self.track, self.programme, self.days)
+            f.line(f"{self.days} giornate a {self.track.name}: {prezzo:.2f} M$ dentro il "
+                   f"tetto di spesa", 14, T.TEXT, gap=6)
+            # le tre voci separate: i materiali sono uguali dappertutto, il
+            # resto lo si paga solo andando a casa d'altri
+            riga = f.box(18, gap=4)
+            if f.surf:
+                x = riga.x
+                for chiave, etichetta in (("materiali", "materiali"),
+                                          ("noleggio", "noleggio pista"),
+                                          ("trasferta", "trasferta")):
+                    v = voci[chiave]
+                    col = T.DIM_2 if v <= 0.001 else (T.TEXT if chiave == "materiali"
+                                                     else T.WARN)
+                    T.text(f.surf, f"{etichetta} {v:.2f}", (x, riga.y), 12, col)
+                    x += 150
+            if TT.is_home(team, self.track):
+                f.par("E' casa nostra: si paga solo quello che si consuma.", 12, T.OK)
+            if not ok:
+                f.par(why, 13, T.BAD)
+            scheda = f.box(150, gap=12)
+            if f.surf:
+                trackdraw.draw_minimap(f.surf, self.track,
+                                       (scheda.x, scheda.y, 210, 150),
+                                       colour=(58, 70, 92), width=3)
+                T.text(f.surf, self.track.name, (scheda.x + 228, scheda.y + 8), 16, T.TEXT,
+                       bold=True, maxw=scheda.w - 240)
+                T.text(f.surf, f"{self.track.length_km:.3f} km - {self.track.country}",
+                       (scheda.x + 228, scheda.y + 32), 13, T.DIM)
+                sapere = TT.setup_bonus(team, self.track)
+                T.text(f.surf, f"conoscenza accumulata {sapere*100:.0f}%",
+                       (scheda.x + 228, scheda.y + 54), 13, T.OK if sapere > 0.3 else T.DIM)
+                if self.track not in gs.tracks:
+                    T.text(f.surf, "fuori dal calendario: si gira e basta",
+                           (scheda.x + 228, scheda.y + 76), 12, T.DIM_2)
+
+        if gs.phase == "preseason" and self.pre_buttons:
+            f.head("Prove collettive di inizio stagione", T.GOLD)
+            righe = []
+            for _b, ses, fatta in self.pre_buttons:
+                prezzo = TT.preseason_cost(gs, team, ses)
+                righe.append(f"{ses['track'].name}: {ses['days']} giorni, {prezzo:.2f} M$"
+                             + ("  gia' fatte" if fatta else ""))
+            f.par("   -   ".join(righe), 12, T.DIM)
+            f.row([b for b, _s, _f in self.pre_buttons], 36)
+            f.par("Si gira con la macchina di quest'anno, l'unica volta in tutto l'anno: "
+                  "e' li' che si capisce com'e' fatta. Non tolgono giornate di test "
+                  "privati.")
+        else:
+            f.par("Il regolamento vieta di provare con la vettura dell'anno: si gira con "
+                  "monoposto di due stagioni fa. Serve ai piloti e alla correlazione, non "
+                  "a rendere piu' veloce la macchina di adesso.")
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
@@ -172,75 +244,4 @@ class TestingPage(Page):
         T.text(surf, "DOVE GIRARE", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         T.text(surf, "costo per la sessione scelta", (left.right - 16, left.y + 12), 11,
                T.DIM_2, align="right")
-
-        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
-        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "PROGRAMMA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
-        meta = TT.PROGRAMMI[self.programme]
-        T.text(surf, meta["desc"], (right.x + 16, right.y + 112), 13, T.DIM,
-               maxw=right.w - 32)
-        T.text(surf, "CHI MANDIAMO", (right.x + 16, right.y + 136), 12, T.DIM_2, bold=True)
-        if self.programme != "giovani":
-            T.text(surf, "(per questo programma il pilota conta poco)",
-                   (right.x + 150, right.y + 136), 11, T.DIM_2)
-
-        if self.track:
-            voci = TT.cost_breakdown(gs, team, self.track, self.programme, self.days)
-            prezzo = sum(voci.values())
-            ok, why = TT.can_run(gs, team, self.track, self.programme, self.days)
-            casa = TT.is_home(team, self.track)
-            T.text(surf, f"{self.days} giornate a {self.track.name}: {prezzo:.2f} M$ "
-                         f"dentro il tetto di spesa",
-                   (right.x + 16, right.y + 384), 14, T.TEXT, maxw=right.w - 32)
-            # le tre voci separate: i materiali sono uguali dappertutto, il
-            # resto lo si paga solo andando a casa d'altri
-            x = right.x + 16
-            for chiave, etichetta in (("materiali", "materiali"), ("noleggio", "noleggio pista"),
-                                      ("trasferta", "trasferta")):
-                v = voci[chiave]
-                col = T.DIM_2 if v <= 0.001 else (T.TEXT if chiave == "materiali" else T.WARN)
-                T.text(surf, f"{etichetta} {v:.2f}", (x, right.y + 404), 12, col)
-                x += 150
-            if casa:
-                T.text(surf, "e' casa nostra: si paga solo quello che si consuma",
-                       (right.x + 16, right.y + 422), 12, T.OK, maxw=right.w - 32)
-            if not ok:
-                T.text(surf, why, (right.x + 16, right.y + 440), 13, T.BAD,
-                       maxw=right.w - 32)
-            trackdraw.draw_minimap(surf, self.track,
-                                   (right.x + 16, right.y + 440, 210, 150),
-                                   colour=(58, 70, 92), width=3)
-            T.text(surf, self.track.name, (right.x + 244, right.y + 448), 16, T.TEXT,
-                   bold=True, maxw=right.w - 268)
-            T.text(surf, f"{self.track.length_km:.3f} km - {self.track.country}",
-                   (right.x + 244, right.y + 470), 13, T.DIM)
-            sapere = TT.setup_bonus(team, self.track)
-            T.text(surf, f"conoscenza accumulata {sapere*100:.0f}%",
-                   (right.x + 244, right.y + 492), 13,
-                   T.OK if sapere > 0.3 else T.DIM)
-            if self.track not in gs.tracks:
-                T.text(surf, "fuori dal calendario: si gira e basta",
-                       (right.x + 244, right.y + 514), 12, T.DIM_2)
-
-        if gs.phase == "preseason" and getattr(self, "pre_buttons", None):
-            T.text(surf, "PROVE COLLETTIVE DI INIZIO STAGIONE", (right.x + 16, right.bottom - 176),
-                   12, T.GOLD, bold=True)
-            righe = []
-            for _b, ses, fatta in self.pre_buttons:
-                prezzo = TT.preseason_cost(gs, team, ses)
-                righe.append(f"{ses['track'].name}: {ses['days']} giorni, {prezzo:.2f} M$"
-                             + ("  gia' fatte" if fatta else ""))
-            T.text(surf, "   -   ".join(righe), (right.x + 16, right.bottom - 158), 12,
-                   T.DIM, maxw=right.w - 32)
-            T.text(surf, "Si gira con la macchina di quest'anno, l'unica volta in tutto "
-                         "l'anno: e' li' che si capisce com'e' fatta. Non tolgono giornate "
-                         "di test privati.",
-                   (right.x + 16, right.bottom - 104), 12, T.DIM_2, maxw=right.w - 32)
-        else:
-            T.text(surf, "Il regolamento vieta di provare con la vettura dell'anno:",
-                   (right.x + 16, right.bottom - 52), 12, T.DIM_2, maxw=right.w - 32)
-            T.text(surf, "si gira con monoposto di due stagioni fa. Serve ai piloti e alla",
-                   (right.x + 16, right.bottom - 36), 12, T.DIM_2, maxw=right.w - 32)
-            T.text(surf, "correlazione, non a rendere piu' veloce la macchina di adesso.",
-                   (right.x + 16, right.bottom - 20), 12, T.DIM_2, maxw=right.w - 32)
         super().draw(surf)

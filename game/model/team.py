@@ -62,6 +62,10 @@ class Team:
     dev_projects: list = field(default_factory=list)
     spec_trials: list = field(default_factory=list)  # specifiche in verifica
     upgrades_done: int = 0
+    # Storia degli aggiornamenti portati in pista: cosa era stato promesso e
+    # cosa e' arrivato davvero. Serve a guardarsi indietro e capire se il
+    # reparto mantiene quello che dice, non solo quanti pacchetti ha fatto.
+    upgrade_log: list = field(default_factory=list)
     is_player: bool = False
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1

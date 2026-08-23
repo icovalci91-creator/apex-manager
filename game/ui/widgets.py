@@ -374,3 +374,286 @@ def card(surf, rect, title, value, sub="", colour=None, accent=T.ACCENT):
            maxw=rect.w - 28)
     if sub:
         T.text(surf, sub, (rect.x + 14, rect.y + 58), 12, T.DIM, maxw=rect.w - 28)
+
+
+# ============================================================ scorrimento
+class Flow:
+    """Cursore di scrittura: si scrive una riga dopo l'altra.
+
+    Il problema delle schermate era sempre lo stesso: ogni blocco veniva
+    piazzato a una distanza fissa dal bordo del pannello, calcolata a mano
+    quando quel blocco e' stato scritto. Bastava che il blocco sopra crescesse
+    di una riga - un testo piu' lungo, una specifica in piu', una frase che va
+    a capo - e i due finivano uno sopra l'altro.
+
+    Qui la posizione non la sceglie nessuno: la decide quello che c'e' scritto
+    sopra. Ogni cosa scritta sposta il cursore di quanto ha occupato davvero, e
+    due cose non possono sovrapporsi nemmeno volendo.
+
+    Lo stesso codice serve a misurare e a disegnare: con `surf` a None non
+    disegna niente ma il cursore avanza uguale, ed e' cosi' che il pannello sa
+    quanto e' alto il contenuto prima di mostrarlo.
+    """
+
+    def __init__(self, surf, x: int, y: int, w: int, panel=None):
+        self.surf = surf
+        self.x = int(x)
+        self.y = float(y)
+        self.w = int(w)
+        self.panel = panel      # per raccogliere i widget in fase di misura
+
+    # ------------------------------------------------------------- testo
+    def head(self, s: str, colour=T.DIM_2, gap: int = 6) -> None:
+        """Titoletto di sezione."""
+        if self.surf:
+            T.text(self.surf, str(s).upper(), (self.x, int(self.y)), 12, colour,
+                   bold=True, maxw=self.w)
+        self.y += T.line_h(12) + gap
+
+    def line(self, s: str, size: int = 13, colour=T.DIM, bold: bool = False,
+             gap: int = 2, indent: int = 0) -> None:
+        """Una riga sola: se non ci sta viene tagliata."""
+        if self.surf:
+            T.text(self.surf, s, (self.x + indent, int(self.y)), size, colour,
+                   bold=bold, maxw=self.w - indent)
+        self.y += T.line_h(size, bold) + gap
+
+    def par(self, s: str, size: int = 12, colour=T.DIM_2, bold: bool = False,
+            gap: int = 6, indent: int = 0) -> None:
+        """Un testo che va a capo da solo quante volte serve."""
+        righe = T.wrap(s, size, self.w - indent, bold)
+        for riga in righe:
+            if self.surf:
+                T.text(self.surf, riga, (self.x + indent, int(self.y)), size, colour,
+                       bold=bold)
+            self.y += T.line_h(size, bold)
+        self.y += gap
+
+    def kv(self, k: str, v: str, size: int = 13, colour=T.TEXT, key_colour=T.DIM,
+           gap: int = 4) -> None:
+        """Etichetta a sinistra, valore a destra."""
+        if self.surf:
+            T.text(self.surf, k, (self.x, int(self.y)), size, key_colour,
+                   maxw=self.w * 0.62)
+            T.text(self.surf, v, (self.x + self.w, int(self.y)), size, colour,
+                   bold=True, align="right", maxw=self.w * 0.42)
+        self.y += T.line_h(size) + gap
+
+    def bar_row(self, label: str, value: float, maxv: float = 100.0, colour=None,
+                suffix: str = "", size: int = 13, gap: int = 5) -> None:
+        h = T.line_h(size)
+        if self.surf:
+            stat_row(self.surf, pygame.Rect(self.x, int(self.y), self.w, h),
+                     label, value, maxv, colour, suffix)
+        self.y += h + gap
+
+    # ----------------------------------------------------------- spazio
+    def gap(self, n: int = 10) -> None:
+        self.y += n
+
+    def rule(self, gap: int = 8) -> None:
+        if self.surf:
+            pygame.draw.line(self.surf, T.LINE, (self.x, int(self.y)),
+                             (self.x + self.w, int(self.y)))
+        self.y += 1 + gap
+
+    def box(self, h: int, gap: int = 8) -> pygame.Rect:
+        """Riserva uno spazio e restituisce dove sta: per i disegni a mano."""
+        r = pygame.Rect(self.x, int(self.y), self.w, int(h))
+        self.y += h + gap
+        return r
+
+    # ---------------------------------------------------------- widget
+    def widget(self, w, h: int | None = None, width: int | None = None,
+               gap: int = 8):
+        """Mette un widget nel flusso: la sua altezza fa spazio come il testo."""
+        alt = int(h if h is not None else w.rect.h)
+        larg = int(width if width is not None else self.w)
+        w.rect = pygame.Rect(self.x, int(self.y), larg, alt)
+        self.y += alt + gap
+        if self.panel is not None:
+            self.panel.widgets.append(w)
+        return w
+
+    def at(self, w, rect, register: bool = True):
+        """Mette un widget dove dico io, senza toccare il cursore.
+
+        Serve alle zone cliccabili sopra qualcosa che si disegna da solo: una
+        riga di elenco, una casella di tabella, la sagoma della macchina.
+        """
+        w.rect = pygame.Rect(rect)
+        if register and self.panel is not None:
+            self.panel.widgets.append(w)
+        return w
+
+    def row(self, widgets: list, h: int = 34, gap: int = 8, spacing: int = 8):
+        """Piu' widget affiancati sulla stessa riga."""
+        widgets = [w for w in widgets if w is not None]
+        if not widgets:
+            return
+        larg = (self.w - spacing * (len(widgets) - 1)) / len(widgets)
+        x = self.x
+        for w in widgets:
+            w.rect = pygame.Rect(int(x), int(self.y), int(larg), h)
+            if self.panel is not None:
+                self.panel.widgets.append(w)
+            x += larg + spacing
+        self.y += h + gap
+
+
+class ScrollPanel(Widget):
+    """Un riquadro il cui contenuto puo' essere piu' alto dello spazio che ha.
+
+    Quando il contenuto sfora non viene tagliato: si scorre, con la rotellina o
+    trascinando col dito. Il contenuto lo scrive chi usa il pannello, con un
+    `Flow`, e viene percorso due volte: una a vuoto per sapere quanto e' alto e
+    dove finiscono i pulsanti, una per disegnarlo davvero.
+    """
+
+    TAP_SLOP = 8
+
+    def __init__(self, rect, content=None, pad: int = 16, top: int = 14,
+                 background=T.PANEL, border=T.LINE):
+        super().__init__(rect)
+        self.content = content
+        self.pad = pad
+        self.top = top
+        self.background = background
+        self.border = border
+        self.offset = 0.0
+        self.content_h = 0.0
+        self.widgets: list = []
+        self._grab_y = 0
+        self._grab_offset = 0.0
+        self._moved = 0.0
+        self.pressed = False
+
+    # ------------------------------------------------------------ misura
+    @property
+    def inner_w(self) -> int:
+        return self.rect.w - 2 * self.pad
+
+    @property
+    def view_h(self) -> int:
+        return self.rect.h - 2 * self.top
+
+    @property
+    def max_offset(self) -> float:
+        return max(0.0, self.content_h - self.view_h)
+
+    def layout(self) -> None:
+        """Percorre il contenuto senza disegnarlo: altezza e posizione dei widget."""
+        self.widgets = []
+        if not self.content:
+            self.content_h = 0.0
+            return
+        f = Flow(None, self.rect.x + self.pad, 0, self.inner_w, panel=self)
+        self.content(f)
+        self.content_h = f.y
+        self.offset = max(0.0, min(self.max_offset, self.offset))
+
+    # ------------------------------------------------------------ eventi
+    # Quello che dentro un pannello si preme e si trascina: i cursori hanno
+    # bisogno di ricevere subito la pressione, tutto il resto no. Cosi' si puo'
+    # scorrere trascinando anche partendo da sopra un pulsante, come su un
+    # telefono, senza che il pulsante scatti per sbaglio.
+    PRESA_DIRETTA = (Slider, TextInput, ScrollList)
+
+    def handle(self, ev) -> bool:
+        if not (self.enabled and self.visible):
+            return False
+        dentro = hasattr(ev, "pos") and self.rect.collidepoint(ev.pos)
+
+        if ev.type == pygame.MOUSEWHEEL:
+            mx, my = pygame.mouse.get_pos()
+            if self.rect.collidepoint(mx, my) and self.max_offset > 0:
+                self.offset = max(0.0, min(self.max_offset, self.offset - ev.y * 54))
+                return True
+            return False
+
+        if ev.type == pygame.MOUSEMOTION:
+            if self.pressed:
+                delta = ev.pos[1] - self._grab_y
+                self._moved += abs(getattr(ev, "rel", (0, 0))[1])
+                self.offset = max(0.0, min(self.max_offset, self._grab_offset - delta))
+                return True
+            # il passaggio del mouse serve a tutti, dentro e fuori: e' cosi' che
+            # un pulsante si spegne quando ce ne si allontana
+            for w in self.widgets:
+                w.handle(ev)
+            return False
+
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if not dentro:
+                return False
+            for w in self.widgets:
+                if isinstance(w, self.PRESA_DIRETTA) and w.handle(ev):
+                    return True
+            if self.max_offset > 0:
+                self.pressed = True
+                self._grab_y = ev.pos[1]
+                self._grab_offset = self.offset
+                self._moved = 0.0
+                return True
+            for w in self.widgets:
+                if w.handle(ev):
+                    return True
+            return True
+
+        if ev.type == pygame.MOUSEBUTTONUP:
+            era = self.pressed
+            self.pressed = False
+            for w in self.widgets:
+                if isinstance(w, self.PRESA_DIRETTA):
+                    w.handle(ev)
+            if era and self._moved <= self.TAP_SLOP and dentro:
+                # non si stava scorrendo: era un clic, e adesso si vede a cosa
+                clic = pygame.event.Event(pygame.MOUSEBUTTONDOWN,
+                                          {"pos": ev.pos, "button": 1})
+                for w in self.widgets:
+                    if not isinstance(w, self.PRESA_DIRETTA) and w.handle(clic):
+                        return True
+                return True
+            if era:
+                return True
+            for w in self.widgets:
+                if not isinstance(w, self.PRESA_DIRETTA) and w.handle(ev):
+                    return True
+            return False
+
+        for w in self.widgets:
+            if w.handle(ev):
+                return True
+        return False
+
+    def update(self, dt: float) -> None:
+        for w in self.widgets:
+            w.update(dt)
+
+    # ------------------------------------------------------------ disegno
+    def draw(self, surf) -> None:
+        if not self.visible:
+            return
+        if self.background:
+            T.panel(surf, self.rect, self.background, radius=10, border=self.border)
+        if not self.content:
+            return
+        prev = surf.get_clip()
+        surf.set_clip(self.rect.clip(prev) if prev else self.rect)
+        # il contenuto si ripercorre a ogni disegno, e i widget si raccolgono
+        # qui: cosi' quello che si vede e quello che risponde al mouse sono
+        # sempre la stessa cosa, anche se nel frattempo la partita e' cambiata
+        self.widgets = []
+        cima = self.rect.y + self.top - self.offset
+        f = Flow(surf, self.rect.x + self.pad, cima, self.inner_w, panel=self)
+        self.content(f)
+        self.content_h = f.y - cima
+        for w in self.widgets:
+            w.draw(surf)
+        surf.set_clip(prev)
+        if self.max_offset > 0:
+            # la barra dice che sotto c'e' altro: senza, non si scopre
+            h = max(28, int(self.view_h * self.view_h / max(1.0, self.content_h)))
+            y = self.rect.y + self.top + int((self.view_h - h) * self.offset / self.max_offset)
+            pygame.draw.rect(surf, T.PANEL_3, (self.rect.right - 7, y, 4, h),
+                             border_radius=2)
