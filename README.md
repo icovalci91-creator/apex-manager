@@ -140,7 +140,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sei regolazioni di assetto (o delega agli ingegneri) |
-| Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti |
+| Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
@@ -253,11 +253,29 @@ dipende dalla *fiducia del reparto*, che mette insieme:
 | in aggiunta: correlazione dai test privati (+22%) e conoscenza della vettura (+10%) | |
 | in sottrazione: la taglia del pacchetto (medio -6%, grande -14%) | |
 
-Da li' escono quattro esiti: *fallito* (da -30% a +15% del previsto: la macchina peggiora
-e si rimonta la specifica vecchia), *sottotono*, *in linea*, *oltre le attese*. Con un
-pacchetto grande una squadra di vertice fallisce circa una volta su sei, una di coda una
-volta su tre. La pagina Sviluppo mostra la forbice prima di spendere, e gli ingegneri
-dicono cosa ci sta tradendo.
+Da li' escono quattro esiti: *fallito* (da -30% a +15% del previsto), *sottotono*, *in
+linea*, *oltre le attese*. Con un pacchetto grande una squadra di vertice fallisce circa
+una volta su sei, una di coda una volta su tre. La pagina Sviluppo mostra la forbice prima
+di spendere, e gli ingegneri dicono cosa ci sta tradendo.
+
+Un pacchetto sbagliato pero' non si scopre in fabbrica: si scopre in pista. La specifica
+nuova va in macchina e il verdetto arriva dopo che ha girato un weekend, quando i
+cronometri dicono un'altra cosa rispetto alla galleria. A quel punto tocca decidere, e
+nessuna delle due strade e' gratis:
+
+| | Cosa costa | Cosa lascia |
+|---|---|---|
+| Rimontare la vecchia | il 20% del prezzo del pacchetto - i disegni ci sono, i pezzi no | la macchina di prima, e il pacchetto pagato e' buttato |
+| Tenerla e affinarla | il 6% a gara per quattro gare, e un banco del reparto occupato | una possibilita' di venirne a capo, che dipende da quanto il reparto sa capire perche' non funziona |
+
+Quanto convenga insistere dipende dagli strumenti. Su duecento pacchetti falliti uguali,
+la Ferrari che insiste finisce a +0,37 sulla specifica vecchia e resta sotto nel 12% dei
+casi; la Williams a +0,23 con il 18%; la Haas a +0,15 con il 26%, e per lei quel banco
+occupato per quattro gare pesa il doppio. Chi rimonta la vecchia torna sempre esattamente
+da dove era partito. Spesso un pacchetto fallito non peggiora la macchina, semplicemente
+non porta niente: in quel caso non c'e' niente da rimontare e l'unica strada e' provare a
+capirlo. Le scuderie del computer decidono con lo stesso criterio, e a fine stagione ogni
+verifica aperta si chiude da sola: la macchina nuova e' un'altra macchina.
 
 C'e' un terzo costo, oltre ai soldi e al tempo: **l'assetto va ritrovato**. Un fondo nuovo
 non e' un pezzo in piu' sulla stessa macchina, e quello che si sapeva su come farla

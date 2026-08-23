@@ -147,6 +147,9 @@ def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
     msgs = []
     player = gs.player
     development.passive_development(gs, player, dev_budget)
+    # prima il verdetto su quello che gia' gira, poi quello che arriva adesso:
+    # una specifica nuova non puo' essere giudicata dalla gara appena corsa
+    msgs += development.check_trials(gs, player)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
     testing.ai_plan(gs)

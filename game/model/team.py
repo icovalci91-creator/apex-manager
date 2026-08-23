@@ -52,6 +52,7 @@ class Team:
     cur_month: int = 1
     cur_round: int = 0
     dev_projects: list = field(default_factory=list)
+    spec_trials: list = field(default_factory=list)  # specifiche in verifica
     upgrades_done: int = 0
     is_player: bool = False
     engine_customer_cost: float = 0.0

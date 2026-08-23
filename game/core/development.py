@@ -55,6 +55,28 @@ class Project:
         return 0.0 if self.budget <= 0 else min(1.0, self.invested / self.budget)
 
 
+@dataclass
+class Trial:
+    """Una specifica in verifica: e' in macchina, ma non ha convinto.
+
+    In Formula 1 un aggiornamento sbagliato non si scopre in fabbrica: si
+    scopre in pista, quando i cronometri dicono un'altra cosa rispetto alla
+    galleria. A quel punto ci sono due strade, e nessuna delle due e' gratis.
+    Si rimonta la specifica vecchia - i pezzi ci sono ancora, ma vanno rifatti
+    e rimontati, e il pacchetto pagato e' buttato - oppure la si tiene e ci si
+    lavora sopra, sperando che il problema sia capirla e non lei.
+    """
+    part: str
+    label: str
+    old_perf: float          # la specifica ferma in garage
+    expected: float          # quanto prometteva sulla carta
+    size: str
+    races: int = 0           # gare passate con questa specifica addosso
+    cost: float = 0.0        # quanto e' costato il pacchetto
+    state: str = "in prova"  # in prova | affinamento
+    news: str = ""           # l'ultima cosa che hanno detto gli ingegneri
+
+
 def next_era(gs):
     """Il prossimo ciclo tecnico.
 
@@ -276,8 +298,11 @@ def start_project(gs, team, part: str, size: str) -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
     cost = cost_of_upgrade(part, size)
     races = RACES_OF[size]
-    if len(team.dev_projects) >= 3:
-        return False, "Hai gia' tre progetti in corso: il reparto e' saturo."
+    aperti = len(team.dev_projects) + sum(1 for t in team.spec_trials
+                                          if t.state == "affinamento")
+    if aperti >= 3:
+        return False, ("Il reparto e' saturo: fra progetti aperti e specifiche da "
+                       "capire non c'e' un banco libero.")
     if team.cash < cost / races:
         return False, "Non c'e' liquidita' nemmeno per la prima tranche."
     if team.spent + cost > economy.cap_limit(gs):
@@ -304,30 +329,173 @@ def deliver(gs, team, pr: Project) -> list:
     band = roll_outcome(gs, outcome_odds(pr.confidence, pr.size))
     lo, hi = BANDS[band]
     gain = pr.expected * gs.rng.uniform(lo, hi)
+    prima = part.perf
     part.perf = max(40.0, min(PERF_CEILING, part.perf + gain))
     team.upgrades_done += 1
     # anche quando funziona, l'assetto va ritrovato: la macchina non e' piu'
-    # quella su cui si erano presi i riferimenti. Un pacchetto rimontato via
-    # costa meno, ma qualche sessione l'ha bruciata comunque
-    quota = setup_upset(team, pr.size) * (0.5 if band == "fallito" else 1.0)
+    # quella su cui si erano presi i riferimenti
+    quota = setup_upset(team, pr.size)
     _unsettle(team, quota)
+    if band == "fallito":
+        # non si sa ancora: la specifica e' in macchina, il giudizio arriva
+        # dopo che ha girato. La vecchia resta in garage fino ad allora
+        team.spec_trials.append(Trial(
+            part=pr.part, label=nome, old_perf=prima, expected=pr.expected,
+            size=pr.size, cost=pr.budget))
     if not team.is_player:
         return []
     assetto = (f" Ci vorranno un paio di sessioni per ritrovare la finestra "
                f"d'assetto." if quota > 0.18 else "")
     if band == "fallito":
-        why = weakest_link(gs, team, pr.part)
-        if gain < -0.05:
-            return [f"{nome}: il pacchetto non funziona ({gain:+.1f}), si rimonta la "
-                    f"specifica vecchia. {why.capitalize()}."]
-        return [f"{nome}: l'aggiornamento non ha correlato ({gain:+.1f} invece di "
-                f"+{pr.expected:.1f}). {why.capitalize()}."]
+        return [f"{nome}: specifica nuova in macchina. In galleria prometteva "
+                f"+{pr.expected:.1f}: lo diranno i cronometri.{assetto}"]
     if band == "sottotono":
         return [f"{nome}: in pista rende meno che al banco, +{gain:.1f} sui "
                 f"+{pr.expected:.1f} promessi.{assetto}"]
     if band == "oltre":
         return [f"{nome}: il pacchetto va oltre le attese, +{gain:.1f}.{assetto}"]
     return [f"{nome}: aggiornamento in pista, +{gain:.1f} come previsto.{assetto}"]
+
+
+# ------------------------------------------------- specifiche che non vanno
+# Quante gare gli ingegneri restano dietro a una specifica che non convince
+# prima di dire che non ne vengono a capo.
+TRIAL_RACES = 4
+# Rifare e rimontare la specifica vecchia: i disegni ci sono, i pezzi no.
+REVERT_SHARE = 0.20
+# Da un pacchetto nato male non si tira fuori tutto quello che prometteva:
+# al massimo si recupera il buco e un po' di quello che c'era sotto, e solo
+# se il reparto ha gli strumenti per capirlo davvero.
+TRIAL_TARGET = 0.55
+# Insistere non e' gratis: ogni gara di lavoro sopra una specifica dubbia si
+# paga, e nel frattempo quel banco non progetta nient'altro.
+TRIAL_UPKEEP = 0.06
+
+
+def deficit(team, tr: Trial) -> float:
+    """Quanto si sta perdendo adesso rispetto alla specifica in garage."""
+    return round(team.car.parts[tr.part].perf - tr.old_perf, 2)
+
+
+def revert_spec(gs, team, tr: Trial) -> tuple:
+    """Rimonta la specifica vecchia. Si recupera la macchina, non i soldi."""
+    if tr not in team.spec_trials:
+        return False, "Questa specifica non e' piu' in verifica."
+    prezzo = round(tr.cost * REVERT_SHARE, 2)
+    ok, why = economy.can_afford(team, prezzo, gs)
+    if not ok:
+        return False, why
+    perso = deficit(team, tr)
+    team.add_expense(f"Ritorno alla specifica precedente: {tr.label}", prezzo,
+                     in_cap=True, category="sviluppo")
+    team.car.parts[tr.part].perf = tr.old_perf
+    # si torna indietro, ma la macchina cambia di nuovo: l'assetto ne risente
+    _unsettle(team, setup_upset(team, tr.size) * 0.5)
+    team.spec_trials.remove(tr)
+    return True, (f"{tr.label}: rimontata la specifica precedente per {prezzo:.2f} M$. "
+                  f"Recuperati {abs(perso):.1f} punti, persi i {tr.cost:.1f} M$ del "
+                  f"pacchetto.")
+
+
+def keep_spec(gs, team, tr: Trial) -> tuple:
+    """Tiene la specifica nuova e ci mette il reparto sopra."""
+    if tr not in team.spec_trials:
+        return False, "Questa specifica non e' piu' in verifica."
+    tr.state = "affinamento"
+    tr.news = "il reparto ci lavora sopra"
+    return True, (f"{tr.label}: la teniamo. Il reparto ha {TRIAL_RACES} gare per "
+                  f"venirne a capo.")
+
+
+def trial_ceiling(gs, team, tr: Trial) -> float:
+    """Il massimo che si puo' tirare fuori da questa specifica.
+
+    Non e' quello che prometteva: dipende da quanto il reparto e' in grado di
+    capire perche' non funziona. Chi ha gli strumenti che dicono il vero ci
+    arriva vicino, chi non li ha resta sotto la specifica vecchia comunque.
+    """
+    conf = project_confidence(gs, team, tr.part, tr.size)
+    return tr.old_perf + tr.expected * TRIAL_TARGET * (0.25 + 0.75 * conf)
+
+
+def _trial_step(gs, team, tr: Trial) -> str:
+    """Una gara di lavoro su una specifica tenuta. Ritorna cosa e' successo."""
+    part = team.car.parts[tr.part]
+    # il banco che ci lavora si paga, che poi ne venga fuori qualcosa o no
+    quota = round(tr.cost * TRIAL_UPKEEP, 3)
+    if quota > 0:
+        team.add_expense(f"Lavoro sulla specifica {tr.label}", quota, in_cap=True,
+                         category="sviluppo")
+    tetto = trial_ceiling(gs, team, tr)
+    if part.perf >= tetto - 0.02:
+        return ""
+    # le stesse cose che servivano a progettarla servono a capirla
+    conf = project_confidence(gs, team, tr.part, tr.size)
+    if gs.rng.random() > 0.18 + 0.45 * conf:
+        return ""
+    passo = (tetto - part.perf) * gs.rng.uniform(0.20, 0.45)
+    part.perf = min(PERF_CEILING, part.perf + passo)
+    return f"{tr.label}: qualcosa si e' capito, +{passo:.1f}."
+
+
+def check_trials(gs, team) -> list:
+    """Fa passare una gara alle specifiche in verifica.
+
+    Il verdetto non arriva dalla fabbrica ma dalla pista: dopo un weekend con
+    la specifica addosso i dati parlano, e da li' si decide.
+    """
+    msgs = []
+    for tr in list(team.spec_trials):
+        tr.races += 1
+        buco = deficit(team, tr)
+        if tr.state == "in prova":
+            why = weakest_link(gs, team, tr.part)
+            if buco < -0.05:
+                tr.news = f"in pista va peggio della vecchia di {abs(buco):.1f}: {why}"
+            else:
+                tr.news = f"non ha cambiato niente rispetto alla vecchia: {why}"
+            if not team.is_player:
+                _ai_decide(gs, team, tr, buco)
+            elif tr.races == 1:
+                # il verdetto si da' una volta: dopo, chi decide e' il muretto
+                msgs.append(f"{tr.label}: {tr.news}. Da decidere se rimontare la "
+                            f"specifica precedente o tenerla e lavorarci.")
+            elif tr.races > TRIAL_RACES:
+                # nessuna decisione e' comunque una decisione: si va avanti cosi'
+                tr.state = "affinamento"
+                tr.races = 1
+                msgs.append(f"{tr.label}: non avendo deciso niente, il reparto ha "
+                            f"continuato a lavorarci sopra.")
+            continue
+        # in affinamento: si prova a tirarne fuori qualcosa, gara dopo gara
+        nota = _trial_step(gs, team, tr)
+        if nota and team.is_player:
+            msgs.append(nota)
+        if tr.races >= TRIAL_RACES + 1:
+            buco = deficit(team, tr)
+            team.spec_trials.remove(tr)
+            if not team.is_player:
+                continue
+            if buco > 0.05:
+                msgs.append(f"{tr.label}: alla fine ne siamo venuti a capo, "
+                            f"{buco:+.1f} sulla specifica vecchia.")
+            elif buco > -0.05:
+                msgs.append(f"{tr.label}: recuperato quello che si era perso, "
+                            f"ma il pacchetto non ha portato niente.")
+            else:
+                msgs.append(f"{tr.label}: non ne siamo venuti a capo. Restiamo "
+                            f"{abs(buco):.1f} sotto la specifica vecchia, e ormai "
+                            f"quei pezzi non si rifanno.")
+    return msgs
+
+
+def _ai_decide(gs, team, tr: Trial, buco: float) -> None:
+    """Le scuderie del computer decidono da sole, come deciderebbe un muretto."""
+    prezzo = tr.cost * REVERT_SHARE
+    if buco < -0.25 and team.cash > prezzo * 3:
+        revert_spec(gs, team, tr)
+    else:
+        keep_spec(gs, team, tr)
 
 
 def advance_projects(gs, team) -> list:
@@ -428,6 +596,7 @@ def ai_development(gs) -> None:
         team.next_reg_share = ai_reg_share(gs, team)
         team.resource_alloc = alloc
         passive_development(gs, team, budget)
+        check_trials(gs, team)
         advance_projects(gs, team)
         ai_start_package(gs, team, weak, headroom)
 
@@ -466,6 +635,9 @@ def new_car_season(gs) -> None:
     """
     for team in gs.teams.values():
         team.car_understanding *= UNDERSTANDING_CARRY
+        # le specifiche in verifica muoiono con la macchina su cui erano nate:
+        # quello che si e' recuperato resta, il resto e' storia
+        team.spec_trials = []
 
 
 def technological_decay(gs) -> float:

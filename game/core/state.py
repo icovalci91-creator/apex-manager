@@ -11,7 +11,7 @@ from ..model.car import Car
 from ..model.people import Driver, Staff, generate_staff
 from ..model.team import Team
 from ..model.track import Track
-from .development import Project
+from .development import Project, Trial
 
 ROLE_LEVEL_FROM_REP = {
     "technical_director": 1.00, "chief_designer": 0.95, "head_of_aero": 0.97,
@@ -337,6 +337,7 @@ class GameState:
                     "pu_partner_engine": t.pu_partner_engine,
                     "staff": [s.to_dict() for s in t.staff],
                     "dev_projects": [asdict(p) for p in t.dev_projects],
+                    "spec_trials": [asdict(x) for x in t.spec_trials],
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup,
@@ -397,6 +398,9 @@ class GameState:
             campi = {f.name for f in fields(Project)}
             t.dev_projects = [Project(**{k: v for k, v in p.items() if k in campi})
                               for p in td.get("dev_projects", [])]
+            campi = {f.name for f in fields(Trial)}
+            t.spec_trials = [Trial(**{k: v for k, v in x.items() if k in campi})
+                             for x in td.get("spec_trials", [])]
             for k, p in td["car_parts"].items():
                 if k in t.car.parts:
                     t.car.parts[k].perf = p["perf"]

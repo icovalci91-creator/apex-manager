@@ -272,6 +272,22 @@ class DevPage(Page):
         self.widgets.append(Button((left.x + 26 + (left.w - 42) / 2, y + 8, (left.w - 42) / 2, 34),
                                    "Consiglio ingegneri", self.suggest, "primary"))
 
+        # specifiche che non hanno convinto: si rimonta la vecchia o si insiste
+        self.trial_y = y + 76
+        ty = self.trial_y + 26
+        bw = (left.w - 42) / 2
+        for tr in self.team.spec_trials[:2]:
+            peggio = development.deficit(self.team, tr) < -0.05
+            if peggio:
+                self.widgets.append(Button((left.x + 16, ty + 40, bw, 30),
+                                           "Rimonta la vecchia",
+                                           (lambda t=tr: self.revert(t)), "danger"))
+            if tr.state == "in prova":
+                x = left.x + 26 + bw if peggio else left.x + 16
+                self.widgets.append(Button((x, ty + 40, bw, 30), "Tienila e affinala",
+                                           (lambda t=tr: self.keep(t)), "primary"))
+            ty += 84
+
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         self.budget_slider = Slider((right.x + 16, right.y + 34, right.w - 32, 28),
                                     "Affinamenti per gara", self.dev_budget, 0.0, 6.0,
@@ -341,6 +357,20 @@ class DevPage(Page):
                 self.alloc_sliders[k].value = v * 100.0
         self.app.toast("Allocazione aggiornata secondo il parere del reparto tecnico.")
 
+    def revert(self, tr) -> None:
+        ok, msg = development.revert_spec(self.gs, self.team, tr)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+            self.build()
+
+    def keep(self, tr) -> None:
+        ok, msg = development.keep_spec(self.gs, self.team, tr)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+            self.build()
+
     def start_project(self) -> None:
         ok, msg = development.start_project(self.gs, self.team, self.sel_part, self.sel_size)
         self.app.toast(msg)
@@ -374,6 +404,34 @@ class DevPage(Page):
                T.DIM_2, bold=True)
         T.text(surf, "affinamenti, non aggiornamenti", (left.right - 16, left.y + 12), 11,
                T.DIM_2, align="right")
+
+        ty = getattr(self, "trial_y", left.y + 460)
+        if team.spec_trials:
+            T.text(surf, "SPECIFICHE IN VERIFICA", (left.x + 16, ty), 12, T.WARN, bold=True)
+            ty += 26
+            for tr in team.spec_trials[:2]:
+                buco = development.deficit(team, tr)
+                col = T.BAD if buco < -0.05 else (T.OK if buco > 0.05 else T.WARN)
+                T.text(surf, tr.label, (left.x + 16, ty), 14, T.TEXT, bold=True, maxw=200)
+                T.text(surf, f"{buco:+.1f} sulla vecchia", (left.right - 16, ty), 13, col,
+                       bold=True, align="right")
+                stato = ("da decidere" if tr.state == "in prova" else
+                         f"in affinamento, {max(0, development.TRIAL_RACES + 1 - tr.races)} gare")
+                T.text(surf, f"{stato}  -  {tr.news}", (left.x + 16, ty + 19), 12, T.DIM,
+                       maxw=left.w - 32)
+                tetto = development.trial_ceiling(gs, team, tr) - tr.old_perf
+                nota = (f"insistere puo' portarla a {tetto:+.1f} sulla vecchia e costa "
+                        f"{tr.cost * development.TRIAL_UPKEEP:.2f} M$ a gara, con un "
+                        f"banco occupato")
+                if buco < -0.05:
+                    nota += (f"  -  rimontare la vecchia costa "
+                             f"{tr.cost * development.REVERT_SHARE:.2f} M$")
+                T.text(surf, nota, (left.x + 16, ty + 74), 11, T.DIM_2, maxw=left.w - 32)
+                ty += 84
+        elif team.dev_projects:
+            T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
+                         "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
+                   maxw=left.w - 32)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
