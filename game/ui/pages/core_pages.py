@@ -4,7 +4,9 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import development, driving, economy, engineering, penalties, powertrain, rules, setup as SETUP
+from ...core import (development, driving, economy, engineering, nextcar,
+                      penalties, powertrain, rules)
+from ...core import setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
@@ -442,14 +444,9 @@ class DevPage(Page):
                    self.start_project, "primary")
         b.enabled = not self.team.auto_dev
         self.widgets.append(b)
+        # la quota sull'anno prossimo si decide con i propri uomini, nella
+        # pagina Ingegneri: qui si lavora sulla macchina di adesso
         self.reg_slider = None
-        if development.seasons_to_reset(self.gs) not in (None,) and \
-                development.seasons_to_reset(self.gs) <= 3:
-            self.reg_slider = Slider(
-                (bx, sy + 256, right.w - 32, 28), "Risorse sul regolamento nuovo",
-                self.team.next_reg_share * 100.0, 0.0, 90.0,
-                on_change=self._set_reg_share, fmt="{:.0f}%")
-            self.widgets.append(self.reg_slider)
 
     def _set_auto(self, v) -> None:
         self.team.auto_dev = bool(v)
@@ -692,6 +689,8 @@ class DevPage(Page):
 
 # ================================================================ INGEGNERI
 class EngineersPage(Page):
+    """La riunione con i propri uomini, e la linea per la macchina che verra'."""
+
     def build(self) -> None:
         r = self.rect
         self.widgets = []
@@ -699,6 +698,30 @@ class EngineersPage(Page):
                                    "Applica il piano suggerito", self.apply_plan, "primary"))
         self._brief = None
         self._report = None
+
+        # --- la linea per la vettura dell'anno prossimo
+        left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
+        self.nc_y = left.bottom - 40 - (len(nextcar.AREE) + 1) * 30
+        self.share = Slider((left.x + 16, self.nc_y, left.w - 32, 26),
+                            "Sull'anno prossimo", self.team.next_reg_share * 100.0,
+                            0.0, 80.0, on_change=self._set_share, fmt="{:.0f}%")
+        self.widgets.append(self.share)
+        self.area_sliders = {}
+        y = self.nc_y + 30
+        brief = self.team.next_car_brief or {}
+        for key, meta in nextcar.AREE.items():
+            sl = Slider((left.x + 16, y, left.w - 32, 26), meta["label"],
+                        float(brief.get(key, 1.0)), 0.0, 5.0,
+                        on_change=(lambda v, k=key: self._set_area(k, v)), fmt="{:.1f}")
+            self.area_sliders[key] = sl
+            self.widgets.append(sl)
+            y += 30
+
+    def _set_share(self, v) -> None:
+        self.team.next_reg_share = max(0.0, min(0.80, v / 100.0))
+
+    def _set_area(self, key, v) -> None:
+        nextcar.set_brief(self.team, key, v)
 
     def apply_plan(self) -> None:
         sug = engineering.suggested_allocation(self.gs)
@@ -733,6 +756,42 @@ class EngineersPage(Page):
                     cur = (cur + " " + wd).strip()
             T.text(surf, cur, (left.x + 24, y), 13, T.TEXT)
             y += 30
+            if y > self.nc_y - 70:
+                break            # sotto ci va il progetto della macchina nuova
+
+        # --- il progetto della vettura dell'anno prossimo
+        gs, team = self.gs, self.team
+        f = nextcar.fidelity(team)
+        proj = nextcar.projection(gs, team)
+        atteso = nextcar.expected_gain(gs, team)
+        ty = self.nc_y - 62
+        T.text(surf, f"PROGETTO VETTURA {gs.season + 1}", (left.x + 16, ty), 12,
+               T.GOLD, bold=True)
+        T.text(surf, f"gia' in cassaforte: {atteso:+.1f} di media",
+               (left.right - 16, ty), 11,
+               T.OK if atteso > 0.4 else T.DIM_2, align="right")
+        tp = team.role("team_principal")
+        td = team.role("technical_director")
+        col_f = T.OK if f > 0.75 else (T.WARN if f > 0.5 else T.BAD)
+        chi = f"{tp.last if tp else 'Il team principal'} e {td.last if td else 'il tecnico'}"
+        if f > 0.8:
+            frase = f"{chi}: quello che chiedi, il reparto lo fa."
+        elif f > 0.55:
+            frase = f"{chi}: la linea arriva, ma per strada si perde qualcosa."
+        else:
+            frase = f"{chi}: il reparto fa quello che gli riesce, non quello che chiedi."
+        T.text(surf, frase, (left.x + 16, ty + 18), 12, col_f, maxw=left.w - 32)
+        T.text(surf, f"fedelta' alla linea {f*100:.0f}%", (left.right - 16, ty + 18), 11,
+               col_f, align="right")
+        forte = max(proj, key=proj.get) if proj else None
+        if forte and proj[forte] > 0.2:
+            T.text(surf, f"Finora il lavoro e' andato soprattutto su "
+                         f"{nextcar.AREE[forte]['label'].lower()} ({proj[forte]:+.1f}).",
+                   (left.x + 16, ty + 36), 11, T.DIM_2, maxw=left.w - 32)
+        else:
+            T.text(surf, "Nessun lavoro ancora dirottato sull'anno prossimo: "
+                         "ogni punto va sulla macchina di adesso.",
+                   (left.x + 16, ty + 36), 11, T.DIM_2, maxw=left.w - 32)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 56, r.w * 0.52 - 4, r.h - 56)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)

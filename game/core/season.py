@@ -4,7 +4,7 @@ from __future__ import annotations
 from .. import config as C
 from ..model.car import Part
 from . import (academy, calendar, departments, development, economy, facilities,
-               market, penalties,
+               market, nextcar, penalties,
                powertrain, rules, setup, sponsors, testing)
 from .state import RaceResult
 
@@ -353,6 +353,9 @@ def end_season(gs) -> dict:
     testing.end_season(gs)
     development.new_car_season(gs)
     report["rules"] += powertrain.end_season(gs)
+    # la vettura dell'anno prossimo: quello che il reparto ha preparato durante
+    # la stagione scende in pista adesso
+    report["progress"] += nextcar.end_season(gs)
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1

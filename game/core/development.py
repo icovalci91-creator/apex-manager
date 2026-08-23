@@ -689,12 +689,18 @@ def passive_development(gs, team, budget: float) -> None:
         return
     team.add_expense("Lavoro di reparto", round(budget, 3), in_cap=True,
                      category="sviluppo")
+    # quello che si dirotta sull'anno prossimo: e' sempre lavoro sulla vettura
+    # nuova, e quando c'e' un cambio di regolamento in arrivo vale anche come
+    # preparazione al ciclo. Sono la stessa cosa, non due cose diverse
+    from . import nextcar
     era = next_era(gs)
-    share = max(0.0, min(0.90, team.next_reg_share)) if era is not None else 0.0
+    share = max(0.0, min(0.90, team.next_reg_share))
     if share > 0:
-        reg_budget = budget * share
-        team.reg_prep += reg_budget * team.dev_rate * prep_conversion(gs, team, era)
-        budget -= reg_budget
+        domani = budget * share
+        nextcar.invest(gs, team, domani)
+        if era is not None:
+            team.reg_prep += domani * team.dev_rate * prep_conversion(gs, team, era)
+        budget -= domani
 
     # quello che si capisce della macchina, e che finira' nell'assetto
     passo = UNDERSTANDING_RATE * budget * (0.45 + 0.55 * team.setup_strength / 100.0)
@@ -769,6 +775,9 @@ def run_department(gs, team) -> None:
         for k in ("cooling", "gearbox", "sidepods"):
             alloc[k] = alloc.get(k, 1.0) + 1.0
     team.next_reg_share = ai_reg_share(gs, team)
+    if not team.next_car_brief:
+        from . import nextcar
+        nextcar.ai_brief(gs, team)
     team.resource_alloc = alloc
     passive_development(gs, team, budget)
     ai_start_package(gs, team, weak, headroom, economy.room_left(gs, team))
@@ -894,18 +903,23 @@ def sister_transfer(gs) -> list:
 
 
 def ai_reg_share(gs, team) -> float:
-    """Quanto il computer dirotta sul regolamento che verra'.
+    """Quanto il computer dirotta sull'anno prossimo.
 
-    Piu' il reset e' vicino, piu' si sposta. E chi non ha piu' niente da
-    giocarsi nel campionato in corso stacca prima la spina alla vettura
-    attuale: e' quello che fece la Brawn nel 2008.
+    Una quota ci va sempre: la macchina del prossimo anno la si comincia
+    mentre si corre con questa, e piu' la stagione va avanti piu' quella di
+    adesso ha poco senso da migliorare. Poi c'e' il caso speciale del cambio
+    di regolamento, dove la quota sale e chi non ha piu' niente da giocarsi
+    stacca prima la spina - e' quello che fece la Brawn nel 2008.
     """
+    # sempre un piede sull'anno prossimo, e il piede si appoggia sempre di piu'
+    # mano a mano che la stagione finisce
+    avanzamento = gs.round / max(1, len(gs.tracks))
+    base = 0.08 + 0.30 * avanzamento
     # Il reset scatta a fine stagione, quindi l'ultimo anno utile per
     # prepararsi e' quello con left == 1: da li' in poi e' troppo tardi.
     left = seasons_to_reset(gs)
-    if left is None or left > 3:
-        return 0.0
-    base = {3: 0.10, 2: 0.25, 1: 0.60}.get(left, 0.0)
+    if left is not None and left <= 3:
+        base = max(base, {3: 0.10, 2: 0.25, 1: 0.60}.get(left, 0.0))
     standings = gs.constructor_standings()
     leader = standings[0].points if standings else 0.0
     pos = gs.position_of(team.id)

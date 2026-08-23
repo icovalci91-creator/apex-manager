@@ -417,6 +417,8 @@ class GameState:
                     "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
+                    "next_car_brief": t.next_car_brief or {},
+                    "next_car_work": t.next_car_work or {},
                     "ledger": t.ledger[-1500:],
                     "deals": [d.to_dict() for d in t.deals],
                     "cur_season": t.cur_season, "cur_month": t.cur_month,
@@ -499,6 +501,8 @@ class GameState:
             t.cur_month = td.get("cur_month", 1)
             t.cur_round = td.get("cur_round", 0)
             t.reg_prep = td.get("reg_prep", 0.0)
+            t.next_car_brief = dict(td.get("next_car_brief") or {})
+            t.next_car_work = dict(td.get("next_car_work") or {})
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
             t.parent_team = td.get("parent_team", t.parent_team)

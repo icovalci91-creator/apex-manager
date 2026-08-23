@@ -186,7 +186,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Vettura e assetto | Stato dei componenti, power unit e cambio da sostituire prima che cedano, e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
-| Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
+| Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
 | Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
 | Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
@@ -694,6 +694,29 @@ difetto. Il reparto prepara il riferimento al simulatore da solo prima di ogni w
 chi ha buoni ingegneri ne fa due sessioni invece di una. Dimenticarsene porta il
 riferimento da +/-6 punti a +/-19, che e' la differenza fra arrivare in pista sapendo dove
 si va e arrivarci a tentoni.
+
+**La vettura dell'anno prossimo.** Una monoposto non nasce a gennaio: nasce durante la
+stagione precedente, mentre si corre con quella di adesso. Nella pagina Ingegneri si decide
+**quanta parte del lavoro va sull'anno prossimo** invece che su questo - una quota ci va
+sempre, e cresce da sola man mano che la stagione finisce e migliorare la macchina di adesso
+ha sempre meno senso.
+
+E li' si da' la **linea**. Non si disegna la macchina: si dice cosa si vuole, con cinque
+direzioni - piu' carico, piu' efficienza sui rettilinei, piu' trazione, piu' gentile con le
+gomme, piu' affidabilita' - e si guarda cosa arriva.
+
+Fra quello che si chiede e quello che arriva ci sono due persone. Il **team principal**, che
+deve far remare tutti nella stessa direzione, e il **direttore tecnico**, che deve tradurre
+una frase in un progetto. Da loro esce la *fedelta' alla linea*: al 97% il reparto fa quello
+che si e' chiesto, sotto il 55% fa quello che gli riesce e il lavoro finisce sparso dove
+capita - che e' esattamente come nasce una macchina che non e' quella che ci si era
+immaginati.
+
+A dicembre il progetto diventa la vettura con cui si corre. Una stagione al 40% con la linea
+su carico e gomme porta **+1,9 di media**, e si vede dove: carico +9,7 e gestione gomme
++13,9, mentre le aree lasciate a mezzo punto si muovono appena. Le squadre del computer
+fanno lo stesso conto e chiedono quello che gli manca, che e' il motivo per cui una squadra
+che soffre in trazione l'anno dopo arriva con un'altra sospensione.
 
 **Il direttore finanziario.** Una figura nuova nell'organigramma, e serve a una cosa sola:
 sapere in anticipo dove si andra' a finire col tetto di spesa. Somma quello che e' gia'

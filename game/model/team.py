@@ -74,8 +74,10 @@ class Team:
     is_player: bool = False
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
-    next_reg_share: float = 0.0   # quota di sviluppo dirottata sul regolamento futuro
+    next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
+    next_car_brief: dict = None   # la linea data al reparto per la vettura nuova
+    next_car_work: dict = None    # lavoro gia' fatto sul progetto dell'anno prossimo
 
     @property
     def is_satellite(self) -> bool:
