@@ -148,7 +148,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Infrastrutture | Dieci strutture da potenziare o costruire, stato di obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta'): dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
-| Regolamento | Norme in vigore, scala ATR, proposte in discussione |
+| Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
 | Classifiche / Calendario / Storico | Mondiali, 24 tracciati, cicli tecnici e albo d'oro |
 
 ### Durante la gara
@@ -416,11 +416,38 @@ reparti sono forti proprio nell'area che il nuovo regolamento premia.
 Le squadre gestite dal computer fanno lo stesso calcolo: a un anno dal cambio chi non ha
 piu' niente da giocarsi dirotta fino all'85%, chi si gioca il titolo si ferma al 33%.
 
-**Regolamento.** Tre volte per stagione si riunisce la Commissione: la FIA porta al tavolo
-alcune proposte dal catalogo di `data/regulations.json` e le squadre votano. Non e' un
-sorteggio cieco - se una scuderia sta scappando si discute di riequilibrio, se i conti sono
-tesi si parla di costi - e ogni squadra vota secondo il proprio interesse sportivo ed
-economico, con FIA e FOM che guardano a costi e spettacolo.
+**Regolamento: due discussioni diverse.** Tre volte per stagione si riunisce la
+Commissione, e sempre **nei primi mesi dell'anno** (marzo, aprile, maggio): piu' avanti non
+ci sarebbe piu' il tempo di progettarci sopra. Li' si trattano i **ritocchi** al regolamento
+in vigore - la FIA porta al tavolo alcune proposte dal catalogo di `data/regulations.json` e
+le squadre votano. Non e' un sorteggio cieco - se una scuderia sta scappando si discute di
+riequilibrio, se i conti sono tesi si parla di costi - e ogni squadra vota secondo il
+proprio interesse sportivo ed economico, con FIA e FOM che guardano a costi e spettacolo.
+
+Il **cambiamento profondo** non passa di li'. Ogni quattro o cinque anni la FIA apre un
+**tavolo tecnico**, e quello ha bisogno di quattro o cinque riunioni prima di arrivare a un
+accordo - cinque se le posizioni sono lontane fra loro. Al tavolo non si vota: si tratta.
+Ogni squadra chiede quello che le conviene (si spinge su cio' in cui si e' forti, ed e'
+sempre andata cosi'), e chi sta andando male chiede una rivoluzione mentre chi vince chiede
+continuita'. La FIA vuole cambiamenti contenuti, la FOM vuole che la griglia si rimescoli, e
+una squadra storica ha piu' voce di una piccola.
+
+Il compromesso che ne esce non e' la media aritmetica delle richieste - un regolamento non
+e' mai un terzo per uno: vince la coalizione piu' larga e agli altri si concede qualcosa.
+Tu porti la tua linea a ogni riunione, scegliendo su cosa spingere e quanto vuoi che cambi,
+e sposta il risultato di otto-dieci punti: abbastanza per contare, non abbastanza per
+dettare il regolamento da soli.
+
+Firmato l'accordo servono ancora **due stagioni** prima che le macchine nuove scendano in
+pista, ed e' in quelle due stagioni che si decide tutto: la pagina Sviluppo mostra su cosa
+punteranno le nuove norme e quanto bene la squadra converte, e il cursore "Risorse sul
+regolamento nuovo" dirotta budget dalla macchina di adesso a quella di domani. Finche' il
+tavolo e' aperto la direzione puo' ancora cambiare, quindi prepararsi troppo presto e' una
+scommessa.
+
+Un esempio reale di come si svolge: tavolo aperto nel 2028, tre riunioni quell'anno (gare 3,
+5 e 8), le ultime due nel 2029, accordo alla quinta - power unit al 50% - e regolamento
+nuovo nel 2031.
 
 Il catalogo copre gli aspetti realmente discussi nella storia della categoria: fondo piatto,
 sospensioni attive, controllo di trazione, gomme scanalate, guerra fra fornitori,

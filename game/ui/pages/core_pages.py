@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import development, economy, engineering, powertrain, setup as SETUP
+from ...core import development, economy, engineering, powertrain, rules, setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
@@ -480,6 +480,17 @@ class DevPage(Page):
             y += 34
         T.text(surf, "NUOVO PACCHETTO", (right.x + 16, right.y + 178), 12, T.DIM_2, bold=True)
         sy = right.y + 200 + 4 * 34 + 10
+        st = rules.talks(gs)
+        if st:
+            # il tavolo e' aperto: non si sa ancora la data, ma si sa la direzione
+            dom = max(st["aree"], key=st["aree"].get)
+            ry = sy + 244
+            T.text(surf, f"TAVOLO TECNICO  -  RIUNIONE {st['riunioni']} DI {st['servono']}",
+                   (right.x + 16, ry), 12, T.GOLD, bold=True)
+            T.text(surf, f"Si sta andando verso {rules.ETICHETTA_AREA[dom]} "
+                         f"({st['aree'][dom]*100:.0f}%). Finche' non si firma puo' ancora "
+                         f"cambiare, e prepararsi adesso e' una scommessa.",
+                   (right.x + 16, ry + 18), 12, T.DIM, maxw=right.w - 32)
         left = development.seasons_to_reset(gs)
         if left is not None and left <= 3:
             era = development.next_era(gs)

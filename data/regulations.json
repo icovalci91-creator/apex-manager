@@ -93,7 +93,7 @@
     }
   },
   "commission": {
-    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. Le riunioni si tengono piu' volte per stagione: la FIA porta al tavolo alcuni aspetti e le squadre votano secondo il proprio interesse sportivo ed economico. I cicli tecnici nascono da cio' che viene approvato, non da un calendario.",
+    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. Le riunioni ordinarie stanno nei primi mesi della stagione e trattano ritocchi al regolamento in vigore. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
     "team_votes": 1,
     "fia_votes": 10,
     "fom_votes": 10,
@@ -104,7 +104,11 @@
     "meetings_per_season": 3,
     "proposals_per_meeting": 3,
     "cycle_reset_threshold": 1.2,
-    "cycle_lead_seasons": 2
+    "cycle_lead_seasons": 2,
+    "meeting_last_month": 5,
+    "ordinary_reset_max": 0.35,
+    "cycle_min_seasons": 4,
+    "talks_split": 0.36
   },
   "history": {
     "_note": "Cicli tecnici della categoria: usati per stimare quando arriva un reset regolamentare e quanto rimescola la griglia.",

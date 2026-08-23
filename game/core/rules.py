@@ -250,7 +250,11 @@ def draw_proposals(gs, n: int = 3, rng=None) -> list:
     generatore della partita: il voto vero usa quello di gioco.
     """
     applied = set(gs.regulations.get("applied", []))
-    pool = [p for p in gs.proposals if p["id"] not in applied]
+    # al tavolo ordinario si discutono ritocchi: un cambiamento profondo non si
+    # decide alzando la mano in una riunione, ha bisogno del suo percorso
+    soglia = float(gs.commission.get("ordinary_reset_max", 0.35))
+    pool = [p for p in gs.proposals
+            if p["id"] not in applied and float(p.get("reset", 0.0)) <= soglia]
     if not pool:
         return []
     r = rng or gs.rng
@@ -290,13 +294,21 @@ def draw_proposals(gs, n: int = 3, rng=None) -> list:
 
 # ------------------------------------------------------------------ riunioni
 def meeting_rounds(gs) -> list:
-    """A quali gare si tiene una riunione della Commissione."""
+    """A quali gare si tiene una riunione della Commissione.
+
+    Le riunioni stanno nei primi mesi della stagione, come nella realta': si
+    discute entro la primavera cosa cambiare per l'anno dopo, perche' piu'
+    avanti non ci sarebbe piu' il tempo di progettarci sopra.
+    """
     n = len(gs.tracks)
     quante = int(gs.commission.get("meetings_per_season", 3))
-    if quante <= 1:
-        return [n]
-    passo = n / quante
-    return [int(round(passo * (i + 1))) for i in range(quante)]
+    ultimo = int(gs.commission.get("meeting_last_month", 5))
+    finestra = [i for i, t in enumerate(gs.tracks, 1) if getattr(t, "month", 12) <= ultimo]
+    if len(finestra) < quante:
+        finestra = list(range(1, n + 1))
+    passo = len(finestra) / quante
+    return sorted({finestra[min(len(finestra) - 1, int(round(passo * (i + 1))) - 1)]
+                   for i in range(quante)})
 
 
 def meeting_due(gs) -> bool:
@@ -305,11 +317,18 @@ def meeting_due(gs) -> bool:
 
 
 def open_meeting(gs) -> list:
-    """Apre la riunione: la FIA mette sul tavolo le proposte."""
+    """Apre la riunione: la FIA mette sul tavolo le proposte dell'anno.
+
+    Nella stessa giornata, se e' il momento, si siede anche il tavolo tecnico
+    per il regolamento che verra': sono due discussioni diverse, una sui
+    ritocchi di adesso e una sul mondo di fra qualche anno.
+    """
     n = int(gs.commission.get("proposals_per_meeting",
                               gs.commission.get("proposals_per_vote", 3)))
     gs.pending_votes = draw_proposals(gs, n)
     gs.regulations["meeting_done_at"] = gs.round
+    if talks_due(gs):
+        open_talks(gs)
     return gs.pending_votes
 
 
@@ -355,8 +374,197 @@ def _accumula_ciclo(gs, proposal: dict) -> None:
                 f"tecnico cambia nel {ciclo['season']}.", "regole")
 
 
+# ==================================================== il tavolo del ciclo nuovo
+# Un cambiamento profondo non si vota in una riunione. Si apre un tavolo, ci si
+# siede quattro o cinque volte, ognuno tira dalla propria parte e alla fine si
+# firma un compromesso che non e' la proposta di nessuno. Da quel momento
+# servono ancora un paio di stagioni prima che le macchine nuove scendano in
+# pista: senza quel tempo non ci sarebbe modo di progettarle.
+AREE = ("pu", "aero", "chassis")
+
+ETICHETTA_AREA = {"pu": "power unit", "aero": "aerodinamica", "chassis": "telaio"}
+
+
+def team_position(gs, team) -> tuple:
+    """Che regolamento vuole una scuderia: dove spostare il peso e quanto osare.
+
+    Si spinge su cio' in cui si e' forti - e' sempre andata cosi' - e si e'
+    tanto piu' disposti a rivoltare il tavolo quanto peggio si sta andando: chi
+    vince vuole continuita', chi perde vuole che cambi tutto.
+    """
+    eng = gs.engine_makers.get(team.engine, {})
+    tutte = [m.get("power", 85) for m in gs.engine_makers.values()] or [85]
+    pu = (eng.get("power", 85) - min(tutte)) / max(1e-6, max(tutte) - min(tutte))
+    peso = {
+        "pu": 0.25 + 0.75 * pu * (1.25 if team.works else 0.75),
+        "aero": 0.25 + 0.75 * max(0.0, (team.aero_strength - 68.0) / 26.0),
+        "chassis": 0.25 + 0.75 * max(0.0, (team.mech_strength - 68.0) / 26.0),
+    }
+    # in Commissione non si porta una posizione sfumata: si va a chiedere una
+    # cosa. Quello in cui si e' piu' forti diventa la richiesta, il resto e'
+    # contorno
+    aree = _polarizza(peso, 3.2)
+    pos = gs.position_of(team.id)
+    n = max(2, len(gs.teams))
+    forza = 0.28 + 0.60 * ((pos - 1) / (n - 1))
+    return aree, max(0.1, min(1.0, forza))
+
+
+def _polarizza(peso: dict, gamma: float) -> dict:
+    """Accentua la differenza fra le voci e normalizza a somma 1."""
+    forte = {k: max(0.001, v) ** gamma for k, v in peso.items()}
+    tot = sum(forte.values()) or 1.0
+    return {k: v / tot for k, v in forte.items()}
+
+
+def _posizioni(gs, spinta: str | None = None, radicale: float | None = None) -> list:
+    """Tutti quelli che siedono al tavolo, con il loro peso."""
+    voci = []
+    for t in gs.teams.values():
+        aree, forza = team_position(gs, t)
+        if t.is_player and spinta in AREE:
+            # la nostra squadra porta al tavolo la linea che abbiamo scelto
+            aree = {k: (0.74 if k == spinta else 0.13) for k in AREE}
+            if radicale is not None:
+                forza = max(0.1, min(1.0, radicale))
+        # al tavolo tutti hanno un voto, ma non tutti hanno la stessa voce:
+        # una squadra storica che minaccia di andarsene pesa piu' di un'altra
+        peso = 0.60 + 0.80 * (t.reputation / 100.0)
+        voci.append((aree, forza, peso, t.short))
+    # la FIA guarda ai costi e alla sicurezza: vuole cambiamenti contenuti e
+    # spalmati, la FOM vuole spettacolo e quindi che la griglia si rimescoli
+    voci.append(({"pu": 0.34, "aero": 0.33, "chassis": 0.33}, 0.35, 4.0, "FIA"))
+    voci.append(({"pu": 0.30, "aero": 0.42, "chassis": 0.28}, 0.85, 3.0, "FOM"))
+    return voci
+
+
+def _media(voci: list) -> tuple:
+    """Dove converge il tavolo.
+
+    Non e' la media aritmetica delle richieste: un regolamento non e' mai un
+    terzo per uno. Chi raccoglie piu' sostegno detta la direzione e agli altri
+    si concede qualcosa, quindi la coalizione piu' larga pesa piu' di quanto
+    dicano i numeri nudi.
+    """
+    tot = sum(v[2] for v in voci) or 1.0
+    aree = {k: sum(v[0].get(k, 0.0) * v[2] for v in voci) / tot for k in AREE}
+    return _polarizza(aree, 3.0), sum(v[1] * v[2] for v in voci) / tot
+
+
+def _distanza(voci: list, aree: dict) -> float:
+    """Quanto sono lontane le posizioni: da qui dipende se bastano 4 riunioni."""
+    tot = sum(v[2] for v in voci) or 1.0
+    return sum(sum(abs(v[0].get(k, 0.0) - aree[k]) for k in AREE) * v[2]
+               for v in voci) / tot
+
+
+def talks(gs) -> dict | None:
+    return gs.regulations.get("cycle_talks")
+
+
+def last_cycle_season(gs) -> int:
+    ere = [e["from"] for e in gs.history_data.get("eras", []) if e["from"] <= gs.season]
+    return max(ere) if ere else int(gs.regulations.get("first_season", gs.season))
+
+
+def _era_corrente(gs) -> dict | None:
+    for era in gs.history_data.get("eras", []):
+        if era["from"] <= gs.season <= era.get("to", era["from"]):
+            return era
+    return None
+
+
+def talks_due(gs) -> bool:
+    """E' ora di aprire il tavolo per il regolamento nuovo?
+
+    Si comincia con l'anticipo che serve: fra le riunioni e le stagioni di
+    progettazione passano anni, quindi un ciclo che finisce nel 2030 si discute
+    dal 2028. Se invece si e' gia' approvato tanto da rendere il cambiamento
+    inevitabile, il tavolo si apre prima.
+    """
+    if talks(gs) or (gs.regulations.get("pending_cycle") or {}).get("season"):
+        return False
+    anticipo = max(2, int(gs.commission.get("cycle_lead_seasons", 2)))
+    era = _era_corrente(gs)
+    if era and era.get("to"):
+        if gs.season >= int(era["to"]) - anticipo:
+            return True
+    minimo = int(gs.commission.get("cycle_min_seasons", 4))
+    if gs.season - last_cycle_season(gs) >= minimo:
+        return True
+    # oppure sono gia' passate tante norme tecniche da renderlo inevitabile
+    ciclo = gs.regulations.get("pending_cycle") or {}
+    return ciclo.get("pressure", 0.0) >= float(gs.commission.get("cycle_reset_threshold", 1.2))
+
+
+def open_talks(gs) -> dict:
+    """Apre il tavolo tecnico e dice quante riunioni serviranno."""
+    voci = _posizioni(gs)
+    aree, forza = _media(voci)
+    lontani = _distanza(voci, aree)
+    servono = 5 if lontani > float(gs.commission.get("talks_split", 0.36)) else 4
+    st = {"aperto": True, "riunioni": 0, "servono": servono,
+          "aree": aree, "forza": forza, "storia": []}
+    gs.regulations["cycle_talks"] = st
+    gs.push(f"La FIA apre il tavolo per il prossimo ciclo tecnico: se ne parlera' in "
+            f"{servono} riunioni prima di arrivare a un accordo.", "regole")
+    return st
+
+
+def talks_round(gs, spinta: str | None = None, radicale: float | None = None) -> dict:
+    """Una riunione del tavolo. Ritorna com'e' andata."""
+    st = talks(gs)
+    if not st or not st.get("aperto"):
+        return {}
+    voci = _posizioni(gs, spinta, radicale)
+    obiettivo, forza_media = _media(voci)
+    # il compromesso si avvicina, non si salta: e' il senso di sedersi piu' volte
+    passo = 0.45
+    st["aree"] = {k: st["aree"][k] * (1 - passo) + obiettivo[k] * passo for k in AREE}
+    st["forza"] = st["forza"] * (1 - passo) + forza_media * passo
+    st["riunioni"] += 1
+    dom = max(st["aree"], key=st["aree"].get)
+    riga = (f"Riunione {st['riunioni']} di {st['servono']}: il tavolo si sta orientando "
+            f"verso {ETICHETTA_AREA[dom]} ({st['aree'][dom]*100:.0f}%).")
+    st["storia"].append(riga)
+    esito = {"riga": riga, "accordo": False, "stagione": None}
+    if st["riunioni"] >= st["servono"]:
+        esito.update(_accordo(gs, st))
+    gs.push(riga, "regole")
+    return esito
+
+
+def _accordo(gs, st: dict) -> dict:
+    """Si firma. Da qui in avanti si sa cosa arrivera' e quando."""
+    anticipo = max(2, int(gs.commission.get("cycle_lead_seasons", 2)))
+    stagione = gs.season + anticipo
+    ciclo = gs.regulations.setdefault(
+        "pending_cycle", {"pressure": 0.0, "areas": {k: 0.0 for k in AREE},
+                          "season": None, "titles": []})
+    ciclo["areas"] = {k: st["aree"][k] for k in AREE}
+    ciclo["pressure"] = max(ciclo.get("pressure", 0.0), st["forza"] * 1.25)
+    ciclo["season"] = stagione
+    dom = max(st["aree"], key=st["aree"].get)
+    ciclo["titles"] = ciclo.get("titles", []) + [f"accordo sul ciclo {stagione}"]
+    gs.regulations.pop("cycle_talks", None)
+    msg = (f"Accordo raggiunto: il nuovo regolamento entra in vigore nel {stagione} e a "
+           f"decidere sara' soprattutto {ETICHETTA_AREA[dom]} ({st['aree'][dom]*100:.0f}%). "
+           f"Da adesso si puo' cominciare a prepararlo.")
+    gs.push(msg, "regole")
+    return {"accordo": True, "stagione": stagione, "riga": msg}
+
+
 def cycle_focus(gs) -> dict:
-    """Da cosa dipendera' la prestazione nel prossimo ciclo."""
+    """Da cosa dipendera' la prestazione nel prossimo ciclo.
+
+    Finche' il tavolo e' aperto e' quello che sta emergendo dalle riunioni, e
+    puo' ancora cambiare: e' il motivo per cui prepararsi troppo presto e'
+    rischioso.
+    """
+    st = talks(gs)
+    if st and st.get("aree"):
+        tot = sum(st["aree"].values()) or 1.0
+        return {k: v / tot for k, v in st["aree"].items()}
     ciclo = gs.regulations.get("pending_cycle") or {}
     aree = ciclo.get("areas") or {}
     tot = sum(aree.values())
