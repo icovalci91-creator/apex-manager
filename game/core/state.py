@@ -259,6 +259,31 @@ class GameState:
     def drivers_of(self, team_id: str) -> list:
         return [self.drivers[d] for d in self.teams[team_id].drivers if d in self.drivers]
 
+    def reserves_of(self, team_id: str) -> list:
+        return [self.drivers[d] for d in self.teams[team_id].reserves if d in self.drivers]
+
+    def lineup_of(self, team_id: str) -> list:
+        """Chi scende in pista davvero.
+
+        I titolari, con la riserva che prende il posto di chi sta scontando una
+        squalifica: e' esattamente per questo che un terzo pilota lo tengono
+        tutti, e prima di averlo si correva in uno solo.
+        """
+        t = self.teams[team_id]
+        panchina = [self.drivers[d] for d in t.reserves
+                    if d in self.drivers and self.drivers[d].banned_races <= 0]
+        out = []
+        for did in t.drivers:
+            d = self.drivers.get(did)
+            if d is None:
+                continue
+            if d.banned_races > 0:
+                if panchina:
+                    out.append(panchina.pop(0))
+                continue
+            out.append(d)
+        return out
+
     def sync_engines(self) -> None:
         """Riaggancia ogni vettura al proprio motorista.
 
@@ -359,7 +384,9 @@ class GameState:
                     "car_understanding": t.car_understanding,
                     "workforce": t.workforce or {}, "pu_building": t.pu_building,
                     "hired_this_season": t.hired_this_season or {},
-                    "drivers": t.drivers, "last_position": t.last_position,
+                    "drivers": t.drivers, "reserves": t.reserves,
+                    "academy": t.academy, "academy_name": t.academy_name,
+                    "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
                     "ledger": t.ledger[-1500:],
@@ -429,6 +456,9 @@ class GameState:
                 from .departments import starting_workforce
                 t.workforce = starting_workforce(t)
             t.drivers = td["drivers"]
+            t.reserves = list(td.get("reserves") or [])
+            t.academy = list(td.get("academy") or [])
+            t.academy_name = td.get("academy_name", "")
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.next_reg_share = td.get("next_reg_share", 0.0)

@@ -120,7 +120,9 @@ def race_costs(gs, team, damage_cost: float) -> list:
     if not team.works:
         items.append(("Fornitura power unit", round(team.engine_customer_cost / n, 3),
                       False, "powertrain"))
-    drv_salaries = sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers) / n
+    # anche il terzo pilota si paga, e i ragazzi del vivaio pure
+    tutti = list(team.drivers) + list(team.reserves) + list(team.academy)
+    drv_salaries = sum(gs.drivers[d].salary for d in tutti if d in gs.drivers) / n
     in_cap = not gs.regulations.get("cost_cap_excludes_driver_salaries", True)
     items.append(("Ingaggi piloti", round(drv_salaries, 3), in_cap, "piloti"))
     return items
@@ -290,7 +292,9 @@ def season_room(gs, team) -> float:
     # e chi fa il budget senza metterli in conto sbaglia il budget
     fisse = team.staff_cost + team.facility_upkeep + TRAVEL_PER_RACE * gare
     fisse += DAMAGE_RESERVE
-    fisse += sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers)
+    fisse += sum(gs.drivers[d].salary
+                 for d in list(team.drivers) + list(team.reserves) + list(team.academy)
+                 if d in gs.drivers)
     if team.works:
         fisse += powertrain.PU_OPERATING_COST
     else:

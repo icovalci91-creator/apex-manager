@@ -70,21 +70,60 @@ def offer_contract(gs, team, driver: Driver, salary: float, years: int) -> tuple
     return "rejected", f"{driver.name} rifiuta: non ritiene il progetto all'altezza."
 
 
-def _sign(gs, team, driver: Driver, salary: float, years: int) -> None:
+# Quanto vale un contratto da riserva rispetto a uno da titolare. Un terzo
+# pilota non corre: fa le libere, il simulatore e i test, e aspetta. Si paga
+# una frazione, ma proprio per questo chi un volante ce l'ha non firma.
+RESERVE_SHARE = 0.30
+SEATS = {"titolare": "Titolare", "riserva": "Riserva e collaudatore"}
+
+
+def seats_of(team, seat: str) -> list:
+    return team.drivers if seat == "titolare" else team.reserves
+
+
+def can_offer_seat(gs, team, driver, seat: str) -> tuple:
+    """Se ha senso proporgli quel posto. Ritorna (si puo', perche' no)."""
+    if seat not in SEATS:
+        return False, "Posto sconosciuto."
+    posti = seats_of(team, seat)
+    if driver.id in posti:
+        return False, f"{driver.short} occupa gia' questo posto."
+    if len(posti) >= 2:
+        return False, ("Hai gia' due piloti titolari: liberane uno prima."
+                       if seat == "titolare" else
+                       "Hai gia' due piloti di riserva.")
+    if seat == "riserva":
+        altra = gs.teams.get(driver.team)
+        if altra is not None and driver.id in altra.drivers:
+            return False, (f"{driver.short} ha un volante da titolare in "
+                           f"{altra.short}: non lo lascia per fare la riserva.")
+        if driver.id in team.drivers:
+            return False, "E' un nostro titolare: per retrocederlo va prima liberato."
+    return True, ""
+
+
+def _sign(gs, team, driver: Driver, salary: float, years: int,
+          seat: str = "titolare") -> None:
     old = gs.teams.get(driver.team)
-    if old and driver.id in old.drivers:
-        old.drivers.remove(driver.id)
-        fee = buyout_cost(gs, driver)
-        team.add_expense(f"Buyout {driver.last}", fee, in_cap=False, category="cessioni")
-        old.add_income(f"Buyout {driver.last}", fee, category="cessioni")
+    if old is not None:
+        for lista in (old.drivers, old.reserves, old.academy):
+            if driver.id in lista:
+                lista.remove(driver.id)
+                if lista is old.drivers:
+                    fee = buyout_cost(gs, driver)
+                    team.add_expense(f"Buyout {driver.last}", fee, in_cap=False,
+                                     category="cessioni")
+                    old.add_income(f"Buyout {driver.last}", fee, category="cessioni")
     if driver in gs.free_agents:
         gs.free_agents.remove(driver)
     gs.drivers[driver.id] = driver
     driver.team = team.id
     driver.salary = salary
     driver.contract_until = gs.season + years
-    if driver.id not in team.drivers:
-        team.drivers.append(driver.id)
+    driver.seat = seat
+    posti = seats_of(team, seat)
+    if driver.id not in posti:
+        posti.append(driver.id)
 
 
 def release_driver(gs, team, driver: Driver) -> tuple:
@@ -163,21 +202,24 @@ def run_transfer_window(gs) -> list:
     news = []
     # contratti scaduti: chi non e' stato rinnovato torna sul mercato
     for team in gs.teams.values():
-        for did in list(team.drivers):
-            d = gs.drivers.get(did)
-            if not d or d.contract_until > gs.season:
-                continue
-            if team.is_player:
-                continue
-            keep = 0.55 + 0.4 * ((d.overall - 78) / 16.0) - 0.25 * max(0, d.age - 35) * 0.1
-            if gs.rng.random() < max(0.1, min(0.92, keep)):
-                d.contract_until = gs.season + gs.rng.randint(1, 3)
-                d.salary = round(d.market_value * gs.rng.uniform(0.9, 1.15), 1)
-            else:
-                team.drivers.remove(did)
-                d.team = None
-                gs.free_agents.append(d)
-                news.append(f"{d.name} lascia {team.short}.")
+        for lista in (team.drivers, team.reserves):
+            for did in list(lista):
+                d = gs.drivers.get(did)
+                if not d or d.contract_until > gs.season or team.is_player:
+                    continue
+                keep = 0.55 + 0.4 * ((d.overall - 78) / 16.0) - 0.25 * max(0, d.age - 35) * 0.1
+                if lista is team.reserves:
+                    keep += 0.15          # una riserva costa poco, si tiene volentieri
+                if gs.rng.random() < max(0.1, min(0.92, keep)):
+                    d.contract_until = gs.season + gs.rng.randint(1, 3)
+                    quota = RESERVE_SHARE if lista is team.reserves else 1.0
+                    d.salary = round(d.market_value * quota * gs.rng.uniform(0.9, 1.15), 1)
+                else:
+                    lista.remove(did)
+                    d.team = None
+                    d.seat = "titolare"
+                    gs.free_agents.append(d)
+                    news.append(f"{d.name} lascia {team.short}.")
 
     # una squadra maggiore guarda prima nel proprio vivaio: e' a questo che
     # serve avere una seconda squadra nel gruppo
@@ -222,6 +264,20 @@ def run_transfer_window(gs) -> list:
                 pick = (pool[0], round(pool[0].market_value * 1.25, 1))
             _sign(gs, team, pick[0], pick[1], gs.rng.randint(1, 3))
             news.append(f"{pick[0].name} firma per {team.short}.")
+
+    # un terzo pilota lo vuole chiunque: costa poco e serve il giorno che
+    # serve. Le IA se lo prendono dai giovani rimasti sul mercato
+    for team in gs.teams.values():
+        if team.is_player or team.reserves or not gs.free_agents:
+            continue
+        pool = sorted((d for d in gs.free_agents if d.age <= 26),
+                      key=lambda d: -(d.potential + d.overall * 0.4))
+        if not pool or gs.rng.random() > 0.65:
+            continue
+        scelto = pool[0]
+        _sign(gs, team, scelto, round(max(0.4, scelto.market_value * RESERVE_SHARE), 1),
+              gs.rng.randint(1, 3), "riserva")
+        news.append(f"{scelto.name} terzo pilota di {team.short}.")
 
     # ricambio dello staff libero
     from .state import _load
@@ -345,6 +401,7 @@ class Negotiation:
     rounds: int = 0
     patience: int = 4
     state: str = "aperta"          # aperta | accordo | rotta
+    seat: str = "titolare"         # per quale posto si sta trattando
     last: str = ""
 
     @property
@@ -390,12 +447,16 @@ def offer_value(gs, team, driver, offer: Offer) -> float:
     return val
 
 
-def opening_demand(gs, team, driver) -> Offer:
+def opening_demand(gs, team, driver, seat: str = "titolare") -> Offer:
     """Da dove parte il pilota: chiede piu' del suo valore, come sempre."""
     q = seat_quality(gs, team) / 100.0
     ambition = 1.0 + 0.35 * max(0.0, driver.potential - driver.overall) / 20.0
     greed = 1.30 - 0.35 * q                    # in una squadra forte si accontenta
     base = driver.market_value * greed * ambition
+    if seat == "riserva":
+        # non corre, quindi costa poco: ma chi vale tanto vuole comunque essere
+        # pagato per stare fermo, e piu' vale piu' storce il naso
+        base *= RESERVE_SHARE * (1.0 + 0.9 * max(0.0, driver.overall - 74.0) / 20.0)
     wins, podiums, points = season_outlook(gs, team)
     return Offer(
         salary=round(base * 0.80, 1),
@@ -407,14 +468,15 @@ def opening_demand(gs, team, driver) -> Offer:
     )
 
 
-def open_negotiation(gs, team, driver) -> Negotiation:
-    demand = opening_demand(gs, team, driver)
+def open_negotiation(gs, team, driver, seat: str = "titolare") -> Negotiation:
+    demand = opening_demand(gs, team, driver, seat)
     neg = Negotiation(driver_id=driver.id, team_id=team.id,
-                      offer=demand.copy(), demand=demand,
+                      offer=demand.copy(), demand=demand, seat=seat,
                       patience=3 + int(driver.consistency > 85) + int(driver.team is None))
     tot = offer_value(gs, team, driver, demand)
+    posto = "da titolare" if seat == "titolare" else "da riserva"
     neg.last = (f"{driver.name} apre a {demand.salary:.1f} M$ di fisso per "
-                f"{demand.years} stagioni: col resto del pacchetto vale "
+                f"{demand.years} stagioni {posto}: col resto del pacchetto vale "
                 f"{tot:.1f} M$ l'anno.")
     return neg
 
@@ -442,9 +504,11 @@ def propose(gs, team, driver, neg: Negotiation, offer: Offer) -> Negotiation:
             ratio *= 0.90                      # lascerebbe un sedile migliore
 
     if ratio >= 0.98:
-        _sign_offer(gs, team, driver, offer)
+        _sign_offer(gs, team, driver, offer, neg.seat)
         neg.state = "accordo"
-        neg.last = f"{driver.name} firma: {offer.salary:.1f} M$ per {offer.years} stagioni."
+        posto = "da titolare" if neg.seat == "titolare" else "come riserva"
+        neg.last = (f"{driver.name} firma {posto}: {offer.salary:.1f} M$ per "
+                    f"{offer.years} stagioni.")
         return neg
 
     if neg.rounds >= neg.patience:
@@ -470,8 +534,8 @@ def propose(gs, team, driver, neg: Negotiation, offer: Offer) -> Negotiation:
     return neg
 
 
-def _sign_offer(gs, team, driver, offer: Offer) -> None:
-    _sign(gs, team, driver, offer.salary, offer.years)
+def _sign_offer(gs, team, driver, offer: Offer, seat: str = "titolare") -> None:
+    _sign(gs, team, driver, offer.salary, offer.years, seat)
     driver.bonus_win = offer.bonus_win
     driver.bonus_podium = offer.bonus_podium
     driver.bonus_points = offer.bonus_points

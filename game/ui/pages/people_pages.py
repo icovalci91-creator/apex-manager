@@ -36,6 +36,7 @@ class DriversPage(Page):
         super().__init__(shell)
         self.sel = None
         self.filter = "liberi"
+        self.seat = "titolare"                # per quale posto si tratta
         self.neg = None                       # trattativa aperta
         self.offer = market.Offer()
 
@@ -49,8 +50,9 @@ class DriversPage(Page):
         self.colB = pygame.Rect(r.x + wA + 16, r.y, wB, r.h)
         self.colC = pygame.Rect(r.x + wA + wB + 32, r.y, r.w - wA - wB - 32, r.h)
 
-        self.mine = ScrollList((self.colA.x + 10, self.colA.y + 40, self.colA.w - 20, 140),
-                               row_h=64, draw_row=self._row_mine, on_select=self._select_mine)
+        self.mine = ScrollList((self.colA.x + 10, self.colA.y + 40, self.colA.w - 20,
+                                self.colA.h - 76), row_h=64,
+                               draw_row=self._row_mine, on_select=self._select_mine)
         self.widgets.append(self.mine)
 
         self.tabs = []
@@ -85,6 +87,15 @@ class DriversPage(Page):
                         on_change=(lambda v, k=key: self._set(k, v)), fmt=fmt)
             self.sliders[key] = sl
             self.widgets.append(sl)
+        self.seat_buttons = []
+        sw = (c.w - 44) / 2
+        for i, (key, lab) in enumerate((("titolare", "Titolare"),
+                                        ("riserva", "Terzo pilota"))):
+            b = Button((c.x + 16 + i * (sw + 12), self.sy - 36, sw, 26), lab)
+            b.on_click = (lambda k=key: self._pick_seat(k))
+            self.seat_buttons.append(b)
+            self.widgets.append(b)
+        self._mark_seat()
         by = c.bottom - 58
         bw = (c.w - 44) / 3
         self.neg_btn = Button((c.x + 16, by, bw, 38),
@@ -98,7 +109,7 @@ class DriversPage(Page):
 
     def _fill(self) -> None:
         gs = self.gs
-        self.mine.items = gs.drivers_of(self.team.id)
+        self.mine.items = gs.drivers_of(self.team.id) + gs.reserves_of(self.team.id)
         if self.filter == "nostri":
             items = list(self.mine.items)
         elif self.filter == "liberi":
@@ -117,6 +128,19 @@ class DriversPage(Page):
         if self.sel in self.mine.items:
             self.mine.selected = self.mine.items.index(self.sel)
         self._sync_buttons()
+
+    def _pick_seat(self, k) -> None:
+        self.seat = k
+        self.neg = None
+        if self.sel:
+            self._select(0, self.sel)
+        self._mark_seat()
+        self._sync_buttons()
+
+    def _mark_seat(self) -> None:
+        for b, key in zip(self.seat_buttons, ("titolare", "riserva")):
+            b.active = (key == self.seat)
+            b.style = "tab" if b.active else "normal"
 
     def _sync_buttons(self) -> None:
         nostro = bool(self.sel and self.sel.team == self.team.id)
@@ -146,8 +170,9 @@ class DriversPage(Page):
         if self.sel is not item:
             self.neg = None
         self.sel = item
-        self.offer = market.Offer(salary=max(0.5, item.market_value), years=2,
-                                  release_clause=round(item.market_value * 2.5, 0))
+        quota = 1.0 if self.seat == "titolare" else market.RESERVE_SHARE
+        self.offer = market.Offer(salary=max(0.4, item.market_value * quota), years=2,
+                                  release_clause=round(item.market_value * quota * 2.5, 0))
         self._sync_sliders()
         self._sync_buttons()
 
@@ -165,10 +190,11 @@ class DriversPage(Page):
             return
         gs, team, d = self.gs, self.team, self.sel
         if self.neg is None or not self.neg.open or self.neg.driver_id != d.id:
-            if len(team.drivers) >= 2 and d.id not in team.drivers:
-                self.app.toast("Hai gia' due piloti sotto contratto: liberane uno prima.")
+            ok, why = market.can_offer_seat(gs, team, d, self.seat)
+            if not ok:
+                self.app.toast(why)
                 return
-            self.neg = market.open_negotiation(gs, team, d)
+            self.neg = market.open_negotiation(gs, team, d, self.seat)
             self.offer = self.neg.demand.copy()
             self._sync_sliders()
             self.app.toast(self.neg.last)
@@ -209,10 +235,13 @@ class DriversPage(Page):
 
     # -------------------------------------------------------------- le righe
     def _row_mine(self, surf, rect, i, d) -> None:
-        col = T.hex_rgb(self.team.colour)
+        riserva = d.seat == "riserva"
+        col = T.DIM_2 if riserva else T.hex_rgb(self.team.colour)
         pygame.draw.rect(surf, col, (rect.x + 6, rect.y + 8, 3, rect.h - 16))
-        T.text(surf, d.name, (rect.x + 18, rect.y + 6), 15, T.TEXT, bold=True,
-               maxw=rect.w - 110)
+        if riserva:
+            T.text(surf, "TERZO PILOTA", (rect.x + 18, rect.y + 2), 10, T.GOLD, bold=True)
+        T.text(surf, d.name, (rect.x + 18, rect.y + (12 if riserva else 6)), 15, T.TEXT,
+               bold=True, maxw=rect.w - 110)
         T.text(surf, f"#{d.number}", (rect.right - 12, rect.y + 4), 15, col, bold=True,
                align="right")
         T.text(surf, f"{d.age} anni  -  fino al {d.contract_until}  -  "
@@ -252,8 +281,11 @@ class DriversPage(Page):
         T.text(surf, d.name, (c.x + 16, c.y + 32), 20, T.TEXT, bold=True, maxw=c.w - 90)
         T.text(surf, f"#{d.number}", (c.right - 16, c.y + 32), 20, col, bold=True,
                align="right")
+        posto = ""
+        if squadra is not None:
+            posto = "  -  terzo pilota" if d.seat == "riserva" else "  -  titolare"
         T.text(surf, f"{d.age} anni  -  {d.nat}  -  "
-                     f"{squadra.name if squadra else 'svincolato'}",
+                     f"{squadra.name if squadra else 'svincolato'}{posto}",
                (c.x + 16, c.y + 60), 13, T.DIM, maxw=c.w - 32)
         pygame.draw.line(surf, T.LINE, (c.x + 16, c.y + 84), (c.right - 16, c.y + 84))
 
@@ -277,7 +309,7 @@ class DriversPage(Page):
                 righe.append(("Situazione", "libero, nessun indennizzo", T.OK))
         # da qui in giu' comincia il tavolo della trattativa: la scheda si
         # stringe per starci sopra, invece di scriverci dentro
-        limite = self.sy - 46
+        limite = self.sy - 78
         n_att = (len(self.ATTRS) + 1) // 2
         spazio = limite - (c.y + 94)
         largo = spazio >= len(righe) * 21 + 28 + n_att * 22 + 26
@@ -332,8 +364,11 @@ class DriversPage(Page):
             T.text(surf, testo, (c.x + 16, y), 12, col_lic, maxw=c.w - 32)
 
         # --- il tavolo
-        ty = self.sy - 46
+        ty = self.sy - 78
         T.text(surf, "TRATTATIVA", (c.x + 16, ty), 12, T.DIM_2, bold=True)
+        ok_posto, perche = market.can_offer_seat(gs, team, d, self.seat)
+        if not ok_posto:
+            T.text(surf, perche, (c.x + 16, ty + 36), 12, T.WARN, maxw=c.w - 32)
         mine = market.offer_value(gs, team, d, self.offer)
         T.text(surf, f"la nostra offerta vale {mine:.1f} M$ l'anno per lui",
                (c.x + 16, ty + 18), 12, T.DIM, maxw=c.w * 0.6)
@@ -354,6 +389,7 @@ class DriversPage(Page):
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
+        team = self.team
         for col in (self.colA, self.colB, self.colC):
             T.panel(surf, col, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "I NOSTRI PILOTI", (self.colA.x + 16, self.colA.y + 12), 12,
@@ -366,8 +402,13 @@ class DriversPage(Page):
         # sotto i nostri piloti resta il conto di quanto costano
         drs = self.mine.items
         costo = sum(x.salary for x in drs)
-        T.text(surf, f"Ingaggi: {costo:.1f} M$ all'anno, fuori dal tetto di spesa",
-               (self.colA.x + 16, self.colA.y + 196), 12, T.DIM_2, maxw=self.colA.w - 32)
+        n_tit, n_ris = len(team.drivers), len(team.reserves)
+        T.text(surf, f"Titolari {n_tit}/2   -   terzi piloti {n_ris}/2",
+               (self.colA.x + 16, self.colA.bottom - 46), 12,
+               T.DIM if n_ris else T.WARN, maxw=self.colA.w - 32)
+        T.text(surf, f"Ingaggi {costo:.1f} M$ all'anno, fuori dal tetto di spesa",
+               (self.colA.x + 16, self.colA.bottom - 28), 12, T.DIM_2,
+               maxw=self.colA.w - 32)
         super().draw(surf)
 
 

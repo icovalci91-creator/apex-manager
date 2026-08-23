@@ -270,8 +270,11 @@ def ai_plan(gs) -> None:
                   * (0.35 + 0.65 * economy.budget_health(gs, team)))
         if gs.rng.random() > min(0.8, max(0.12, voglia)):
             continue                      # questo weekend non escono a girare
-        giovani = [gs.drivers[d] for d in team.drivers
-                   if d in gs.drivers and gs.drivers[d].age <= 23]
+        # a girare ci si manda chi ha ancora da crescere: prima il vivaio e il
+        # terzo pilota, che e' esattamente a cosa servono
+        candidati = list(team.academy) + list(team.reserves) + list(team.drivers)
+        giovani = [gs.drivers[d] for d in candidati
+                   if d in gs.drivers and gs.drivers[d].age <= 24]
         r = gs.rng.random()
         if giovani and r < 0.35:
             prog = "giovani"

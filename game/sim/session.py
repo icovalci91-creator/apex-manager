@@ -45,12 +45,7 @@ def build_entrants(gs, track, weather: Weather) -> list:
         base = base_lap_for(gs, team, track, weather)
         base += gs.rng.gauss(0.0, 0.13)          # come lavora il pacchetto su questa pista
         pit = 3.30 - 1.15 * (team.pit_strength / 100.0)
-        for did in team.drivers:
-            d = gs.drivers.get(did)
-            if not d:
-                continue
-            if d.banned_races > 0:
-                continue                      # sta scontando la squalifica
+        for d in gs.lineup_of(team.id):
             col = _hex(team.colour)
             out.append(Entrant(
                 driver_id=d.id, team_id=team.id, code=d.code, name=d.short,

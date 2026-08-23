@@ -33,6 +33,10 @@ class Driver:
     marketability: float
     salary: float
     contract_until: int
+    # che posto occupa in squadra: si corre in due, ma un terzo pilota lo
+    # tengono tutti - per le prove libere, per i test e per il giorno in cui
+    # un titolare non e' in condizione di salire in macchina
+    seat: str = "titolare"        # titolare | riserva | academy
 
     # voci del contratto oltre all'ingaggio fisso
     bonus_win: float = 0.0        # M$ per vittoria

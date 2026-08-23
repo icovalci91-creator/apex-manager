@@ -47,7 +47,10 @@ class Team:
     hired_this_season: dict = None  # quanti se ne sono assunti quest'anno, per reparto
     pu_building: bool = False    # ha fondato il reparto motori e lo sta costruendo
     car: Car = None
-    drivers: list = field(default_factory=list)      # id piloti
+    drivers: list = field(default_factory=list)      # id piloti titolari
+    reserves: list = field(default_factory=list)     # terzo pilota e collaudatori
+    academy: list = field(default_factory=list)      # ragazzi del vivaio
+    academy_name: str = ""       # come si chiama il vivaio, se c'e'
     staff: list = field(default_factory=list)        # oggetti Staff
     points: float = 0.0
     wins: int = 0

@@ -86,9 +86,12 @@ class TestingPage(Page):
             self.track = piste[0]
         if self.track in piste:
             self.piste.selected = piste.index(self.track)
-        drs = self.gs.drivers_of(self.team.id)
-        riserve = sorted(gs.free_agents, key=lambda d: -(d.potential))[:4]
-        self.piloti.items = drs + riserve
+        # in pista ci si porta la propria gente: titolari, terzo pilota e
+        # ragazzi del vivaio. Un pilota di un'altra squadra non sale sulla
+        # nostra macchina
+        self.piloti.items = (gs.drivers_of(self.team.id) + gs.reserves_of(self.team.id)
+                             + [gs.drivers[d] for d in self.team.academy
+                                if d in gs.drivers])
         if self.piloti.items and self.driver not in self.piloti.items:
             # per difetto proponiamo chi ha ancora margine: i chilometri servono a lui
             self.driver = max(self.piloti.items, key=lambda d: d.potential - d.overall)
@@ -138,7 +141,7 @@ class TestingPage(Page):
             T.text(surf, "fuori calendario", (rect.x + 14, rect.y + 22), 10, T.DIM_2)
 
     def _row_driver(self, surf, rect, i, d) -> None:
-        proprio = d.team == self.team.id
+        proprio = True
         T.text(surf, d.name, (rect.x + 12, rect.y + 6), 14,
                T.TEXT if proprio else T.DIM, maxw=200)
         T.text(surf, f"{d.age}a", (rect.x + 220, rect.y + 7), 12, T.DIM)
@@ -146,8 +149,9 @@ class TestingPage(Page):
         col = T.OK if margine > 6 else (T.WARN if margine > 2 else T.DIM_2)
         T.text(surf, f"margine {margine:.0f}", (rect.right - 14, rect.y + 6), 12,
                col, align="right")
-        if not proprio:
-            T.text(surf, "svincolato", (rect.x + 262, rect.y + 7), 11, T.DIM_2)
+        etichetta = {"riserva": "terzo pilota", "academy": "vivaio"}.get(d.seat, "")
+        if etichetta:
+            T.text(surf, etichetta, (rect.x + 250, rect.y + 7), 11, T.GOLD)
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
