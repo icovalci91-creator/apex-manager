@@ -113,6 +113,7 @@ class Trial:
     state: str = "in prova"  # in prova | affinamento
     news: str = ""           # l'ultima cosa che hanno detto gli ingegneri
     gain: float = 0.0        # quanto ha portato davvero, misurato in pista
+    new_perf: float = 0.0    # quanto vale la specifica nuova, montata
     carattere: float = 0.0   # -1 macchina piu' piantata, +1 piu' nervosa
     band: str = ""           # come e' uscita: fallito, sottotono, in linea, oltre
 
@@ -428,9 +429,19 @@ def deliver(gs, team, pr: Project) -> list:
     band = roll_outcome(gs, outcome_odds(pr.confidence, pr.size))
     lo, hi = BANDS[band]
     gain = pr.expected * gs.rng.uniform(lo, hi)
-    prima = part.perf
-    part.perf = max(40.0, part.perf + gain)
+    # se in fabbrica c'e' gia' una specifica piu' avanti di quella in garage, il
+    # pacchetto nuovo parte da li': il reparto non ridisegna due volte lo stesso
+    # pezzo partendo da capo
+    from . import kits
+    prima = kits.best_perf(team, pr.part)
+    nuova = max(40.0, prima + gain)
     team.upgrades_done += 1
+    # dalla fabbrica non escono due esemplari: ne esce uno, e su quale macchina
+    # va lo decide il muretto. Finche' non c'e' il secondo, le due monoposto
+    # sono diverse
+    kit = kits.add(gs, team, pr.part, nuova, prima, pr.size, pr.budget)
+    if not team.is_player or team.auto_dev:
+        kits.ai_fit(gs, team)
     # ogni pacchetto ha un suo carattere: c'e' quello che pianta la macchina e
     # quello che la fa girare di piu'. Non e' un dettaglio - decide a quale dei
     # due piloti sta bene
@@ -445,13 +456,15 @@ def deliver(gs, team, pr: Project) -> list:
     team.spec_trials.append(Trial(
         part=pr.part, label=nome, old_perf=prima, expected=pr.expected,
         size=pr.size, cost=pr.budget, gain=round(gain, 2),
-        carattere=carattere, band=band))
+        carattere=carattere, band=band, new_perf=round(nuova, 2)))
     if not team.is_player:
         return []
     assetto = (" Ci vorranno un paio di sessioni per ritrovare la finestra "
                "d'assetto." if quota > 0.18 else "")
-    return [f"{nome}: specifica nuova in macchina. In galleria prometteva "
-            f"+{pr.expected:.1f}: il verdetto arriva dopo che ha girato.{assetto}"]
+    quanti = "due esemplari" if kit.ready >= 2 else "un esemplare solo"
+    return [f"{nome}: specifica nuova pronta, in fabbrica c'e' {quanti}. In "
+            f"galleria prometteva +{pr.expected:.1f}: si monta dalla pagina "
+            f"della vettura, il verdetto arriva dopo che ha girato.{assetto}"]
 
 
 # Da cosa dipende il carattere di un pacchetto: rifare l'ala anteriore o il
@@ -508,7 +521,8 @@ TRIAL_UPKEEP = 0.06
 
 def deficit(team, tr: Trial) -> float:
     """Quanto si sta perdendo adesso rispetto alla specifica in garage."""
-    return round(team.car.parts[tr.part].perf - tr.old_perf, 2)
+    attuale = tr.new_perf if tr.new_perf else team.car.parts[tr.part].perf
+    return round(attuale - tr.old_perf, 2)
 
 
 def revert_spec(gs, team, tr: Trial) -> tuple:
@@ -522,7 +536,13 @@ def revert_spec(gs, team, tr: Trial) -> tuple:
     perso = deficit(team, tr)
     team.add_expense(f"Ritorno alla specifica precedente: {tr.label}", prezzo,
                      in_cap=True, category="sviluppo")
+    from . import kits
     team.car.parts[tr.part].perf = tr.old_perf
+    for k in list(team.kits or []):
+        if k.part == tr.part:
+            for d in list(k.fitted):
+                kits.deltas(team, d).pop(k.part, None)
+            team.kits.remove(k)
     # si torna indietro, ma la macchina cambia di nuovo: l'assetto ne risente
     _unsettle(team, setup_upset(team, tr.size) * 0.5)
     team.spec_trials.remove(tr)

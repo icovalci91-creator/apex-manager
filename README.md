@@ -183,7 +183,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sezione | Cosa fai |
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
-| Vettura e assetto | Stato dei componenti, power unit e cambio da sostituire prima che cedano, e un assetto per pilota con il riferimento corretto per il suo stile |
+| Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
@@ -739,6 +739,28 @@ metterei altro."*
 ha portato non lo dice la galleria: lo dicono i cronometri dopo un weekend. Alla gara dopo
 arriva il verdetto - *"porta +2.9 sulla vecchia, meno dei +5.4 promessi"* - e con lui
 **cosa ne pensano i due piloti**, che non e' la stessa cosa.
+
+**Il rilievo della macchina, e i pezzi da montare.** La vettura non e' piu' una lista di
+righe: e' disegnata dall'alto, e ogni componente si clicca. Il colore dice quanto vale
+rispetto al riferimento del ciclo, un pallino segnala il pezzo nuovo appena montato o
+quello che sta per finire, e a lato si apre la scheda con prestazione, stato e cosa c'e'
+in fabbrica.
+
+**E dalla fabbrica ne esce uno, non due.** Quando un pacchetto e' pronto arriva un solo
+esemplare, e chi lo monta lo decide il muretto: da quel momento le due monoposto sono
+diverse davvero, in tutto - simulatore, prove, qualifica, gara. Il secondo esemplare
+arriva dopo, e quante gare ci vuole lo dicono la fabbrica e la gente che ci lavora:
+
+| Fabbrica | pacchetto piccolo | medio | grande |
+|---|---|---|---|
+| grande squadra | subito su tutte e due | 1 gara | 2 gare |
+| meta' classifica | 1 gara | 1 gara | 3 gare |
+| squadra piccola | 1 gara | 2 gare | 3 gare |
+
+Finche' c'e' un esemplare solo, montarlo su un pilota vuol dire non montarlo sull'altro -
+e l'altro lo sa. Quando il secondo arriva e va in macchina, la specifica nuova diventa
+quella di squadra e le due vetture tornano uguali. Le scuderie del computer non tirano a
+sorte: il pezzo lo mettono a chi sta piu' avanti in classifica.
 
 Ogni pacchetto ha un suo carattere: rifare l'ala anteriore fa girare la macchina, lavorare
 dietro la pianta. Chi stacca tardi e vuole l'anteriore che morde si trova subito con una

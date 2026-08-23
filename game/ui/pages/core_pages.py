@@ -4,13 +4,13 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import (development, driving, economy, engineering, nextcar,
+from ...core import (development, driving, economy, engineering, kits, nextcar,
                       penalties, powertrain, rules)
 from ...core import setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
-from .. import trackdraw
+from .. import cardraw, trackdraw
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Slider, Toggle, card, stat_row
 
@@ -141,6 +141,43 @@ class CarPage(Page):
     def __init__(self, shell):
         super().__init__(shell)
         self.sel_driver = None
+        self.sel_part = "floor"
+        self.car_rect = pygame.Rect(0, 0, 10, 10)
+
+    def handle(self, ev) -> None:
+        # il disegno della macchina non e' un widget: si clicca il pezzo
+        if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1
+                and self.car_rect.collidepoint(ev.pos)):
+            part = cardraw.hit(self.car_rect, ev.pos)
+            if part:
+                self.sel_part = part
+                self.build()
+                return
+        super().handle(ev)
+
+    def _kit_for(self, part: str):
+        for k in (self.team.kits or []):
+            if k.part == part:
+                return k
+        return None
+
+    def _fit_kit(self, driver) -> None:
+        k = self._kit_for(self.sel_part)
+        if k is None:
+            return
+        ok, msg = kits.fit(self.gs, self.team, k, driver)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def _unfit_kit(self, driver) -> None:
+        k = self._kit_for(self.sel_part)
+        if k is None:
+            return
+        ok, msg = kits.remove(self.gs, self.team, k, driver)
+        self.app.toast(msg)
+        self.build()
 
     def _piloti(self) -> list:
         return self.gs.lineup_of(self.team.id)
@@ -193,9 +230,25 @@ class CarPage(Page):
                                    "Se ne occupano gli ingegneri di pista",
                                    self.team.auto_setup, on_change=self._set_auto_setup))
 
+        # --- il pezzo nuovo: su quale macchina lo montiamo
+        left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
+        self.car_rect = pygame.Rect(left.x + 20, left.y + 34, 176, 300)
+        k = self._kit_for(self.sel_part)
+        if k is not None:
+            bx = self.car_rect.right + 16
+            bw = left.right - 16 - bx
+            for i, pil in enumerate(self._piloti()):
+                montato = pil.id in k.fitted
+                b = Button((bx, self.car_rect.y + 206 + i * 32, bw, 26),
+                           ("Togli da " if montato else "Monta su ") + pil.short,
+                           style="danger" if montato else "primary")
+                b.on_click = ((lambda pp=pil: self._unfit_kit(pp)) if montato
+                              else (lambda pp=pil: self._fit_kit(pp)))
+                b.enabled = montato or k.spare > 0
+                self.widgets.append(b)
+
         # le parti che il regolamento conta: si cambiano quando sono finite,
         # sapendo cosa costa farlo fuori contingente
-        left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
         cy = left.bottom - 118
         for p in self._piloti():
             for i, quale in enumerate(("pu", "cambio")):
@@ -283,30 +336,78 @@ class CarPage(Page):
         car = team.car
         left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "COMPONENTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        T.text(surf, f"riferimento del ciclo {development.reference_level(gs):.0f}",
-               (left.right - 16, left.y + 12), 11, T.DIM_2, align="right")
-        y = left.y + 38
+        T.text(surf, "LA MACCHINA", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, "clicca un pezzo", (left.right - 16, left.y + 12), 11, T.DIM_2,
+               align="right")
         rif = development.reference_level(gs)
-        for k, meta in C.CAR_PARTS.items():
+        d0 = self._driver()
+        colori, segni = {}, {}
+        for k in C.CAR_PARTS:
             p = car.parts[k]
-            T.text(surf, meta["label"], (left.x + 16, y), 14, T.TEXT)
-            # la scala non e' 0-100: si legge rispetto al riferimento del ciclo
-            T.bar(surf, (left.x + 170, y + 5, 120, 8), p.perf - rif + 20.0, 40.0,
-                  T.stat_colour(p.perf, rif - 12.0, rif))
-            T.text(surf, f"{p.perf:.0f}", (left.x + 300, y), 13, T.TEXT, bold=True)
-            cond_col = T.OK if p.condition > 80 else (T.WARN if p.condition > 55 else T.BAD)
-            T.bar(surf, (left.x + 330, y + 5, 90, 8), p.condition, 100, cond_col)
-            T.text(surf, f"{p.condition:.0f}%", (left.right - 16, y), 13, cond_col,
-                   bold=True, align="right")
-            y += 26
-        y += 10
+            valore = kits.perf_for(team, d0.id, k) if d0 is not None else p.perf
+            base = T.stat_colour(valore, rif - 12.0, rif)
+            # scuriti: il disegno deve restare leggibile, non sembrare un semaforo
+            colori[k] = tuple(int(c * (0.62 if k != self.sel_part else 0.9)) for c in base)
+            if d0 is not None and k in (kits.deltas(team, d0.id) or {}):
+                segni[k] = T.ACCENT                  # pezzo nuovo montato qui
+            elif p.condition < 55:
+                segni[k] = T.BAD                     # e' da rifare
+        cardraw.draw(surf, self.car_rect, colori, self.sel_part, segni)
+        cardraw.wheels(surf, self.car_rect)
+        if "floor" in segni:
+            cardraw.floor_badge(surf, self.car_rect, segni["floor"])
+
+        # --- la scheda del pezzo scelto
+        px = self.car_rect.right + 16
+        pw = left.right - 16 - px
+        meta = C.CAR_PARTS[self.sel_part]
+        part = car.parts[self.sel_part]
+        T.text(surf, meta["label"], (px, self.car_rect.y), 17, T.TEXT, bold=True, maxw=pw)
+        valore = kits.perf_for(team, d0.id, self.sel_part) if d0 else part.perf
+        T.text(surf, "Prestazione", (px, self.car_rect.y + 28), 13, T.DIM)
+        T.text(surf, f"{valore:.1f}", (px + pw, self.car_rect.y + 28), 14,
+               T.stat_colour(valore, rif - 12.0, rif), bold=True, align="right")
+        T.text(surf, f"riferimento del ciclo {rif:.0f}", (px, self.car_rect.y + 46), 11,
+               T.DIM_2, maxw=pw)
+        T.text(surf, "Stato del pezzo", (px, self.car_rect.y + 68), 13, T.DIM)
+        cond_col = (T.OK if part.condition > 80 else
+                    T.WARN if part.condition > 55 else T.BAD)
+        T.text(surf, f"{part.condition:.0f}%", (px + pw, self.car_rect.y + 68), 14,
+               cond_col, bold=True, align="right")
+        T.bar(surf, (px, self.car_rect.y + 88, pw, 8), part.condition, 100, cond_col)
+
+        kit = self._kit_for(self.sel_part)
+        if kit is not None:
+            T.text(surf, "SPECIFICA NUOVA IN FABBRICA", (px, self.car_rect.y + 112), 11,
+                   T.ACCENT, bold=True, maxw=pw)
+            T.text(surf, f"{kit.old_perf:.1f}  ->  {kit.perf:.1f}   ({kit.gain:+.1f})",
+                   (px, self.car_rect.y + 132), 15, T.OK if kit.gain > 0 else T.BAD,
+                   bold=True, maxw=pw)
+            T.text(surf, f"esemplari pronti {kit.ready} su 2, montati "
+                         f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12, T.DIM,
+                   maxw=pw)
+            if kit.gain <= 0:
+                T.text(surf, "e' andata peggio della vecchia: non conviene montarla",
+                       (px, self.car_rect.y + 172), 12, T.BAD, maxw=pw)
+            elif kit.spare <= 0 and len(kit.fitted) < 2:
+                gare = kits.build_time(team, kit.size) - (gs.round - kit.round_ready)
+                T.text(surf, f"il secondo esce fra {max(0, gare)} gare",
+                       (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
+            elif len(kit.fitted) == 1:
+                T.text(surf, "una macchina aggiornata, l'altra no",
+                       (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
+        else:
+            T.text(surf, "Nessun pezzo nuovo in arrivo per questo componente: "
+                         "si migliora con un pacchetto di sviluppo.",
+                   (px, self.car_rect.y + 112), 12, T.DIM_2, maxw=pw)
+
+        y = self.car_rect.bottom + 16
         T.text(surf, "PRESTAZIONI DERIVATE", (left.x + 16, y), 12, T.DIM_2, bold=True)
         y += 22
         prof = engineering.car_profile(team, gs)
         for key, lab in engineering.AREAS.items():
-            stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 22), lab, prof[key])
-            y += 24
+            stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 20), lab, prof[key])
+            y += 20
         y += 8
         cost = car.repair_cost()
         T.text(surf, f"Costo di ripristino stimato: {cost:.2f} M$", (left.x + 16, y), 13,

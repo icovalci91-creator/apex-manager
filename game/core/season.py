@@ -225,6 +225,12 @@ def after_race(gs, dev_budget: float | None = None, pu_budget: float | None = No
     msgs += development.check_trials(gs, player)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
+    from . import kits
+    for t in gs.teams.values():
+        for m in kits.produce(gs, t):
+            msgs.append(m)
+        if not t.is_player or t.auto_dev:
+            kits.ai_fit(gs, t)
     testing.ai_plan(gs)
     for t in gs.teams.values():          # usura di power unit e cambi
         for m in penalties.wear_components(gs, t):

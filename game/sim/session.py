@@ -39,15 +39,24 @@ def base_lap_for(gs, team, track, weather: Weather, driver=None) -> float:
     # rinfrescata qui: se il reparto motori e' cambiato (ingaggi, debutto della
     # propria unita') l'integrazione deve valere gia' da questo weekend
     car.pu_integration = powertrain.integration(gs, team)
+    from ..core import kits
     old_fuel, old_setup = car.fuel_kg, dict(car.setup)
     car.fuel_kg = 0.0
+    ripristina = {}
     if driver is not None:
         car.setup = dict(driving.setup_of(team, driver))
+        # i pezzi montati solo su questa macchina valgono solo per lei
+        for parte, valore in (kits.deltas(team, driver.id) or {}).items():
+            if parte in car.parts:
+                ripristina[parte] = car.parts[parte].perf
+                car.parts[parte].perf = float(valore)
     car.evaluate_setup(track, driver)
     t, _, _ = track.lap_model(car, wet=weather.wet)
     car.fuel_kg = old_fuel
     effetto = car.apply_setup_effects()
     car.setup = old_setup
+    for parte, valore in ripristina.items():
+        car.parts[parte].perf = valore
     return t / effetto
 
 

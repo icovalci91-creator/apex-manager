@@ -434,6 +434,8 @@ class GameState:
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup, "setups": t.setups or {},
                     "auto_dev": t.auto_dev, "auto_setup": t.auto_setup,
+                    "part_delta": t.part_delta or {},
+                    "kits": [asdict(k) for k in (t.kits or [])],
                     "balance": t.car.balance,
                 } for t in self.teams.values()
             },
@@ -522,6 +524,11 @@ class GameState:
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
             t.car.balance = float(td.get("balance", 0.0))
+            from .kits import Kit
+            t.part_delta = {k: dict(v) for k, v in (td.get("part_delta") or {}).items()}
+            campi_k = {f.name for f in fields(Kit)}
+            t.kits = [Kit(**{k: v for k, v in x.items() if k in campi_k})
+                      for x in (td.get("kits") or [])]
             t.auto_dev = bool(td.get("auto_dev", False))
             t.auto_setup = bool(td.get("auto_setup", True))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
