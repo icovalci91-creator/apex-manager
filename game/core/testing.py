@@ -19,25 +19,25 @@ PROGRAMMI = {
         "label": "Chilometri ai giovani",
         "desc": "Una monoposto di due anni fa e un pilota da far crescere. "
                 "Non serve alla macchina, serve a lui.",
-        "materiali": 0.55,
+        "materiali": 0.20,
     },
     "correlazione": {
         "label": "Correlazione galleria-pista",
         "desc": "Si misura in pista quello che la galleria del vento promette. "
                 "Quando i due numeri divergono, gli aggiornamenti falliscono.",
-        "materiali": 0.85,
+        "materiali": 0.30,
     },
     "assetto": {
         "label": "Lavoro di assetto",
         "desc": "Si accumula conoscenza su un circuito preciso: quando ci si "
                 "torna in gara, si parte gia' vicini alla finestra giusta.",
-        "materiali": 0.70,
+        "materiali": 0.25,
     },
     "affidabilita": {
         "label": "Prova di affidabilita'",
         "desc": "Chilometri su chilometri per far emergere le rotture in "
                 "officina invece che in gara.",
-        "materiali": 0.65,
+        "materiali": 0.28,
     },
 }
 
@@ -126,9 +126,12 @@ def days_left(gs, team) -> int:
 # l'uno ne' l'altra - si accende la luce e si gira - e quello che resta e' il
 # mantenimento della pista, che si paga tutto l'anno che ci si giri o no, e le
 # migliorie, che passano dal budget delle costruzioni come ogni struttura.
-NOLEGGIO = 0.35            # M$ al giorno per affittare una pista che non e' nostra
-TRASFERTA = 0.25           # M$ al giorno di logistica, restando dalle nostre parti
-TRASFERTA_LONTANO = 0.90   # e quanto costa in piu' andare lontano da casa
+# Una giornata di prove private non e' un weekend di gara: si gira con una
+# monoposto di due anni fa, con mezza squadra e senza ospitalita'. I materiali
+# valgono qualche centinaio di migliaia di dollari al giorno, non un milione.
+NOLEGGIO = 0.12            # M$ al giorno per affittare una pista che non e' nostra
+TRASFERTA = 0.15           # M$ al giorno di logistica, restando dalle nostre parti
+TRASFERTA_LONTANO = 0.55   # e quanto costa in piu' andare lontano da casa
 
 
 def cost_breakdown(gs, team, track, programme: str, days: int) -> dict:
@@ -147,11 +150,16 @@ def cost_of(gs, team, track, programme: str, days: int) -> float:
     return round(sum(cost_breakdown(gs, team, track, programme, days).values()), 2)
 
 
+# Le fabbriche stanno tutte in Europa, anche quelle delle squadre americane:
+# Haas lavora a Banbury, la sede legale e' dall'altra parte dell'oceano ma i
+# camion partono da qui. Quindi una trasferta e' comoda se resta in Europa.
+EUROPA = ("Italia", "Spagna", "Regno Unito", "Belgio", "Paesi Bassi", "Ungheria",
+          "Austria", "Germania", "Francia", "Portogallo", "Monaco", "Svizzera",
+          "Turchia", "Europa")
+
+
 def _vicino(team, track) -> bool:
-    europa = ("Italia", "Spagna", "Regno Unito", "Belgio", "Paesi Bassi",
-              "Ungheria", "Austria", "Germania", "Francia", "Portogallo", "Monaco")
-    return track.country in europa and any(p in team.base for p in
-                                           ("Regno Unito", "Italia", "Svizzera"))
+    return track.country in EUROPA
 
 
 def can_run(gs, team, track, programme: str, days: int) -> tuple:
@@ -254,7 +262,7 @@ def ai_plan(gs) -> None:
         # nessuno arriva a dicembre con meta' del pacchetto ancora in mano
         gare_restanti = max(1, len(gs.tracks) - gs.round)
         from . import economy
-        if economy.room_left(gs, team) < 3.0:
+        if economy.room_left(gs, team) < 1.0:
             continue                     # non e' aria di giornate di prove
         voglia = (days_left(gs, team) / (gare_restanti * 1.6)
                   * economy.spending_room(gs, team)
@@ -276,8 +284,13 @@ def ai_plan(gs) -> None:
             prossime = gs.tracks[gs.round:gs.round + 4] or gs.tracks
             pista = gs.rng.choice(prossime)
         else:
-            # per il resto si sceglie la trasferta piu' comoda
-            vicine = [t for t in gs.tracks if _vicino(team, t)] or gs.tracks
-            pista = gs.rng.choice(vicine)
+            # chi ha una pista di casa ci gira: non si paga ne' il noleggio ne'
+            # la trasferta, e non serve chiedere il permesso a nessuno
+            casa = home_track(gs, team)
+            if casa is not None:
+                pista = casa
+            else:
+                vicine = [t for t in gs.tracks if _vicino(team, t)] or gs.tracks
+                pista = gs.rng.choice(vicine)
         giorni = min(days_left(gs, team), gs.rng.randint(1, 2))
         run(gs, team, pista, giovani[0] if giovani else None, prog, giorni)

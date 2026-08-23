@@ -129,14 +129,18 @@ vada, perche' la macchina consuma quello che consuma. Il **noleggio** della pist
 
 | Dove | materiali | noleggio | trasferta | totale |
 |---|---|---|---|---|
-| Fiorano, casa propria | 2,55 | - | - | **2,55** |
-| Silverstone | 2,55 | 1,05 | 0,75 | **4,35** |
-| Losail | 2,55 | 1,05 | 3,45 | **7,05** |
+| Fiorano, casa propria | 0,90 | - | - | **0,90** |
+| Silverstone | 0,90 | 0,36 | 0,45 | **1,71** |
+| Losail | 0,90 | 0,36 | 2,10 | **3,36** |
 
 In casa propria l'uso della pista non si paga: si accende la luce e si gira. Quello che si
 paga comunque e' il mantenimento dell'impianto, tutto l'anno che ci si giri o no, e le
-migliorie, che passano dal budget delle costruzioni come ogni altra struttura. Su tutte e
-otto le giornate della stagione, girare in casa invece che a Silverstone vale 4,8 M$.
+migliorie, che passano dal budget delle costruzioni come ogni altra struttura.
+
+Una giornata di prove costa fra i 0,47 e gli 0,81 M$ a seconda di dove si va, e una
+stagione intera fra 1 e 6,5: non e' un weekend di gara, si gira con una monoposto di due
+anni fa e mezza squadra. Il vincolo vero non sono i soldi ma le giornate, che il
+regolamento conta - ed e' esattamente cosi' anche nella realta'.
 
 Tutto questo sta dentro il tetto di spesa, quindi ogni prova e' sviluppo in meno. Si puo' girare anche fuori dal calendario:
 Tsukuba, Mugello, Paul Ricard, Portimao e gli altri candidati sono li' apposta.
