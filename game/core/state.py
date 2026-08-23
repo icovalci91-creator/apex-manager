@@ -431,6 +431,7 @@ class GameState:
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup, "setups": t.setups or {},
+                    "balance": t.car.balance,
                 } for t in self.teams.values()
             },
         }
@@ -515,6 +516,7 @@ class GameState:
                     t.car.parts[k].perf = p["perf"]
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
+            t.car.balance = float(td.get("balance", 0.0))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()

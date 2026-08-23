@@ -39,6 +39,7 @@ class Car:
     active_aero_allowed: bool = True
     mass_base: float = C.CAR_MASS_KG              # peso minimo regolamentare
     pu_integration: float = 0.25                  # 0 cliente .. 1 costruttore
+    balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
     @classmethod
@@ -146,7 +147,20 @@ class Car:
         return {k: max(0.0, min(100.0, v + off.get(k, 0.0))) for k, v in base.items()}
 
     def _track_optimum(self, track) -> dict:
+        """L'ottimo del tracciato, spostato da come e' fatta la macchina.
+
+        Un pacchetto che fa girare di piu' la vettura sposta anche dove sta la
+        finestra: si frena piu' avanti e si porta un filo meno carico. Per
+        questo dopo un aggiornamento l'assetto va ritrovato davvero.
+        """
         t = track.traits
+        b = max(-1.0, min(1.0, self.balance))
+        base = self._optimum_raw(t)
+        base["brake_bias"] = max(0.0, min(100.0, base["brake_bias"] + 5.0 * b))
+        base["wing"] = max(0.0, min(100.0, base["wing"] - 3.0 * b))
+        return base
+
+    def _optimum_raw(self, t) -> dict:
         return {
             "wing":        100.0 * min(1.0, max(0.0, t["downforce"])),
             "ride_height": 100.0 * min(1.0, max(0.0, 0.28 + 0.62 * t["bumpiness"])),

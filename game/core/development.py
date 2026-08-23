@@ -112,6 +112,9 @@ class Trial:
     cost: float = 0.0        # quanto e' costato il pacchetto
     state: str = "in prova"  # in prova | affinamento
     news: str = ""           # l'ultima cosa che hanno detto gli ingegneri
+    gain: float = 0.0        # quanto ha portato davvero, misurato in pista
+    carattere: float = 0.0   # -1 macchina piu' piantata, +1 piu' nervosa
+    band: str = ""           # come e' uscita: fallito, sottotono, in linea, oltre
 
 
 def next_era(gs):
@@ -173,9 +176,61 @@ def dev_capacity(gs, team) -> float:
     return core * (people / 100.0) * 1.05
 
 
-def cost_of_upgrade(part: str, size: str) -> float:
-    mult = {"piccolo": 1.2, "medio": 2.4, "grande": 4.2}[size]
-    return round(C.CAR_PARTS[part]["cost"] * mult, 2)
+# Quante persone del reparto lavorano a un pacchetto, e per quante gare. Un
+# aggiornamento non e' una fattura: e' un gruppo di gente che per settimane
+# disegna, prova in galleria, fa i pezzi e li monta. E' li' che va il grosso
+# del tetto di spesa.
+PEOPLE = {"piccolo": 10, "medio": 26, "grande": 52}
+MATERIALS = {"piccolo": 1.0, "medio": 2.2, "grande": 3.6}
+RACES_OF = {"piccolo": 1, "medio": 3, "grande": 6}
+
+
+def people_needed(size: str) -> int:
+    return PEOPLE[size]
+
+
+def people_busy(team) -> int:
+    """Quante persone sono gia' impegnate sui pacchetti aperti."""
+    return sum(PEOPLE.get(pr.size, 0) for pr in team.dev_projects)
+
+
+def cost_breakdown(gs, team, part: str, size: str) -> dict:
+    """Da cosa e' fatto il costo di un pacchetto.
+
+    Il lavoro sono le persone dedicate per il tempo che ci mettono; i materiali
+    sono galleria, stampi, fibra e pezzi. Chi ha un reparto grande paga di piu'
+    le stesse ore, ma le fa meglio - ed e' il motivo per cui l'organico si vede
+    due volte: qui nel conto e nella fiducia del pacchetto.
+    """
+    from . import departments
+    mix = _mix(part)
+    # il reparto che ci mette le persone dipende da cosa si sta rifacendo
+    quota = {"aero": mix["aero"], "progetto": mix["mech"], "powertrain": mix["pu"]}
+    costo_testa = sum(departments.REPARTI[a]["cost"] * q for a, q in quota.items())
+    n = people_needed(size)
+    gare = RACES_OF[size]
+    lavoro = n * costo_testa * (gare / max(1, len(gs.tracks)))
+    materiali = C.CAR_PARTS[part]["cost"] * MATERIALS[size]
+    return {"persone": n, "gare": gare,
+            "lavoro": round(lavoro, 2), "materiali": round(materiali, 2),
+            "totale": round(lavoro + materiali, 2)}
+
+
+def cost_of_upgrade(gs, team, part: str, size: str) -> float:
+    return cost_breakdown(gs, team, part, size)["totale"]
+
+
+def dept_people(team, part: str) -> int:
+    """Quante persone puo' mettere il reparto su un pezzo del genere."""
+    from . import departments
+    mix = _mix(part)
+    return int(sum(departments.headcount(team, a) * q for a, q in
+                   (("aero", mix["aero"]), ("progetto", mix["mech"]),
+                    ("powertrain", mix["pu"]))))
+
+
+def free_people(team, part: str) -> int:
+    return max(0, dept_people(team, part) - people_busy(team))
 
 
 def expected_gain(gs, team, part: str, size: str) -> float:
@@ -334,13 +389,19 @@ def _unsettle(team, quota: float) -> None:
 
 def start_project(gs, team, part: str, size: str) -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
-    cost = cost_of_upgrade(part, size)
+    from . import departments
+    cost = cost_of_upgrade(gs, team, part, size)
     races = RACES_OF[size]
     aperti = len(team.dev_projects) + sum(1 for t in team.spec_trials
                                           if t.state == "affinamento")
     if aperti >= 3:
         return False, ("Il reparto e' saturo: fra progetti aperti e specifiche da "
                        "capire non c'e' un banco libero.")
+    # le persone non si sdoppiano: quelle su un pacchetto non stanno su un altro
+    liberi = free_people(team, part)
+    if people_needed(size) > liberi:
+        return False, (f"Servono {people_needed(size)} persone e il reparto ne ha "
+                       f"{liberi} libere: o si assume, o si chiude un cantiere.")
     if team.cash < cost / races:
         return False, "Non c'e' liquidita' nemmeno per la prima tranche."
     if team.spent + cost > economy.cap_limit(gs):
@@ -370,29 +431,64 @@ def deliver(gs, team, pr: Project) -> list:
     prima = part.perf
     part.perf = max(40.0, part.perf + gain)
     team.upgrades_done += 1
+    # ogni pacchetto ha un suo carattere: c'e' quello che pianta la macchina e
+    # quello che la fa girare di piu'. Non e' un dettaglio - decide a quale dei
+    # due piloti sta bene
+    carattere = round(_carattere(gs, pr.part), 2)
+    team.car.balance = max(-1.0, min(1.0, team.car.balance + carattere * 0.35))
     # anche quando funziona, l'assetto va ritrovato: la macchina non e' piu'
     # quella su cui si erano presi i riferimenti
     quota = setup_upset(team, pr.size)
     _unsettle(team, quota)
-    if band == "fallito":
-        # non si sa ancora: la specifica e' in macchina, il giudizio arriva
-        # dopo che ha girato. La vecchia resta in garage fino ad allora
-        team.spec_trials.append(Trial(
-            part=pr.part, label=nome, old_perf=prima, expected=pr.expected,
-            size=pr.size, cost=pr.budget))
+    # ogni specifica nuova passa dalla verifica: quanto ha portato lo dicono i
+    # cronometri, non la galleria, e finche' non ha girato non si sa
+    team.spec_trials.append(Trial(
+        part=pr.part, label=nome, old_perf=prima, expected=pr.expected,
+        size=pr.size, cost=pr.budget, gain=round(gain, 2),
+        carattere=carattere, band=band))
     if not team.is_player:
         return []
-    assetto = (f" Ci vorranno un paio di sessioni per ritrovare la finestra "
-               f"d'assetto." if quota > 0.18 else "")
-    if band == "fallito":
-        return [f"{nome}: specifica nuova in macchina. In galleria prometteva "
-                f"+{pr.expected:.1f}: lo diranno i cronometri.{assetto}"]
-    if band == "sottotono":
-        return [f"{nome}: in pista rende meno che al banco, +{gain:.1f} sui "
-                f"+{pr.expected:.1f} promessi.{assetto}"]
-    if band == "oltre":
-        return [f"{nome}: il pacchetto va oltre le attese, +{gain:.1f}.{assetto}"]
-    return [f"{nome}: aggiornamento in pista, +{gain:.1f} come previsto.{assetto}"]
+    assetto = (" Ci vorranno un paio di sessioni per ritrovare la finestra "
+               "d'assetto." if quota > 0.18 else "")
+    return [f"{nome}: specifica nuova in macchina. In galleria prometteva "
+            f"+{pr.expected:.1f}: il verdetto arriva dopo che ha girato.{assetto}"]
+
+
+# Da cosa dipende il carattere di un pacchetto: rifare l'ala anteriore o il
+# fondo davanti fa girare la macchina, lavorare dietro la pianta.
+CARATTERE_BASE = {
+    "front_wing": 0.55, "floor": 0.20, "active_aero": 0.15, "brakes": 0.25,
+    "rear_wing": -0.45, "suspension": -0.10, "chassis": 0.0, "gearbox": -0.15,
+    "sidepods": 0.05, "cooling": 0.0,
+}
+
+
+def _carattere(gs, part: str) -> float:
+    base = CARATTERE_BASE.get(part, 0.0)
+    return max(-1.0, min(1.0, base + gs.rng.gauss(0.0, 0.28)))
+
+
+def driver_verdict(gs, team, tr: Trial, driver) -> tuple:
+    """Cosa ne pensa un pilota della specifica nuova. Ritorna (indice, frase).
+
+    L'indice va da -1 a +1: e' l'incontro fra come e' fatto il pacchetto e come
+    guida lui. Una macchina che gira di piu' e' un regalo per chi stacca tardi
+    e un problema per chi ha bisogno di sentirla piantata.
+    """
+    from . import driving
+    attacco = driving.traits(driver)["attacco"]
+    idx = max(-1.0, min(1.0, tr.carattere * (0.35 + 0.85 * attacco)))
+    if idx > 0.35:
+        frase = "ci si trova subito, dice che la macchina fa quello che le chiede"
+    elif idx > 0.12:
+        frase = "gli piace, anche se deve rifare un po' di riferimenti"
+    elif idx > -0.12:
+        frase = "non cambia niente per lui"
+    elif idx > -0.35:
+        frase = "fatica a fidarsi, chiede di rimetterla come prima dietro"
+    else:
+        frase = "non riesce a guidarla, dice che gli scappa via"
+    return round(idx, 2), frase
 
 
 # ------------------------------------------------- specifiche che non vanno
@@ -487,17 +583,36 @@ def check_trials(gs, team) -> list:
         tr.races += 1
         buco = deficit(team, tr)
         if tr.state == "in prova":
-            why = weakest_link(gs, team, tr.part)
             if buco < -0.05:
+                why = weakest_link(gs, team, tr.part)
                 tr.news = f"in pista va peggio della vecchia di {abs(buco):.1f}: {why}"
-            else:
+            elif buco < 0.15:
+                why = weakest_link(gs, team, tr.part)
                 tr.news = f"non ha cambiato niente rispetto alla vecchia: {why}"
+            elif buco < tr.expected * 0.7:
+                tr.news = (f"porta {buco:+.1f} sulla vecchia, meno dei "
+                           f"+{tr.expected:.1f} promessi")
+            else:
+                tr.news = f"porta {buco:+.1f} sulla vecchia, come prometteva"
+            # il verdetto si da' una volta sola, e lo si da' sempre: anche
+            # quando il pacchetto ha funzionato si vuole sapere quanto ha
+            # portato e come l'hanno trovata i piloti
+            funziona = buco >= 0.15
+            if team.is_player and tr.races == 1:
+                msgs.append(f"{tr.label}: {tr.news}.")
+                for d in gs.lineup_of(team.id):
+                    _idx, frase = driver_verdict(gs, team, tr, d)
+                    msgs.append(f"   {d.short}: {frase}.")
+                if not funziona:
+                    msgs.append("   Da decidere: rimontare la specifica vecchia "
+                                "o tenerla e lavorarci.")
+            if funziona:
+                # ha portato qualcosa: non c'e' niente da capire, il reparto
+                # passa ad altro e il banco torna libero
+                team.spec_trials.remove(tr)
+                continue
             if not team.is_player:
                 _ai_decide(gs, team, tr, buco)
-            elif tr.races == 1:
-                # il verdetto si da' una volta: dopo, chi decide e' il muretto
-                msgs.append(f"{tr.label}: {tr.news}. Da decidere se rimontare la "
-                            f"specifica precedente o tenerla e lavorarci.")
             elif tr.races > TRIAL_RACES:
                 # nessuna decisione e' comunque una decisione: si va avanti cosi'
                 tr.state = "affinamento"
@@ -668,7 +783,7 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
     for size, gare in (("grande", 6), ("medio", 3), ("piccolo", 1)):
         if gare > gare_restanti:
             continue
-        costo = cost_of_upgrade(part, size)
+        costo = cost_of_upgrade(gs, team, part, size)
         if costo > headroom * gare * 0.9 or costo / gare > team.cash * 0.5:
             continue
         # quello che ci si e' gia' impegnati a pagare conta: un pacchetto per

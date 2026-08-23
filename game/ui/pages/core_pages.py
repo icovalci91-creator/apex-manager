@@ -399,14 +399,14 @@ class DevPage(Page):
         for tr in self.team.spec_trials[:2]:
             peggio = development.deficit(self.team, tr) < -0.05
             if peggio:
-                self.widgets.append(Button((left.x + 16, ty + 40, bw, 30),
+                self.widgets.append(Button((left.x + 16, ty + 62, bw, 26),
                                            "Rimonta la vecchia",
                                            (lambda t=tr: self.revert(t)), "danger"))
             if tr.state == "in prova":
                 x = left.x + 26 + bw if peggio else left.x + 16
-                self.widgets.append(Button((x, ty + 40, bw, 30), "Tienila e affinala",
+                self.widgets.append(Button((x, ty + 62, bw, 26), "Tienila e affinala",
                                            (lambda t=tr: self.keep(t)), "primary"))
-            ty += 84
+            ty += 104
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         bx, by = right.x + 16, right.y + 200
@@ -427,13 +427,13 @@ class DevPage(Page):
             b.active = (sz == self.sel_size)
             self.size_buttons.append(b)
             self.widgets.append(b)
-        self.widgets.append(Button((bx, sy + 152, right.w - 32, 40), "Avvia progetto",
+        self.widgets.append(Button((bx, sy + 204, right.w - 32, 40), "Avvia progetto",
                                    self.start_project, "primary"))
         self.reg_slider = None
         if development.seasons_to_reset(self.gs) not in (None,) and \
                 development.seasons_to_reset(self.gs) <= 3:
             self.reg_slider = Slider(
-                (bx, sy + 206, right.w - 32, 28), "Risorse sul regolamento nuovo",
+                (bx, sy + 256, right.w - 32, 28), "Risorse sul regolamento nuovo",
                 self.team.next_reg_share * 100.0, 0.0, 90.0,
                 on_change=self._set_reg_share, fmt="{:.0f}%")
             self.widgets.append(self.reg_slider)
@@ -531,6 +531,18 @@ class DevPage(Page):
                          f"in affinamento, {max(0, development.TRIAL_RACES + 1 - tr.races)} gare")
                 T.text(surf, f"{stato}  -  {tr.news}", (left.x + 16, ty + 19), 12, T.DIM,
                        maxw=left.w - 32)
+                # cosa ne dicono quelli che la guidano: un pacchetto che fa
+                # girare la macchina non sta bene a tutti e due allo stesso modo
+                voci = []
+                for d in gs.lineup_of(team.id):
+                    idx, frase = development.driver_verdict(gs, team, tr, d)
+                    segno = "+" if idx > 0.12 else ("-" if idx < -0.12 else "=")
+                    voci.append(f"{segno} {d.short}: {frase}")
+                for j, voce in enumerate(voci[:2]):
+                    col_v = (T.OK if voce.startswith("+") else
+                             T.BAD if voce.startswith("-") else T.DIM_2)
+                    T.text(surf, voce, (left.x + 16, ty + 33 + j * 14), 11, col_v,
+                           maxw=left.w - 32)
                 tetto = development.trial_ceiling(gs, team, tr) - tr.old_perf
                 nota = (f"insistere puo' portarla a {tetto:+.1f} sulla vecchia e costa "
                         f"{tr.cost * development.TRIAL_UPKEEP:.2f} M$ a gara, con un "
@@ -538,8 +550,8 @@ class DevPage(Page):
                 if buco < -0.05:
                     nota += (f"  -  rimontare la vecchia costa "
                              f"{tr.cost * development.REVERT_SHARE:.2f} M$")
-                T.text(surf, nota, (left.x + 16, ty + 74), 11, T.DIM_2, maxw=left.w - 32)
-                ty += 84
+                T.text(surf, nota, (left.x + 16, ty + 90), 11, T.DIM_2, maxw=left.w - 32)
+                ty += 104
         elif team.dev_projects:
             T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
                          "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
@@ -575,7 +587,7 @@ class DevPage(Page):
         if st:
             # il tavolo e' aperto: non si sa ancora la data, ma si sa la direzione
             dom = max(st["aree"], key=st["aree"].get)
-            ry = sy + 244
+            ry = sy + 296
             T.text(surf, f"TAVOLO TECNICO  -  RIUNIONE {st['riunioni']} DI {st['servono']}",
                    (right.x + 16, ry), 12, T.GOLD, bold=True)
             T.text(surf, f"Si sta andando verso {rules.ETICHETTA_AREA[dom]} "
@@ -605,19 +617,31 @@ class DevPage(Page):
                 T.text(surf, "Ultima stagione utile: dopo il cambio la preparazione non conta piu'.",
                        (right.x + 16, ry + 50), 12, T.WARN, maxw=right.w - 32)
 
-        cost = development.cost_of_upgrade(self.sel_part, self.sel_size)
+        conto = development.cost_breakdown(gs, team, self.sel_part, self.sel_size)
+        cost = conto["totale"]
         gain = development.expected_gain(gs, team, self.sel_part, self.sel_size)
         conf = development.project_confidence(gs, team, self.sel_part, self.sel_size)
         odds = development.outcome_odds(conf, self.sel_size)
         races = development.RACES_OF[self.sel_size]
+        liberi = development.free_people(team, self.sel_part)
+        serve = development.people_needed(self.sel_size)
         T.text(surf, f"Costo {cost:.2f} M$   |   Sulla carta +{gain:.1f}   |   "
                      f"Tempo {races} gare",
-               (right.x + 16, sy + 40), 14, T.TEXT)
+               (right.x + 16, sy + 42), 14, T.TEXT)
+        col_p = T.OK if liberi >= serve else T.BAD
+        T.text(surf, f"{serve} persone del reparto per {races} gare "
+                     f"({liberi} libere)   -   materiali {conto['materiali']:.2f} M$, "
+                     f"straordinari {conto['lavoro']:.2f}",
+               (right.x + 16, sy + 62), 12, col_p, maxw=right.w - 32)
+        resta = economy.room_left(gs, team)
+        T.text(surf, f"Dopo questo pacchetto resterebbero {max(0.0, resta - cost):.0f} M$ "
+                     f"per la stagione, su {resta:.0f}.",
+               (right.x + 16, sy + 78), 12, T.DIM_2, maxw=right.w - 32)
 
         col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
-        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 64), 13, T.DIM)
-        T.bar(surf, (right.x + 170, sy + 69, right.w - 260, 8), conf * 100, 100, col)
-        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 64), 13, col,
+        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 102), 13, T.DIM)
+        T.bar(surf, (right.x + 170, sy + 107, right.w - 260, 8), conf * 100, 100, col)
+        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 102), 13, col,
                bold=True, align="right")
 
         # come puo' finire: quattro bande, disegnate in proporzione
@@ -627,18 +651,18 @@ class DevPage(Page):
         x = bx
         for nome, colore in bande:
             w = bw * odds[nome]
-            pygame.draw.rect(surf, colore, (int(x), sy + 92, max(2, int(w)), 10),
+            pygame.draw.rect(surf, colore, (int(x), sy + 130, max(2, int(w)), 10),
                              border_radius=2)
             x += w
         T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
                      f"sotto le attese {odds['sottotono']*100:.0f}%   "
                      f"come previsto {odds['in linea']*100:.0f}%   "
                      f"oltre {odds['oltre']*100:.0f}%",
-               (bx, sy + 108), 12, T.DIM_2, maxw=bw)
+               (bx, sy + 146), 12, T.DIM_2, maxw=bw)
         T.text(surf, development.weakest_link(gs, team, self.sel_part).capitalize()
                if conf < 0.62 else
                "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
-               (bx, sy + 128), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
+               (bx, sy + 164), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
         # quanto lavoro d'assetto rimette in discussione, e chi lo ritrova prima
         upset = development.setup_upset(team, self.sel_size)
         quanto = "poco" if upset < 0.15 else ("parecchio" if upset < 0.32 else "molto")
@@ -646,7 +670,7 @@ class DevPage(Page):
                 if team.has_private_track else "senza pista di proprieta' si ritrova il venerdi'")
         T.text(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
                      f"che sappiamo della vettura). {casa.capitalize()}.",
-               (bx, sy + 148), 12, T.GOLD, maxw=bw)
+               (bx, sy + 182), 12, T.GOLD, maxw=bw)
         super().draw(surf)
 
 

@@ -416,6 +416,23 @@ dipende dalla *fiducia del reparto*, che mette insieme:
 | in aggiunta: correlazione dai test privati (+22%) e conoscenza della vettura (+10%) | |
 | in sottrazione: la taglia del pacchetto (medio -6%, grande -14%) | |
 
+**Quanto costa, e chi ci lavora.** Un aggiornamento non e' una fattura: e' un gruppo di
+persone che per settimane disegna, prova in galleria, fa i pezzi e li monta. Il conto si
+legge in chiaro prima di firmare - materiali piu' straordinari - ma il vincolo vero e'
+un altro: **quelle persone non si sdoppiano**.
+
+| Taglia | Persone | Gare | Costo tipico (fondo) |
+|---|---|---|---|
+| Piccolo | 10 | 1 | 1,6 M$ |
+| Medio | 26 | 3 | 3,8 M$ |
+| Grande | 52 | 6 | 7,0 M$ |
+
+Un pacchetto grande sull'aerodinamica impegna 52 persone del reparto per sei gare. Se il
+reparto ne ha 88, il secondo pacchetto grande non parte: *"servono 52 persone e il reparto
+ne ha 36 libere: o si assume, o si chiude un cantiere"*. E' qui che l'organico smette di
+essere un numero e diventa la ragione per cui una squadra sviluppa piu' in fretta di
+un'altra.
+
 Da li' escono quattro esiti: *fallito* (da -30% a +15% del previsto), *sottotono*, *in
 linea*, *oltre le attese*. Con un pacchetto grande una squadra di vertice fallisce circa
 una volta su sei, una di coda una volta su tre. La pagina Sviluppo mostra la forbice prima
@@ -663,6 +680,21 @@ gruppo. Per stare fermi bisogna investire, per migliorare bisogna investire pare
 il tetto di spesa nessuno riesce a tenere al passo tutte le strutture, quindi
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
+
+**Il verdetto arriva dalla pista.** Quando un pacchetto e' pronto va in macchina, ma quanto
+ha portato non lo dice la galleria: lo dicono i cronometri dopo un weekend. Alla gara dopo
+arriva il verdetto - *"porta +2.9 sulla vecchia, meno dei +5.4 promessi"* - e con lui
+**cosa ne pensano i due piloti**, che non e' la stessa cosa.
+
+Ogni pacchetto ha un suo carattere: rifare l'ala anteriore fa girare la macchina, lavorare
+dietro la pianta. Chi stacca tardi e vuole l'anteriore che morde si trova subito con una
+specifica nervosa; chi ha bisogno di sentirla piantata dice che gli scappa via. Lo stesso
+pacchetto, due giudizi opposti - e il carattere sposta anche la finestra d'assetto, quindi
+dopo un aggiornamento i riferimenti vanno ritrovati davvero.
+
+Se ha portato qualcosa il reparto passa ad altro e il banco torna libero. Se non ha
+portato niente resta in verifica, e li' si decide: rimontare la specifica vecchia, o
+tenerla e metterci il reparto sopra.
 
 **Power unit.** Le power unit sono omologate: non migliorano gara per gara, si cambia
 specifica. Quello che si fa al banco si accumula, e quando la si porta in pista arriva
