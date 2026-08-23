@@ -107,21 +107,32 @@ class GameShell(Scene):
         w, h = self.app.screen.get_size()
         self.widgets = []
         self.nav_buttons = []
+        # il blocco in fondo si misura prima, cosi' le voci del menu sanno
+        # quanto spazio hanno davvero: su un desktop da 864 pixel le quindici
+        # voci a passo fisso finivano sotto il pulsante del weekend
+        editor = bool(getattr(self.app, "editor", False))
+        save_y = h - 60                     # la riga Salva/Menu sta in fondo
+        editor_y = save_y - 44
+        race_y = (editor_y if editor else save_y) - 12 - 48
         y = TOPBAR_H + 16
+        spazio = max(120, (race_y - 12) - y)
+        # sotto i 24 pixel una voce non si legge e non si clicca: prima di
+        # arrivarci si accetta di stringere, poi ci si ferma
+        passo = max(24, min(42, spazio // max(1, len(NAV))))
         for pid, label in NAV:
-            b = Button((12, y, NAV_W - 24, 38), label, style="tab")
+            b = Button((12, y, NAV_W - 24, max(20, passo - 4)), label, style="tab")
             b.on_click = (lambda p=pid: self.go(p))
             b.active = (pid == self.page_id)
             self.nav_buttons.append(b)
             self.widgets.append(b)
-            y += 42
-        self.race_btn = Button((12, h - 116, NAV_W - 24, 48), "WEEKEND DI GARA",
+            y += passo
+        self.race_btn = Button((12, race_y, NAV_W - 24, 48), "WEEKEND DI GARA",
                                self.goto_weekend, "primary")
         self.widgets.append(self.race_btn)
-        if getattr(self.app, "editor", False):
-            self.widgets.append(Button((12, h - 98, NAV_W - 24, 32), "EDITOR",
+        if editor:
+            self.widgets.append(Button((12, editor_y, NAV_W - 24, 32), "EDITOR",
                                        self.open_editor, "danger"))
-        self.widgets.append(Button((12, h - 60, (NAV_W - 28) // 2, 34), "Salva", self.save, "ghost"))
+        self.widgets.append(Button((12, save_y, (NAV_W - 28) // 2, 34), "Salva", self.save, "ghost"))
         self.widgets.append(Button((12 + (NAV_W - 24) // 2, h - 60, (NAV_W - 28) // 2, 34),
                                    "Menu", self.to_menu, "ghost"))
         content = pygame.Rect(NAV_W, TOPBAR_H, w - NAV_W, h - TOPBAR_H)

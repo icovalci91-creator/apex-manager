@@ -16,6 +16,13 @@ Prima installazione delle dipendenze:
 python -m pip install -r requirements.txt
 ```
 
+La misura di riferimento e' 1600x900, ma la finestra si apre grande quanto ci sta
+davvero sullo schermo: un portatile a 1920x1080 con lo scaling di Windows al 125% ha un
+desktop da 1536x864, e aprire piu' grandi di cosi' taglia fuori il bordo destro e il
+fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il menu di
+sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
+il quale i pannelli non starebbero piu' in piedi.
+
 ## Versione web (iPad e tablet)
 
 Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:
