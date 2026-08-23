@@ -18,10 +18,20 @@ from . import economy
 # chi investe. Solo dopo comincia a restare indietro, e piu' passa il tempo piu'
 # in fretta lo fa, perche' nel frattempo gli altri sono andati avanti.
 GRACE_SEASONS = 3.0   # anni in cui resta di riferimento, senza perdere nulla
-DECAY = 0.42          # punti persi nel primo anno dopo il periodo di grazia
-DECAY_RAMP = 0.13     # e quanto accelera ogni anno che passa
-DECAY_MAX = 1.7       # oltre non si scivola, per quanto vecchia sia
+# Questi numeri erano tarati su un mondo in cui costruire si pagava dal tetto di
+# spesa, cioe' con decine di milioni l'anno a disposizione. Adesso il budget
+# delle costruzioni e' quello vero - una quindicina di milioni l'anno - e
+# l'invecchiamento va rimesso in scala: com'era, una squadra perdeva dieci punti
+# di strutture l'anno e con tutto il budget ne comprava uno.
+DECAY = 0.12          # punti persi nel primo anno dopo il periodo di grazia
+DECAY_RAMP = 0.04     # e quanto accelera ogni anno che passa
+DECAY_MAX = 0.50      # oltre non si scivola, per quanto vecchia sia
 FLOOR = 35.0          # sotto questo livello non si scende: resta un capannone
+
+# Ogni quante stagioni una scuderia del computer si concede l'intervento grosso
+# invece di spendere a rate: senza questo userebbero il margine capitale un
+# pezzetto alla volta e non arriverebbero mai a un salto vero.
+CAPEX_SPREAD = 2
 
 # Non tutte le strutture esistono per forza. Una pista di proprieta' ce l'ha
 # chi se l'e' costruita: Ferrari a Fiorano, Red Bull al Red Bull Ring. Gli
@@ -52,10 +62,14 @@ def build(gs, team, key: str) -> tuple:
     price = build_cost(key)
     if price <= 0:
         return False, "Questa struttura non si costruisce."
-    ok, why = economy.can_afford(team, price, gs)
-    if not ok:
-        return False, why
-    team.add_expense(f"Costruzione {C.FACILITIES[key]['label']}", price, in_cap=True,
+    # Fiorano e' della Ferrari, il Red Bull Ring della Red Bull: un autodromo e'
+    # proprieta' del gruppo, non del reparto corse, e infatti nessuno l'ha mai
+    # messo nei conti della squadra. Si paga con i soldi veri e basta: niente
+    # tetto tecnico, niente limite capitale. Poi pero' mantenerlo e potenziarlo
+    # segue le regole di tutte le altre strutture.
+    if team.cash < price:
+        return False, "Liquidita' insufficiente."
+    team.add_expense(f"Costruzione {C.FACILITIES[key]['label']}", price, in_cap=False,
                      category="strutture")
     team.facilities[key] = BUILD_LEVEL
     if team.facility_age is None:
@@ -78,7 +92,7 @@ def cost(level: float, base: float) -> float:
     gradino in piu' costa piu' del precedente: portare una galleria del vento
     da 90 a 92 non e' come portarla da 60 a 65.
     """
-    return round(base * (1.6 + (level / 100.0) ** 2.6 * 9.0), 2)
+    return round(base * (0.67 + (level / 100.0) ** 2.6 * 3.75), 2)
 
 
 def gain(level: float) -> float:
@@ -118,11 +132,12 @@ def upgrade(gs, team, key: str) -> tuple:
     if lvl >= 99:
         return False, "Struttura gia' al massimo livello."
     price = cost(lvl, C.FACILITIES[key]["cost"])
-    ok, why = economy.can_afford(team, price, gs)
+    ok, why = economy.can_afford_capex(gs, team, price)
     if not ok:
         return False, why
-    team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", price, in_cap=True,
-                     category="strutture")
+    # costruire non sta nel tetto tecnico: e' spesa in conto capitale
+    team.add_expense(f"Potenziamento {C.FACILITIES[key]['label']}", price, in_cap=False,
+                     category="strutture", capex=True)
     team.facilities[key] = min(99.0, lvl + gain(lvl))
     # l'intervento rimette a nuovo: da qui ricominciano gli anni di grazia
     if team.facility_age is None:
@@ -179,14 +194,15 @@ def ai_invest(gs) -> None:
     for team in gs.teams.values():
         if team.is_player:
             continue
-        # tengono da parte una riserva e spendono il resto, i piu' ricchi di piu'
-        budget = max(0.0, (team.cash - 25.0) * 0.55)
-        # chi nuota nei soldi prima o poi si costruisce la pista di casa
+        # il budget delle costruzioni e' quello che resta nel periodo, e non si
+        # spende mai tutto in un colpo: si tiene qualcosa per l'anno dopo
+        budget = min(economy.capex_left(gs, team), max(0.0, team.cash - 25.0))
+        budget *= 0.55 if gs.season % CAPEX_SPREAD else 1.0
+        # chi nuota nei soldi prima o poi si costruisce la pista di casa, e
+        # quella la paga il gruppo: non tocca nessuno dei due tetti
         for key in OPTIONAL:
-            if not is_built(team, key) and build_cost(key) <= budget * 0.75:
+            if not is_built(team, key) and build_cost(key) <= (team.cash - 60.0):
                 ok, _m = build(gs, team, key)
-                if ok:
-                    budget -= build_cost(key)
         for key in priorities(team):
             price = cost(team.facilities.get(key, 60.0), C.FACILITIES[key]["cost"])
             if price > budget:

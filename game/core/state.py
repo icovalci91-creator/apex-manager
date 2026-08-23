@@ -330,7 +330,7 @@ class GameState:
             "teams": {
                 t.id: {
                     "cash": t.cash, "points": t.points, "wins": t.wins, "podiums": t.podiums,
-                    "spent": t.spent, "reputation": t.reputation, "facilities": t.facilities,
+                    "spent": t.spent, "capex_log": t.capex_log or {}, "reputation": t.reputation, "facilities": t.facilities,
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used, "correlation": t.correlation,
                     "setup_knowledge": t.setup_knowledge or {},
@@ -387,6 +387,7 @@ class GameState:
             t = gs.teams[tid]
             t.cash = td["cash"]; t.points = td["points"]; t.wins = td["wins"]
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
+            t.capex_log = dict(td.get("capex_log") or {})
             t.facilities = td["facilities"]
             t.facility_age = dict(td.get("facility_age") or {})
             t.test_days_used = td.get("test_days_used", 0)

@@ -48,7 +48,8 @@ class Team:
     podiums: int = 0
     last_position: int = 6
 
-    spent: float = 0.0          # speso nel cap questa stagione
+    spent: float = 0.0          # speso nel cap tecnico questa stagione
+    capex_log: dict = field(default_factory=dict)  # speso in costruzioni, per stagione
     deals: list = field(default_factory=list)    # accordi commerciali firmati
     ledger: list = field(default_factory=list)   # movimenti datati
     cur_season: int = 0                          # quando siamo, per datare i movimenti
@@ -207,11 +208,18 @@ class Team:
         self._record("in", label, amount, category, False)
 
     def add_expense(self, label: str, amount: float, in_cap: bool = True,
-                    category: str = "altro") -> None:
+                    category: str = "altro", capex: bool = False) -> None:
+        """`capex` marca la spesa in conto capitale: sta fuori dal tetto tecnico
+        e dentro il limite delle costruzioni, che si conta su piu' stagioni."""
         self.cash -= amount
         self._record("out", label, amount, category, in_cap)
         if in_cap:
             self.spent += amount
+        if capex:
+            if self.capex_log is None:
+                self.capex_log = {}
+            k = str(self.cur_season)
+            self.capex_log[k] = round(self.capex_log.get(k, 0.0) + amount, 3)
 
     # compatibilita' con il codice che leggeva i due registri separati
     @property

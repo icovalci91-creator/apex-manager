@@ -40,14 +40,22 @@ class FacilitiesPage(Page):
     def draw(self, surf) -> None:
         r, team, gs = self.rect, self.team, self.gs
         cw = (r.w - 32) / 3
-        card(surf, (r.x, r.y, cw, 86), "Costo di gestione",
-             f"{team.facility_upkeep:.2f} M$", "all'anno, dentro il cap", accent=T.WARN)
+        resto = economy.capex_left(gs, team)
+        tetto = economy.capex_limit(gs, team)
+        card(surf, (r.x, r.y, cw, 86), "Budget costruzioni",
+             f"{resto:.1f} M$",
+             f"di {tetto:.0f} in {economy.CAPEX_WINDOW} stagioni - fuori dal cap",
+             colour=T.OK if resto > tetto * 0.3 else T.WARN, accent=T.GOLD)
         costruite = [k for k in team.facilities if facilities.is_built(team, k)]
         obs = sum(facilities.decay_of(team.facilities[k], facilities.age_of(team, k))
                   for k in costruite) / max(1, len(costruite))
         avg = facilities.average(team)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Livello medio strutture", f"{avg:.0f}",
              _infra_rank(gs, team), accent=T.ACCENT)
+        # la gestione invece sta dentro il tetto tecnico: costruire e' fuori,
+        # far girare quello che si e' costruito e' dentro
+        T.text(surf, f"gestione {team.facility_upkeep:.1f} M$ l'anno, quella dentro il cap",
+               (r.x, r.y + 90), 12, T.DIM_2)
         fresche = sum(1 for k in costruite
                       if facilities.age_of(team, k) < facilities.GRACE_SEASONS)
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza",
@@ -121,6 +129,13 @@ class FacilitiesPage(Page):
                      "Ogni anno invecchiano: quello che non si rinnova arretra, e nessuno puo' "
                      "permettersi di tenerle tutte al passo.",
                (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
+        y += 52
+        T.text(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
+                     f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro in "
+                     f"classifica ne ha di piu' - serve a lasciargli modo di rimettersi in "
+                     f"pari. Nel tetto tecnico resta la gestione di quello che si e' "
+                     f"costruito.",
+               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
         super().draw(surf)
 
 

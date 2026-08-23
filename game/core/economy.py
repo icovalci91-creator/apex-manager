@@ -35,6 +35,49 @@ def cap_limit(gs) -> float:
     return float(gs.regulations.get("cost_cap_musd", 215.0))
 
 
+# ------------------------------------------------------- spesa in conto capitale
+# Il tetto di spesa non copre quello che si costruisce. Una galleria del vento,
+# un simulatore, un capannone nuovo sono spesa in conto capitale, e stanno fuori
+# dal budget tecnico: hanno un limite loro, contato su piu' stagioni invece che
+# anno per anno, con una scala che concede di piu' a chi ha le strutture messe
+# peggio - serve proprio a lasciargli modo di rimettersi in pari.
+#
+# Quello che resta dentro il tetto tecnico e' far girare le strutture: energia,
+# manutenzione, chi ci lavora. Costruire sta fuori, usare sta dentro.
+CAPEX_WINDOW = 4         # stagioni su cui si conta il limite
+CAPEX_SCALE = 0.55       # quanto in piu' ne ha l'ultima rispetto alla prima
+
+
+def capex_limit(gs, team) -> float:
+    """Quanto puo' spendere in costruzioni una squadra nel periodo."""
+    base = float(gs.regulations.get("capex_limit_musd", 45.0))
+    n = max(2, len(gs.teams))
+    quota = (max(1, min(n, team.last_position)) - 1) / (n - 1)
+    return round(base * (1.0 + CAPEX_SCALE * quota), 2)
+
+
+def capex_spent(gs, team) -> float:
+    """Quanto ne ha gia' speso nelle stagioni che contano."""
+    log = team.capex_log or {}
+    prima = gs.season - CAPEX_WINDOW
+    return round(sum(v for k, v in log.items() if prima < int(k) <= gs.season), 3)
+
+
+def capex_left(gs, team) -> float:
+    return round(max(0.0, capex_limit(gs, team) - capex_spent(gs, team)), 3)
+
+
+def can_afford_capex(gs, team, amount: float) -> tuple:
+    """Serve la liquidita' e serve il margine nel limite capitale."""
+    if team.cash < amount:
+        return False, "Liquidita' insufficiente."
+    resto = capex_left(gs, team)
+    if amount > resto:
+        return False, (f"Fuori dal limite per le costruzioni: restano {resto:.1f} M$ "
+                       f"su {capex_limit(gs, team):.0f} in {CAPEX_WINDOW} stagioni.")
+    return True, ""
+
+
 def cap_usage(gs, team) -> tuple:
     limit = cap_limit(gs)
     return team.spent, limit, (team.spent / limit if limit else 0.0)

@@ -4,6 +4,7 @@
     "season": 2026,
     "label": "Regolamento 2026 - nuova era tecnica",
     "cost_cap_musd": 215.0,
+    "capex_limit_musd": 45.0,
     "cost_cap_excludes_driver_salaries": true,
     "driver_salary_cap_musd": 0,
     "min_weight_kg": 768,

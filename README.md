@@ -145,7 +145,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
 | Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
 | Staff tecnico | Organigramma completo e mercato del personale |
-| Infrastrutture | Dieci strutture da potenziare o costruire, stato di obsolescenza, confronto con gli avversari |
+| Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta'): dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
 | Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
@@ -241,8 +241,7 @@ costa circa 4 M$ l'anno spalmati, non ventitre come nella prima versione del mod
 
 **Piste di proprieta'.** Ferrari ha Fiorano e Red Bull il Red Bull Ring: chi ce l'ha gia'
 non paga niente per averla, se la ritrova nel bilancio come qualsiasi altra struttura. Chi
-non ce l'ha puo' costruirla, e costa: 140 M$ dentro il tetto di spesa per aprirla al
-livello 55, poi la si potenzia come le altre (circa 19 M$ il primo gradino, oltre 36 a
+non ce l'ha puo' costruirla, e costa: 140 M$ di cassa vera per aprirla al livello 55, poi la si potenzia come le altre (circa 19 M$ il primo gradino, oltre 36 a
 livello 80) e la si mantiene per sempre. In cambio si prova quando si vuole: due giornate
 di test in piu', prove che costano il 30% in meno, assetto piu' vicino alla finestra
 gia' al venerdi', aggiornamenti che si digeriscono prima e giovani che crescono di piu'.
@@ -416,6 +415,32 @@ Su sedici stagioni con un ciclo ogni cinque anni viene fuori un dente di sega: d
 ciclo la griglia si allunga (divario da 12,7 a 17,3 punti), al cambio si accorcia di colpo
 (a 10,2) e tutti scendono, i primi molto piu' degli ultimi - la migliore da 95,7 a 86,5,
 l'ultima da 78,4 a 76,3. Nessun componente si accumula piu' contro un tetto.
+
+**Costruire non passa dal tetto di spesa.** Come nella realta': il regolamento finanziario
+tiene la spesa in conto capitale - una galleria del vento, un simulatore, un capannone
+nuovo - fuori dal budget tecnico, e le da' un limite suo, contato su piu' stagioni invece
+che anno per anno. Nel gioco sono **45 M$ su quattro stagioni**, con una scala che arriva a
+**70 M$ per l'ultima in classifica**: serve proprio a lasciare a chi e' indietro il modo di
+rimettersi in pari. Dentro il tetto tecnico resta la gestione di quello che si e'
+costruito - energia, manutenzione, chi ci lavora - che per una squadra attrezzata sono
+37-39 M$ l'anno.
+
+Prima era tutto dentro il cap, e si vedeva: le strutture si mangiavano fra il 27% e il 43%
+del budget tecnico ogni stagione, cioe' un quarto abbondante dei soldi dello sviluppo
+finiva in mattoni. E il conto non tornava comunque: una squadra perdeva **10,3 punti di
+strutture l'anno** per obsolescenza e con tutto il budget delle costruzioni ne comprava
+**1,2**. Un divario di nove volte, che nessuna gestione poteva colmare.
+
+Rimessi in scala tutti e due i lati - i potenziamenti costano meno della meta' di prima, e
+l'invecchiamento un terzo - adesso si perdono 3,1 punti l'anno e con il budget pieno se ne
+comprano 2,8. Su otto stagioni misurate: chi costruisce quanto puo' resta a **80,5**, chi
+non costruisce mai scende a **77,7**, e il limite si sente davvero - due stagioni di
+investimenti pieni e poi due di attesa, perche' la finestra dei quattro anni e' esaurita.
+
+L'unica cosa che sta fuori da entrambi i tetti e' costruirsi un autodromo: Fiorano e' della
+Ferrari e il Red Bull Ring della Red Bull, cioe' proprieta' del gruppo e non del reparto
+corse. Si paga con la cassa e basta - 140 M$ - ma da li' in poi mantenerlo e potenziarlo
+segue le regole di tutte le altre strutture.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
