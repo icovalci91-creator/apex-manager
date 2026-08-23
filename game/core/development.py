@@ -20,8 +20,45 @@ from dataclasses import dataclass, field
 from .. import config as C
 from . import economy
 
-# tetto tecnico raggiungibile in un ciclo regolamentare
-PERF_CEILING = 99.0
+# Il livello delle monoposto non ha un tetto. Averlo a 100 significava che
+# prima o poi tutti ci arrivavano e la griglia si appiattiva contro un muro:
+# in sedici stagioni un pezzo su tre stava sopra 97 e le prime quattro squadre
+# erano indistinguibili. Il numero e' libero di crescere, e a rallentarlo non
+# e' un limite ma la difficolta': dentro un ciclo tecnico i primi punti si
+# trovano, gli ultimi si strappano.
+#
+# Il riferimento del ciclo (`cycle_base`) e' il livello a cui sta la griglia
+# quando un regolamento e' nuovo. Da li' si misura quanto e' difficile
+# guadagnare ancora, e a ogni cambio di regolamento il conto si rifa' piu' in
+# basso: la macchina nuova e' peggiore di quella vecchia perfezionata, come
+# nella realta'.
+CYCLE_SPAN = 18.0    # punti oltre il riferimento prima che diventi durissima
+CYCLE_STEP = 2.2     # di quanto sale il riferimento a ogni nuovo ciclo
+CYCLE_DEFAULT = 82.0
+
+
+def cycle_base(gs) -> float:
+    return float(gs.regulations.get("cycle_base", CYCLE_DEFAULT))
+
+
+def yield_factor(gs, perf: float) -> float:
+    """Quanto rende ancora lo sviluppo a questo livello, come moltiplicatore.
+
+    Sopra il riferimento del ciclo ogni punto costa piu' del precedente, e non
+    si arriva mai a zero: si arriva a rendimenti cosi' bassi che conviene
+    spendere altrove. Sotto il riferimento invece si va piu' in fretta, perche'
+    i problemi grossi sono ancora tutti li' da risolvere: e' il motivo per cui
+    una squadra di coda recupera piu' in fretta di quanto una di testa scappi.
+    """
+    over = (perf - cycle_base(gs)) / CYCLE_SPAN
+    if over <= 0.0:
+        return 1.0 + min(0.35, -over * 0.45)
+    return 1.0 / (1.0 + over ** 2.2 * 1.8)
+
+
+def reference_level(gs) -> float:
+    """Livello attorno a cui si legge la griglia: serve alle schermate."""
+    return cycle_base(gs) + CYCLE_SPAN
 
 # Quanto rende, in prestazione pura, il lavoro continuo di reparto. Basso di
 # proposito: gli affinamenti esistono, ma non sono aggiornamenti.
@@ -149,8 +186,9 @@ def expected_gain(gs, team, part: str, size: str) -> float:
             + p["pu"] * (team.pu_strength if team.works else 55.0))
     dept /= max(0.1, p["aero"] + p["mech"] + p["pu"])
     cur = team.car.parts[part].perf
-    headroom = max(0.15, (PERF_CEILING - cur) / 30.0)
-    return round(mult * (dept / 100.0) * team.dev_rate * headroom * 2.2, 2)
+    # 0.93 tiene i guadagni sulla stessa scala di prima a meta' ciclo: cambia
+    # la forma della curva, non il ritmo con cui cresce una macchina
+    return round(mult * (dept / 100.0) * team.dev_rate * yield_factor(gs, cur) * 0.93, 2)
 
 
 # --------------------------------------------------- funzionera' o no?
@@ -330,7 +368,7 @@ def deliver(gs, team, pr: Project) -> list:
     lo, hi = BANDS[band]
     gain = pr.expected * gs.rng.uniform(lo, hi)
     prima = part.perf
-    part.perf = max(40.0, min(PERF_CEILING, part.perf + gain))
+    part.perf = max(40.0, part.perf + gain)
     team.upgrades_done += 1
     # anche quando funziona, l'assetto va ritrovato: la macchina non e' piu'
     # quella su cui si erano presi i riferimenti
@@ -434,7 +472,7 @@ def _trial_step(gs, team, tr: Trial) -> str:
     if gs.rng.random() > 0.18 + 0.45 * conf:
         return ""
     passo = (tetto - part.perf) * gs.rng.uniform(0.20, 0.45)
-    part.perf = min(PERF_CEILING, part.perf + passo)
+    part.perf = part.perf + passo
     return f"{tr.label}: qualcosa si e' capito, +{passo:.1f}."
 
 
@@ -556,8 +594,8 @@ def passive_development(gs, team, budget: float) -> None:
         if part not in team.car.parts:
             continue
         p = team.car.parts[part]
-        headroom = max(0.05, (PERF_CEILING - p.perf) / 26.0)
-        p.perf = min(PERF_CEILING, p.perf + pts * (share / tot) * headroom * gs.rng.uniform(0.6, 1.4))
+        reso = yield_factor(gs, p.perf) * 0.49
+        p.perf = p.perf + pts * (share / tot) * reso * gs.rng.uniform(0.6, 1.4)
 
 
 def budget_headroom(gs, team) -> float:
@@ -650,7 +688,7 @@ def technological_decay(gs) -> float:
     for team in gs.teams.values():
         for p in team.car.parts.values():
             # chi sta in alto fa piu' fatica a restarci: il fronte si muove
-            step = TECH_DECAY * (0.60 + 0.60 * p.perf / PERF_CEILING)
+            step = TECH_DECAY * (0.60 + 0.60 * p.perf / reference_level(gs))
             new = max(40.0, p.perf - step)
             if team.is_player:
                 lost += p.perf - new
@@ -681,7 +719,7 @@ def sister_transfer(gs) -> list:
             mio = team.car.parts[k]
             suo = parent.car.parts[k].perf * 0.97      # un passo indietro
             if suo > mio.perf:
-                mio.perf = min(PERF_CEILING, mio.perf + (suo - mio.perf) * 0.8)
+                mio.perf = mio.perf + (suo - mio.perf) * 0.8
         if team.is_player:
             msgs.append(f"Dal gruppo {parent.short} arrivano cambio, sospensione "
                         f"posteriore e freni della stagione nuova.")
@@ -720,8 +758,12 @@ def regulation_reset(gs, strength: float, era: dict | None = None) -> list:
     il nuovo regolamento premia. Chi non ha preparato nulla il reset lo subisce
     invece di sfruttarlo.
     """
-    vals = [t.car.rating for t in gs.teams.values()]
-    mean = sum(vals) / len(vals)
+    vecchio = cycle_base(gs)
+    # il riferimento sale di poco: la tecnologia avanza, ma una macchina nuova
+    # non nasce mai al livello di una perfezionata per anni
+    nuovo = vecchio + CYCLE_STEP * max(0.3, strength)
+    gs.regulations["cycle_base"] = round(nuovo, 2)
+
     preps = [t.reg_prep for t in gs.teams.values()]
     best_prep = max(preps) or 1.0
     avg_prep = (sum(preps) / len(preps)) or 1.0
@@ -731,14 +773,21 @@ def regulation_reset(gs, strength: float, era: dict | None = None) -> list:
                    + 0.20 * team.dev_rate * 60.0) / 100.0
         # preparazione rispetto agli altri: negativa se sotto la media
         rel = (team.reg_prep - avg_prep) / max(best_prep, 1e-6)
-        prep_bonus = rel * 16.0 * strength
+        prep_bonus = rel * 12.0 * strength
+        # quanto ci si porta dietro del vantaggio accumulato nel ciclo che
+        # finisce: chi ha preparato ne conserva molto di piu'
+        carry = max(0.25, min(0.92, 0.72 - 0.34 * strength + 0.22 * rel))
+        prima = sum(x.perf for x in team.car.parts.values()) / len(team.car.parts)
         for p in team.car.parts.values():
-            pull = (mean - p.perf) * strength * 0.55
+            sopra = p.perf - vecchio
+            base = nuovo + sopra * carry
             bonus = (quality - 0.75) * 14.0 * strength
-            p.perf = max(45.0, min(PERF_CEILING,
-                                   p.perf + pull + bonus + prep_bonus + gs.rng.gauss(0, 2.4)))
+            p.perf = max(45.0, base + bonus + prep_bonus + gs.rng.gauss(0, 2.4))
             p.condition = 100.0
         if team.is_player:
+            dopo = sum(x.perf for x in team.car.parts.values()) / len(team.car.parts)
+            news.append(f"Regolamento nuovo: la vettura riparte {prima - dopo:.1f} punti "
+                        f"sotto quella che avevamo perfezionato in questi anni.")
             if rel > 0.25:
                 news.append("Il lavoro sul nuovo regolamento paga: siamo fra i piu' pronti.")
             elif rel < -0.25:

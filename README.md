@@ -336,6 +336,40 @@ valore percepito - e' un vincolo a suo carico - ma e' l'unica cosa che protegge 
 chi lo vuole: se c'e', si paga quella cifra invece dell'indennizzo. Le trattative hanno un
 numero limitato di giri: sparare basso per vedere l'effetto le brucia.
 
+**Il livello delle monoposto non ha un tetto.** Averlo a 100 significava che prima o poi
+tutti ci arrivavano: su sedici stagioni misurate, i componenti sopra 97 passavano dallo 0%
+al 36% e le prime squadre diventavano indistinguibili, appoggiate allo stesso muro. Adesso
+il numero e' libero di crescere, e a rallentarlo non e' un limite ma la difficolta'.
+
+Ogni ciclo tecnico ha un **riferimento** - il livello a cui sta la griglia quando un
+regolamento e' nuovo - e da li' si misura quanto e' faticoso guadagnare ancora:
+
+| Livello del componente | Quanto rende ancora lo sviluppo |
+|---|---|
+| 12 punti sotto il riferimento | x1,30 - i problemi grossi sono ancora tutti li' |
+| al riferimento | x1,05 |
+| 8 sopra | x0,77 |
+| 13 sopra | x0,54 |
+| 18 sopra | x0,36 |
+| 28 sopra | x0,17 |
+
+Non si arriva mai a zero: si arriva a rendimenti cosi' bassi che conviene spendere altrove.
+Chi spinge al massimo dentro un ciclo lungo arriva intorno a 105 e li' si ferma, perche' il
+guadagno di un pacchetto grande scende da +5,1 a +1,5 e l'invecchiamento se lo mangia. Chi
+e' sotto il riferimento recupera piu' in fretta di quanto la testa scappi.
+
+**A ogni cambio di regolamento il livello si ricalcola al ribasso.** Non e' un reset: e'
+che la macchina nuova nasce peggiore di quella perfezionata per anni, e piu' ci si era
+raffinati piu' se ne perde. Il riferimento del ciclo sale di un paio di punti - la
+tecnologia avanza - ma quello che si era accumulato sopra si conserva solo in parte, dal
+25% se il regolamento e' una rivoluzione al 90% se e' un ritocco, e chi ha preparato il
+nuovo ciclo ne conserva molto di piu' degli altri.
+
+Su sedici stagioni con un ciclo ogni cinque anni viene fuori un dente di sega: dentro il
+ciclo la griglia si allunga (divario da 12,7 a 17,3 punti), al cambio si accorcia di colpo
+(a 10,2) e tutti scendono, i primi molto piu' degli ultimi - la migliore da 95,7 a 86,5,
+l'ultima da 78,4 a 76,3. Nessun componente si accumula piu' contro un tetto.
+
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
 punto l'anno, una struttura di poco piu' di uno, e in cima si perde di piu' che a meta'

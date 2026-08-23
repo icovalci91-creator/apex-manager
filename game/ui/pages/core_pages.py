@@ -53,6 +53,8 @@ class HQPage(Page):
              f"budget annuo {team.budget_base:.0f} M$", accent=T.OK)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Valutazione vettura",
              f"{team.car.rating:.1f}", _car_rank_text(gs, team), accent=col)
+        # il livello non ha piu' un tetto: quello che conta e' dove sta rispetto
+        # agli altri e al riferimento del ciclo tecnico
         spent, limit, frac = economy.cap_usage(gs, team)
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Budget cap",
              f"{frac*100:.0f}%", f"{spent:.1f} di {limit:.0f} M$",
@@ -124,7 +126,10 @@ class HQPage(Page):
 def _car_rank_text(gs, team) -> str:
     rank = sorted(gs.teams.values(), key=lambda t: -t.car.rating)
     pos = [t.id for t in rank].index(team.id) + 1
-    return f"{pos}a vettura della griglia"
+    if pos == 1:
+        gap = team.car.rating - rank[1].car.rating
+        return f"1a vettura della griglia, +{gap:.1f} sulla seconda"
+    return f"{pos}a vettura della griglia, {team.car.rating - rank[0].car.rating:+.1f} dalla prima"
 
 
 # ================================================================== VETTURA
@@ -203,13 +208,16 @@ class CarPage(Page):
         left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "COMPONENTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        T.text(surf, "prestazione / condizione", (left.right - 16, left.y + 12), 11, T.DIM_2,
-               align="right")
+        T.text(surf, f"riferimento del ciclo {development.reference_level(gs):.0f}",
+               (left.right - 16, left.y + 12), 11, T.DIM_2, align="right")
         y = left.y + 38
+        rif = development.reference_level(gs)
         for k, meta in C.CAR_PARTS.items():
             p = car.parts[k]
             T.text(surf, meta["label"], (left.x + 16, y), 14, T.TEXT)
-            T.bar(surf, (left.x + 170, y + 5, 120, 8), p.perf, 100, T.stat_colour(p.perf, 60, 88))
+            # la scala non e' 0-100: si legge rispetto al riferimento del ciclo
+            T.bar(surf, (left.x + 170, y + 5, 120, 8), p.perf - rif + 20.0, 40.0,
+                  T.stat_colour(p.perf, rif - 12.0, rif))
             T.text(surf, f"{p.perf:.0f}", (left.x + 300, y), 13, T.TEXT, bold=True)
             cond_col = T.OK if p.condition > 80 else (T.WARN if p.condition > 55 else T.BAD)
             T.bar(surf, (left.x + 330, y + 5, 90, 8), p.condition, 100, cond_col)

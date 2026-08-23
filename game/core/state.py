@@ -149,6 +149,11 @@ class GameState:
         from . import sponsors
         sponsors.bootstrap(gs)
 
+        # il riferimento del ciclo: dove sta la griglia adesso. Da qui si misura
+        # quanto costa guadagnare ancora, e a ogni regolamento nuovo si rifa'
+        pezzi = [p.perf for t in gs.teams.values() for p in t.car.parts.values()]
+        gs.regulations["cycle_base"] = round(sum(pezzi) / max(1, len(pezzi)), 2)
+
         gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
         from .setup import new_weekend
         new_weekend(gs)
