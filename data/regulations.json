@@ -106,7 +106,7 @@
     "pit_lane_penalty_s": 0.0
   },
   "commission": {
-    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. Le riunioni ordinarie stanno nei primi mesi della stagione e trattano ritocchi al regolamento in vigore. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
+    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. La riunione ordinaria e' una all'anno, in primavera, e tratta i ritocchi al regolamento in vigore: quello che passa entra in vigore dalla stagione dopo. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
     "team_votes": 1,
     "fia_votes": 10,
     "fom_votes": 10,
@@ -114,8 +114,8 @@
     "threshold_next_season_pct": 0.6,
     "votes_per_season": 2,
     "proposals_per_vote": 3,
-    "meetings_per_season": 3,
-    "proposals_per_meeting": 3,
+    "meetings_per_season": 1,
+    "proposals_per_meeting": 4,
     "cycle_reset_threshold": 1.2,
     "cycle_lead_seasons": 2,
     "meeting_last_month": 5,

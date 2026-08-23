@@ -758,22 +758,29 @@ def run_department(gs, team) -> None:
     budget = min(resta / gare_restanti * (0.55 + 0.40 * fame),
                  headroom * (0.45 + 0.45 * fame))
     budget = max(0.0, budget * economy.spending_room(gs, team))
-    # un reparto in mano a gente brava lavora sulla parte giusta; uno meno
-    # lucido ogni tanto insegue quella sbagliata
+    # dove mettere le mani lo dicono gli ingegneri, e sono le stesse parole che
+    # usano in riunione: se dicono "lavorerei su sospensioni e telaio", il
+    # reparto apre il pacchetto li'. Un reparto lucido segue la lista, uno meno
+    # lucido ogni tanto pesca piu' in basso
+    from . import engineering
     q = lucidita(team)
-    parti = sorted(team.car.parts.items(), key=lambda kv: kv[1].perf)
-    weak = parti[0][0] if gs.rng.random() < q else gs.rng.choice(parti[:4])[0]
-    alloc = {k: 1.0 for k in team.car.parts}
-    alloc[weak] = 1.0 + 2.0 * q
+    consigliate = [p for p in engineering.suggested_parts(gs, team, 3)
+                   if p in team.car.parts]
+    if not consigliate:
+        consigliate = [min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]]
+    weak = consigliate[0] if gs.rng.random() < q else gs.rng.choice(consigliate)
+    # e anche il lavoro continuo segue la stessa linea, invece di un'idea sua
+    alloc = engineering.suggested_allocation(gs, team)
+    alloc[weak] = alloc.get(weak, 0.1) * (1.0 + 1.6 * q)
     if team.philosophy == "aero":
         for k in ("floor", "front_wing", "rear_wing", "active_aero"):
-            alloc[k] = alloc.get(k, 1.0) + 1.2
+            alloc[k] = alloc.get(k, 0.1) * 1.25
     elif team.philosophy == "mechanical":
         for k in ("suspension", "chassis", "gearbox"):
-            alloc[k] = alloc.get(k, 1.0) + 1.2
+            alloc[k] = alloc.get(k, 0.1) * 1.25
     elif team.philosophy == "powertrain":
         for k in ("cooling", "gearbox", "sidepods"):
-            alloc[k] = alloc.get(k, 1.0) + 1.0
+            alloc[k] = alloc.get(k, 0.1) * 1.2
     team.next_reg_share = ai_reg_share(gs, team)
     if not team.next_car_brief:
         from . import nextcar
@@ -813,7 +820,10 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
         return
     # a fine stagione non si comincia piu' niente che non arrivi in tempo
     gare_restanti = len(gs.tracks) - gs.round
-    part = weak if gs.rng.random() < 0.65 else gs.rng.choice(list(team.car.parts))
+    from . import engineering
+    altre = [p for p in engineering.suggested_parts(gs, team, 4)
+             if p in team.car.parts] or list(team.car.parts)
+    part = weak if gs.rng.random() < 0.65 else gs.rng.choice(altre)
     scelte = []
     for size, gare in (("grande", 6), ("medio", 3), ("piccolo", 1)):
         if gare > gare_restanti:

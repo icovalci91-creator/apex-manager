@@ -681,8 +681,13 @@ il tetto di spesa nessuno riesce a tenere al passo tutte le strutture, quindi
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
 
-**Delegare, e a chi.** Il reparto puo' lavorare da solo: si accende "decide il reparto"
-nella pagina Sviluppo e da li' in poi ripartizione, pacchetti e taglie li sceglie lui. Non
+**Delegare, e a chi.** Il reparto puo' lavorare da solo: si accende **"fanno da soli gli
+aggiornamenti"** nella pagina Ingegneri - la loro - e da li' in poi ripartizione, pacchetti
+e taglie li sceglie lui. E li sceglie **dove ha appena detto di volerli fare**: se in
+riunione dicono "gestione gomme ci costa quattordici punti, lavorerei su sospensioni e
+telaio", il pacchetto lo aprono li'. In cima alla riunione si legge su cosa stanno
+lavorando, e su una stagione intera escono otto pacchetti sui componenti che avevano
+indicato. Non
 e' gratis ne' uguale per tutti - quanto viene bene lo dice la **lucidita'**, che nasce dal
 direttore tecnico e dal team principal. Un reparto lucido apre il pacchetto giusto sulla
 parte giusta; uno meno lucido ogni tanto insegue quella sbagliata e sceglie la taglia
@@ -783,9 +788,10 @@ reparti sono forti proprio nell'area che il nuovo regolamento premia.
 Le squadre gestite dal computer fanno lo stesso calcolo: a un anno dal cambio chi non ha
 piu' niente da giocarsi dirotta fino all'85%, chi si gioca il titolo si ferma al 33%.
 
-**Regolamento: due discussioni diverse.** Tre volte per stagione si riunisce la
-Commissione, e sempre **nei primi mesi dell'anno** (marzo, aprile, maggio): piu' avanti non
-ci sarebbe piu' il tempo di progettarci sopra. Li' si trattano i **ritocchi** al regolamento
+**Regolamento: due discussioni diverse.** Una volta per stagione si riunisce la
+Commissione, **in primavera**: piu' avanti non ci sarebbe piu' il tempo di progettarci
+sopra. Quattro proposte sul tavolo, una riunione sola, e chi c'era c'era. Li' si trattano
+i **ritocchi** al regolamento
 in vigore - la FIA porta al tavolo alcune proposte dal catalogo di `data/regulations.json` e
 le squadre votano. Non e' un sorteggio cieco - se una scuderia sta scappando si discute di
 riequilibrio, se i conti sono tesi si parla di costi - e ogni squadra vota secondo il

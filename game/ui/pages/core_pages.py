@@ -694,8 +694,14 @@ class EngineersPage(Page):
     def build(self) -> None:
         r = self.rect
         self.widgets = []
-        self.widgets.append(Button((r.right - 300, r.y + 8, 300, 36),
-                                   "Applica il piano suggerito", self.apply_plan, "primary"))
+        b = Button((r.right - 300, r.y + 8, 300, 36),
+                   "Applica il piano suggerito", self.apply_plan, "primary")
+        b.enabled = not self.team.auto_dev
+        self.widgets.append(b)
+        # e' la loro pagina: qui si decide se lasciarli lavorare da soli
+        self.widgets.append(Toggle((r.right - 620, r.y + 8, 300, 36),
+                                   "Fanno da soli gli aggiornamenti",
+                                   self.team.auto_dev, on_change=self._set_auto_dev))
         self._brief = None
         self._report = None
 
@@ -716,6 +722,10 @@ class EngineersPage(Page):
             self.area_sliders[key] = sl
             self.widgets.append(sl)
             y += 30
+
+    def _set_auto_dev(self, v) -> None:
+        self.team.auto_dev = bool(v)
+        self.build()
 
     def _set_share(self, v) -> None:
         self.team.next_reg_share = max(0.0, min(0.80, v / 100.0))
@@ -740,7 +750,13 @@ class EngineersPage(Page):
         T.text(surf, "CONFRONTO TECNICO", (r.x, r.y + 10), 22, T.TEXT, bold=True)
         left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12), 12,
+               T.DIM_2, bold=True)
+        if self.team.auto_dev:
+            parti = engineering.suggested_parts(self.gs, self.team, 3)
+            nomi = ", ".join(C.CAR_PARTS[p]["label"].lower() for p in parti[:3])
+            T.text(surf, f"lavorano da soli su {nomi}", (left.right - 16, left.y + 12),
+                   11, T.OK, align="right", maxw=left.w * 0.6)
         y = left.y + 40
         for speaker, line in self._brief:
             T.text(surf, speaker, (left.x + 16, y), 14, T.ACCENT, bold=True)
