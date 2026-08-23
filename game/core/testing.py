@@ -19,25 +19,25 @@ PROGRAMMI = {
         "label": "Chilometri ai giovani",
         "desc": "Una monoposto di due anni fa e un pilota da far crescere. "
                 "Non serve alla macchina, serve a lui.",
-        "cost": 0.55,
+        "materiali": 0.55,
     },
     "correlazione": {
         "label": "Correlazione galleria-pista",
         "desc": "Si misura in pista quello che la galleria del vento promette. "
                 "Quando i due numeri divergono, gli aggiornamenti falliscono.",
-        "cost": 0.85,
+        "materiali": 0.85,
     },
     "assetto": {
         "label": "Lavoro di assetto",
         "desc": "Si accumula conoscenza su un circuito preciso: quando ci si "
                 "torna in gara, si parte gia' vicini alla finestra giusta.",
-        "cost": 0.70,
+        "materiali": 0.70,
     },
     "affidabilita": {
         "label": "Prova di affidabilita'",
         "desc": "Chilometri su chilometri per far emergere le rotture in "
                 "officina invece che in gara.",
-        "cost": 0.65,
+        "materiali": 0.65,
     },
 }
 
@@ -114,23 +114,37 @@ def days_left(gs, team) -> int:
     return max(0, days_allowed(gs, team) - int(team.test_days_used))
 
 
-def cost_of(gs, team, track, programme: str, days: int) -> float:
-    """Quanto costa una sessione: il programma piu' la trasferta.
+# Girare costa tre cose diverse, e conviene tenerle separate perche' si
+# comportano in modo diverso.
+#
+# I materiali sono quello che la macchina consuma: benzina, gomme, ricambi,
+# pezzi di prova. Sono uguali dovunque si vada, perche' la macchina consuma
+# quello che consuma.
+#
+# Il noleggio e la trasferta dipendono invece da dove si va: una pista si
+# affitta, e portarci uomini e camion costa. In casa propria non si paga ne'
+# l'uno ne' l'altra - si accende la luce e si gira - e quello che resta e' il
+# mantenimento della pista, che si paga tutto l'anno che ci si giri o no, e le
+# migliorie, che passano dal budget delle costruzioni come ogni struttura.
+NOLEGGIO = 0.35            # M$ al giorno per affittare una pista che non e' nostra
+TRASFERTA = 0.25           # M$ al giorno di logistica, restando dalle nostre parti
+TRASFERTA_LONTANO = 0.90   # e quanto costa in piu' andare lontano da casa
 
-    Girare in casa costa poco, portare tutto dall'altra parte del mondo no:
-    e' per questo che le squadre europee provano in Spagna e in Italia.
-    """
-    base = PROGRAMMI[programme]["cost"] * days
+
+def cost_breakdown(gs, team, track, programme: str, days: int) -> dict:
+    """Le voci di una sessione, separate."""
+    materiali = PROGRAMMI[programme]["materiali"] * days
     if is_home(team, track):
-        # a casa propria non si paga ne' trasferta ne' noleggio: si accende la
-        # luce e si gira. E' il motivo per cui una pista di proprieta' si ripaga
-        return round(base * 0.55, 2)
-    lontano = 0.0 if _vicino(team, track) else 0.9
-    tot = base + lontano * days + 0.25 * days
-    if getattr(team, "has_private_track", False):
-        # buona parte del lavoro si fa a casa: niente trasferta, niente noleggio
-        tot *= 0.70
-    return round(tot, 2)
+        return {"materiali": round(materiali, 2), "noleggio": 0.0, "trasferta": 0.0}
+    lontano = 0.0 if _vicino(team, track) else TRASFERTA_LONTANO
+    return {"materiali": round(materiali, 2),
+            "noleggio": round(NOLEGGIO * days, 2),
+            "trasferta": round((TRASFERTA + lontano) * days, 2)}
+
+
+def cost_of(gs, team, track, programme: str, days: int) -> float:
+    """Quanto costa una sessione in tutto."""
+    return round(sum(cost_breakdown(gs, team, track, programme, days).values()), 2)
 
 
 def _vicino(team, track) -> bool:

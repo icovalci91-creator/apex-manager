@@ -163,13 +163,27 @@ class TestingPage(Page):
                    (right.x + 150, right.y + 136), 11, T.DIM_2)
 
         if self.track:
-            prezzo = TT.cost_of(gs, team, self.track, self.programme, self.days)
+            voci = TT.cost_breakdown(gs, team, self.track, self.programme, self.days)
+            prezzo = sum(voci.values())
             ok, why = TT.can_run(gs, team, self.track, self.programme, self.days)
-            T.text(surf, f"{self.days} giornate a {self.track.name}: {prezzo:.1f} M$ "
+            casa = TT.is_home(team, self.track)
+            T.text(surf, f"{self.days} giornate a {self.track.name}: {prezzo:.2f} M$ "
                          f"dentro il tetto di spesa",
                    (right.x + 16, right.y + 384), 14, T.TEXT, maxw=right.w - 32)
+            # le tre voci separate: i materiali sono uguali dappertutto, il
+            # resto lo si paga solo andando a casa d'altri
+            x = right.x + 16
+            for chiave, etichetta in (("materiali", "materiali"), ("noleggio", "noleggio pista"),
+                                      ("trasferta", "trasferta")):
+                v = voci[chiave]
+                col = T.DIM_2 if v <= 0.001 else (T.TEXT if chiave == "materiali" else T.WARN)
+                T.text(surf, f"{etichetta} {v:.2f}", (x, right.y + 404), 12, col)
+                x += 150
+            if casa:
+                T.text(surf, "e' casa nostra: si paga solo quello che si consuma",
+                       (right.x + 16, right.y + 422), 12, T.OK, maxw=right.w - 32)
             if not ok:
-                T.text(surf, why, (right.x + 16, right.y + 406), 13, T.BAD,
+                T.text(surf, why, (right.x + 16, right.y + 440), 13, T.BAD,
                        maxw=right.w - 32)
             trackdraw.draw_minimap(surf, self.track,
                                    (right.x + 16, right.y + 440, 210, 150),

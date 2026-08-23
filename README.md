@@ -122,9 +122,23 @@ spendere in quattro programmi diversi:
 | Lavoro di assetto | Conoscenza del circuito: quando ci si torna in gara si parte gia' in finestra |
 | Prova di affidabilita' | Componenti rimessi a punto, meno rotture in gara |
 
-Le giornate costano dentro il tetto di spesa, quindi ogni prova e' sviluppo in meno, e la
-trasferta pesa: una squadra inglese che va a girare in Europa spende molto meno di una che
-si porta tutto dall'altra parte del mondo. Si puo' girare anche fuori dal calendario:
+Una giornata di prove costa tre cose diverse, tenute separate perche' si comportano in modo
+diverso. I **materiali** - benzina, gomme, ricambi, pezzi di prova - sono uguali dovunque si
+vada, perche' la macchina consuma quello che consuma. Il **noleggio** della pista e la
+**trasferta** dipendono da dove si va. Tre giornate di correlazione, per la Ferrari:
+
+| Dove | materiali | noleggio | trasferta | totale |
+|---|---|---|---|---|
+| Fiorano, casa propria | 2,55 | - | - | **2,55** |
+| Silverstone | 2,55 | 1,05 | 0,75 | **4,35** |
+| Losail | 2,55 | 1,05 | 3,45 | **7,05** |
+
+In casa propria l'uso della pista non si paga: si accende la luce e si gira. Quello che si
+paga comunque e' il mantenimento dell'impianto, tutto l'anno che ci si giri o no, e le
+migliorie, che passano dal budget delle costruzioni come ogni altra struttura. Su tutte e
+otto le giornate della stagione, girare in casa invece che a Silverstone vale 4,8 M$.
+
+Tutto questo sta dentro il tetto di spesa, quindi ogni prova e' sviluppo in meno. Si puo' girare anche fuori dal calendario:
 Tsukuba, Mugello, Paul Ricard, Portimao e gli altri candidati sono li' apposta.
 
 Chi ha una pista di proprieta' gioca un altro campionato: due giornate in piu' all'anno,
@@ -445,9 +459,8 @@ segue le regole di tutte le altre strutture.
 E una pista di proprieta' e' un posto vero: compare fra i circuiti dove andare a provare.
 Fiorano sta nei dati come tracciato (2,976 km, 14 curve) insieme a un modello generico per
 chi se ne costruisce una, che prende il nome della squadra; il Red Bull Ring c'era gia',
-perche' e' anche una gara del mondiale. Girare in casa costa il 45% in meno di una
-trasferta comoda e non paga ne' noleggio ne' logistica: e' li' che una pista di proprieta'
-comincia a ripagarsi.
+perche' e' anche una gara del mondiale. Girarci non costa niente oltre ai materiali: e' li'
+che una pista di proprieta' comincia a ripagarsi.
 
 **Il montepremi ha due colonne.** Come nella realta': una parte del piatto e' uguale per
 tutti - 47 M$ a testa, il 45% dei 1150 distribuiti dal promoter - e il resto va a scalare
