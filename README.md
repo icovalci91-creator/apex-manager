@@ -183,7 +183,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sezione | Cosa fai |
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
-| Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sessioni al simulatore e sei regolazioni d'assetto attorno al riferimento del reparto |
+| Vettura e assetto | Stato dei componenti, power unit e cambio da sostituire prima che cedano, e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
 | Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |

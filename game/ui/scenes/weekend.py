@@ -269,8 +269,7 @@ class WeekendScene(Scene):
             self.stage = "gara"
             self.build()
         else:
-            SEASON.after_race(self.gs, getattr(self.app, "dev_budget", 1.5),
-                              getattr(self.app, "pu_budget", 1.0))
+            SEASON.after_race(self.gs)
             self.stage = "fine"
             self.sim = None
             self.build()
@@ -377,6 +376,18 @@ class WeekendScene(Scene):
         T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - meteo {ws.weather.label} "
                      f"({ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C asfalto)",
                (28, 42), 14, T.DIM)
+        # se un componente contingentato e' agli sgoccioli lo si deve sapere
+        # prima di scendere in pista, non quando si rompe
+        from ...core import penalties as PEN
+        allarmi = []
+        for d in gs.lineup_of(gs.player_team):
+            if d.pu_wear <= PEN.SOGLIA_ROTTURA:
+                allarmi.append(f"{d.short}: power unit al {d.pu_wear:.0f}%")
+            if d.gearbox_wear <= PEN.SOGLIA_ROTTURA:
+                allarmi.append(f"{d.short}: cambio al {d.gearbox_wear:.0f}%")
+        if allarmi:
+            T.text(surf, "DA SOSTITUIRE:  " + "   ".join(allarmi[:3]),
+                   (28, 62), 12, T.BAD, bold=True, maxw=w * 0.6)
         if self.stage == "prove" and getattr(self, "dist_label_at", None):
             T.text(surf, "DURATA DELLA GARA", self.dist_label_at, 11, T.DIM_2, bold=True)
         stage_lab = {"prove": "PROVE LIBERE", "qualifica": "QUALIFICA",

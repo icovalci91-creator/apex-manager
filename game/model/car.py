@@ -130,7 +130,22 @@ class Car:
         return 0.72 * car + 0.28 * eng
 
     # ------------------------------------------------------------- assetto
-    def optimal_setup(self, track) -> dict:
+    def optimal_setup(self, track, driver=None) -> dict:
+        """L'assetto ideale su questo circuito, per questo pilota.
+
+        Senza pilota e' l'ottimo del tracciato e basta - quello che scrive il
+        reparto sulla carta. Con un pilota ci si somma il suo stile di guida,
+        ed e' per quello che due compagni di squadra non vogliono la stessa
+        macchina.
+        """
+        base = self._track_optimum(track)
+        if driver is None:
+            return base
+        from ..core import driving
+        off = driving.offsets(driver)
+        return {k: max(0.0, min(100.0, v + off.get(k, 0.0))) for k, v in base.items()}
+
+    def _track_optimum(self, track) -> dict:
         t = track.traits
         return {
             "wing":        100.0 * min(1.0, max(0.0, t["downforce"])),
@@ -141,8 +156,8 @@ class Car:
             "brake_bias":  100.0 * min(1.0, max(0.0, 0.35 + 0.40 * t["braking"])),
         }
 
-    def evaluate_setup(self, track) -> float:
-        opt = self.optimal_setup(track)
+    def evaluate_setup(self, track, driver=None) -> float:
+        opt = self.optimal_setup(track, driver)
         err = sum(abs(self.setup.get(k, 50.0) - opt[k]) for k in opt) / len(opt)
         self.setup_quality = max(0.0, 1.0 - (err / 45.0) ** 1.35)
         return self.setup_quality

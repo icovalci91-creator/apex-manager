@@ -59,6 +59,10 @@ class Driver:
     grid_penalty: int = 0        # posizioni da scontare alla prossima partenza
     pu_used: int = 1             # unita' di power unit gia' impiegate
     gearbox_used: int = 1
+    # quanto e' consumata l'unita' che ha montata adesso: 100 e' nuova, sotto
+    # i 30 comincia a rompersi, a zero non finisce la gara
+    pu_wear: float = 100.0
+    gearbox_wear: float = 100.0
     happiness_notes: list = field(default_factory=list)
 
     @property

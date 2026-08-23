@@ -93,26 +93,106 @@ def register_component_use(gs, team, driver, quante_pu: int = 0, quanti_cambi: i
     return msgs
 
 
-def wear_components(gs, team) -> list:
-    """Consumo di power unit e cambi lungo la stagione.
+# Quanto si consuma in un gran premio quello che il regolamento conta. Sono
+# tarati sul contingente: una power unit deve reggere il numero di gare che
+# viene dal dividere il calendario per le unita' concesse, e chi ha un
+# progetto fragile la brucia prima.
+PU_WEAR_RACE = 100.0 / 7.0
+GEARBOX_WEAR_RACE = 100.0 / 6.0
+SOGLIA_ROTTURA = 30.0        # sotto questa soglia comincia a cedere
 
-    Un'unita' non dura per sempre: piu' e' fragile il progetto, prima si
-    sostituisce, e superato il contingente si parte indietro. E' il prezzo
-    nascosto di una power unit poco affidabile.
+
+def component_wear(gs, team, driver, quota: float = 1.0) -> None:
+    """Un gran premio di chilometri sulle parti contate dal regolamento."""
+    affid = 0.72 + 0.28 * (team.car.engine.get("reliability", 85) / 100.0)
+    cambio = 0.75 + 0.25 * (team.car.parts["gearbox"].condition / 100.0)
+    driver.pu_wear = max(0.0, driver.pu_wear - PU_WEAR_RACE * quota / max(0.5, affid))
+    driver.gearbox_wear = max(0.0, driver.gearbox_wear
+                              - GEARBOX_WEAR_RACE * quota / max(0.5, cambio))
+
+
+def health_factor(driver) -> float:
+    """Quanto un componente logoro abbassa l'affidabilita' della vettura.
+
+    Fino a un certo punto non si nota niente, poi la curva si impenna: e' cosi'
+    che si rompe un motore, non un po' per volta ma tutto insieme.
+    """
+    peggio = min(driver.pu_wear, driver.gearbox_wear)
+    if peggio >= SOGLIA_ROTTURA:
+        return 1.0
+    return max(0.55, 0.55 + 0.45 * (peggio / SOGLIA_ROTTURA))
+
+
+def fit_new(gs, team, driver, quale: str = "pu") -> tuple:
+    """Monta un componente nuovo. Ritorna (fatto, messaggio).
+
+    Oltre il contingente si parte indietro, e quello lo decide il regolamento:
+    e' la scelta di sempre, tenersi un pezzo consumato e rischiare la rottura
+    oppure prendersi la penalita' e correre tranquilli.
+    """
+    reg = gs.regulations
+    if quale == "pu":
+        limite = int(reg["power_unit"].get("units_per_season", 4))
+        usate, etichetta = driver.pu_used, "power unit"
+    else:
+        limite = int(reg["sporting"].get("gearbox_units", 5))
+        usate, etichetta = driver.gearbox_used, "cambio"
+    oltre = usate + 1 > limite
+    msgs = register_component_use(gs, team, driver,
+                                  1 if quale == "pu" else 0,
+                                  0 if quale == "pu" else 1)
+    if quale == "pu":
+        driver.pu_wear = 100.0
+    else:
+        driver.gearbox_wear = 100.0
+    testa = f"{driver.short}: montato un {etichetta} nuovo"
+    if oltre:
+        return True, testa + f". Fuori contingente: {msgs[0] if msgs else 'penalita in griglia'}"
+    return True, testa + f" ({usate + 1} su {limite}, nessuna penalita')."
+
+
+def wear_components(gs, team) -> list:
+    """Un gran premio di consumo, e le squadre del computer che decidono.
+
+    Il giocatore sceglie dalla pagina Vettura: qui si consuma e basta. Le IA
+    montano un pezzo nuovo quando quello che hanno e' agli sgoccioli, e si
+    prendono la penalita' solo se non possono farne a meno.
     """
     msgs = []
-    affid = team.car.reliability
-    for did in team.drivers:
+    for did in list(team.drivers) + list(team.reserves):
         d = gs.drivers.get(did)
-        if d is None:
+        if d is None or did not in team.drivers:
             continue
-        # probabilita' di dover montare un'unita' nuova in questo weekend
-        p_pu = max(0.02, (1.0 - affid) * 1.6)
-        p_cambio = max(0.015, (1.0 - team.car.parts["gearbox"].condition / 100.0) * 0.35)
-        pu = 1 if gs.rng.random() < p_pu else 0
-        cb = 1 if gs.rng.random() < p_cambio else 0
-        if pu or cb:
-            msgs += register_component_use(gs, team, d, pu, cb)
+        component_wear(gs, team, d, float(getattr(gs, "race_distance", 1.0)))
+        # un pezzo finito non si porta in pista: lo cambiano i meccanici da
+        # soli, e se il contingente e' esaurito la penalita' arriva lo stesso
+        for quale, logoro in (("pu", d.pu_wear), ("cambio", d.gearbox_wear)):
+            if logoro <= 0.0:
+                ok, testo = fit_new(gs, team, d, quale)
+                if team.is_player:
+                    msgs.append("Obbligati: " + testo)
+        if team.is_player:
+            if d.pu_wear <= SOGLIA_ROTTURA and d.pu_wear > 0:
+                msgs.append(f"{d.short}: la power unit e' al {d.pu_wear:.0f}%, "
+                            f"conviene pensare a sostituirla.")
+            if d.gearbox_wear <= SOGLIA_ROTTURA and d.gearbox_wear > 0:
+                msgs.append(f"{d.short}: il cambio e' al {d.gearbox_wear:.0f}%.")
+            continue
+        gare_restanti = max(0, len(gs.tracks) - gs.round)
+        for quale, logoro, usate, limite in (
+                ("pu", d.pu_wear, d.pu_used,
+                 int(gs.regulations["power_unit"].get("units_per_season", 4))),
+                ("cambio", d.gearbox_wear, d.gearbox_used,
+                 int(gs.regulations["sporting"].get("gearbox_units", 5)))):
+            if logoro > 15.0:
+                continue
+            passo = PU_WEAR_RACE if quale == "pu" else GEARBOX_WEAR_RACE
+            if logoro >= gare_restanti * passo * 1.05:
+                continue           # quello che c'e' basta fino a fine anno
+            # se il contingente e' finito si tira avanti finche' si puo'
+            if usate >= limite and logoro > 4.0 and gare_restanti > 2:
+                continue
+            fit_new(gs, team, d, "pu" if quale == "pu" else "cambio")
     return msgs
 
 

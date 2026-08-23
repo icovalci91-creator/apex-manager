@@ -65,6 +65,19 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             "grid": e.grid, "points": pts, "damage": round(e.damage, 1),
         })
 
+    # un cedimento non e' un guaio da un giorno: quel pezzo e' da buttare, e
+    # il pezzo dopo lo si monta col contingente che si ha
+    for e in sim.entrants:
+        if e.status != "retired":
+            continue
+        d = gs.drivers.get(e.driver_id)
+        if d is None:
+            continue
+        if "power unit" in e.dnf_reason or "olio" in e.dnf_reason or "surriscald" in e.dnf_reason:
+            d.pu_wear = 0.0
+        elif "cambio" in e.dnf_reason:
+            d.gearbox_wear = 0.0
+
     # usura e danni sulla vettura di ogni squadra
     for team in gs.teams.values():
         dmg = 0.0
@@ -170,10 +183,37 @@ def _expected_position(gs, team) -> float:
 
 
 # ---------------------------------------------------------------- post gara
-def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
+def player_budgets(gs) -> tuple:
+    """Quanto mette sul tavolo il giocatore, per gara, senza doverlo decidere.
+
+    Prima c'era una barra da trascinare, e non era una decisione: non esiste il
+    motivo per metterla piu' bassa del possibile. Adesso il conto e' quello che
+    fanno anche le squadre del computer - quello che avanza dopo i costi fissi,
+    diviso per le gare che restano - e la scelta vera resta dov'era: come
+    ripartire il lavoro fra le aree, quali pacchetti aprire e quando omologare
+    una specifica di motore.
+    """
+    team = gs.player
+    gare = max(1, len(gs.tracks) - gs.round)
+    resta = economy.room_left(gs, team)
+    dev = max(0.0, min(resta / gare * 0.55, development.budget_headroom(gs, team) * 0.5))
+    dev *= economy.spending_room(gs, team)
+    pu = 0.0
+    if team.works or powertrain.has_program(gs):
+        # il reparto motori ha un budget suo, fuori dal tetto di spesa
+        pu = max(0.0, min(team.cash * 0.05, 1.1 + team.reputation / 55.0))
+        pu *= economy.spending_room(gs, team)
+    return round(dev, 3), round(pu, 3)
+
+
+def after_race(gs, dev_budget: float | None = None, pu_budget: float | None = None) -> list:
     """Sviluppo, notizie e avanzamento del calendario."""
     msgs = []
     player = gs.player
+    if dev_budget is None or pu_budget is None:
+        auto_dev, auto_pu = player_budgets(gs)
+        dev_budget = auto_dev if dev_budget is None else dev_budget
+        pu_budget = auto_pu if pu_budget is None else pu_budget
     development.passive_development(gs, player, dev_budget)
     # prima il verdetto su quello che gia' gira, poi quello che arriva adesso:
     # una specifica nuova non puo' essere giudicata dalla gara appena corsa
@@ -312,6 +352,8 @@ def end_season(gs) -> dict:
     for d in gs.drivers.values():
         d.pu_used = 1
         d.gearbox_used = 1
+        d.pu_wear = 100.0
+        d.gearbox_wear = 100.0
         d.grid_penalty = 0
         d.points = 0.0
         d.wins = 0

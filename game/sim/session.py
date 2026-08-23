@@ -28,28 +28,39 @@ class WeekendState:
 
 
 # --------------------------------------------------------------- base lap
-def base_lap_for(gs, team, track, weather: Weather) -> float:
-    from ..core import powertrain
+def base_lap_for(gs, team, track, weather: Weather, driver=None) -> float:
+    """Il giro base di questa vettura, con l'assetto di questo pilota.
+
+    Senza pilota vale l'assetto generico della squadra; con un pilota si monta
+    il suo, perche' quello del compagno di box e' un altro.
+    """
+    from ..core import powertrain, driving
     car = team.car
     # rinfrescata qui: se il reparto motori e' cambiato (ingaggi, debutto della
     # propria unita') l'integrazione deve valere gia' da questo weekend
     car.pu_integration = powertrain.integration(gs, team)
-    old_fuel = car.fuel_kg
+    old_fuel, old_setup = car.fuel_kg, dict(car.setup)
     car.fuel_kg = 0.0
-    car.evaluate_setup(track)
+    if driver is not None:
+        car.setup = dict(driving.setup_of(team, driver))
+    car.evaluate_setup(track, driver)
     t, _, _ = track.lap_model(car, wet=weather.wet)
     car.fuel_kg = old_fuel
-    return t / car.apply_setup_effects()
+    effetto = car.apply_setup_effects()
+    car.setup = old_setup
+    return t / effetto
 
 
 def build_entrants(gs, track, weather: Weather) -> list:
+    from ..core import penalties
     out = []
     for team in gs.teams.values():
-        base = base_lap_for(gs, team, track, weather)
-        base += gs.rng.gauss(0.0, 0.13)          # come lavora il pacchetto su questa pista
+        # il pacchetto lavora uguale per tutti e due, l'assetto no
+        pacchetto = gs.rng.gauss(0.0, 0.13)
         pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
                + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
         for d in gs.lineup_of(team.id):
+            base = base_lap_for(gs, team, track, weather, d) + pacchetto
             col = _hex(team.colour)
             out.append(Entrant(
                 driver_id=d.id, team_id=team.id, code=d.code, name=d.short,
@@ -57,7 +68,8 @@ def build_entrants(gs, track, weather: Weather) -> list:
                 skill=d.race_rating(weather.wet) - gs.rng.gauss(0.0, 1.3),
                 consistency=d.consistency,
                 tyre_skill=d.tyre_mgmt, aggression=d.aggression, racecraft=d.racecraft,
-                wet_skill=d.wet, stamina=d.fitness, reliability=team.car.reliability,
+                wet_skill=d.wet, stamina=d.fitness,
+                reliability=team.car.reliability * penalties.health_factor(d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 is_player=(team.id == gs.player_team),
             ))
@@ -97,40 +109,41 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
         quota = 1.0
         if team.id == gs.player_team and not delegate_player:
             quota = 0.45      # il giocatore tiene in mano i regolatori
-        SETUP.apply_paper(team, quota)
-        team.car.evaluate_setup(track)
+        SETUP.apply_paper(gs, team, quota)
         team.car.wear(0.55, track)
 
     from ..core import tyres
     tyres.spend_practice(gs, ws)
     ws.practice_done += 1
     pt = gs.player
-    q = SETUP.believed_quality(pt)
+    piloti = gs.lineup_of(pt.id)
     eng = pt.role("technical_director")
     who = eng.name if eng else "Il muretto"
-    if q > 0.9:
-        notes.append(f"{who}: assetto in finestra, la macchina risponde bene.")
-    elif q > 0.7:
-        notes.append(f"{who}: ci siamo quasi, manca un po' di equilibrio in percorrenza.")
-    else:
-        notes.append(f"{who}: siamo fuori finestra, servono modifiche importanti.")
-    notes.extend(SETUP.hints(pt, track))
+    for d in piloti:
+        q = SETUP.believed_quality(pt, d)
+        if q > 0.9:
+            notes.append(f"{who} su {d.short}: in finestra, la macchina risponde bene.")
+        elif q > 0.7:
+            notes.append(f"{who} su {d.short}: ci siamo quasi, manca equilibrio.")
+        else:
+            notes.append(f"{who} su {d.short}: fuori finestra, servono modifiche.")
+        for riga in SETUP.hints(pt, track, d)[:2]:
+            notes.append(riga)
     ws.practice_notes = notes
     return notes
 
 
-def setup_hints(team, track) -> list:
+def setup_hints(team, track, driver=None) -> list:
     """Indicazioni comprensibili su cosa cambiare, secondo il reparto."""
     from ..core import setup as SETUP
-    return SETUP.hints(team, track)
+    return SETUP.hints(team, track, driver)
 
 
-def auto_setup(gs, team, track, quality: float | None = None) -> None:
-    """Monta l'assetto che il reparto ritiene giusto per questa pista."""
+def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> None:
+    """Monta l'assetto che il reparto ritiene giusto, per uno o per tutti e due."""
     from ..core import setup as SETUP
     SETUP.ensure_paper(gs, team, track)
-    SETUP.apply_paper(team)
-    team.car.evaluate_setup(track)
+    SETUP.apply_paper(gs, team, 1.0, driver)
 
 
 # ---------------------------------------------------------------- qualifica

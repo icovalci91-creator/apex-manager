@@ -70,8 +70,6 @@ class App:
         self.scenes: list = []
         self.gs = None
         self.editor = False         # editor di gioco: si accende dal menu
-        self.dev_budget = 1.5       # M$ per gara, impostato dalla pagina Sviluppo
-        self.pu_budget = 1.0        # M$ per gara per il reparto power unit
         self.toast_text = ""
         self.toast_t = 0.0
 

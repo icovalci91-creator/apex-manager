@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import development, economy, engineering, powertrain, rules, setup as SETUP
+from ...core import development, driving, economy, engineering, penalties, powertrain, rules, setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
 from .. import theme as T
@@ -134,45 +134,103 @@ def _car_rank_text(gs, team) -> str:
 
 # ================================================================== VETTURA
 class CarPage(Page):
+    """Una macchina per pilota: stesso pacchetto, due assetti."""
+
+    def __init__(self, shell):
+        super().__init__(shell)
+        self.sel_driver = None
+
+    def _piloti(self) -> list:
+        return self.gs.lineup_of(self.team.id)
+
+    def _driver(self):
+        piloti = self._piloti()
+        if self.sel_driver is None or self.sel_driver not in piloti:
+            self.sel_driver = piloti[0] if piloti else None
+        return self.sel_driver
+
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         self.sliders = {}
         x = r.x + r.w * 0.42 + 16
-        y = r.y + 150
+        larg = r.w * 0.58 - 32
+        d = self._driver()
+
+        # con quale delle due macchine stiamo lavorando
+        self.drv_buttons = []
+        piloti = self._piloti()
+        bw2 = (larg - 10) / max(1, len(piloti))
+        for i, p in enumerate(piloti):
+            b = Button((x + i * (bw2 + 10), r.y + 140, bw2, 28), p.short)
+            b.on_click = (lambda pp=p: self._pick_driver(pp))
+            self.drv_buttons.append(b)
+            self.widgets.append(b)
+        self._mark_driver()
+
+        mio = driving.setup_of(self.team, d) if d else {}
+        y = r.y + 182
         for k, lab in SETUP_KEYS.items():
-            s = Slider((x, y, r.w * 0.58 - 32, 30), lab, self.team.car.setup.get(k, 50.0),
+            s = Slider((x, y, larg, 30), lab, mio.get(k, 50.0),
                        on_change=(lambda v, k=k: self._set(k, v)))
             self.sliders[k] = s
             self.widgets.append(s)
             y += 36
         y += 8
-        bw = (r.w * 0.58 - 42) / 2
-        nt = self.gs.next_track
+        bw = (larg - 10) / 2
         costo = SETUP.sim_cost(self.team)
         self.widgets.append(Button((x, y, bw, 38), f"Simulatore  ({costo:.2f} M$)",
                                    self.simulate, "normal"))
-        self.widgets.append(Button((x + bw + 10, y, bw, 38), "Monta l'assetto del reparto",
+        self.widgets.append(Button((x + bw + 10, y, bw, 38), "Monta su questa macchina",
                                    self.delegate, "primary"))
-        self.widgets.append(Button((x, y + 44, bw, 34), "Assetto neutro", self.neutral, "ghost"))
+        self.widgets.append(Button((x, y + 44, bw, 34), "Monta su tutte e due",
+                                   self.delegate_all, "ghost"))
+        self.widgets.append(Button((x + bw + 10, y + 44, bw, 34), "Assetto neutro",
+                                   self.neutral, "ghost"))
+
+        # le parti che il regolamento conta: si cambiano quando sono finite,
+        # sapendo cosa costa farlo fuori contingente
+        left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
+        cy = left.bottom - 118
+        for p in self._piloti():
+            for i, quale in enumerate(("pu", "cambio")):
+                b = Button((left.right - 96, cy + i * 24 - 2, 78, 22), "Nuovo")
+                b.on_click = (lambda pp=p, q=quale: self._fit(pp, q))
+                self.widgets.append(b)
+            cy += 60
         self._update_markers()
 
+    def _fit(self, driver, quale) -> None:
+        ok, msg = penalties.fit_new(self.gs, self.team, driver, quale)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def _pick_driver(self, p) -> None:
+        self.sel_driver = p
+        self.build()
+
+    def _mark_driver(self) -> None:
+        for b, p in zip(self.drv_buttons, self._piloti()):
+            b.active = (p is self.sel_driver)
+            b.style = "tab" if b.active else "normal"
+
     def _set(self, k, v) -> None:
-        self.team.car.setup[k] = v
-        nt = self.gs.next_track
-        if nt:
-            self.team.car.evaluate_setup(nt)
+        d = self._driver()
+        if d is not None:
+            driving.set_value(self.team, d, k, v)
 
     def _update_markers(self) -> None:
-        """Il triangolo mostra quello che il reparto crede, non quello che e'."""
+        """Il triangolo mostra quello che il reparto crede, corretto per lui."""
         nt = self.gs.next_track
-        if not nt:
+        d = self._driver()
+        if not nt or d is None:
             return
         SETUP.ensure_paper(self.gs, self.team, nt)
-        paper = self.team.setup_paper or {}
+        bersaglio = SETUP.target_for(self.team, d)
         for k, s in self.sliders.items():
-            s.marker = paper.get(k)
-        self.team.car.evaluate_setup(nt)
+            s.marker = bersaglio.get(k)
 
     def simulate(self) -> None:
         nt = self.gs.next_track
@@ -185,19 +243,28 @@ class CarPage(Page):
             self.build()
 
     def delegate(self) -> None:
+        nt, d = self.gs.next_track, self._driver()
+        if not nt or d is None:
+            return
+        S.auto_setup(self.gs, self.team, nt, driver=d)
+        self.app.toast(f"Assetto del reparto montato sulla macchina di {d.short}.")
+        self.build()
+
+    def delegate_all(self) -> None:
         nt = self.gs.next_track
         if not nt:
             return
         S.auto_setup(self.gs, self.team, nt)
-        for k, s in self.sliders.items():
-            s.value = self.team.car.setup[k]
-        self.app.toast("I meccanici hanno montato l'assetto preparato dal reparto.")
+        self.app.toast("Assetto del reparto montato su tutte e due le macchine.")
+        self.build()
 
     def neutral(self) -> None:
+        d = self._driver()
+        if d is None:
+            return
         for k, s in self.sliders.items():
-            self.team.car.setup[k] = 50.0
+            driving.set_value(self.team, d, k, 50.0)
             s.value = 50.0
-        self._set("wing", 50.0)
 
     def refresh(self) -> None:
         self.build()
@@ -236,36 +303,63 @@ class CarPage(Page):
         T.text(surf, f"Costo di ripristino stimato: {cost:.2f} M$", (left.x + 16, y), 13,
                T.WARN if cost > 0.5 else T.DIM)
 
+        # --- power unit e cambio: quello che il regolamento conta
+        reg = gs.regulations
+        max_pu = int(reg["power_unit"].get("units_per_season", 4))
+        max_cb = int(reg["sporting"].get("gearbox_units", 5))
+        cy = left.bottom - 140
+        T.text(surf, "PARTI CONTINGENTATE", (left.x + 16, cy), 12, T.DIM_2, bold=True)
+        T.text(surf, f"oltre il limite: {penalties.GRIGLIA_PU} posizioni",
+               (left.right - 16, cy), 11, T.DIM_2, align="right")
+        cy += 22
+        for d in self._piloti():
+            T.text(surf, d.short, (left.x + 16, cy), 13, T.TEXT, bold=True, maxw=120)
+            for i, (lab, logoro, usate, limite) in enumerate(
+                    (("Power unit", d.pu_wear, d.pu_used, max_pu),
+                     ("Cambio", d.gearbox_wear, d.gearbox_used, max_cb))):
+                yy = cy + i * 24
+                col = (T.OK if logoro > 55 else
+                       T.WARN if logoro > penalties.SOGLIA_ROTTURA else T.BAD)
+                T.text(surf, lab, (left.x + 130, yy), 12, T.DIM)
+                T.bar(surf, (left.x + 210, yy + 5, 96, 7), logoro, 100, col)
+                col_n = T.BAD if usate >= limite else T.DIM
+                T.text(surf, f"{usate}/{limite}", (left.x + 330, yy), 12, col_n, bold=True)
+            cy += 60
+
         right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "ASSETTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         nt = gs.next_track
-        if nt:
-            q = SETUP.believed_quality(team)
+        d = self._driver()
+        if nt and d is not None:
+            q = SETUP.believed_quality(team, d)
             qc = T.OK if q > 0.85 else (T.WARN if q > 0.6 else T.BAD)
             T.text(surf, f"per {nt.name}", (right.x + 16, right.y + 32), 16, T.TEXT, bold=True)
+            T.text(surf, f"stile di {d.short}: {driving.label(d)}",
+                   (right.right - 16, right.y + 34), 12, T.GOLD, align="right",
+                   maxw=right.w * 0.55)
             T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 62), 13, T.DIM)
             T.bar(surf, (right.x + 160, right.y + 66, 220, 10), q * 100)
             T.text(surf, f"{q*100:.0f}%", (right.x + 396, right.y + 60), 15, qc, bold=True)
-            lost = (1.0 - car.apply_setup_effects() / 1.0) * 0
             err = SETUP.paper_error(team, nt, team.sim_sessions)
             fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
             T.text(surf, f"Riferimento del reparto: +/-{err:.0f} punti", (right.x + 440, right.y + 62),
                    13, T.stat_colour(fid * 100, 40, 75), bold=True)
-            T.text(surf, f"Il triangolo dorato e' quello che il reparto crede sia giusto: "
-                         f"{team.sim_sessions} sessioni al simulatore su {SETUP.SIM_MAX}. "
-                         f"Il resto lo dira' la pista.",
+            T.text(surf, f"Il triangolo dorato e' il riferimento del reparto gia' "
+                         f"corretto per il suo stile: {team.sim_sessions} sessioni al "
+                         f"simulatore su {SETUP.SIM_MAX}. Il resto lo dira' la pista.",
                    (right.x + 16, right.y + 92), 12, T.DIM_2, maxw=right.w - 32)
+            car.setup = dict(driving.setup_of(team, d))
             T.text(surf, f"Downforce {car.downforce:.2f}  |  Drag {car.drag:.2f}  |  "
                          f"Potenza {car.power:.2f}  |  Grip {car.mech_grip:.2f}",
-                   (right.x + 16, right.y + 114), 13, T.DIM)
+                   (right.x + 16, right.y + 118), 13, T.DIM)
         else:
             T.text(surf, "Nessuna gara in programma.", (right.x + 16, right.y + 40), 15, T.DIM)
-        yy = right.y + 150 + len(SETUP_KEYS) * 36 + 60
-        if nt:
+        yy = right.y + 182 + len(SETUP_KEYS) * 36 + 96
+        if nt and d is not None:
             T.text(surf, "RISCONTRO DEGLI INGEGNERI", (right.x + 16, yy), 12, T.DIM_2, bold=True)
             yy += 22
-            for line in S.setup_hints(team, nt)[:6]:
+            for line in S.setup_hints(team, nt, d)[:6]:
                 T.text(surf, line, (right.x + 16, yy), 13, T.DIM, maxw=right.w - 32)
                 yy += 20
         super().draw(surf)
@@ -279,10 +373,6 @@ class DevPage(Page):
         super().__init__(shell)
         self.sel_part = "floor"
         self.sel_size = "medio"
-
-    @property
-    def dev_budget(self) -> float:
-        return self.app.dev_budget
 
     def build(self) -> None:
         r = self.rect
@@ -319,10 +409,6 @@ class DevPage(Page):
             ty += 84
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        self.budget_slider = Slider((right.x + 16, right.y + 34, right.w - 32, 28),
-                                    "Affinamenti per gara", self.dev_budget, 0.0, 6.0,
-                                    on_change=self._set_budget, fmt="{:.2f} M$")
-        self.widgets.append(self.budget_slider)
         bx, by = right.x + 16, right.y + 200
         self.part_buttons = []
         for i, (k, meta) in enumerate(C.CAR_PARTS.items()):
@@ -354,10 +440,6 @@ class DevPage(Page):
 
     def _alloc(self, k, v) -> None:
         self.team.resource_alloc[k] = max(0.0, v) / 100.0
-
-    def _set_budget(self, v) -> None:
-        # il weekend di gara legge il budget dall'App: e' li' che va scritto
-        self.app.dev_budget = v
 
     def _set_reg_share(self, v) -> None:
         """Quota del budget di sviluppo dirottata sul regolamento che verra'."""
@@ -465,7 +547,16 @@ class DevPage(Page):
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "PROGETTI DI AGGIORNAMENTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, "PROGETTI DI AGGIORNAMENTO", (right.x + 16, right.y + 12), 12,
+               T.DIM_2, bold=True)
+        from ...core import season as SEASON
+        dev_gara, _pu = SEASON.player_budgets(gs)
+        T.text(surf, f"Il reparto lavora con {dev_gara:.2f} M$ a gara: e' quello che "
+                     f"avanza dopo i costi fissi.",
+               (right.x + 16, right.y + 34), 13, T.DIM, maxw=right.w - 32)
+        T.text(surf, f"Restano {economy.room_left(gs, team):.0f} M$ per la stagione, "
+                     f"pacchetti compresi.",
+               (right.x + 16, right.y + 52), 12, T.DIM_2, maxw=right.w - 32)
         y = right.y + 76
         if team.dev_projects:
             for pr in team.dev_projects:
@@ -645,10 +736,6 @@ class PowerUnitPage(Page):
                                        "Omologa la specifica nuova",
                                        self.homologate, "primary"))
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
-        self.budget_slider = Slider((right.x + 16, right.y + 40, right.w - 32, 28),
-                                    "Budget power unit per gara", self.app.pu_budget, 0.0, 6.0,
-                                    on_change=self._set_budget, fmt="{:.2f} M$")
-        self.widgets.append(self.budget_slider)
         y = right.y + 300
         if powertrain.ready_to_debut(gs):
             self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
@@ -668,9 +755,6 @@ class PowerUnitPage(Page):
 
     def refresh(self) -> None:
         self.build()
-
-    def _set_budget(self, v) -> None:
-        self.app.pu_budget = v
 
     def start_program(self) -> None:
         ok, msg = powertrain.start_program(self.gs, self.team)
@@ -805,7 +889,9 @@ class PowerUnitPage(Page):
         ceil = powertrain.ceiling(gs, team)
         clients = powertrain.customers_of(gs, team.engine) if team.works else []
         y = right.y + 96
+        from ...core import season as SEASON
         rows = [
+            ("Budget del reparto", f"{SEASON.player_budgets(gs)[1]:.2f} M$ a gara"),
             ("Responsabile powertrain", hop.name if hop else "nessuno"),
             ("Qualita' del reparto", f"{team.pu_strength:.0f} / 100"),
             ("Resa dell'investimento", f"x{powertrain.dev_rate(gs, team):.2f}"),
@@ -846,7 +932,8 @@ class PowerUnitPage(Page):
             T.text(surf, f"Investiti {p['invested']:.0f} M$ - in pista dal {p['ready_season']}",
                    (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
             y += 26
-            o = powertrain.debut_outlook(gs, self.app.pu_budget)
+            from ...core import season as SEASON
+            o = powertrain.debut_outlook(gs, SEASON.player_budgets(gs)[1])
             T.text(surf, "QUANDO PORTARLA IN PISTA", (right.x + 16, y), 12, T.DIM_2, bold=True)
             y += 22
             gap = o["gap_now"]

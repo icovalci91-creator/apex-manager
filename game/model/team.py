@@ -51,6 +51,7 @@ class Team:
     reserves: list = field(default_factory=list)     # terzo pilota e collaudatori
     academy: list = field(default_factory=list)      # ragazzi del vivaio
     academy_name: str = ""       # come si chiama il vivaio, se c'e'
+    setups: dict = None          # assetto montato, pilota per pilota
     staff: list = field(default_factory=list)        # oggetti Staff
     points: float = 0.0
     wins: int = 0

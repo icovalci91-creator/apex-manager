@@ -164,13 +164,41 @@ def learn_from_track(gs, team, track, feedback: float) -> None:
     team.setup_paper = paper
 
 
-def apply_paper(team, share: float = 1.0) -> None:
-    """Monta sulla macchina quello che il reparto crede sia giusto."""
+def target_for(team, driver) -> dict:
+    """Il riferimento del reparto, corretto per come guida quel pilota.
+
+    Il foglio e' uno solo - e' la lettura della pista - ma sulle due macchine
+    non ci finisce uguale: a chi stacca tardi si sposta il freno in avanti, a
+    chi cura le gomme si ammorbidisce. Da qui due assetti diversi con lo stesso
+    riferimento.
+    """
+    from . import driving
+    paper = team.setup_paper or {}
+    if not paper:
+        return {}
+    off = driving.offsets(driver) if driver is not None else {}
+    return {k: max(0.0, min(100.0, paper.get(k, 50.0) + off.get(k, 0.0)))
+            for k in SETUP_KEYS}
+
+
+def apply_paper(gs, team, share: float = 1.0, driver=None) -> None:
+    """Monta sulle macchine quello che il reparto crede sia giusto.
+
+    Una macchina per pilota: stesso foglio, due assetti, perche' l'ottimo di
+    uno non e' l'ottimo dell'altro.
+    """
+    from . import driving
     if not team.setup_paper:
         return
-    for k in SETUP_KEYS:
-        cur = team.car.setup.get(k, 50.0)
-        team.car.setup[k] = cur + (team.setup_paper[k] - cur) * share
+    piloti = [driver] if driver is not None else gs.lineup_of(team.id)
+    for d in piloti:
+        if d is None:
+            continue
+        bersaglio = target_for(team, d)
+        mio = driving.setup_of(team, d)
+        for k in SETUP_KEYS:
+            cur = mio.get(k, 50.0)
+            mio[k] = cur + (bersaglio[k] - cur) * share
 
 
 def clear(team) -> None:
@@ -213,29 +241,39 @@ def _ai_prepare(gs, team, track) -> None:
         ok, _m = run_simulator(gs, team, track)
         if not ok:
             break
-    apply_paper(team)
-    team.car.evaluate_setup(track)
+    apply_paper(gs, team)
 
 
-def believed_quality(team) -> float:
-    """Quanto il reparto crede di essere in finestra, da 0 a 1.
+def believed_quality(team, driver=None) -> float:
+    """Quanto il reparto crede che quella macchina sia in finestra, da 0 a 1.
 
     Non e' la verita': e' la distanza fra la macchina e il riferimento che il
-    reparto si e' fatto. Quando il riferimento e' sbagliato si puo' essere
-    convinti di avere tutto a posto e prendere mezzo secondo.
+    reparto si e' fatto, corretto per lo stile di chi la guida. Quando il
+    riferimento e' sbagliato si puo' essere convinti di avere tutto a posto e
+    prendere mezzo secondo.
     """
+    from . import driving
     paper = team.setup_paper or {}
     if not paper:
         return 0.5
-    err = sum(abs(team.car.setup.get(k, 50.0) - paper[k]) for k in paper) / len(paper)
+    if driver is None:
+        montato = team.car.setup
+        bersaglio = paper
+    else:
+        montato = driving.setup_of(team, driver)
+        bersaglio = target_for(team, driver)
+    err = sum(abs(montato.get(k, 50.0) - bersaglio[k]) for k in bersaglio) / len(bersaglio)
     return max(0.0, 1.0 - (err / 45.0) ** 1.35)
 
 
-def hints(team, track) -> list:
+def hints(team, track, driver=None) -> list:
     """Cosa dicono gli ingegneri, sulla base di quello che credono di sapere."""
+    from . import driving
     paper = team.setup_paper or {}
     if not paper:
         return ["- Nessun riferimento per questa pista: serve lavoro al simulatore."]
+    montato = driving.setup_of(team, driver) if driver is not None else team.car.setup
+    bersaglio = target_for(team, driver) if driver is not None else paper
     frasi = {
         "wing": ("troppo carico: siamo lenti sui rettilinei",
                  "poco carico: la macchina scivola in curva"),
@@ -252,7 +290,7 @@ def hints(team, track) -> list:
     }
     out = []
     for k, (hi, lo) in frasi.items():
-        d = team.car.setup.get(k, 50.0) - paper.get(k, 50.0)
+        d = montato.get(k, 50.0) - bersaglio.get(k, 50.0)
         if d > 12:
             out.append(f"- {SETUP_KEYS[k]}: {hi}")
         elif d < -12:
