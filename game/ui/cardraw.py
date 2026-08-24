@@ -21,18 +21,6 @@ from . import theme as T
 # Lunghezza diviso larghezza di una monoposto moderna.
 RATIO = 2.80
 
-# Ogni componente e' fatto di uno o piu' poligoni. Sono scritti a mano
-# guardando una monoposto a effetto suolo: muso stretto attaccato all'ala,
-# pance che si stringono verso il retrotreno, fondo largo che lavora fino al
-# diffusore, ali a piu' profili.
-# Le forme vengono da una foto dall'alto di una monoposto, letta sezione per
-# sezione: per ogni fetta della macchina si e' guardato dove comincia e dove
-# finisce la carrozzeria. Il numero che ha cambiato tutto e' la larghezza a
-# meta' vettura: il corpo arriva al 74% della larghezza totale, non a meta'
-# come si tende a disegnarlo. Da li' in poi il resto viene da se'.
-#
-# Coordinate 0..1 sul rettangolo: x da un bordo all'altro (che e' anche la
-# distanza fra le due gomme), y dal muso alla coda.
 # Le forme non sono disegnate a mano: sono tracciate. Si e' presa una foto
 # dall'alto di una monoposto, si e' separata dallo sfondo (sfocatura a
 # blocchi per togliere la grana del cemento, sfondo stimato colonna per
@@ -54,9 +42,16 @@ SHAPES = {
                (0.124, 0.660), (0.105, 0.580), (0.108, 0.500),
                (0.138, 0.420), (0.200, 0.360), (0.285, 0.310),
                (0.380, 0.255)]],
-    # ala anteriore: larga quanto tutta la macchina, con le paratie
-    "front_wing": [[(0.012, 0.012), (0.988, 0.012), (0.988, 0.098), (0.012, 0.098)],
-                   [(0.000, 0.002), (0.056, 0.006), (0.078, 0.138), (0.018, 0.142)]],
+    # ala anteriore: non e' una tavola dritta. Il bordo d'entrata e' a freccia
+    # - avanti al centro, indietro alle estremita' - e la corda e' profonda,
+    # un settimo della macchina. Misurata sulla foto stazione per stazione
+    "front_wing": [[(0.000, 0.058), (0.100, 0.052), (0.200, 0.042), (0.320, 0.032),
+                    (0.420, 0.024), (0.500, 0.022), (0.580, 0.024), (0.680, 0.032),
+                    (0.800, 0.042), (0.900, 0.052), (1.000, 0.058), (1.000, 0.150),
+                    (0.900, 0.172), (0.800, 0.176), (0.680, 0.176), (0.580, 0.176),
+                    (0.500, 0.176), (0.420, 0.176), (0.320, 0.176), (0.200, 0.176),
+                    (0.100, 0.172), (0.000, 0.150)],
+                   [(0.000, 0.050), (0.034, 0.052), (0.034, 0.192), (0.000, 0.188)]],
     # muso e cellula: dal tracciato, ripulito dai sobbalzi delle sospensioni
     "chassis": [[(0.526, 0.018), (0.550, 0.060), (0.560, 0.120),
                  (0.572, 0.200), (0.590, 0.280), (0.606, 0.340),
@@ -216,7 +211,6 @@ def draw(surf, rect, colours: dict, selected: str = "", badges: dict = None,
     badges = badges or {}
 
     _ombra(surf, r)
-    _gomme(surf, r)
     # cofano motore e airbox: non sono un componente da sviluppare, ma senza
     # di loro fra abitacolo e cambio ci sarebbe un buco
     base = colours.get("chassis", T.PANEL_3)
@@ -236,6 +230,9 @@ def draw(surf, rect, colours: dict, selected: str = "", badges: dict = None,
             bordo = T.WHITE if part == selected else tuple(int(c * 0.55) for c in col)
             pygame.draw.polygon(surf, bordo, poly, 2 if part == selected else 1)
 
+    # le gomme vanno sopra le ali: nella realta' l'ala anteriore arriva fin
+    # sotto la ruota, e a disegnarla per ultima sembrava che la coprisse
+    _gomme(surf, r)
     _profili(surf, r, colours)
     _abitacolo(surf, r)
     if livery:
@@ -280,7 +277,7 @@ def _profili(surf, r, colours) -> None:
     """
     if r.w < 150:
         return
-    for parte, quote in (("front_wing", (0.032, 0.056, 0.082, 0.106)),
+    for parte, quote in (("front_wing", (0.062, 0.092, 0.122, 0.152)),
                          ("rear_wing", (0.924, 0.938))):
         col = colours.get(parte, T.PANEL_3)
         scuro = tuple(int(c * 0.45) for c in col)
@@ -323,8 +320,8 @@ def _livrea(surf, r, colore) -> None:
                                             (0.510, 0.900), (0.490, 0.900)], r))
     for poly in ([(0.258, 0.906), (0.304, 0.906), (0.304, 0.998), (0.258, 0.998)],
                  [(0.742, 0.906), (0.696, 0.906), (0.696, 0.998), (0.742, 0.998)],
-                 [(0.000, 0.062), (0.052, 0.064), (0.074, 0.150), (0.014, 0.154)],
-                 [(1.000, 0.062), (0.948, 0.064), (0.926, 0.150), (0.986, 0.154)]):
+                 [(0.000, 0.052), (0.034, 0.054), (0.034, 0.190), (0.000, 0.186)],
+                 [(1.000, 0.052), (0.966, 0.054), (0.966, 0.190), (1.000, 0.186)]):
         pygame.draw.polygon(surf, colore, _pts(poly, r))
 
 
