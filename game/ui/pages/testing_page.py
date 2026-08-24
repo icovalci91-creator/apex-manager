@@ -181,12 +181,12 @@ class TestingPage(Page):
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "PROGRAMMA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         meta = TT.PROGRAMMI[self.programme]
-        T.text(surf, meta["desc"], (right.x + 16, right.y + 112), 13, T.DIM,
-               maxw=right.w - 32)
-        T.text(surf, "CHI MANDIAMO", (right.x + 16, right.y + 136), 12, T.DIM_2, bold=True)
+        T.paragraph(surf, meta["desc"], (right.x + 16, right.y + 106), 13, T.DIM,
+                    right.w - 32)
+        T.text(surf, "CHI MANDIAMO", (right.x + 16, right.y + 148), 12, T.DIM_2, bold=True)
         if self.programme != "giovani":
             T.text(surf, "(per questo programma il pilota conta poco)",
-                   (right.x + 150, right.y + 136), 11, T.DIM_2)
+                   (right.x + 150, right.y + 148), 11, T.DIM_2, maxw=right.w - 176)
 
         if self.track:
             voci = TT.cost_breakdown(gs, team, self.track, self.programme, self.days)
@@ -226,25 +226,32 @@ class TestingPage(Page):
                 T.text(surf, "fuori dal calendario: si gira e basta",
                        (right.x + 244, right.y + 514), 12, T.DIM_2)
 
+        # le prove collettive vengono dopo la scheda del circuito, non a una
+        # distanza fissa dal fondo: su una finestra bassa ci finivano sopra
+        py = max(right.y + 600 if self.track else right.y + 400, right.bottom - 190)
         if gs.phase == "preseason" and getattr(self, "pre_buttons", None):
-            T.text(surf, "PROVE COLLETTIVE DI INIZIO STAGIONE", (right.x + 16, right.bottom - 176),
+            T.text(surf, "PROVE COLLETTIVE DI INIZIO STAGIONE", (right.x + 16, py),
                    12, T.GOLD, bold=True)
-            righe = []
+            yy = py + 20
             for _b, ses, fatta in self.pre_buttons:
                 prezzo = TT.preseason_cost(gs, team, ses)
-                righe.append(f"{ses['track'].name}: {ses['days']} giorni, {prezzo:.2f} M$"
-                             + ("  gia' fatte" if fatta else ""))
-            T.text(surf, "   -   ".join(righe), (right.x + 16, right.bottom - 158), 12,
-                   T.DIM, maxw=right.w - 32)
-            T.text(surf, "Si gira con la macchina di quest'anno, l'unica volta in tutto "
-                         "l'anno: e' li' che si capisce com'e' fatta. Non tolgono giornate "
-                         "di test privati.",
-                   (right.x + 16, right.bottom - 104), 12, T.DIM_2, maxw=right.w - 32)
+                riga = (f"{ses['track'].name}: {ses['days']} giorni, {prezzo:.2f} M$"
+                        + ("  gia' fatte" if fatta else ""))
+                yy += T.paragraph(surf, riga, (right.x + 16, yy), 12, T.DIM,
+                                  right.w - 32)
+            yy += 6
+            for b, _ses, _f in self.pre_buttons:
+                b.rect.y = int(yy)
+            yy += 44
+            T.paragraph(surf, "Si gira con la macchina di quest'anno, l'unica volta in "
+                              "tutto l'anno: e' li' che si capisce com'e' fatta. Non "
+                              "tolgono giornate di test privati.",
+                        (right.x + 16, yy), 12, T.DIM_2, right.w - 32)
         else:
-            T.text(surf, "Il regolamento vieta di provare con la vettura dell'anno:",
-                   (right.x + 16, right.bottom - 52), 12, T.DIM_2, maxw=right.w - 32)
-            T.text(surf, "si gira con monoposto di due stagioni fa. Serve ai piloti e alla",
-                   (right.x + 16, right.bottom - 36), 12, T.DIM_2, maxw=right.w - 32)
-            T.text(surf, "correlazione, non a rendere piu' veloce la macchina di adesso.",
-                   (right.x + 16, right.bottom - 20), 12, T.DIM_2, maxw=right.w - 32)
+            T.paragraph(surf, "Il regolamento vieta di provare con la vettura dell'anno: "
+                              "si gira con monoposto di due stagioni fa. Serve ai piloti e "
+                              "alla correlazione, non a rendere piu' veloce la macchina di "
+                              "adesso.",
+                        (right.x + 16, max(py, right.bottom - 60)), 12, T.DIM_2,
+                        right.w - 32)
         super().draw(surf)

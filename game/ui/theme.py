@@ -56,6 +56,30 @@ def render(s: str, size: int = 16, colour=TEXT, bold: bool = False,
     return img
 
 
+# --- quanto in basso arriva il disegno ------------------------------------
+# Le pagine sono scritte a coordinate fisse e non sanno dire quanto sono alte.
+# Invece di chiederglielo una per una - e sbagliarsi quando una cresce - si
+# guarda dove arriva l'inchiostro: chi disegna accende il conto prima e lo
+# legge dopo. Serve a decidere se una pagina deve scorrere.
+_INK = [0.0]
+_INK_ON = [False]
+
+
+def ink_start() -> None:
+    _INK[0] = 0.0
+    _INK_ON[0] = True
+
+
+def ink_stop() -> float:
+    _INK_ON[0] = False
+    return _INK[0]
+
+
+def _ink(y: float) -> None:
+    if _INK_ON[0] and y > _INK[0]:
+        _INK[0] = y
+
+
 def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
          mono: bool = False, align: str = "left", maxw: int | None = None):
     f = font(size, bold, mono)
@@ -64,6 +88,7 @@ def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
         s = ellipsize(s, f, maxw)
     img = render(s, size, colour, bold, mono)
     r = img.get_rect()
+    _ink(pos[1] + r.h)
     if align == "left":
         r.topleft = pos
     elif align == "center":
@@ -153,12 +178,14 @@ def line_h(size: int, bold: bool = False) -> int:
 
 
 def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1):
+    _ink(rect[1] + rect[3])
     pygame.draw.rect(surf, colour, rect, border_radius=radius)
     if border:
         pygame.draw.rect(surf, border, rect, width, border_radius=radius)
 
 
 def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3, radius: int = 4):
+    _ink(rect[1] + rect[3])
     pygame.draw.rect(surf, bg, rect, border_radius=radius)
     frac = max(0.0, min(1.0, value / maxv if maxv else 0.0))
     if frac > 0:

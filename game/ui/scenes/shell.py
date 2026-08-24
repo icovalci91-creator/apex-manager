@@ -34,13 +34,28 @@ NAV_W = 212
 
 
 class Page:
-    """Base per le pagine del gestionale."""
+    """Base per le pagine del gestionale.
+
+    Una pagina puo' avere piu' roba di quanta ne stia nello schermo: su un
+    portatile la finestra e' 1180x680, e le stesse pagine che a 1600x900 ci
+    stavano comode finiscono sotto il bordo. Invece di riscrivere ogni
+    schermata si sposta il foglio: la pagina viene costruita e disegnata a
+    partire da un rettangolo alzato di `scroll`, cosi' quello che si disegna e
+    quello che risponde al mouse restano la stessa cosa senza che le pagine
+    debbano saperne niente.
+
+    Chi disegna dice quanto spazio ha usato davvero scrivendo `content_h` alla
+    fine del proprio `draw`; chi non lo scrive non scorre, come prima.
+    """
 
     def __init__(self, shell):
         self.shell = shell
         self.app = shell.app
         self.widgets: list = []
         self.rect = pygame.Rect(0, 0, 10, 10)
+        self.view = pygame.Rect(0, 0, 10, 10)   # quello che si vede davvero
+        self.scroll = 0.0
+        self.content_h = 0                       # 0 = non lo sa: niente scorrimento
 
     @property
     def gs(self):
@@ -50,17 +65,58 @@ class Page:
     def team(self):
         return self.app.gs.player
 
+    @property
+    def scroll_max(self) -> float:
+        if not self.content_h:
+            return 0.0
+        return max(0.0, self.content_h - self.view.h)
+
     def layout(self, rect) -> None:
-        self.rect = pygame.Rect(rect)
+        self.view = pygame.Rect(rect)
+        self.scroll = min(self.scroll, self.scroll_max)
+        self.rect = self.view.move(0, -int(self.scroll))
+        self.build()
+
+    def set_scroll(self, valore: float) -> None:
+        valore = max(0.0, min(self.scroll_max, valore))
+        if abs(valore - self.scroll) < 0.5:
+            return
+        self.scroll = valore
+        self.rect = self.view.move(0, -int(self.scroll))
         self.build()
 
     def build(self) -> None:
         pass
 
     def handle(self, ev) -> None:
+        # quello che e' scorso fuori dalla finestra non si vede e non si clicca:
+        # senza questo, un cursore finito sotto la barra in alto rispondeva
+        # ancora al mouse
+        if hasattr(ev, "pos") and not self.view.collidepoint(ev.pos):
+            if ev.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                for w in self.widgets:
+                    if hasattr(w, "drag") or hasattr(w, "pressed"):
+                        w.handle(ev)          # un trascinamento si chiude ovunque
+                self._presa = None
+                return
         for w in self.widgets:
             if w.handle(ev):
                 return
+        # nessun widget se l'e' presa: se la pagina sfora, si scorre
+        if self.scroll_max <= 0:
+            return
+        if ev.type == pygame.MOUSEWHEEL:
+            mx, my = pygame.mouse.get_pos()
+            if self.view.collidepoint(mx, my):
+                self.set_scroll(self.scroll - ev.y * 60)
+        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if self.view.collidepoint(ev.pos):
+                self._presa = ev.pos[1]
+                self._presa_scroll = self.scroll
+        elif ev.type == pygame.MOUSEBUTTONUP:
+            self._presa = None
+        elif ev.type == pygame.MOUSEMOTION and getattr(self, "_presa", None) is not None:
+            self.set_scroll(self._presa_scroll - (ev.pos[1] - self._presa))
 
     def update(self, dt: float) -> None:
         # serve ai pulsantini dei cursori, che tenuti premuti ripetono
@@ -231,7 +287,31 @@ class GameShell(Scene):
             _kv(surf, 1090, "PILOTI", names, T.TEXT, maxw=330)
         pygame.draw.line(surf, T.LINE, (0, TOPBAR_H), (w, TOPBAR_H))
 
-        self.pages[self.page_id].draw(surf)
+        # la pagina si disegna dentro la sua finestra: se e' piu' alta, quello
+        # che esce sopra e sotto viene tagliato invece di finire sulla barra
+        pagina = self.pages[self.page_id]
+        prev = surf.get_clip()
+        # si taglia sull'area dei contenuti, non su quella della pagina: sopra
+        # c'e' la barra con liquidita' e punti, e quando si scorre le pagine
+        # ci finivano sopra
+        vista = pygame.Rect(NAV_W + 1, TOPBAR_H + 1, w - NAV_W - 1, h - TOPBAR_H - 1)
+        surf.set_clip(vista.clip(prev) if prev else vista)
+        T.ink_start()
+        pagina.draw(surf)
+        fondo = T.ink_stop()
+        for wd in pagina.widgets:
+            if wd.visible:
+                fondo = max(fondo, wd.rect.bottom)
+        # si misura dall'origine del foglio, non da quella della finestra: se
+        # no, appena si scorre l'altezza sembra rimpicciolita e lo scorrimento
+        # si mangia da solo
+        pagina.content_h = max(pagina.view.h, fondo - pagina.rect.y + 8)
+        surf.set_clip(prev)
+        if pagina.scroll_max > 0:
+            v = pagina.view
+            alt = max(30, int(v.h * v.h / max(1.0, pagina.content_h)))
+            y = v.y + int((v.h - alt) * pagina.scroll / pagina.scroll_max)
+            pygame.draw.rect(surf, T.PANEL_3, (w - 9, y, 4, alt), border_radius=2)
         super().draw(surf)
 
 

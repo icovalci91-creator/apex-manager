@@ -15,14 +15,26 @@ facility_cost = facilities.cost
 
 
 class FacilitiesPage(Page):
+    # Quanto della pagina si tiene l'elenco delle strutture. Su una finestra
+    # stretta se ne prende di piu': dentro ci stanno nome, livello, barra,
+    # stato e il pulsante, e con meta' schermo finivano uno sopra l'altro.
+    def _quota(self, r) -> float:
+        return min(0.62, max(0.50, 580.0 / max(1, r.w)))
+
+    def _colonne(self, r) -> tuple:
+        """(inizio del pulsante, dove deve fermarsi il testo della riga)."""
+        bx = r.x + r.w * self._quota(r) + 10 - 158
+        return int(bx), int(bx - 14)
+
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         self.buttons = {}
-        y = r.y + 92
+        y = r.y + 112
+        bx, _fine = self._colonne(r)
         for k in C.FACILITIES:
             lab = "Potenzia" if facilities.is_built(self.team, k) else "Costruisci"
-            b = Button((r.x + r.w * 0.5 - 130, y, 130, 30), lab, style="normal")
+            b = Button((bx, y, 150, 30), lab, style="normal")
             b.on_click = (lambda k=k: self.upgrade(k))
             self.buttons[k] = b
             self.widgets.append(b)
@@ -54,8 +66,6 @@ class FacilitiesPage(Page):
              _infra_rank(gs, team), accent=T.ACCENT)
         # la gestione invece sta dentro il tetto tecnico: costruire e' fuori,
         # far girare quello che si e' costruito e' dentro
-        T.text(surf, f"gestione {team.facility_upkeep:.1f} M$ l'anno, quella dentro il cap",
-               (r.x, r.y + 90), 12, T.DIM_2)
         fresche = sum(1 for k in costruite
                       if facilities.age_of(team, k) < facilities.GRACE_SEASONS)
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Obsolescenza",
@@ -63,20 +73,25 @@ class FacilitiesPage(Page):
              f"{fresche} strutture su {len(costruite)} all'avanguardia",
              colour=T.OK if obs < 0.2 else T.BAD, accent=T.BAD if obs >= 0.2 else T.OK)
 
-        panel = pygame.Rect(r.x, r.y + 92 - 12, r.w * 0.5 + 10, r.h - 92)
+        panel = pygame.Rect(r.x, r.y + 80, r.w * self._quota(r) + 10, r.h - 80)
         T.panel(surf, panel, T.PANEL, radius=10, border=T.LINE)
-        y = r.y + 92
+        # la gestione sta dentro il tetto tecnico: si dice qui, sopra l'elenco
+        T.text(surf, f"gestione {team.facility_upkeep:.1f} M$ l'anno, quella dentro il cap",
+               (panel.x + 16, panel.y + 10), 12, T.DIM_2, maxw=panel.w - 32)
+        y = r.y + 112
+        # dove comincia il pulsante, e fin dove puo' arrivare la riga
+        bx, fine = self._colonne(r)
         for k, meta in C.FACILITIES.items():
             lvl = team.facilities.get(k, 60.0)
             if not facilities.is_built(team, k):
                 # non c'e': al suo posto si mostra quanto costa tirarla su
-                T.text(surf, meta["label"], (panel.x + 16, y), 15, T.DIM, maxw=170)
-                T.text(surf, "da costruire", (panel.x + 190, y - 1), 13, T.DIM_2)
+                T.text(surf, meta["label"], (panel.x + 16, y), 15, T.DIM, maxw=150)
+                T.text(surf, "da costruire", (panel.x + 172, y - 1), 13, T.DIM_2, maxw=110)
                 T.text(surf, f"{facilities.build_cost(k):.0f} M$ per averla",
-                       (panel.x + r.w * 0.5 - 146, y - 1), 13, T.GOLD, align="right")
+                       (fine, y - 1), 13, T.GOLD, align="right")
                 T.text(surf, "si parte da un livello di "
                              f"{facilities.BUILD_LEVEL:.0f}, poi si potenzia come le altre",
-                       (panel.x + 16, y + 20), 12, T.DIM_2, maxw=380)
+                       (panel.x + 16, y + 20), 12, T.DIM_2, maxw=fine - panel.x - 16)
                 y += 42
                 continue
             cost = facility_cost(lvl, meta["cost"])
@@ -84,12 +99,15 @@ class FacilitiesPage(Page):
             perdita = facilities.decay_of(lvl, eta)
             col_st = {"all'avanguardia": T.OK, "ancora competitiva": (150, 200, 90),
                       "da aggiornare": T.WARN}.get(stato, T.BAD)
-            # prima riga: nome, livello, prezzo del prossimo gradino
-            T.text(surf, meta["label"], (panel.x + 16, y), 15, T.TEXT, maxw=170)
-            T.bar(surf, (panel.x + 190, y + 5, 150, 9), lvl, 100, T.stat_colour(lvl, 60, 88))
-            T.text(surf, f"{lvl:.0f}", (panel.x + 352, y - 1), 14, T.TEXT, bold=True)
+            # tutto quello che sta sulla riga si ferma prima del pulsante: su
+            # una finestra stretta ci finiva sotto e non si leggeva piu'
+            T.text(surf, meta["label"], (panel.x + 16, y), 15, T.TEXT, maxw=150)
+            T.text(surf, f"{lvl:.0f}", (panel.x + 172, y - 1), 14, T.TEXT, bold=True)
+            barra_x = panel.x + 206
+            T.bar(surf, (barra_x, y + 5, max(40, fine - 150 - barra_x), 9), lvl, 100,
+                  T.stat_colour(lvl, 60, 88))
             T.text(surf, f"+{facilities.gain(lvl):.1f} per {cost:.1f} M$",
-                   (panel.x + r.w * 0.5 - 146, y - 1), 13, T.GOLD, align="right")
+                   (fine, y - 1), 13, T.GOLD, align="right", maxw=140)
             # seconda riga: da quanto e' ferma e quanto le costa
             if eta < 1:
                 anni = "rifatta quest'anno"
@@ -97,12 +115,15 @@ class FacilitiesPage(Page):
                 anni = "rifatta l'anno scorso"
             else:
                 anni = f"ferma da {eta:.0f} stagioni"
-            T.text(surf, f"{stato}  -  {anni}", (panel.x + 16, y + 20), 12, col_st, maxw=280)
+            T.text(surf, f"{stato}  -  {anni}", (panel.x + 16, y + 20), 12, col_st,
+                   maxw=fine - panel.x - 150)
             T.text(surf, "non invecchia" if perdita <= 0.01 else f"-{perdita:.1f} punti l'anno",
-                   (panel.x + 352, y + 20), 12, T.OK if perdita <= 0.01 else T.BAD)
+                   (fine, y + 20), 12, T.OK if perdita <= 0.01 else T.BAD, align="right")
             y += 42
 
-        right = pygame.Rect(r.x + r.w * 0.5 + 26, r.y + 80, r.w * 0.5 - 26, r.h - 80)
+        quota = self._quota(r)
+        right = pygame.Rect(r.x + r.w * quota + 26, r.y + 80, r.w * (1 - quota) - 26,
+                            r.h - 80)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "CONFRONTO CON LA GRIGLIA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         y = right.y + 40
@@ -120,22 +141,22 @@ class FacilitiesPage(Page):
             T.text(surf, f"{a:.0f}", (right.right - 16, y + 2), 13, T.TEXT, bold=True, align="right")
             y += 28
         y += 12
-        T.text(surf, f"Una struttura appena rifatta resta di riferimento per "
-                     f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo non perde "
-                     f"nulla. Poi comincia a restare indietro, sempre piu' in fretta.",
-               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
-        y += 34
-        T.text(surf, "Le strutture agiscono su sviluppo, assetto, soste e crescita dei giovani. "
-                     "Ogni anno invecchiano: quello che non si rinnova arretra, e nessuno puo' "
-                     "permettersi di tenerle tutte al passo.",
-               (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
-        y += 52
-        T.text(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
-                     f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro in "
-                     f"classifica ne ha di piu' - serve a lasciargli modo di rimettersi in "
-                     f"pari. Nel tetto tecnico resta la gestione di quello che si e' "
-                     f"costruito.",
-               (right.x + 16, y), 12, T.GOLD, maxw=right.w - 32)
+        y += T.paragraph(surf, f"Una struttura appena rifatta resta di riferimento per "
+                               f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo "
+                               f"non perde nulla. Poi comincia a restare indietro, sempre "
+                               f"piu' in fretta.",
+                         (right.x + 16, y), 12, T.GOLD, right.w - 32) + 10
+        y += T.paragraph(surf, "Le strutture agiscono su sviluppo, assetto, soste e "
+                               "crescita dei giovani. Ogni anno invecchiano: quello che non "
+                               "si rinnova arretra, e nessuno puo' permettersi di tenerle "
+                               "tutte al passo.",
+                         (right.x + 16, y), 12, T.DIM_2, right.w - 32) + 10
+        T.paragraph(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
+                          f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro "
+                          f"in classifica ne ha di piu' - serve a lasciargli modo di "
+                          f"rimettersi in pari. Nel tetto tecnico resta la gestione di "
+                          f"quello che si e' costruito.",
+                    (right.x + 16, y), 12, T.GOLD, right.w - 32)
         super().draw(surf)
 
 
@@ -248,7 +269,9 @@ class RulesPage(Page):
             if p.get("safety") or p.get("directive"):
                 T.text(surf, "in vigore da subito", (right.right - 24, y + 27), 10,
                        col_cat, align="right")
-            T.text(surf, p["desc"], (right.x + 24, y + 32), 12, T.DIM, maxw=right.w - 48)
+            stretta = 130 if (p.get("safety") or p.get("directive")) else 90
+            T.paragraph(surf, p["desc"], (right.x + 24, y + 30), 12, T.DIM,
+                        right.w - 48 - stretta)
             T.text(surf, f"Per noi: {item['verdict']}", (right.x + 24, y + 68), 13,
                    item["colour"], bold=True)
             T.text(surf, f"scuderie favorevoli stimate: {item['yes']}/{len(gs.teams)}",
@@ -321,6 +344,9 @@ class CalendarPage(Page):
 
     COLS = 6
     CARD_H = 150
+    # quanto si tiene l'intestazione: titolo, contratti in scadenza e cosa
+    # chiedono le gare che restano, senza che si scrivano una sopra l'altra
+    TOP = 46
 
     def __init__(self, shell):
         super().__init__(shell)
@@ -330,7 +356,7 @@ class CalendarPage(Page):
         """Dove finisce ogni scheda: serve al disegno e ai clic."""
         r = self.rect
         cw = (r.w - (self.COLS - 1) * 12) / self.COLS
-        top = r.y + 22
+        top = r.y + self.TOP
         out = []
         for i, t in enumerate(self.gs.tracks):
             x = r.x + (i % self.COLS) * (cw + 12)
@@ -372,9 +398,11 @@ class CalendarPage(Page):
         T.text(surf, f"{rias['gare']} GARE  -  {rias['canoni']:.0f} M$ DI CANONI ALL'ANNO",
                (r.x, r.y), 12, T.DIM_2, bold=True)
         if rias["in_scadenza"]:
+            # sotto il titolo, non accanto: a destra c'e' gia' quello che
+            # chiedono le gare rimaste, e le due scritte si pestavano
             nomi = ", ".join(t.name for t in rias["in_scadenza"][:3])
-            T.text(surf, f"in scadenza: {nomi}", (r.x + 380, r.y), 12, T.WARN,
-                   maxw=r.w * 0.38)
+            T.paragraph(surf, f"in scadenza: {nomi}", (r.x, r.y + 17), 12, T.WARN,
+                        int(r.w * 0.52))
         # cosa chiedono le gare che restano: e' li' che vanno mandati i soldi
         restanti = gs.tracks[gs.round:]
         if restanti:
@@ -382,14 +410,18 @@ class CalendarPage(Page):
             prof = engineering.car_profile(gs.player, gs)
             top = sorted(bias.items(), key=lambda kv: -kv[1])[:3]
             testo = ", ".join(engineering.AREAS[a].lower() for a, _v in top)
-            T.text(surf, f"le {len(restanti)} gare che restano chiedono: {testo}",
-                   (r.right - 16, r.y), 12, T.GOLD, align="right", maxw=r.w * 0.44)
+            largo = int(r.w * 0.44)
+            righe = T.wrap(f"le {len(restanti)} gare che restano chiedono: {testo}",
+                           12, largo)
+            for i, riga in enumerate(righe[:2]):
+                T.text(surf, riga, (r.right - 16, r.y + i * 14), 12, T.GOLD, align="right")
             manca = [engineering.AREAS[a].lower() for a, _v in top if prof.get(a, 50) < 55]
             if manca:
                 T.text(surf, "e noi siamo indietro su " + ", ".join(manca),
-                       (r.right - 16, r.y + 14), 11, T.WARN, align="right", maxw=r.w * 0.44)
+                       (r.right - 16, r.y + len(righe[:2]) * 14), 11, T.WARN,
+                       align="right", maxw=largo)
         cols, ch = self.COLS, self.CARD_H
-        top = r.y + 22
+        top = r.y + self.TOP
         for i, t, rect in self._griglia():
             done = i < gs.round
             nxt = (i == gs.round)
@@ -406,7 +438,8 @@ class CalendarPage(Page):
             T.text(surf, t.name, (rect.x + 12, rect.bottom - 44), 12,
                    T.DIM if done else T.TEXT, maxw=rect.w - 88)
             T.text(surf, f"{t.length_km:.3f} km - {t.laps} giri",
-                   (rect.x + 12, rect.bottom - 26), 11, T.DIM_2)
+                   (rect.x + 12, rect.bottom - 26), 11, T.DIM_2,
+                   maxw=rect.w - 24 - (86 if done else 0))
             scade = getattr(t, "contract_until", 9999)
             resta = scade - gs.season
             col = T.BAD if resta <= 0 else (T.WARN if resta <= 1 else T.DIM_2)
@@ -640,8 +673,8 @@ class HistoryPage(Page):
         T.text(surf, "LEZIONI DALLA STORIA", (left.x + 16, y), 12, T.DIM_2, bold=True)
         y += 22
         for ln in gs.history_data.get("lessons", []):
-            T.text(surf, "- " + ln, (left.x + 16, y), 13, T.DIM, maxw=left.w - 32)
-            y += 22
+            y += T.paragraph(surf, "- " + ln, (left.x + 16, y), 13, T.DIM,
+                             left.w - 32) + 6
 
         right = pygame.Rect(r.x + r.w * 0.57, r.y, r.w * 0.43 - 4, r.h)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)

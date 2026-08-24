@@ -134,6 +134,23 @@ def _car_rank_text(gs, team) -> str:
     return f"{pos}a vettura della griglia, {team.car.rating - rank[0].car.rating:+.1f} dalla prima"
 
 
+# Quanto spazio si tiene in cima al pannello dell'assetto, prima dei cursori.
+# Lo usano sia chi costruisce i cursori sia chi disegna l'intestazione: se lo
+# sapesse uno solo, basterebbe una frase piu' lunga per farli sovrapporre.
+TESTA_ASSETTO = 224
+# Il pulsante che monta una parte contingentata: stretto, perche' sulla stessa
+# riga ci stanno gia' il nome del pezzo, quante ne restano e quanto e' logora.
+LARG_NUOVO = 66
+# Quanto spazio si prende una specifica in verifica: il titolo, cosa dice la
+# pista, cosa ne dicono i due piloti, quanto costa insistere e i due pulsanti.
+# Lo sanno sia chi disegna sia chi piazza i pulsanti, se no si sovrappongono.
+ALT_VERIFICA = 148
+Y_PULSANTI_VERIFICA = 108
+# Dove sta il pulsante che avvia il pacchetto, sotto costo, fiducia, bande e
+# le due righe di commento: le stesse che sopra vanno a capo da sole.
+Y_AVVIA = 248
+
+
 # ================================================================== VETTURA
 class CarPage(Page):
     """Una macchina per pilota: stesso pacchetto, due assetti."""
@@ -201,14 +218,14 @@ class CarPage(Page):
         piloti = self._piloti()
         bw2 = (larg - 10) / max(1, len(piloti))
         for i, p in enumerate(piloti):
-            b = Button((x + i * (bw2 + 10), r.y + 140, bw2, 28), p.short)
+            b = Button((x + i * (bw2 + 10), r.y + TESTA_ASSETTO - 42, bw2, 28), p.short)
             b.on_click = (lambda pp=p: self._pick_driver(pp))
             self.drv_buttons.append(b)
             self.widgets.append(b)
         self._mark_driver()
 
         mio = driving.setup_of(self.team, d) if d else {}
-        y = r.y + 182
+        y = r.y + TESTA_ASSETTO
         for k, lab in SETUP_KEYS.items():
             s = Slider((x, y, larg, 30), lab, mio.get(k, 50.0),
                        on_change=(lambda v, k=k: self._set(k, v)))
@@ -226,14 +243,20 @@ class CarPage(Page):
                                    self.delegate_all, "ghost"))
         self.widgets.append(Button((x + bw + 10, y + 44, bw, 34), "Assetto neutro",
                                    self.neutral, "ghost"))
-        self.widgets.append(Toggle((x, y + 88, larg, 30),
-                                   "Se ne occupano gli ingegneri di pista",
-                                   self.team.auto_setup, on_change=self._set_auto_setup))
+        self.auto_toggle = Toggle((x, y + 88, larg, 30),
+                                  "Se ne occupano gli ingegneri di pista",
+                                  self.team.auto_setup, on_change=self._set_auto_setup)
+        self.widgets.append(self.auto_toggle)
 
         # --- il pezzo nuovo: su quale macchina lo montiamo
         left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
-        self.car_rect = pygame.Rect(left.x + 20, left.y + 34, 176, 300)
+        # su una finestra stretta il disegno si rimpicciolisce: accanto ci va
+        # la scheda del pezzo, e con 160 pixel non ci si scrive niente
+        larga = 176 if left.w >= 430 else max(118, int(left.w * 0.34))
+        self.car_rect = pygame.Rect(left.x + 20, left.y + 34, larga,
+                                    int(larga * 300 / 176))
         k = self._kit_for(self.sel_part)
+        self.kit_bottom = 0
         if k is not None:
             bx = self.car_rect.right + 16
             bw = left.right - 16 - bx
@@ -250,17 +273,39 @@ class CarPage(Page):
                               else (lambda pp=pil: self._fit_kit(pp)))
                 b.enabled = montato or k.spare > 0
                 self.widgets.append(b)
+                self.kit_bottom = max(self.kit_bottom, b.rect.bottom)
 
         # le parti che il regolamento conta: si cambiano quando sono finite,
         # sapendo cosa costa farlo fuori contingente
-        cy = left.bottom - 118
+        cy = self._contingente_y(left) + 22
         for p in self._piloti():
             for i, quale in enumerate(("pu", "cambio")):
-                b = Button((left.right - 96, cy + i * 24 - 2, 78, 22), "Nuovo")
+                b = Button((left.right - 16 - LARG_NUOVO, cy + i * 24 - 2,
+                            LARG_NUOVO, 22), "Nuovo")
                 b.on_click = (lambda pp=p, q=quale: self._fit(pp, q))
                 self.widgets.append(b)
             cy += 60
         self._update_markers()
+
+    def _sotto_scheda(self) -> int:
+        """Dove finisce la scheda del pezzo: sotto il disegno o sotto i pulsanti.
+
+        Il disegno si stringe quando la finestra e' stretta, i pulsanti per
+        montare il pezzo nuovo no: quello che viene dopo deve partire da
+        qualunque dei due scende di piu'.
+        """
+        return int(max(self.car_rect.bottom, getattr(self, "kit_bottom", 0))) + 16
+
+    def _contingente_y(self, left) -> int:
+        """Dove comincia il blocco delle parti contingentate.
+
+        Sotto le prestazioni derivate, che sono sempre sette righe, e mai piu'
+        in alto del fondo del pannello: su una finestra bassa scende, e la
+        pagina si scorre, invece di finire sopra a quello che c'e' gia'.
+        """
+        sotto = (self._sotto_scheda() + 22 + len(engineering.AREAS) * 20
+                 + 8 + 24 + 16)
+        return int(max(sotto, left.bottom - 140))
 
     def _fit(self, driver, quale) -> None:
         ok, msg = penalties.fit_new(self.gs, self.team, driver, quale)
@@ -389,9 +434,9 @@ class CarPage(Page):
             T.text(surf, f"{kit.old_perf:.1f}  ->  {kit.perf:.1f}   ({kit.gain:+.1f})",
                    (px, self.car_rect.y + 132), 15, T.OK if kit.gain > 0 else T.BAD,
                    bold=True, maxw=pw)
-            T.text(surf, f"esemplari integri {kit.ready} su 2, montati "
-                         f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12, T.DIM,
-                   maxw=pw)
+            T.paragraph(surf, f"esemplari integri {kit.ready} su 2, montati "
+                              f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12,
+                        T.DIM, pw)
             gare = max(0, kits.build_time(team, kit.size) - (gs.round - kit.round_ready))
             quando = "alla prossima gara" if gare <= 1 else f"fra {gare} gare"
             if kit.gain <= 0:
@@ -405,11 +450,11 @@ class CarPage(Page):
                 T.text(surf, "una macchina aggiornata, l'altra no",
                        (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
         else:
-            T.text(surf, "Nessun pezzo nuovo in arrivo per questo componente: "
-                         "si migliora con un pacchetto di sviluppo.",
-                   (px, self.car_rect.y + 112), 12, T.DIM_2, maxw=pw)
+            T.paragraph(surf, "Nessun pezzo nuovo in arrivo per questo componente: "
+                              "si migliora con un pacchetto di sviluppo.",
+                        (px, self.car_rect.y + 112), 12, T.DIM_2, pw)
 
-        y = self.car_rect.bottom + 16
+        y = self._sotto_scheda()
         T.text(surf, "PRESTAZIONI DERIVATE", (left.x + 16, y), 12, T.DIM_2, bold=True)
         y += 22
         prof = engineering.car_profile(team, gs)
@@ -425,7 +470,7 @@ class CarPage(Page):
         reg = gs.regulations
         max_pu = int(reg["power_unit"].get("units_per_season", 4))
         max_cb = int(reg["sporting"].get("gearbox_units", 5))
-        cy = left.bottom - 140
+        cy = self._contingente_y(left)
         T.text(surf, "PARTI CONTINGENTATE", (left.x + 16, cy), 12, T.DIM_2, bold=True)
         T.text(surf, f"oltre il limite: {penalties.GRIGLIA_PU} posizioni",
                (left.right - 16, cy), 11, T.DIM_2, align="right")
@@ -438,10 +483,14 @@ class CarPage(Page):
                 yy = cy + i * 24
                 col = (T.OK if logoro > 55 else
                        T.WARN if logoro > penalties.SOGLIA_ROTTURA else T.BAD)
-                T.text(surf, lab, (left.x + 130, yy), 12, T.DIM)
-                T.bar(surf, (left.x + 210, yy + 5, 96, 7), logoro, 100, col)
                 col_n = T.BAD if usate >= limite else T.DIM
-                T.text(surf, f"{usate}/{limite}", (left.x + 330, yy), 12, col_n, bold=True)
+                # quante ne ha usate sta accanto al nome del pezzo: sulla riga
+                # non c'e' posto per tre colonne e un pulsante
+                T.text(surf, lab, (left.x + 116, yy), 12, T.DIM, maxw=76)
+                T.text(surf, f"{usate}/{limite}", (left.x + 196, yy), 12, col_n, bold=True)
+                bx = left.x + 236
+                bw2 = max(40, (left.right - 24 - LARG_NUOVO) - bx)
+                T.bar(surf, (bx, yy + 5, bw2, 7), logoro, 100, col)
             cy += 60
 
         right = pygame.Rect(r.x + r.w * 0.42 + 16, r.y, r.w * 0.58 - 16, r.h)
@@ -452,34 +501,40 @@ class CarPage(Page):
         if nt and d is not None:
             q = SETUP.believed_quality(team, d)
             qc = T.OK if q > 0.85 else (T.WARN if q > 0.6 else T.BAD)
-            T.text(surf, f"per {nt.name}", (right.x + 16, right.y + 32), 16, T.TEXT, bold=True)
+            T.text(surf, f"per {nt.name}", (right.x + 16, right.y + 30), 16, T.TEXT,
+                   bold=True, maxw=right.w - 32)
+            # lo stile ha una riga sua: accanto al nome della pista non ci sta,
+            # e su una finestra stretta veniva tagliato a meta'
             T.text(surf, f"stile di {d.short}: {driving.label(d)}",
-                   (right.right - 16, right.y + 34), 12, T.GOLD, align="right",
-                   maxw=right.w * 0.55)
-            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 62), 13, T.DIM)
-            T.bar(surf, (right.x + 160, right.y + 66, 220, 10), q * 100)
-            T.text(surf, f"{q*100:.0f}%", (right.x + 396, right.y + 60), 15, qc, bold=True)
+                   (right.x + 16, right.y + 52), 12, T.GOLD, maxw=right.w - 32)
+            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 72), 13, T.DIM)
+            barra = max(90, right.w - 250)
+            T.bar(surf, (right.x + 176, right.y + 76, barra, 10), q * 100)
+            T.text(surf, f"{q*100:.0f}%", (right.right - 16, right.y + 70), 15, qc,
+                   bold=True, align="right")
             err = SETUP.paper_error(team, nt, team.sim_sessions)
             fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
-            T.text(surf, f"Riferimento del reparto: +/-{err:.0f} punti", (right.x + 440, right.y + 62),
-                   13, T.stat_colour(fid * 100, 40, 75), bold=True)
-            T.text(surf, f"Il triangolo dorato e' il riferimento del reparto gia' "
-                         f"corretto per il suo stile: {team.sim_sessions} sessioni al "
-                         f"simulatore su {SETUP.SIM_MAX}. Il resto lo dira' la pista.",
-                   (right.x + 16, right.y + 92), 12, T.DIM_2, maxw=right.w - 32)
+            T.text(surf, f"riferimento del reparto +/-{err:.0f} punti",
+                   (right.x + 16, right.y + 92), 13,
+                   T.stat_colour(fid * 100, 40, 75), bold=True, maxw=right.w - 32)
+            alta = T.paragraph(surf, f"Il triangolo dorato e' il riferimento del reparto, "
+                                     f"gia' corretto per il suo stile: {team.sim_sessions} "
+                                     f"sessioni al simulatore su {SETUP.SIM_MAX}. Il resto "
+                                     f"lo dira' la pista.",
+                               (right.x + 16, right.y + 112), 12, T.DIM_2, right.w - 32)
             car.setup = dict(driving.setup_of(team, d))
             T.text(surf, f"Downforce {car.downforce:.2f}  |  Drag {car.drag:.2f}  |  "
                          f"Potenza {car.power:.2f}  |  Grip {car.mech_grip:.2f}",
-                   (right.x + 16, right.y + 118), 13, T.DIM)
+                   (right.x + 16, right.y + 114 + alta), 13, T.DIM, maxw=right.w - 32)
         else:
             T.text(surf, "Nessuna gara in programma.", (right.x + 16, right.y + 40), 15, T.DIM)
-        yy = right.y + 182 + len(SETUP_KEYS) * 36 + 140
+        yy = getattr(self, "auto_toggle", None)
+        yy = (yy.rect.bottom + 18) if yy is not None else right.y + TESTA_ASSETTO + 360
         if nt and d is not None:
             T.text(surf, "RISCONTRO DEGLI INGEGNERI", (right.x + 16, yy), 12, T.DIM_2, bold=True)
             yy += 22
             for line in S.setup_hints(team, nt, d)[:6]:
-                T.text(surf, line, (right.x + 16, yy), 13, T.DIM, maxw=right.w - 32)
-                yy += 20
+                yy += T.paragraph(surf, line, (right.x + 16, yy), 13, T.DIM, right.w - 32) + 2
         super().draw(surf)
 
 
@@ -511,20 +566,25 @@ class DevPage(Page):
                                    "Consiglio ingegneri", self.suggest, "primary"))
 
         # specifiche che non hanno convinto: si rimonta la vecchia o si insiste
-        self.trial_y = y + 76
+        # sotto l'interruttore, non sopra: prima ci finiva a meta'
+        self.trial_y = y + 96
         ty = self.trial_y + 26
         bw = (left.w - 42) / 2
         for tr in self.team.spec_trials[:2]:
             peggio = development.deficit(self.team, tr) < -0.05
             if peggio:
-                self.widgets.append(Button((left.x + 16, ty + 62, bw, 26),
+                self.widgets.append(Button((left.x + 16, ty + Y_PULSANTI_VERIFICA, bw, 26),
                                            "Rimonta la vecchia",
                                            (lambda t=tr: self.revert(t)), "danger"))
             if tr.state == "in prova":
                 x = left.x + 26 + bw if peggio else left.x + 16
-                self.widgets.append(Button((x, ty + 62, bw, 26), "Tienila e affinala",
+                self.widgets.append(Button((x, ty + Y_PULSANTI_VERIFICA, bw, 26),
+                                           "Tienila e affinala",
                                            (lambda t=tr: self.keep(t)), "primary"))
-            ty += 104
+            ty += ALT_VERIFICA
+        # il pannello si allunga fino a dove arriva l'ultima verifica: quello
+        # che sfora lo recupera lo scorrimento della pagina
+        self.left_h = max(r.h - 96, ty + 16 - (r.y + 96))
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         bx, by = right.x + 16, right.y + 200
@@ -549,7 +609,9 @@ class DevPage(Page):
                                   "Decide il reparto", self.team.auto_dev,
                                   on_change=self._set_auto)
         self.widgets.append(self.auto_toggle)
-        b = Button((bx, sy + 204, right.w - 32, 40), "Avvia progetto",
+        # sotto tutto quello che c'e' da leggere sul pacchetto: le spiegazioni
+        # vanno a capo, e su una finestra stretta occupano una riga in piu'
+        b = Button((bx, sy + Y_AVVIA, right.w - 32, 40), "Avvia progetto",
                    self.start_project, "primary")
         b.enabled = not self.team.auto_dev
         self.widgets.append(b)
@@ -633,7 +695,7 @@ class DevPage(Page):
              f"{len(team.dev_projects)} / 3",
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
 
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, getattr(self, "left_h", r.h - 96))
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "LAVORO DI REPARTO: DOVE LIMARE", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
@@ -673,8 +735,8 @@ class DevPage(Page):
                 if buco < -0.05:
                     nota += (f"  -  rimontare la vecchia costa "
                              f"{tr.cost * development.REVERT_SHARE:.2f} M$")
-                T.text(surf, nota, (left.x + 16, ty + 90), 11, T.DIM_2, maxw=left.w - 32)
-                ty += 104
+                T.paragraph(surf, nota, (left.x + 16, ty + 62), 11, T.DIM_2, left.w - 32)
+                ty += ALT_VERIFICA
         elif team.dev_projects:
             T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
                          "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
@@ -776,23 +838,24 @@ class DevPage(Page):
             pygame.draw.rect(surf, colore, (int(x), sy + 130, max(2, int(w)), 10),
                              border_radius=2)
             x += w
-        T.text(surf, f"fallisce {odds['fallito']*100:.0f}%   "
-                     f"sotto le attese {odds['sottotono']*100:.0f}%   "
-                     f"come previsto {odds['in linea']*100:.0f}%   "
-                     f"oltre {odds['oltre']*100:.0f}%",
-               (bx, sy + 146), 12, T.DIM_2, maxw=bw)
-        T.text(surf, development.weakest_link(gs, team, self.sel_part).capitalize()
-               if conf < 0.62 else
-               "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
-               (bx, sy + 164), 12, T.DIM if conf >= 0.62 else T.WARN, maxw=bw)
+        yy = sy + 146
+        yy += T.paragraph(surf, f"fallisce {odds['fallito']*100:.0f}%   "
+                                f"sotto le attese {odds['sottotono']*100:.0f}%   "
+                                f"come previsto {odds['in linea']*100:.0f}%   "
+                                f"oltre {odds['oltre']*100:.0f}%",
+                          (bx, yy), 12, T.DIM_2, bw) + 4
+        yy += T.paragraph(surf, development.weakest_link(gs, team, self.sel_part).capitalize()
+                          if conf < 0.62 else
+                          "Reparto e strumenti sono all'altezza: quello che promettiamo, arriva.",
+                          (bx, yy), 12, T.DIM if conf >= 0.62 else T.WARN, bw) + 4
         # quanto lavoro d'assetto rimette in discussione, e chi lo ritrova prima
         upset = development.setup_upset(team, self.sel_size)
         quanto = "poco" if upset < 0.15 else ("parecchio" if upset < 0.32 else "molto")
         casa = (f"il simulatore e {team.private_track_name} ce lo fanno ritrovare prima"
                 if team.has_private_track else "senza pista di proprieta' si ritrova il venerdi'")
-        T.text(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
-                     f"che sappiamo della vettura). {casa.capitalize()}.",
-               (bx, sy + 182), 12, T.GOLD, maxw=bw)
+        T.paragraph(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
+                          f"che sappiamo della vettura). "
+                          f"{casa[0].upper()}{casa[1:]}.", (bx, yy), 12, T.GOLD, bw)
         super().draw(surf)
 
 
@@ -909,14 +972,12 @@ class EngineersPage(Page):
         T.text(surf, f"fedelta' alla linea {f*100:.0f}%", (left.right - 16, ty + 18), 11,
                col_f, align="right")
         forte = max(proj, key=proj.get) if proj else None
-        if forte and proj[forte] > 0.2:
-            T.text(surf, f"Finora il lavoro e' andato soprattutto su "
-                         f"{nextcar.AREE[forte]['label'].lower()} ({proj[forte]:+.1f}).",
-                   (left.x + 16, ty + 36), 11, T.DIM_2, maxw=left.w - 32)
-        else:
-            T.text(surf, "Nessun lavoro ancora dirottato sull'anno prossimo: "
-                         "ogni punto va sulla macchina di adesso.",
-                   (left.x + 16, ty + 36), 11, T.DIM_2, maxw=left.w - 32)
+        T.paragraph(surf, (f"Finora il lavoro e' andato soprattutto su "
+                           f"{nextcar.AREE[forte]['label'].lower()} ({proj[forte]:+.1f})."
+                           if forte and proj[forte] > 0.2 else
+                           "Nessun lavoro ancora dirottato sull'anno prossimo: ogni punto "
+                           "va sulla macchina di adesso."),
+                    (left.x + 16, ty + 36), 11, T.DIM_2, left.w - 32)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 56, r.w * 0.52 - 4, r.h - 56)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
@@ -955,10 +1016,13 @@ class PowerUnitPage(Page):
         self.widgets = []
         gs, team = self.gs, self.team
         left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        self.b_omologa = None
         if self._can_homologate():
-            self.widgets.append(Button((left.x + 16, left.bottom - 58, left.w - 32, 40),
-                                       "Omologa la specifica nuova",
-                                       self.homologate, "primary"))
+            # la y vera gliela da' il disegno, quando sa dove finisce il testo
+            self.b_omologa = Button((left.x + 16, left.bottom - 58, left.w - 32, 40),
+                                    "Omologa la specifica nuova",
+                                    self.homologate, "primary")
+            self.widgets.append(self.b_omologa)
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         y = right.y + 300
         if powertrain.ready_to_debut(gs):
@@ -1103,6 +1167,12 @@ class PowerUnitPage(Page):
             elif sp.get("races", 0) < 5:
                 T.text(surf, "Piu' resta al banco, meno sorprese in pista.",
                        (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
+            y += 24
+
+        # il pulsante sta sotto quello che c'e' scritto, non a un'altezza fissa:
+        # su una finestra bassa ci finiva in mezzo
+        if getattr(self, "b_omologa", None) is not None:
+            self.b_omologa.rect.y = int(max(y + 8, left.bottom - 58))
 
         # --- reparto e programma -----------------------------------------
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)

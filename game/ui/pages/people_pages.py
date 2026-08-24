@@ -364,7 +364,9 @@ class DriversPage(Page):
             T.text(surf, testo, (c.x + 16, y), 12, col_lic, maxw=c.w - 32)
 
         # --- il tavolo
-        ty = self.sy - 78
+        # un po' piu' in alto di prima: sotto il titolo ci va anche il motivo
+        # per cui un posto non e' disponibile, e finiva sopra i due pulsanti
+        ty = self.sy - 96
         T.text(surf, "TRATTATIVA", (c.x + 16, ty), 12, T.DIM_2, bold=True)
         ok_posto, perche = market.can_offer_seat(gs, team, d, self.seat)
         if not ok_posto:
