@@ -26,44 +26,49 @@ RATIO = 2.80
 # pance che si stringono verso il retrotreno, fondo largo che lavora fino al
 # diffusore, ali a piu' profili.
 SHAPES = {
-    # il fondo: la piattaforma che tiene insieme tutto e fa il carico
-    "floor": [[(0.380, 0.268), (0.255, 0.286), (0.200, 0.330), (0.170, 0.430),
-               (0.178, 0.560), (0.214, 0.660), (0.250, 0.730), (0.256, 0.812),
-               (0.232, 0.888), (0.768, 0.888), (0.744, 0.812), (0.750, 0.730),
-               (0.786, 0.660), (0.822, 0.560), (0.830, 0.430), (0.800, 0.330),
-               (0.745, 0.286), (0.620, 0.268)]],
-    # ala anteriore: profilo principale largo quanto la macchina e paratie
-    "front_wing": [[(0.008, 0.008), (0.992, 0.008), (0.992, 0.082), (0.008, 0.082)],
-                   [(0.000, 0.000), (0.060, 0.000), (0.082, 0.128), (0.022, 0.128)]],
-    # muso e cellula di sopravvivenza: sottile davanti, larga all'abitacolo
-    "chassis": [[(0.478, 0.030), (0.522, 0.030), (0.540, 0.150), (0.558, 0.245),
-                 (0.582, 0.335), (0.592, 0.430), (0.586, 0.530), (0.414, 0.530),
-                 (0.408, 0.430), (0.418, 0.335), (0.442, 0.245), (0.460, 0.150)]],
-    # sospensioni: i bracci davanti e dietro, verso le ruote
-    "suspension": [[(0.425, 0.175), (0.170, 0.150), (0.170, 0.178), (0.430, 0.205)],
-                   [(0.418, 0.255), (0.170, 0.235), (0.170, 0.262), (0.422, 0.285)],
-                   [(0.430, 0.735), (0.200, 0.715), (0.200, 0.742), (0.434, 0.762)],
-                   [(0.434, 0.815), (0.200, 0.800), (0.200, 0.826), (0.438, 0.842)]],
-    # impianto frenante: le prese d'aria davanti alle ruote
-    "brakes": [[(0.182, 0.165), (0.210, 0.165), (0.210, 0.270), (0.182, 0.270)],
-               [(0.200, 0.725), (0.232, 0.725), (0.232, 0.845), (0.200, 0.845)]],
-    # fiancate: la pancia larga a meta' vettura che si stringe dietro
-    "sidepods": [[(0.412, 0.360), (0.250, 0.372), (0.182, 0.410), (0.164, 0.480),
-                  (0.180, 0.575), (0.238, 0.650), (0.330, 0.706), (0.408, 0.730),
-                  (0.430, 0.700), (0.430, 0.395)]],
-    # raffreddamento: bocche dei radiatori e sfogo sul cofano
-    "cooling": [[(0.184, 0.398), (0.360, 0.380), (0.360, 0.412), (0.178, 0.436)],
-                [(0.442, 0.548), (0.558, 0.548), (0.550, 0.640), (0.450, 0.640)]],
-    # trasmissione: il cambio, dietro al motore
-    "gearbox": [[(0.454, 0.720), (0.546, 0.720), (0.534, 0.800), (0.528, 0.870),
-                 (0.472, 0.870), (0.466, 0.800)]],
-    # ala posteriore: pilone, profilo principale e paratie
-    "rear_wing": [[(0.350, 0.876), (0.650, 0.876), (0.555, 0.918), (0.445, 0.918)],
-                  [(0.238, 0.912), (0.762, 0.912), (0.762, 0.948), (0.238, 0.948)],
-                  [(0.212, 0.888), (0.256, 0.888), (0.256, 0.996), (0.212, 0.996)]],
+    # il fondo: la piattaforma che tiene insieme tutto e fa il carico. I bordi
+    # escono fuori fra le ruote, come sulle macchine a effetto suolo
+    "floor": [[(0.384, 0.262), (0.262, 0.280), (0.202, 0.322), (0.170, 0.420),
+               (0.176, 0.556), (0.212, 0.652), (0.248, 0.726), (0.254, 0.808),
+               (0.230, 0.886), (0.770, 0.886), (0.746, 0.808), (0.752, 0.726),
+               (0.788, 0.652), (0.824, 0.556), (0.830, 0.420), (0.798, 0.322),
+               (0.738, 0.280), (0.616, 0.262)]],
+    # ala anteriore: profilo principale largo quanto la macchina, paratie
+    # inclinate in fuori
+    "front_wing": [[(0.010, 0.010), (0.990, 0.010), (0.990, 0.076), (0.010, 0.076)],
+                   [(0.000, 0.000), (0.058, 0.004), (0.078, 0.124), (0.020, 0.130)]],
+    # muso e cellula: un dito sottile che si allarga solo all'abitacolo
+    "chassis": [[(0.484, 0.026), (0.516, 0.026), (0.528, 0.120), (0.540, 0.200),
+                 (0.556, 0.270), (0.578, 0.340), (0.590, 0.430), (0.584, 0.532),
+                 (0.416, 0.532), (0.410, 0.430), (0.422, 0.340), (0.444, 0.270),
+                 (0.460, 0.200), (0.472, 0.120)]],
+    # sospensioni: i bracci che arrivano fino al mozzo
+    "suspension": [[(0.436, 0.176), (0.126, 0.152), (0.126, 0.180), (0.442, 0.206)],
+                   [(0.428, 0.256), (0.126, 0.238), (0.126, 0.264), (0.434, 0.286)],
+                   [(0.442, 0.758), (0.140, 0.740), (0.140, 0.766), (0.448, 0.784)],
+                   [(0.448, 0.822), (0.140, 0.808), (0.140, 0.832), (0.452, 0.848)]],
+    # impianto frenante: le prese d'aria attaccate alle ruote
+    "brakes": [[(0.178, 0.180), (0.212, 0.180), (0.212, 0.282), (0.178, 0.282)],
+               [(0.214, 0.788), (0.250, 0.788), (0.250, 0.884), (0.214, 0.884)]],
+    # fiancate: una goccia sola con il cofano, larga dietro l'abitacolo e
+    # stretta verso il retrotreno
+    "sidepods": [[(0.424, 0.384), (0.328, 0.398), (0.252, 0.432), (0.212, 0.486),
+                  (0.204, 0.544), (0.222, 0.604), (0.264, 0.660), (0.328, 0.704),
+                  (0.396, 0.730), (0.440, 0.742), (0.452, 0.706), (0.446, 0.416)]],
+    # raffreddamento: la bocca del radiatore e lo sfogo sul cofano
+    "cooling": [[(0.248, 0.434), (0.352, 0.406), (0.380, 0.430), (0.284, 0.468)],
+                [(0.442, 0.548), (0.558, 0.548), (0.550, 0.700), (0.450, 0.700)]],
+    # trasmissione: il cambio, che chiude la macchina
+    "gearbox": [[(0.458, 0.726), (0.542, 0.726), (0.530, 0.804), (0.524, 0.872),
+                 (0.476, 0.872), (0.470, 0.804)]],
+    # ala posteriore: pilone, profilo principale e paratie. E' larga poco piu'
+    # di meta' macchina, non quanto quella davanti
+    "rear_wing": [[(0.362, 0.874), (0.638, 0.874), (0.556, 0.910), (0.444, 0.910)],
+                  [(0.272, 0.906), (0.728, 0.906), (0.728, 0.942), (0.272, 0.942)],
+                  [(0.246, 0.882), (0.292, 0.882), (0.292, 0.996), (0.246, 0.996)]],
     # aero attiva: il profilo mobile dietro e i flap mobili davanti
-    "active_aero": [[(0.256, 0.952), (0.744, 0.952), (0.744, 0.988), (0.256, 0.988)],
-                    [(0.070, 0.014), (0.430, 0.014), (0.430, 0.040), (0.070, 0.040)]],
+    "active_aero": [[(0.292, 0.946), (0.708, 0.946), (0.708, 0.984), (0.292, 0.984)],
+                    [(0.076, 0.016), (0.436, 0.016), (0.436, 0.042), (0.076, 0.042)]],
 }
 
 # Alcuni pezzi stanno su tutti e due i lati: si disegnano specchiati. I
@@ -72,8 +77,11 @@ MIRRORED = ("sidepods", "suspension", "brakes", "cooling", "front_wing",
             "rear_wing", "active_aero")
 
 # Le ruote non sono un componente ma senza non si capisce cos'e'.
-WHEELS = [(0.025, 0.145, 0.155, 0.145), (0.820, 0.145, 0.155, 0.145),
-          (0.030, 0.705, 0.200, 0.160), (0.770, 0.705, 0.200, 0.160)]
+# Misure vere: gomma anteriore larga 305 mm, posteriore 405, diametro 720 su
+# una macchina larga 2 metri e lunga 5,6. Vista dall'alto sono rettangoli molto
+# piu' lunghi che larghi, ed e' per questo che una monoposto si riconosce.
+WHEELS = [(0.025, 0.166, 0.150, 0.129), (0.825, 0.166, 0.150, 0.129),
+          (0.013, 0.780, 0.200, 0.129), (0.787, 0.780, 0.200, 0.129)]
 
 
 # Il corpo vettura si disegna grigio: il colore qui vuol dire quanto quel pezzo
@@ -178,8 +186,8 @@ def draw(surf, rect, colours: dict, selected: str = "", badges: dict = None,
     # di loro fra abitacolo e cambio ci sarebbe un buco
     base = colours.get("chassis", T.PANEL_3)
     pygame.draw.polygon(surf, tuple(int(c * 0.72) for c in base),
-                        _pts([(0.430, 0.470), (0.570, 0.470), (0.556, 0.640),
-                              (0.546, 0.740), (0.454, 0.740), (0.444, 0.640)], r))
+                        _pts([(0.424, 0.462), (0.576, 0.462), (0.560, 0.640),
+                              (0.548, 0.742), (0.452, 0.742), (0.440, 0.640)], r))
 
     for part in ORDINE:
         if part not in SHAPES:
@@ -193,6 +201,7 @@ def draw(surf, rect, colours: dict, selected: str = "", badges: dict = None,
             bordo = T.WHITE if part == selected else tuple(int(c * 0.55) for c in col)
             pygame.draw.polygon(surf, bordo, poly, 2 if part == selected else 1)
 
+    _profili(surf, r, colours)
     _abitacolo(surf, r)
     if livery:
         _livrea(surf, r, livery)
@@ -209,11 +218,11 @@ def draw(surf, rect, colours: dict, selected: str = "", badges: dict = None,
 def _ombra(surf, r) -> None:
     """Un'ombra che segue il fondo: stacca la macchina dal pannello."""
     pygame.draw.polygon(surf, T.mix(T.PANEL, (0, 0, 0), 0.45),
-                        _pts([(0.370, 0.276), (0.190, 0.338), (0.160, 0.430),
-                              (0.168, 0.560), (0.242, 0.740), (0.248, 0.820),
-                              (0.224, 0.900), (0.776, 0.900), (0.752, 0.820),
-                              (0.758, 0.740), (0.832, 0.560), (0.840, 0.430),
-                              (0.810, 0.338), (0.630, 0.276)], r))
+                        _pts([(0.376, 0.270), (0.194, 0.330), (0.160, 0.420),
+                              (0.168, 0.560), (0.240, 0.730), (0.246, 0.812),
+                              (0.222, 0.898), (0.778, 0.898), (0.754, 0.812),
+                              (0.760, 0.730), (0.832, 0.560), (0.840, 0.420),
+                              (0.806, 0.330), (0.624, 0.270)], r))
 
 
 def _gomme(surf, r) -> None:
@@ -228,22 +237,41 @@ def _gomme(surf, r) -> None:
                              (g.centerx, g.bottom - 3))
 
 
+def _profili(surf, r, colours) -> None:
+    """I profili delle ali: si vedono solo se la macchina e' disegnata grande.
+
+    Da lontano sarebbero sporco; da vicino sono quello che distingue un'ala da
+    una tavola.
+    """
+    if r.w < 150:
+        return
+    for parte, quote in (("front_wing", (0.026, 0.044, 0.062)),
+                         ("rear_wing", (0.918, 0.930))):
+        col = colours.get(parte, T.PANEL_3)
+        scuro = tuple(int(c * 0.45) for c in col)
+        largo = 0.492 if parte == "front_wing" else 0.226
+        for v in quote:
+            pygame.draw.line(surf, scuro,
+                             (int(r.x + (0.5 - largo) * r.w), int(r.y + v * r.h)),
+                             (int(r.x + (0.5 + largo) * r.w), int(r.y + v * r.h)))
+
+
 def _abitacolo(surf, r) -> None:
     """Pozzetto e halo: non si sviluppano, ma senza non si capisce cos'e'."""
-    raggio = max(3, int(0.062 * r.w))
+    raggio = max(3, int(0.082 * r.w))
     cx = r.x + int(0.5 * r.w)
-    cy = r.y + int(0.432 * r.h)
-    box = (cx - raggio, cy - int(raggio * 1.5), raggio * 2, int(raggio * 3.0))
+    cy = r.y + int(0.446 * r.h)
+    box = (cx - raggio, cy - int(raggio * 1.35), raggio * 2, int(raggio * 2.7))
     pygame.draw.ellipse(surf, (12, 16, 24), box)
     pygame.draw.ellipse(surf, (168, 178, 196), box, 2)
     pygame.draw.line(surf, (168, 178, 196),
-                     (cx, r.y + int(0.352 * r.h)), (cx, r.y + int(0.396 * r.h)), 3)
+                     (cx, r.y + int(0.360 * r.h)), (cx, r.y + int(0.408 * r.h)), 3)
     if r.w > 90:
-        for x in (0.392, 0.608):     # specchietti
+        for x in (0.360, 0.640):     # specchietti
             pygame.draw.rect(surf, (120, 130, 150),
-                             (int(r.x + x * r.w - 0.022 * r.w),
-                              int(r.y + 0.396 * r.h),
-                              max(2, int(0.044 * r.w)), max(2, int(0.018 * r.h))),
+                             (int(r.x + x * r.w - 0.030 * r.w),
+                              int(r.y + 0.402 * r.h),
+                              max(2, int(0.060 * r.w)), max(2, int(0.016 * r.h))),
                              border_radius=2)
 
 
@@ -254,22 +282,22 @@ def _livrea(surf, r, colore) -> None:
     quello della scuderia vorrebbe dire non capire piu' ne' l'uno ne' l'altro.
     """
     colore = tuple(colore)
-    pygame.draw.polygon(surf, colore, _pts([(0.486, 0.062), (0.514, 0.062),
-                                            (0.526, 0.330), (0.474, 0.330)], r))
+    pygame.draw.polygon(surf, colore, _pts([(0.491, 0.048), (0.509, 0.048),
+                                            (0.524, 0.300), (0.476, 0.300)], r))
     pygame.draw.polygon(surf, colore, _pts([(0.490, 0.664), (0.510, 0.664),
                                             (0.510, 0.896), (0.490, 0.896)], r))
-    for poly in ([(0.212, 0.900), (0.256, 0.900), (0.256, 0.996), (0.212, 0.996)],
-                 [(0.788, 0.900), (0.744, 0.900), (0.744, 0.996), (0.788, 0.996)],
-                 [(0.000, 0.040), (0.060, 0.040), (0.075, 0.128), (0.022, 0.128)],
-                 [(1.000, 0.040), (0.940, 0.040), (0.925, 0.128), (0.978, 0.128)]):
+    for poly in ([(0.246, 0.898), (0.292, 0.898), (0.292, 0.996), (0.246, 0.996)],
+                 [(0.754, 0.898), (0.708, 0.898), (0.708, 0.996), (0.754, 0.996)],
+                 [(0.006, 0.046), (0.062, 0.049), (0.078, 0.124), (0.020, 0.130)],
+                 [(0.994, 0.046), (0.938, 0.049), (0.922, 0.124), (0.980, 0.130)]):
         pygame.draw.polygon(surf, colore, _pts(poly, r))
 
 
 def _diffusore(surf, r, colore) -> None:
     """L'ultimo pezzo di fondo, quello che chiude il lavoro."""
     scuro = tuple(int(c * 0.35) for c in colore)
-    pygame.draw.polygon(surf, scuro, _pts([(0.250, 0.852), (0.750, 0.852),
-                                           (0.768, 0.888), (0.232, 0.888)], r))
+    pygame.draw.polygon(surf, scuro, _pts([(0.252, 0.850), (0.748, 0.850),
+                                           (0.770, 0.886), (0.230, 0.886)], r))
     if r.w > 90:
         for x in (0.330, 0.415, 0.585, 0.670):
             pygame.draw.line(surf, tuple(int(c * 0.2) for c in colore),
