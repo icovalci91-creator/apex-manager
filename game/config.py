@@ -9,6 +9,8 @@ GAME_TITLE = "Apex Manager"
 GAME_VERSION = "0.1"
 
 SCREEN_W, SCREEN_H = 1600, 900
+# sotto queste misure le schermate non stanno piu' in piedi
+MIN_SCREEN_W, MIN_SCREEN_H = 1180, 680
 FPS = 60
 
 # --- Fisica della vettura (era 2026) -------------------------------------

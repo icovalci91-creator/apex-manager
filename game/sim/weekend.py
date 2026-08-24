@@ -101,6 +101,7 @@ class Entrant:
     stops: int = 0
     plan: list = field(default_factory=list)     # [(giro, mescola)]
     used_compounds: set = field(default_factory=set)
+    stock: dict = None            # set ancora nel camion, per mescola
     overtake_cd: float = 0.0
     dirty_air: float = 0.0
     clean_lap: float = 90.0     # passo in aria libera, usato per valutare i duelli
@@ -370,6 +371,8 @@ class RaceSim:
         e.pit_timer = stop + loss
         e.tyre = target
         e.used_compounds.add(target)
+        if e.stock and target in e.stock:
+            e.stock[target] = max(0, e.stock[target] - 1)
         e.tyre_age = 0.0
         e.tyre_life = self._tyre_life(e, target)
         e.stops += 1
@@ -382,14 +385,26 @@ class RaceSim:
         if self.weather.wet > 0.18:
             return "inter"
         if remaining <= 16 * self.distance:
-            return "soft"
-        if remaining <= 30 * self.distance:
-            return "medium"
-        return "hard"
+            voluta = ("soft", "medium", "hard")
+        elif remaining <= 30 * self.distance:
+            voluta = ("medium", "hard", "soft")
+        else:
+            voluta = ("hard", "medium", "soft")
+        if not e.stock:
+            return voluta[0]
+        for m in voluta:
+            if e.stock.get(m, 0) > 0:
+                return m
+        return voluta[0]           # non resta niente: si monta l'usato
 
     def _tyre_life(self, e: Entrant, comp: str) -> float:
         base = {"soft": 17.0, "medium": 26.0, "hard": 37.0, "inter": 22.0, "wet": 26.0}[comp]
         wear_t = self.track.traits.get("tyre_wear", 0.6)
+        # non tutte le "morbide" sono uguali: quella che il fornitore porta a
+        # Monaco e quella che porta a Silverstone sono due gomme diverse
+        if comp in ("soft", "medium", "hard"):
+            from ..core import tyres
+            base *= tyres.life_scale(tyres.nomination(self.track)[comp])
         life = base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
         return life * self.distance
 

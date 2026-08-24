@@ -39,6 +39,7 @@ class Car:
     active_aero_allowed: bool = True
     mass_base: float = C.CAR_MASS_KG              # peso minimo regolamentare
     pu_integration: float = 0.25                  # 0 cliente .. 1 costruttore
+    balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
     @classmethod
@@ -130,8 +131,36 @@ class Car:
         return 0.72 * car + 0.28 * eng
 
     # ------------------------------------------------------------- assetto
-    def optimal_setup(self, track) -> dict:
+    def optimal_setup(self, track, driver=None) -> dict:
+        """L'assetto ideale su questo circuito, per questo pilota.
+
+        Senza pilota e' l'ottimo del tracciato e basta - quello che scrive il
+        reparto sulla carta. Con un pilota ci si somma il suo stile di guida,
+        ed e' per quello che due compagni di squadra non vogliono la stessa
+        macchina.
+        """
+        base = self._track_optimum(track)
+        if driver is None:
+            return base
+        from ..core import driving
+        off = driving.offsets(driver)
+        return {k: max(0.0, min(100.0, v + off.get(k, 0.0))) for k, v in base.items()}
+
+    def _track_optimum(self, track) -> dict:
+        """L'ottimo del tracciato, spostato da come e' fatta la macchina.
+
+        Un pacchetto che fa girare di piu' la vettura sposta anche dove sta la
+        finestra: si frena piu' avanti e si porta un filo meno carico. Per
+        questo dopo un aggiornamento l'assetto va ritrovato davvero.
+        """
         t = track.traits
+        b = max(-1.0, min(1.0, self.balance))
+        base = self._optimum_raw(t)
+        base["brake_bias"] = max(0.0, min(100.0, base["brake_bias"] + 5.0 * b))
+        base["wing"] = max(0.0, min(100.0, base["wing"] - 3.0 * b))
+        return base
+
+    def _optimum_raw(self, t) -> dict:
         return {
             "wing":        100.0 * min(1.0, max(0.0, t["downforce"])),
             "ride_height": 100.0 * min(1.0, max(0.0, 0.28 + 0.62 * t["bumpiness"])),
@@ -141,8 +170,8 @@ class Car:
             "brake_bias":  100.0 * min(1.0, max(0.0, 0.35 + 0.40 * t["braking"])),
         }
 
-    def evaluate_setup(self, track) -> float:
-        opt = self.optimal_setup(track)
+    def evaluate_setup(self, track, driver=None) -> float:
+        opt = self.optimal_setup(track, driver)
         err = sum(abs(self.setup.get(k, 50.0) - opt[k]) for k in opt) / len(opt)
         self.setup_quality = max(0.0, 1.0 - (err / 45.0) ** 1.35)
         return self.setup_quality

@@ -5,6 +5,7 @@ import pygame
 
 from ... import config as C
 from ...core import season as SEASON
+from ...core import tyres as TY
 from ...sim import session as S
 from ...sim.weekend import Weather
 from .. import theme as T
@@ -23,7 +24,9 @@ class WeekendScene(Scene):
         self.gs = gs
         self.track = gs.next_track
         self.ws = S.WeekendState(track=self.track, weather=Weather.generate(self.track, gs.rng))
-        self.stage = "prove"          # prove | qualifica | sprint | gara | fine
+        # il weekend comincia prima di scendere in pista: si scelgono le gomme
+        self.stage = "gomme"          # gomme | prove | qualifica | sprint | gara | fine
+        self.tyre_pick = TY.suggested(self.track)
         self.sim = None
         self.speed_idx = 2
         self.result_rows = []
@@ -39,7 +42,9 @@ class WeekendScene(Scene):
         w, h = self.app.screen.get_size()
         self.widgets = []
         self.pts = None
-        if self.stage in ("prove", "qualifica", "sprint", "gara") and self.sim is None:
+        if self.stage == "gomme":
+            self._build_tyres(w, h)
+        elif self.stage in ("prove", "qualifica", "sprint", "gara") and self.sim is None:
             self._build_prep(w, h)
         elif self.sim is not None:
             self._build_race(w, h)
@@ -70,6 +75,56 @@ class WeekendScene(Scene):
             self.widgets.append(Button((x, y, bw, bh), "Torna al quartier generale",
                                        self.finish, "primary"))
         self.widgets.append(Button((40, h - 96, 180, 40), "Abbandona", self.app.pop, "ghost"))
+
+    # ------------------------------------------------------------- gomme
+    def _build_tyres(self, w: int, h: int) -> None:
+        left = pygame.Rect(28, 92, w * 0.42, h - 190)
+        self.tyre_buttons = []
+        if not self.ws.tyres_published:
+            y = left.y + 120
+            for m in TY.MESCOLE:
+                meno = Button((left.x + 300, y, 34, 30), "-")
+                meno.on_click = (lambda k=m: self._bump(k, -1))
+                piu = Button((left.x + 400, y, 34, 30), "+")
+                piu.on_click = (lambda k=m: self._bump(k, +1))
+                self.widgets += [meno, piu]
+                y += 40
+            self.widgets.append(Button((left.x + 20, left.bottom - 118, 240, 38),
+                                       "Consiglio degli ingegneri", self.suggest_tyres,
+                                       "ghost"))
+            b = Button((left.x + 20, left.bottom - 68, 300, 44),
+                       "Consegna la scelta", self.confirm_tyres, "primary")
+            b.enabled = TY.is_valid(self.track, self.tyre_pick)[0]
+            self.widgets.append(b)
+        else:
+            self.widgets.append(Button((w - 300, h - 140, 260, 44),
+                                       "Vai alle prove libere", self.to_practice,
+                                       "primary"))
+        self.widgets.append(Button((40, h - 96, 180, 40), "Abbandona", self.app.pop, "ghost"))
+
+    def _bump(self, mescola: str, verso: int) -> None:
+        n = self.tyre_pick.get(mescola, 0) + verso
+        liberi = TY.free_sets(self.track)
+        usati = sum(self.tyre_pick.values()) - self.tyre_pick.get(mescola, 0)
+        self.tyre_pick[mescola] = max(0, min(liberi - usati, n))
+        self.build()
+
+    def suggest_tyres(self) -> None:
+        self.tyre_pick = TY.suggested(self.track)
+        self.build()
+
+    def confirm_tyres(self) -> None:
+        ok, why = TY.is_valid(self.track, self.tyre_pick)
+        if not ok:
+            self.app.toast(why)
+            return
+        TY.allocate(self.gs, self.ws, self.tyre_pick)
+        self.app.toast("Scelte consegnate: adesso sono pubbliche per tutti.")
+        self.build()
+
+    def to_practice(self) -> None:
+        self.stage = "prove"
+        self.build()
 
     DISTANCES = [0.25, 0.50, 0.75, 1.00]
 
@@ -214,14 +269,17 @@ class WeekendScene(Scene):
             self.stage = "gara"
             self.build()
         else:
-            SEASON.after_race(self.gs, getattr(self.app, "dev_budget", 1.5),
-                              getattr(self.app, "pu_budget", 1.0))
+            SEASON.after_race(self.gs)
             self.stage = "fine"
             self.sim = None
             self.build()
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
+        if self.stage == "gomme":
+            self._draw_tyres(surf)
+            super().draw(surf)
+            return
         if self.sim:
             self._draw_race(surf)
         else:
@@ -229,6 +287,85 @@ class WeekendScene(Scene):
         super().draw(surf)
 
     # ------------------------------------------------------------ preparazione
+    def _draw_tyres(self, surf) -> None:
+        w, h = surf.get_size()
+        gs, tr, ws = self.gs, self.track, self.ws
+        pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 72))
+        T.text(surf, tr.gp.upper(), (28, 12), 24, T.TEXT, bold=True)
+        T.text(surf, f"{tr.name} - mescole portate dal fornitore: "
+                     f"{TY.nomination_label(tr)}", (28, 42), 14, T.DIM)
+        T.text(surf, "SCELTA DELLE GOMME", (w - 28, 20), 22, T.ACCENT, bold=True,
+               align="right")
+
+        left = pygame.Rect(28, 92, w * 0.42, h - 190)
+        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "LA NOSTRA SCELTA", (left.x + 20, left.y + 16), 12, T.DIM_2, bold=True)
+        liberi = TY.free_sets(tr)
+        messi = sum(self.tyre_pick.values())
+        nom = TY.nomination(tr)
+        T.text(surf, f"{liberi} set liberi da assegnare, piu' i {sum(TY.OBBLIGATORI.values())} "
+                     f"che decide il regolamento", (left.x + 20, left.y + 44), 13, T.DIM,
+               maxw=left.w - 40)
+        T.text(surf, f"assegnati {messi} su {liberi}", (left.right - 20, left.y + 44), 13,
+               T.OK if messi == liberi else T.WARN, bold=True, align="right")
+
+        y = left.y + 120
+        for m in TY.MESCOLE:
+            n = self.tyre_pick.get(m, 0)
+            tot = n + TY.OBBLIGATORI[m]
+            col = {"soft": (225, 6, 0), "medium": (255, 214, 0),
+                   "hard": (235, 235, 235)}[m]
+            pygame.draw.circle(surf, col, (left.x + 34, y + 15), 11, 4)
+            T.text(surf, TY.LABEL[m], (left.x + 56, y + 6), 16, T.TEXT, bold=True)
+            T.text(surf, TY.GAMMA[nom[m] - 1], (left.x + 180, y + 8), 14, T.DIM)
+            if not ws.tyres_published:
+                T.text(surf, f"{n}", (left.x + 380, y + 4), 18, T.TEXT, bold=True,
+                       align="right")
+            T.text(surf, f"{tot} set in tutto", (left.right - 20, y + 8), 13, T.DIM,
+                   align="right")
+            y += 40
+
+        if not ws.tyres_published:
+            T.text(surf, "Chi carica morbide fa un giro secco migliore e finisce le gomme",
+                   (left.x + 20, left.bottom - 176), 12, T.DIM_2, maxw=left.w - 40)
+            T.text(surf, "in gara; chi carica dure vive peggio il venerdi' e meglio la",
+                   (left.x + 20, left.bottom - 160), 12, T.DIM_2, maxw=left.w - 40)
+            T.text(surf, "domenica. Consegnata la scelta non si torna indietro.",
+                   (left.x + 20, left.bottom - 144), 12, T.DIM_2, maxw=left.w - 40)
+        else:
+            T.text(surf, "Scelta consegnata e pubblicata.", (left.x + 20, left.bottom - 144),
+                   13, T.OK, maxw=left.w - 40)
+
+        right = pygame.Rect(w * 0.44 + 28, 92, w * 0.56 - 60, h - 190)
+        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "SCELTE DI TUTTI", (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
+        if not ws.tyres_published:
+            T.text(surf, "Le scelte si consegnano insieme e vengono pubblicate tutte",
+                   (right.x + 20, right.y + 60), 14, T.DIM, maxw=right.w - 40)
+            T.text(surf, "in una volta: finche' non consegniamo la nostra, cosa hanno",
+                   (right.x + 20, right.y + 80), 14, T.DIM, maxw=right.w - 40)
+            T.text(surf, "in mano gli altri non lo sa nessuno.",
+                   (right.x + 20, right.y + 100), 14, T.DIM, maxw=right.w - 40)
+            return
+        T.text(surf, "morbide   medie   dure", (right.right - 20, right.y + 16), 11,
+               T.DIM_2, align="right")
+        yy = right.y + 46
+        ordine = sorted(gs.teams.values(), key=lambda t: t.last_position)
+        for team in ordine:
+            st = TY.full_stock_from(ws.tyre_choice.get(team.id, {}))
+            mio = team.is_player
+            T.panel(surf, (right.x + 16, yy, right.w - 32, 26),
+                    T.PANEL_3 if mio else T.PANEL_2, radius=6)
+            pygame.draw.rect(surf, T.hex_rgb(team.colour), (right.x + 20, yy + 5, 3, 16))
+            T.text(surf, team.short, (right.x + 32, yy + 5), 14,
+                   T.TEXT if mio else T.DIM, bold=mio, maxw=right.w * 0.4)
+            x = right.right - 150
+            for m, col in (("soft", (225, 6, 0)), ("medium", (255, 214, 0)),
+                           ("hard", (235, 235, 235))):
+                T.text(surf, f"{st[m]}", (x, yy + 5), 15, col, bold=True, align="right")
+                x += 48
+            yy += 30
+
     def _draw_prep(self, surf) -> None:
         w, h = surf.get_size()
         gs, tr, ws = self.gs, self.track, self.ws
@@ -239,6 +376,18 @@ class WeekendScene(Scene):
         T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - meteo {ws.weather.label} "
                      f"({ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C asfalto)",
                (28, 42), 14, T.DIM)
+        # se un componente contingentato e' agli sgoccioli lo si deve sapere
+        # prima di scendere in pista, non quando si rompe
+        from ...core import penalties as PEN
+        allarmi = []
+        for d in gs.lineup_of(gs.player_team):
+            if d.pu_wear <= PEN.SOGLIA_ROTTURA:
+                allarmi.append(f"{d.short}: power unit al {d.pu_wear:.0f}%")
+            if d.gearbox_wear <= PEN.SOGLIA_ROTTURA:
+                allarmi.append(f"{d.short}: cambio al {d.gearbox_wear:.0f}%")
+        if allarmi:
+            T.text(surf, "DA SOSTITUIRE:  " + "   ".join(allarmi[:3]),
+                   (28, 62), 12, T.BAD, bold=True, maxw=w * 0.6)
         if self.stage == "prove" and getattr(self, "dist_label_at", None):
             T.text(surf, "DURATA DELLA GARA", self.dist_label_at, 11, T.DIM_2, bold=True)
         stage_lab = {"prove": "PROVE LIBERE", "qualifica": "QUALIFICA",
@@ -247,7 +396,22 @@ class WeekendScene(Scene):
 
         left = pygame.Rect(28, 92, w * 0.42, h - 190)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        trackdraw.draw_track(surf, tr, left.inflate(-24, -24), width=10)
+        trackdraw.draw_track(surf, tr, left.inflate(-24, -32), width=10)
+        # quello che resta nel camion: da qui in poi non se ne aggiunge
+        if ws.tyre_stock:
+            T.text(surf, f"GOMME RIMASTE  ({TY.nomination_label(tr)})",
+                   (left.x + 20, left.bottom - 62), 11, T.DIM_2, bold=True)
+            x = left.x + 20
+            for d in gs.drivers_of(gs.player_team):
+                st = TY.stock_of(ws, d.id)
+                T.text(surf, d.short, (x, left.bottom - 40), 13, T.DIM, maxw=110)
+                xx = x + 96
+                for m, col in (("soft", (225, 6, 0)), ("medium", (255, 214, 0)),
+                               ("hard", (235, 235, 235))):
+                    T.text(surf, f"{st.get(m, 0)}", (xx, left.bottom - 40), 15, col,
+                           bold=True)
+                    xx += 26
+                x += 200
 
         right = pygame.Rect(w * 0.44 + 28, 92, w * 0.56 - 60, h - 190)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)

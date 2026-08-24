@@ -33,6 +33,10 @@ class Driver:
     marketability: float
     salary: float
     contract_until: int
+    # che posto occupa in squadra: si corre in due, ma un terzo pilota lo
+    # tengono tutti - per le prove libere, per i test e per il giorno in cui
+    # un titolare non e' in condizione di salire in macchina
+    seat: str = "titolare"        # titolare | riserva | academy
 
     # voci del contratto oltre all'ingaggio fisso
     bonus_win: float = 0.0        # M$ per vittoria
@@ -55,6 +59,10 @@ class Driver:
     grid_penalty: int = 0        # posizioni da scontare alla prossima partenza
     pu_used: int = 1             # unita' di power unit gia' impiegate
     gearbox_used: int = 1
+    # quanto e' consumata l'unita' che ha montata adesso: 100 e' nuova, sotto
+    # i 30 comincia a rompersi, a zero non finisce la gara
+    pu_wear: float = 100.0
+    gearbox_wear: float = 100.0
     happiness_notes: list = field(default_factory=list)
 
     @property
@@ -162,8 +170,10 @@ class Staff:
     def market_value(self) -> float:
         best = max(getattr(self, a) for a in STAFF_ATTRS)
         avg = sum(getattr(self, a) for a in STAFF_ATTRS) / len(STAFF_ATTRS)
+        # meta' di prima: il costo di un reparto adesso lo paga l'organico, e
+        # quello che si legge qui e' l'ingaggio di una persona sola
         v = max(0.0, ((0.6 * best + 0.4 * avg) - 55.0) / 10.0)
-        return round(max(0.3, v ** 2.1 * 0.55), 2)
+        return round(max(0.2, v ** 2.1 * 0.27), 2)
 
     def to_dict(self) -> dict:
         return asdict(self)

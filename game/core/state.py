@@ -17,7 +17,7 @@ ROLE_LEVEL_FROM_REP = {
     "technical_director": 1.00, "chief_designer": 0.95, "head_of_aero": 0.97,
     "head_of_powertrain": 0.93, "head_of_strategy": 0.96, "race_engineer": 0.92,
     "performance_engineer": 0.90, "chief_mechanic": 0.90, "head_of_scouting": 0.86,
-    "team_principal": 1.02,
+    "team_principal": 1.02, "financial_director": 0.94,
 }
 
 
@@ -70,7 +70,13 @@ class GameState:
 
     # ------------------------------------------------------------- creazione
     @classmethod
-    def new_game(cls, team_id: str, constructor: bool = True, seed: int | None = None) -> "GameState":
+    def new_game(cls, team_id: str, constructor: bool = True, seed: int | None = None,
+                 founding: dict | None = None) -> "GameState":
+        """Comincia una carriera.
+
+        Con `founding` non si prende in mano una squadra che c'e' gia': se ne
+        mette in griglia una nuova, che paga per entrare e parte da niente.
+        """
         seed = seed if seed is not None else random.randrange(1 << 30)
         gs = cls(player_team=team_id, player_is_constructor=constructor, seed=seed)
         gs.rng = random.Random(seed)
@@ -114,6 +120,7 @@ class GameState:
                 last_position=td.get("last_position", 6),
                 track_name=td.get("private_track_name", ""),
                 track_id=td.get("private_track_id", ""),
+                academy_name=td.get("academy_name", ""),
                 heritage=bool(td.get("heritage", False)),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
@@ -126,8 +133,21 @@ class GameState:
             from .facilities import GRACE_SEASONS
             team.facility_age = {k: GRACE_SEASONS * 0.5 for k in team.facilities}
             team.setup_knowledge = {}
+            # l'organico dei reparti, tarato su quanto pesa l'organigramma
+            from .departments import starting_workforce
+            team.workforce = starting_workforce(team)
+            team.hired_this_season = {}
             gs.teams[team.id] = team
 
+        # la dodicesima squadra: non e' nei dati, la si fonda adesso
+        if founding:
+            from . import newteam
+            founding = dict(founding)
+            founding["id"] = team_id
+            gs.founding = founding
+            newteam.create(gs, founding)
+
+        gs._vivai = {td["id"]: list(td.get("academy") or []) for td in teamdata["teams"]}
         ddata = _load("drivers.json")
         for d in ddata["drivers"]:
             drv = Driver.from_dict(d)
@@ -136,6 +156,35 @@ class GameState:
                 gs.teams[drv.team].drivers.append(drv.id)
         for d in ddata["free_agents"]:
             gs.free_agents.append(Driver.from_dict(d))
+
+        # i ragazzi dei vivai esistenti passano dagli svincolati alla squadra
+        # che li segue davvero: e' li' che stanno, non sul mercato libero
+        for tid, ragazzi in getattr(gs, "_vivai", {}).items():
+            squadra = gs.teams.get(tid)
+            if squadra is None:
+                continue
+            for did in ragazzi:
+                drv = next((x for x in gs.free_agents if x.id == did), None)
+                if drv is None:
+                    continue
+                gs.free_agents.remove(drv)
+                gs.drivers[drv.id] = drv
+                drv.team = tid
+                drv.seat = "academy"
+                drv.salary = round(max(0.2, drv.salary * 0.35), 2)
+                squadra.academy.append(drv.id)
+        # un vivaio aperto non sta mai vuoto: chi non ha ragazzi noti ne ha
+        # comunque di suoi, solo che non li conosce ancora nessuno
+        from . import academy as _acc
+        for squadra in gs.teams.values():
+            if _acc.has(squadra) and len(squadra.academy) < 2:
+                _acc.intake(gs, squadra, 2 - len(squadra.academy))
+
+        # e i due che accettano di salirci sopra: vanno presi fra gli svincolati
+        # prima che il mercato e gli sponsor guardino chi c'e' in griglia
+        if founding:
+            from . import newteam
+            newteam.first_lineup(gs, gs.teams[team_id])
 
         gs.sponsor_pool = _load("sponsors.json")["sponsors"]
         gs._calibrate_tracks()
@@ -162,7 +211,14 @@ class GameState:
         pezzi = [p.perf for t in gs.teams.values() for p in t.car.parts.values()]
         gs.regulations["cycle_base"] = round(sum(pezzi) / max(1, len(pezzi)), 2)
 
-        gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: nuovo ciclo tecnico.", "team")
+        if founding:
+            from . import newteam
+            newteam.welcome(gs, pt)
+            gs.push(f"{pt.name} entra in Formula 1. Stagione {gs.season}: si "
+                    f"comincia da zero, e da ultimi.", "team")
+        else:
+            gs.push(f"Benvenuto alla guida di {pt.name}. Stagione {gs.season}: "
+                    f"nuovo ciclo tecnico.", "team")
         from .setup import new_weekend
         new_weekend(gs)
         return gs
@@ -228,10 +284,16 @@ class GameState:
 
         for s in sdata["free_staff"]:
             self.free_staff.append(Staff.from_dict(s))
-        for _ in range(14):
-            role = self.rng.choice(list(self.staff_roles.keys()))
-            self.free_staff.append(generate_staff(role, self.rng.uniform(52, 76), self.rng,
-                                                  pool, self.season, None))
+        # un mercato degli ingegneri vero: tanta gente onesta, qualcuno molto
+        # bravo, e sempre almeno un paio di nomi per ogni ruolo
+        ruoli = list(self.staff_roles.keys())
+        for i in range(48):
+            role = ruoli[i % len(ruoli)] if i < len(ruoli) * 2 else self.rng.choice(ruoli)
+            lvl = self.rng.gauss(64.0, 8.5)
+            if self.rng.random() < 0.12:
+                lvl = self.rng.uniform(78.0, 88.0)      # il pezzo pregiato
+            self.free_staff.append(generate_staff(role, max(46.0, min(90.0, lvl)),
+                                                  self.rng, pool, self.season, None))
 
     # -------------------------------------------------------------- utility
     @property
@@ -248,6 +310,31 @@ class GameState:
 
     def drivers_of(self, team_id: str) -> list:
         return [self.drivers[d] for d in self.teams[team_id].drivers if d in self.drivers]
+
+    def reserves_of(self, team_id: str) -> list:
+        return [self.drivers[d] for d in self.teams[team_id].reserves if d in self.drivers]
+
+    def lineup_of(self, team_id: str) -> list:
+        """Chi scende in pista davvero.
+
+        I titolari, con la riserva che prende il posto di chi sta scontando una
+        squalifica: e' esattamente per questo che un terzo pilota lo tengono
+        tutti, e prima di averlo si correva in uno solo.
+        """
+        t = self.teams[team_id]
+        panchina = [self.drivers[d] for d in t.reserves
+                    if d in self.drivers and self.drivers[d].banned_races <= 0]
+        out = []
+        for did in t.drivers:
+            d = self.drivers.get(did)
+            if d is None:
+                continue
+            if d.banned_races > 0:
+                if panchina:
+                    out.append(panchina.pop(0))
+                continue
+            out.append(d)
+        return out
 
     def sync_engines(self) -> None:
         """Riaggancia ogni vettura al proprio motorista.
@@ -283,7 +370,10 @@ class GameState:
 
     # ---------------------------------------------------------- classifiche
     def driver_standings(self) -> list:
-        ds = [d for d in self.drivers.values() if d.team]
+        # nel mondiale ci sono i titolari e chi ha corso al posto loro: un
+        # terzo pilota che non e' mai salito in macchina non e' in classifica
+        ds = [d for d in self.drivers.values()
+              if d.team and (d.seat == "titolare" or d.points or d.races)]
         ds.sort(key=lambda d: (-d.points, -d.wins, -d.podiums))
         return ds
 
@@ -316,6 +406,7 @@ class GameState:
             "editor_used": bool(getattr(self, "editor_used", False)),
             "track_history": self.track_history,
             "race_distance": self.race_distance,
+            "founding": getattr(self, "founding", None),
             "pu_program": getattr(self, "pu_program", {}),
             "pu_specs": getattr(self, "pu_specs", {}),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
@@ -339,6 +430,7 @@ class GameState:
                     "spent": t.spent, "capex_log": t.capex_log or {}, "austerity": t.austerity,
                     "track_id": t.track_id, "track_name": t.track_name,
                     "reputation": t.reputation, "facilities": t.facilities,
+                    "entry_season": t.entry_season,
                     "facility_age": t.facility_age or {},
                     "test_days_used": t.test_days_used,
                     "preseason_done": list(t.preseason_done or []), "correlation": t.correlation,
@@ -347,10 +439,16 @@ class GameState:
                     "setup_paper_track": t.setup_paper_track,
                     "sim_sessions": t.sim_sessions,
                     "car_understanding": t.car_understanding,
-                    "drivers": t.drivers, "last_position": t.last_position,
+                    "workforce": t.workforce or {}, "pu_building": t.pu_building,
+                    "hired_this_season": t.hired_this_season or {},
+                    "drivers": t.drivers, "reserves": t.reserves,
+                    "academy": t.academy, "academy_name": t.academy_name,
+                    "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
+                    "next_car_brief": t.next_car_brief or {},
+                    "next_car_work": t.next_car_work or {},
                     "ledger": t.ledger[-1500:],
                     "deals": [d.to_dict() for d in t.deals],
                     "cur_season": t.cur_season, "cur_month": t.cur_month,
@@ -364,15 +462,22 @@ class GameState:
                     "spec_trials": [asdict(x) for x in t.spec_trials],
                     "car_parts": {k: {"perf": p.perf, "condition": p.condition}
                                   for k, p in t.car.parts.items()},
-                    "setup": t.car.setup,
+                    "setup": t.car.setup, "setups": t.setups or {},
+                    "auto_dev": t.auto_dev, "auto_setup": t.auto_setup,
+                    "part_delta": t.part_delta or {},
+                    "last_spec": t.last_spec or {},
+                    "kits": [asdict(k) for k in (t.kits or [])],
+                    "balance": t.car.balance,
                 } for t in self.teams.values()
             },
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "GameState":
+        # una squadra fondata dal giocatore non sta in teams.json: si rifonda
+        # com'era e poi le si rimettono sopra i valori del salvataggio
         gs = cls.new_game(data["player_team"], data.get("player_is_constructor", True),
-                          seed=data.get("seed"))
+                          seed=data.get("seed"), founding=data.get("founding"))
         base_sprints = gs.regulations["sporting"].get("sprint_events")
         gs.season = data["season"]
         gs.round = data["round"]
@@ -397,6 +502,7 @@ class GameState:
             t = gs.teams[tid]
             t.cash = td["cash"]; t.points = td["points"]; t.wins = td["wins"]
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
+            t.entry_season = int(td.get("entry_season", 0) or 0)
             t.capex_log = dict(td.get("capex_log") or {})
             t.austerity = float(td.get("austerity", 0.0))
             t.track_id = td.get("track_id", t.track_id)
@@ -411,7 +517,16 @@ class GameState:
             t.setup_paper_track = td.get("setup_paper_track", "")
             t.sim_sessions = td.get("sim_sessions", 0)
             t.car_understanding = td.get("car_understanding", 0.0)
+            t.workforce = dict(td.get("workforce") or {})
+            t.pu_building = bool(td.get("pu_building", False))
+            t.hired_this_season = dict(td.get("hired_this_season") or {})
+            if not t.workforce:
+                from .departments import starting_workforce
+                t.workforce = starting_workforce(t)
             t.drivers = td["drivers"]
+            t.reserves = list(td.get("reserves") or [])
+            t.academy = list(td.get("academy") or [])
+            t.academy_name = td.get("academy_name", "")
             t.last_position = td["last_position"]; t.resource_alloc = td["resource_alloc"]
             t.upgrades_done = td.get("upgrades_done", 0)
             t.upgrade_log = list(td.get("upgrade_log") or [])
@@ -423,6 +538,8 @@ class GameState:
             t.cur_month = td.get("cur_month", 1)
             t.cur_round = td.get("cur_round", 0)
             t.reg_prep = td.get("reg_prep", 0.0)
+            t.next_car_brief = dict(td.get("next_car_brief") or {})
+            t.next_car_work = dict(td.get("next_car_work") or {})
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
             t.parent_team = td.get("parent_team", t.parent_team)
@@ -441,6 +558,16 @@ class GameState:
                     t.car.parts[k].perf = p["perf"]
                     t.car.parts[k].condition = p["condition"]
             t.car.setup = td.get("setup", t.car.setup)
+            t.car.balance = float(td.get("balance", 0.0))
+            from .kits import Kit
+            t.part_delta = {k: dict(v) for k, v in (td.get("part_delta") or {}).items()}
+            t.last_spec = dict(td.get("last_spec") or {})
+            campi_k = {f.name for f in fields(Kit)}
+            t.kits = [Kit(**{k: v for k, v in x.items() if k in campi_k})
+                      for x in (td.get("kits") or [])]
+            t.auto_dev = bool(td.get("auto_dev", False))
+            t.auto_setup = bool(td.get("auto_setup", True))
+            t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()
         gs._sync_to_regulations(base_sprints)

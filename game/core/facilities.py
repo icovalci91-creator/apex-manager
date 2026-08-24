@@ -204,9 +204,13 @@ def ai_invest(gs) -> None:
         budget = min(economy.capex_left(gs, team), max(0.0, team.cash - 25.0))
         # chi sta perdendo soldi non apre cantieri: il capitale e' un budget a
         # parte, ma la firma la mette lo stesso proprietario
-        budget *= ((0.55 if gs.season % CAPEX_SPREAD else 1.0)
-                   * economy.spending_room(gs, team)
-                   * (0.30 + 0.70 * economy.budget_health(gs, team)))
+        # chi ha capitale non aspetta il turno buono: il limite per le
+        # costruzioni e' gia' un tetto, e lasciarne indietro un pezzo significa
+        # solo tenere i soldi fermi
+        fame = economy.spending_appetite(gs, team)
+        rateo = 1.0 if not gs.season % CAPEX_SPREAD else 0.55 + 0.45 * fame
+        budget *= (rateo * economy.spending_room(gs, team)
+                   * (0.30 + 0.70 * max(economy.budget_health(gs, team), fame)))
         # chi nuota nei soldi prima o poi si costruisce la pista di casa, e
         # quella la paga il gruppo: non tocca nessuno dei due tetti
         for key in OPTIONAL:

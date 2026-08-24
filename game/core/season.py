@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import (calendar, development, economy, facilities, market, penalties,
+from . import (academy, calendar, departments, development, economy, facilities,
+               market, nextcar, penalties,
                powertrain, rules, setup, sponsors, testing)
 from .state import RaceResult
 
@@ -64,6 +65,19 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
             "grid": e.grid, "points": pts, "damage": round(e.damage, 1),
         })
 
+    # un cedimento non e' un guaio da un giorno: quel pezzo e' da buttare, e
+    # il pezzo dopo lo si monta col contingente che si ha
+    for e in sim.entrants:
+        if e.status != "retired":
+            continue
+        d = gs.drivers.get(e.driver_id)
+        if d is None:
+            continue
+        if "power unit" in e.dnf_reason or "olio" in e.dnf_reason or "surriscald" in e.dnf_reason:
+            d.pu_wear = 0.0
+        elif "cambio" in e.dnf_reason:
+            d.gearbox_wear = 0.0
+
     # usura e danni sulla vettura di ogni squadra
     for team in gs.teams.values():
         dmg = 0.0
@@ -72,7 +86,7 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
                 continue
             dmg += e.damage
             if e.damage > 0:
-                _distribute_damage(gs, team, e.damage)
+                _distribute_damage(gs, team, e.damage, gs.drivers.get(e.driver_id))
         # l'usura segue i chilometri percorsi: la sprint e' circa un terzo di GP
         team.car.wear(2.6 * min(1.0, sim.laps / max(1, track.laps)), track)
         # i costi fissi del weekend (logistica, stipendi, strutture) e i ricavi
@@ -146,11 +160,18 @@ def _pay_bonuses(gs, d, team, pos: int, pts: float, status: str, kind: str) -> N
         team.add_expense(f"Premi contratto {d.last}", round(due, 3), in_cap=in_cap)
 
 
-def _distribute_damage(gs, team, amount: float) -> None:
+def _distribute_damage(gs, team, amount: float, driver=None) -> None:
+    from . import kits
     keys = list(team.car.parts.keys())
     hits = gs.rng.sample(keys, k=min(3, len(keys)))
     for k in hits:
         team.car.damage(k, amount * gs.rng.uniform(0.2, 0.5))
+    # un contatto leggero si raddrizza, una botta vera porta via il pezzo: e se
+    # quel pezzo era la specifica nuova, quella macchina torna indietro
+    if driver is not None and amount >= 26.0:
+        riga = kits.wreck(gs, team, driver, kits._pezzo_colpito(gs))
+        if riga:
+            gs.push(f"{team.name}: {riga}", "tecnico")
 
 
 def _update_morale(gs, d, team, pos: int, status: str) -> None:
@@ -169,16 +190,54 @@ def _expected_position(gs, team) -> float:
 
 
 # ---------------------------------------------------------------- post gara
-def after_race(gs, dev_budget: float = 1.5, pu_budget: float = 0.0) -> list:
+def player_budgets(gs) -> tuple:
+    """Quanto mette sul tavolo il giocatore, per gara, senza doverlo decidere.
+
+    Prima c'era una barra da trascinare, e non era una decisione: non esiste il
+    motivo per metterla piu' bassa del possibile. Adesso il conto e' quello che
+    fanno anche le squadre del computer - quello che avanza dopo i costi fissi,
+    diviso per le gare che restano - e la scelta vera resta dov'era: come
+    ripartire il lavoro fra le aree, quali pacchetti aprire e quando omologare
+    una specifica di motore.
+    """
+    team = gs.player
+    gare = max(1, len(gs.tracks) - gs.round)
+    resta = economy.room_left(gs, team)
+    dev = max(0.0, min(resta / gare * 0.55, development.budget_headroom(gs, team) * 0.5))
+    dev *= economy.spending_room(gs, team)
+    pu = 0.0
+    if team.works or powertrain.has_program(gs):
+        # il reparto motori ha un budget suo, fuori dal tetto di spesa
+        pu = max(0.0, min(team.cash * 0.05, 1.1 + team.reputation / 55.0))
+        pu *= economy.spending_room(gs, team)
+    return round(dev, 3), round(pu, 3)
+
+
+def after_race(gs, dev_budget: float | None = None, pu_budget: float | None = None) -> list:
     """Sviluppo, notizie e avanzamento del calendario."""
     msgs = []
     player = gs.player
-    development.passive_development(gs, player, dev_budget)
+    if dev_budget is None or pu_budget is None:
+        auto_dev, auto_pu = player_budgets(gs)
+        dev_budget = auto_dev if dev_budget is None else dev_budget
+        pu_budget = auto_pu if pu_budget is None else pu_budget
+    if player.auto_dev:
+        # delega al reparto: decide lui allocazione, pacchetti e taglie, e
+        # quanto viene bene dipende da chi ci sta dentro
+        development.run_department(gs, player)
+    else:
+        development.passive_development(gs, player, dev_budget)
     # prima il verdetto su quello che gia' gira, poi quello che arriva adesso:
     # una specifica nuova non puo' essere giudicata dalla gara appena corsa
     msgs += development.check_trials(gs, player)
     msgs += development.advance_projects(gs, player)
     development.ai_development(gs)
+    from . import kits
+    for t in gs.teams.values():
+        for m in kits.produce(gs, t):
+            msgs.append(m)
+        if not t.is_player or t.auto_dev:
+            kits.ai_fit(gs, t)
     testing.ai_plan(gs)
     for t in gs.teams.values():          # usura di power unit e cambi
         for m in penalties.wear_components(gs, t):
@@ -229,6 +288,11 @@ def end_season(gs) -> dict:
         premi = sponsors.pay_bonuses(gs, t, champion=(t is campione))
         if t.is_player and premi > 0.01:
             report["finance"].append(f"Bonus di risultato dagli sponsor: {premi:.2f} M$.")
+
+    # il nome della squadra segue i risultati, con calma: una stagione buona
+    # non fa una scuderia importante, cinque si'
+    from . import newteam
+    report["finance"] += newteam.drift_reputation(gs)
 
     # crescita/declino dei piloti
     for d in list(gs.drivers.values()) + list(gs.free_agents):
@@ -300,13 +364,22 @@ def end_season(gs) -> dict:
         t.podiums = 0
         t.reset_season_finances()
         t.car.repair_all()
+    report["market"] += academy.end_season(gs)
+    report["market"] += academy.ai_found(gs)
+    report["market"] += departments.ai_plan(gs)
+    departments.new_season(gs)
     testing.end_season(gs)
     development.new_car_season(gs)
     report["rules"] += powertrain.end_season(gs)
+    # la vettura dell'anno prossimo: quello che il reparto ha preparato durante
+    # la stagione scende in pista adesso
+    report["progress"] += nextcar.end_season(gs)
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1
         d.gearbox_used = 1
+        d.pu_wear = 100.0
+        d.gearbox_wear = 100.0
         d.grid_penalty = 0
         d.points = 0.0
         d.wins = 0
@@ -324,6 +397,9 @@ def end_season(gs) -> dict:
 
     gs.season += 1
     gs.regulations["season"] = gs.season
+    # quello che era stato votato per quest'anno entra in vigore adesso, non
+    # il giorno in cui e' stato approvato
+    report["rules"] += rules.apply_pending(gs)
     for t in gs.teams.values():          # anno nuovo: si riparte da gennaio
         t.set_clock(gs.season, 1, 0)
     gs.round = 0

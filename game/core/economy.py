@@ -12,7 +12,8 @@ from .. import config as C
 PRIZE_POOL = 1150.0        # M$ distribuiti dal promoter
 PRIZE_EQUAL_SHARE = 0.45   # quota del piatto divisa in parti uguali
 # quota della seconda colonna, quella legata al piazzamento
-PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058, 0.052, 0.046]
+PRIZE_SHARE = [0.150, 0.130, 0.115, 0.100, 0.090, 0.080, 0.072, 0.064, 0.058,
+               0.052, 0.046, 0.043]
 # Il premio di anzianita': chi c'e' da sempre porta pubblico e sponsor a tutto
 # il campionato, e da sempre se lo fa pagare. E' il caso della Ferrari.
 PRIZE_HERITAGE = 0.05
@@ -36,6 +37,14 @@ def prize_money(gs, position: int, flatten: float = 0.0, team=None) -> float:
     # prende la Ferrari lo mettono tutti gli altri
     merito = PRIZE_POOL * (1.0 - PRIZE_EQUAL_SHARE - PRIZE_HERITAGE) * share / tot
     extra = PRIZE_POOL * PRIZE_HERITAGE if team is not None and heritage(team) else 0.0
+    # chi e' appena entrato non ha diritto alla colonna uguale per tutti: quella
+    # si divide fra chi si e' classificato nei campionati scorsi, e lui non
+    # c'era. E' la cosa che piu' di ogni altra rende dura la prima stagione
+    if team is not None:
+        from . import newteam
+        f = newteam.prize_factor(gs, team)
+        if f < 1.0:
+            return round((quota_uguale + merito) * f, 2)
     return round(quota_uguale + merito + extra, 2)
 
 
@@ -79,7 +88,10 @@ def capex_limit(gs, team) -> float:
     base = float(gs.regulations.get("capex_limit_musd", 45.0))
     n = max(2, len(gs.teams))
     quota = (max(1, min(n, team.last_position)) - 1) / (n - 1)
-    return round(base * (1.0 + CAPEX_SCALE * quota), 2)
+    # a chi entra da zero il regolamento concede di piu': senza, una fabbrica
+    # non si tira su prima che la squadra sia gia' morta
+    from . import newteam
+    return round(base * (1.0 + CAPEX_SCALE * quota) + newteam.capex_bonus(gs, team), 2)
 
 
 def capex_spent(gs, team) -> float:
@@ -120,9 +132,18 @@ def race_costs(gs, team, damage_cost: float) -> list:
     if not team.works:
         items.append(("Fornitura power unit", round(team.engine_customer_cost / n, 3),
                       False, "powertrain"))
-    drv_salaries = sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers) / n
+    # anche il terzo pilota si paga, e i ragazzi del vivaio pure
+    tutti = list(team.drivers) + list(team.reserves) + list(team.academy)
+    drv_salaries = sum(gs.drivers[d].salary for d in tutti if d in gs.drivers) / n
     in_cap = not gs.regulations.get("cost_cap_excludes_driver_salaries", True)
     items.append(("Ingaggi piloti", round(drv_salaries, 3), in_cap, "piloti"))
+    from . import academy
+    vivaio = academy.running_cost(gs, team)
+    if vivaio > 0:
+        # il vivaio sta fuori dal tetto di spesa, come nella realta': e' un
+        # programma della casa, non un costo della monoposto
+        items.append((f"Vivaio ({team.academy_name})", round(vivaio / n, 3),
+                      False, "piloti"))
     return items
 
 
@@ -182,6 +203,9 @@ def end_of_season_finances(gs) -> list:
                 pen = min(30, int(over / 3))
                 team.points = max(0.0, team.points - pen)
                 msgs.append(f"{team.short}: sforamento grave, {fine} M$ di multa e -{pen} punti.")
+            # una violazione accertata e' l'unico motivo, oltre alla sicurezza,
+            # per cui la federazione puo' cambiare le carte in corsa
+            gs.regulations["violation_pending"] = True
         if team.is_player:
             msgs.append(f"Premio FOM incassato: {prize} M$ per il {pos}o posto costruttori.")
     # i conti col proprietario si chiudono dopo i premi, che e' quando si sa
@@ -192,27 +216,48 @@ def end_of_season_finances(gs) -> list:
 
 
 # ------------------------------------------------------------- il proprietario
-# Una squadra di Formula 1 non e' un salvadanaio. Chi guadagna distribuisce
-# l'utile - il proprietario e' li' per quello - e chi perde viene coperto, ma
-# non gratis: l'anno dopo si spende meno, perche' e' quello che succede quando
-# si va a chiedere i soldi a chi comanda.
+# L'utile resta in squadra. Il proprietario di una scuderia di Formula 1 non e'
+# un azionista che stacca il dividendo e se ne va: mette i soldi quando servono
+# e li lascia dentro quando ci sono, perche' l'unica cosa che gli interessa e'
+# che la macchina vada piu' forte.
 #
-# Senza questa regola il conto divergeva in tutte e due le direzioni: su otto
-# stagioni la prima della classe arrivava a 1661 M$ fermi in cassa, con il
-# tetto di spesa gia' saturo e quindi nessun modo di usarli, e l'ultima a -191
-# continuando a correre come se niente fosse.
-RESERVE_SHARE = 0.35     # riserva tenuta in cassa, in quote di tetto di spesa
-DIVIDEND_TRIGGER = 1.7   # oltre questa quota della riserva si distribuisce
+# E i soldi in cassa servono davvero, perche' non tutto passa dal tetto di
+# spesa: costruzioni, ingaggi dei piloti e indennizzi per portare via un
+# ingegnere a un'altra squadra si pagano con la liquidita'. Chi ne ha poca non
+# riesce nemmeno a riempire il budget che il regolamento gli concederebbe, ed
+# e' esattamente la differenza fra il fondo e la testa della griglia.
+#
+# Quello che il proprietario fa sul serio e' l'altro lato: copre le perdite, e
+# l'anno dopo si spende meno.
+RESERVE_SHARE = 0.35     # riserva di lavoro, in quote di tetto di spesa
 AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
 AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
 
 
 def reserve(gs) -> float:
+    """La liquidita' che una squadra tiene da parte per far girare la baracca."""
     return round(cap_limit(gs) * RESERVE_SHARE, 2)
 
 
+def war_chest(gs, team) -> float:
+    """Quello che c'e' in cassa oltre la riserva: capitale, non fondo cassa."""
+    return round(team.cash - reserve(gs), 2)
+
+
+def spending_appetite(gs, team) -> float:
+    """Da 0 a 1: quanto una squadra puo' permettersi di spingere oltre il minimo.
+
+    Chi ha solo la riserva vive di quello che incassa, gara per gara. Chi ha
+    capitale in cassa lo mette sul tavolo - strutture, ingegneri, piloti,
+    pacchetti - perche' i soldi fermi non fanno punti.
+    """
+    if team.cash <= 0:
+        return 0.0
+    return max(0.0, min(1.0, war_chest(gs, team) / max(1.0, reserve(gs) * 0.6)))
+
+
 def owner_settlement(gs, team) -> list:
-    """Chiude i conti col proprietario: preleva l'utile o copre le perdite."""
+    """Chiude i conti col proprietario: copre le perdite. L'utile resta dentro."""
     msgs = []
     ris = reserve(gs)
     if team.cash < 0:
@@ -230,15 +275,12 @@ def owner_settlement(gs, team) -> list:
                         f"{(1 - team.austerity) * 100:.0f}% del normale.")
         else:
             msgs.append(f"{team.short}: perdite coperte dalla proprieta', stagione di magra.")
-    elif team.cash > ris * DIVIDEND_TRIGGER:
-        utile = round(team.cash - ris, 2)
-        team.add_expense("Utile distribuito alla proprieta'", utile, in_cap=False,
-                         category="proprieta")
-        if team.is_player:
-            msgs.append(f"Stagione in utile: {utile:.0f} M$ vanno alla proprieta', in cassa "
-                        f"resta la riserva di {ris:.0f} M$.")
     else:
         team.austerity = max(0.0, team.austerity * AUSTERITY_EASE)
+        if team.is_player and war_chest(gs, team) > 0:
+            msgs.append(f"Stagione chiusa in utile: {team.cash:.0f} M$ restano in cassa, "
+                        f"{war_chest(gs, team):.0f} oltre la riserva di lavoro. Sono i "
+                        f"soldi per costruire, per gli ingaggi e per i pacchetti.")
     return msgs
 
 
@@ -249,6 +291,12 @@ def spending_room(gs, team) -> float:
     punizione, e' quello che succede davvero quando i conti non tornano.
     """
     return max(0.15, 1.0 - float(getattr(team, "austerity", 0.0)))
+
+
+# Quanta parte del capitale oltre la riserva un proprietario e' disposto a
+# bruciare in una stagione. Non tutto: chi svuota la cassa in un anno l'anno
+# dopo non c'e' piu'.
+OWNER_INJECTION = 0.18
 
 
 def season_room(gs, team) -> float:
@@ -272,12 +320,25 @@ def season_room(gs, team) -> float:
     # e chi fa il budget senza metterli in conto sbaglia il budget
     fisse = team.staff_cost + team.facility_upkeep + TRAVEL_PER_RACE * gare
     fisse += DAMAGE_RESERVE
-    fisse += sum(gs.drivers[d].salary for d in team.drivers if d in gs.drivers)
+    from . import academy as _acc
+    fisse += _acc.running_cost(gs, team)
+    fisse += sum(gs.drivers[d].salary
+                 for d in list(team.drivers) + list(team.reserves) + list(team.academy)
+                 if d in gs.drivers)
     if team.works:
         fisse += powertrain.PU_OPERATING_COST
     else:
         fisse += team.engine_customer_cost
-    return round(max(0.0, entrate - fisse), 2)
+    # e poi c'e' il capitale, che e' la cosa che tiene in piedi chi non si regge
+    # ancora sui propri ricavi. Il proprietario prima paga il buco - le luci si
+    # accendono comunque - e di quello che avanza ne mette sul tavolo una parte.
+    # E' l'unico modo in cui una squadra appena entrata, che dal promoter non
+    # prende niente, sviluppa qualcosa invece di limitarsi a sopravvivere.
+    scoperto = max(0.0, fisse - entrate)
+    capitale = max(0.0, team.cash - reserve(gs) * 0.35)
+    coperto = min(capitale, scoperto)
+    resta = capitale - coperto
+    return round(max(0.0, entrate + coperto + resta * OWNER_INJECTION - fisse), 2)
 
 
 # Quanto avanza a una squadra in salute, dopo i costi fissi: serve a dire se
@@ -309,6 +370,86 @@ def room_left(gs, team) -> float:
 def budget_health(gs, team) -> float:
     """0 se non resta niente, 1 se resta quanto a una squadra tranquilla."""
     return max(0.0, min(1.0, room_left(gs, team) / DISCRETIONARY_REF))
+
+
+# ------------------------------------------------------- il direttore finanziario
+# Quanto e' larga la forbice della previsione, da un direttore scarso a uno
+# bravo. Non e' che uno spenda meno: e' che sa dove andra' a finire, e nel
+# tetto di spesa saperlo in anticipo vale quanto averli, i soldi.
+FORECAST_ERR_MAX = 18.0
+FORECAST_ERR_MIN = 2.5
+
+
+def committed(gs, team) -> float:
+    """Quello che si e' gia' impegnati a pagare e non e' ancora uscito."""
+    aperti = sum(max(0.0, pr.budget - pr.invested) for pr in team.dev_projects)
+    prove = sum(t.cost * 0.06 * 3 for t in team.spec_trials
+                if t.state == "affinamento")
+    return round(aperti + prove, 2)
+
+
+def forecast_error(team) -> float:
+    """Di quanto puo' sbagliare la previsione, in milioni."""
+    q = max(0.0, min(1.0, (team.finance_strength - 45.0) / 45.0))
+    return round(FORECAST_ERR_MAX - (FORECAST_ERR_MAX - FORECAST_ERR_MIN) * q, 1)
+
+
+def cap_forecast(gs, team) -> dict:
+    """Dove si andra' a finire col tetto di spesa, se si va avanti cosi'.
+
+    Somma quello che e' gia' uscito, quello a cui ci si e' impegnati e quello
+    che le gare che restano si porteranno via comunque. La forbice attorno alla
+    previsione la decide il direttore finanziario.
+    """
+    limite = cap_limit(gs)
+    gare = max(0, len(gs.tracks) - gs.round)
+    n = max(1, len(gs.tracks))
+    fissi_gara = (team.staff_cost + team.facility_upkeep) / n + TRAVEL_PER_RACE
+    fissi_gara += DAMAGE_RESERVE / n
+    previsto = team.spent + committed(gs, team) + fissi_gara * gare
+    err = forecast_error(team)
+    margine = limite - previsto
+    # il rischio di sforare: la previsione e' una forbice, non un numero
+    if err <= 0.01:
+        rischio = 1.0 if margine < 0 else 0.0
+    else:
+        rischio = max(0.0, min(1.0, 0.5 - margine / (2.0 * err)))
+    return {"speso": round(team.spent, 2), "limite": limite,
+            "impegnato": committed(gs, team), "fissi": round(fissi_gara * gare, 2),
+            "previsto": round(previsto, 2), "margine": round(margine, 2),
+            "errore": err, "rischio": round(rischio, 3), "gare": gare}
+
+
+def spendable(gs, team) -> float:
+    """Quanto si puo' ancora impegnare restando ragionevolmente al sicuro.
+
+    E' il margine previsto meno la forbice: un direttore bravo lascia poco
+    inutilizzato, uno scarso costringe a tenersi larghi.
+    """
+    f = cap_forecast(gs, team)
+    return round(max(0.0, f["margine"] - f["errore"]), 2)
+
+
+def cap_advice(gs, team, spesa: float = 0.0) -> tuple:
+    """Cosa direbbe il direttore finanziario davanti a una spesa. (colore, frase)."""
+    f = cap_forecast(gs, team)
+    margine = f["margine"] - spesa
+    err = f["errore"]
+    nome = "Il direttore finanziario"
+    d = team.role("financial_director")
+    if d is not None:
+        nome = d.name
+    if margine < -err:
+        return "male", (f"{nome}: cosi' si sfora di sicuro, siamo "
+                        f"{abs(margine):.0f} M$ oltre il tetto.")
+    if margine < err:
+        return "attento", (f"{nome}: siamo al limite, il margine e' {margine:.0f} M$ "
+                           f"con un'incertezza di {err:.0f}. Non ci metterei altro.")
+    if margine < err * 2.5:
+        return "ok", (f"{nome}: ci sta, restano {margine:.0f} M$ di margine su una "
+                      f"previsione a +/-{err:.0f}.")
+    return "ok", (f"{nome}: nessun problema, avanzano {margine:.0f} M$ e la "
+                  f"previsione e' buona a +/-{err:.0f}.")
 
 
 def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:

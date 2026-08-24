@@ -109,9 +109,14 @@ def estimate(gs, observer, rival) -> dict:
     return {k: max(1.0, min(100.0, v + rng.gauss(0.0, sigma))) for k, v in truth.items()}
 
 
-def field_report(gs) -> dict:
-    """Confronto fra la nostra vettura e il resto della griglia."""
-    me = gs.player
+def field_report(gs, team=None) -> dict:
+    """Confronto fra una vettura e il resto della griglia.
+
+    Senza squadra vale per la nostra: e' il caso di tutte le schermate. Con
+    una squadra serve al reparto di quella squadra per decidere da solo dove
+    mettere le mani.
+    """
+    me = team if team is not None else gs.player
     mine = car_profile(me, gs)
     rivals = {t.id: estimate(gs, me, t) for t in gs.teams.values() if t.id != me.id}
     out = {}
@@ -129,9 +134,9 @@ def field_report(gs) -> dict:
     return out
 
 
-def priorities(gs, limit: int = 3) -> list:
+def priorities(gs, limit: int = 3, team=None) -> list:
     """Aree su cui conviene investire, ordinate per urgenza."""
-    rep = field_report(gs)
+    rep = field_report(gs, team)
     track_bias = _calendar_bias(gs)
     scored = []
     for area, r in rep.items():
@@ -169,9 +174,24 @@ def _calendar_bias(gs) -> dict:
     return calendar_bias(gs)
 
 
-def suggested_allocation(gs) -> dict:
+def suggested_parts(gs, team=None, limit: int = 3) -> list:
+    """I componenti su cui gli ingegneri metterebbero le mani, in ordine.
+
+    Sono gli stessi che nominano in riunione: se dicono "lavorerei su
+    sospensioni e telaio", il reparto che lavora da solo apre il pacchetto
+    li' e non altrove.
+    """
+    fuori = []
+    for area, _r in priorities(gs, limit, team):
+        for part in AREA_PARTS[area][:2]:
+            if part not in fuori:
+                fuori.append(part)
+    return fuori
+
+
+def suggested_allocation(gs, team=None) -> dict:
     """Ripartizione delle risorse consigliata dagli ingegneri."""
-    rep = field_report(gs)
+    rep = field_report(gs, team)
     bias = _calendar_bias(gs)
     weight = {p: 0.4 for p in C.CAR_PARTS}
     for area, r in rep.items():

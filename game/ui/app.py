@@ -37,6 +37,25 @@ class Scene:
             w.draw(surf)
 
 
+def _window_size() -> tuple:
+    """La finestra piu' grande che ci sta davvero sullo schermo.
+
+    La misura di riferimento e' 1600x900, ma un portatile a 1920x1080 con lo
+    scaling di Windows al 125% ha un desktop da 1536x864: aprire piu' grandi
+    del desktop taglia fuori il bordo destro e il fondo, e il gioco sembra
+    disallineato quando invece e' solo fuori dallo schermo. Si lascia anche il
+    posto per la barra del titolo e per quella delle applicazioni.
+    """
+    if IS_WEB:
+        return C.SCREEN_W, C.SCREEN_H
+    try:
+        dw, dh = pygame.display.get_desktop_sizes()[0]
+    except Exception:
+        return C.SCREEN_W, C.SCREEN_H
+    return (max(C.MIN_SCREEN_W, min(C.SCREEN_W, dw - 16)),
+            max(C.MIN_SCREEN_H, min(C.SCREEN_H, dh - 72)))
+
+
 class App:
     def __init__(self):
         pygame.init()
@@ -44,15 +63,13 @@ class App:
         # nel browser la finestra e' la canvas della pagina, di dimensione
         # fissa: chiedere RESIZABLE non serve e puo' lasciarla vuota
         flags = 0 if IS_WEB else pygame.RESIZABLE
-        self.screen = pygame.display.set_mode((C.SCREEN_W, C.SCREEN_H), flags)
+        self.screen = pygame.display.set_mode(_window_size(), flags)
         self._splash()
         self.clock = pygame.time.Clock()
         self.running = True
         self.scenes: list = []
         self.gs = None
         self.editor = False         # editor di gioco: si accende dal menu
-        self.dev_budget = 1.5       # M$ per gara, impostato dalla pagina Sviluppo
-        self.pu_budget = 1.0        # M$ per gara per il reparto power unit
         self.toast_text = ""
         self.toast_t = 0.0
 
@@ -111,7 +128,12 @@ class App:
                 if ev.type == pygame.QUIT:
                     self.running = False
                 elif ev.type == pygame.VIDEORESIZE:
-                    self.screen = pygame.display.set_mode((ev.w, ev.h), pygame.RESIZABLE)
+                    # sotto una certa misura le schermate non ci stanno piu':
+                    # meglio una finestra piu' grande della richiesta che una
+                    # in cui i pannelli finiscono uno sopra l'altro
+                    self.screen = pygame.display.set_mode(
+                        (max(C.MIN_SCREEN_W, ev.w), max(C.MIN_SCREEN_H, ev.h)),
+                        pygame.RESIZABLE)
                     if self.scene and hasattr(self.scene, "on_resize"):
                         self.scene.on_resize()
                 elif self.scene:

@@ -10,7 +10,7 @@ from ... import storage
 from ...core.state import GameState
 from .. import theme as T
 from ..app import Scene
-from ..widgets import Button, Toggle
+from ..widgets import Button, TextInput, Toggle
 
 
 class MenuScene(Scene):
@@ -97,6 +97,8 @@ class TeamSelectScene(Scene):
         self._sync_toggle()
         self.widgets.append(Button((w // 2 + 110, h - 156, 220, 46), "Inizia la carriera",
                                    self.start, "primary"))
+        self.widgets.append(Button((w // 2 + 344, h - 156, 210, 46), "Fonda una scuderia",
+                                   self.found, "normal"))
         self.widgets.append(Button((40, h - 156, 150, 46), "Indietro", self.app.pop, "ghost"))
 
     def on_resize(self) -> None:
@@ -121,6 +123,9 @@ class TeamSelectScene(Scene):
 
     def effective_constructor(self, t) -> bool:
         return t.works or (t.pu_capable and self.constructor)
+
+    def found(self) -> None:
+        self.app.push(FoundTeamScene(self.app, self.gs_preview))
 
     def start(self) -> None:
         team = self.teams[self.sel]
@@ -189,6 +194,188 @@ class TeamSelectScene(Scene):
             note = "Comprerai la power unit da un motorista: meno costi fissi, prestazione non tua."
         T.text(surf, note, (w // 2, h - 180), 14, colour, align="center", maxw=w - 160)
         super().draw(surf)
+
+
+class FoundTeamScene(Scene):
+    """Mettere in piedi una squadra e iscriverla al campionato.
+
+    Non e' una schermata di personalizzazione: e' una domanda sola, quanto si
+    mette sul tavolo, e da quella dipende tutto il resto. La quota di ingresso
+    la si paga comunque, e quello che avanza e' la squadra che si potra'
+    costruire.
+    """
+
+    # I colori che si possono dare alla macchina. Nessuno di questi e' di
+    # qualcun altro: si sceglie il proprio.
+    LIVREE = [("#7C5CFF", "#F5C542"), ("#00B894", "#0F1E1A"),
+              ("#E8563F", "#F2E4C9"), ("#2D6BE8", "#EAF1FF"),
+              ("#D6D3CB", "#1B1D22"), ("#C6117F", "#111318")]
+
+    def __init__(self, app, preview):
+        super().__init__(app)
+        from ...core import newteam
+        self.NT = newteam
+        self.gs_preview = preview
+        self.profili = list(newteam.PROFILI.items())
+        self.sel = 1                       # il progetto privato, la via di mezzo
+        self.livrea = 0
+        self.motore = 0
+        self.fornitori = newteam.suppliers(preview)
+        self.build()
+
+    def build(self) -> None:
+        w, h = self.app.screen.get_size()
+        self.widgets = []
+        self.cards = []
+        cw, ch, gap = 320, 234, 20
+        x0 = (w - (3 * cw + 2 * gap)) // 2
+        for i, (_k, _p) in enumerate(self.profili):
+            self.cards.append((pygame.Rect(x0 + i * (cw + gap), 190, cw, ch), i))
+        self.nome = TextInput((w // 2 - 330, 128, 300, 38), "Apex Racing",
+                              placeholder="nome della scuderia")
+        self.sede = TextInput((w // 2 + 30, 128, 300, 38), "Modena, Italia",
+                              placeholder="dove ha sede")
+        self.widgets += [self.nome, self.sede]
+        yb = 190 + ch + 26
+        self.widgets.append(Button((w // 2 - 330, yb, 170, 34), "Cambia livrea",
+                                   self.next_livrea, "ghost"))
+        self.widgets.append(Button((w // 2 - 40, yb, 370, 34),
+                                   f"Power unit: {self._fornitore()[1]}",
+                                   self.next_motore, "ghost"))
+        self.widgets.append(Button((w // 2 + 110, h - 106, 240, 48),
+                                   "Iscrivi la scuderia", self.start, "primary"))
+        self.widgets.append(Button((40, h - 106, 150, 48), "Indietro", self.app.pop, "ghost"))
+
+    def on_resize(self) -> None:
+        self.build()
+
+    def _fornitore(self) -> tuple:
+        return self.fornitori[self.motore % len(self.fornitori)]
+
+    def next_livrea(self) -> None:
+        self.livrea = (self.livrea + 1) % len(self.LIVREE)
+
+    def next_motore(self) -> None:
+        self.motore = (self.motore + 1) % len(self.fornitori)
+        self.build()
+
+    def _short(self, nome: str) -> str:
+        parole = [x for x in nome.split() if x]
+        return (parole[0][:12] if parole else "Nuova")
+
+    def start(self) -> None:
+        chiave, prof = self.profili[self.sel]
+        col, acc = self.LIVREE[self.livrea]
+        nome = self.nome.value.strip() or "Nuova Scuderia"
+        founding = {
+            "name": nome, "short": self._short(nome),
+            "base": self.sede.value.strip() or "Europa",
+            "colour": col, "accent": acc, "profilo": chiave,
+            "engine": self._fornitore()[0],
+        }
+        tid = "".join(c for c in nome.lower() if c.isalnum())[:14] or "nuova"
+        if tid in self.gs_preview.teams:
+            tid += "fc"
+        gs = GameState.new_game(tid, False, founding=founding)
+        self.app.gs = gs
+        from .shell import GameShell
+        self.app.replace(GameShell(self.app))
+
+    def handle(self, ev) -> None:
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            for r, i in self.cards:
+                if r.collidepoint(ev.pos):
+                    self.sel = i
+                    return
+        super().handle(ev)
+
+    def draw(self, surf) -> None:
+        w, h = surf.get_size()
+        quota = self.NT.entry_fee(self.gs_preview)
+        col, acc = self.LIVREE[self.livrea]
+        T.text(surf, "FONDA UNA SCUDERIA", (w // 2, 40), 34, T.TEXT, bold=True, align="center")
+        T.text(surf, f"Entrare in Formula 1 costa {quota:.0f} M$ di quota di ingresso, "
+                     f"che vanno alle squadre gia' iscritte. Quello che avanza e' la "
+                     f"squadra che potrai costruire.",
+               (w // 2, 78), 15, T.DIM, align="center", maxw=w - 200)
+        T.text(surf, "NOME", (w // 2 - 330, 108), 11, T.DIM_2, bold=True)
+        T.text(surf, "SEDE", (w // 2 + 30, 108), 11, T.DIM_2, bold=True)
+
+        mouse = pygame.mouse.get_pos()
+        for r, i in self.cards:
+            _k, p = self.profili[i]
+            sel = (i == self.sel)
+            hov = r.collidepoint(mouse)
+            bordo = T.hex_rgb(col) if sel else T.LINE
+            T.panel(surf, r, T.PANEL_2 if (sel or hov) else T.PANEL, radius=10,
+                    border=bordo, width=2 if sel else 1)
+            pygame.draw.rect(surf, T.hex_rgb(col) if sel else T.LINE,
+                             (r.x, r.y, r.w, 5), border_top_left_radius=10,
+                             border_top_right_radius=10)
+            T.text(surf, p["label"], (r.x + 16, r.y + 18), 19, T.TEXT, bold=True)
+            resta = p["capitale"] - quota
+            T.text(surf, f"{p['capitale']:.0f} M$ sul tavolo", (r.x + 16, r.y + 46), 13,
+                   T.DIM)
+            T.text(surf, f"restano {resta:.0f} M$", (r.right - 16, r.y + 46), 14,
+                   T.OK if resta > 250 else (T.WARN if resta > 120 else T.BAD),
+                   bold=True, align="right")
+            for j, riga in enumerate(_wrap(p["desc"], 40)[:6]):
+                T.text(surf, riga, (r.x + 16, r.y + 72 + j * 18), 13, T.DIM_2)
+            T.text(surf, "Reputazione di partenza", (r.x + 16, r.bottom - 44), 12, T.DIM_2)
+            T.bar(surf, (r.x + 16, r.bottom - 26, r.w - 90, 8), p["reputation"], 100,
+                  T.hex_rgb(col))
+            T.text(surf, f"{p['reputation']:.0f}", (r.right - 16, r.bottom - 30), 14,
+                   T.TEXT, bold=True, align="right")
+
+        # la livrea, che e' la sola cosa che si vede prima di cominciare
+        yb = self.cards[0][0].bottom + 26
+        pygame.draw.rect(surf, T.hex_rgb(col), (w // 2 - 148, yb + 3, 44, 28),
+                         border_radius=5)
+        pygame.draw.rect(surf, T.hex_rgb(acc), (w // 2 - 98, yb + 3, 44, 28),
+                         border_radius=5)
+
+        _k, p = self.profili[self.sel]
+        _eid, ename, clienti = self._fornitore()
+        y = yb + 54
+        T.text(surf, "COSA VUOL DIRE COMINCIARE DA ZERO", (w // 2, y), 12, T.DIM_2,
+               bold=True, align="center")
+        motori = (f"Power unit da {ename}, che ha gia' {clienti} clienti. "
+                  + ("Il reparto motori proprio si potra' fondare piu' avanti."
+                     if p["pu_capable"] else
+                     "Il reparto motori proprio non e' alla portata."))
+        righe = [
+            ("Niente montepremi", T.BAD,
+             "Il primo anno dal promoter non arriva niente: il piatto si divide "
+             "fra chi si e' classificato nei campionati scorsi."),
+            ("Niente sponsor, niente strutture", T.WARN,
+             "Nessun accordo firmato. Galleria del vento in affitto, nessun "
+             "simulatore, una fabbrica da tirare su."),
+            ("Cliente e basta", T.DIM, motori),
+            ("Ultimi, e per una volta conviene", T.OK,
+             "Si parte in fondo, quindi con tutte le ore di galleria che il "
+             "regolamento concede a chi sta li'. E' l'unico vantaggio."),
+        ]
+        colw = (w - 300) // 2
+        for i, (titolo, c, corpo) in enumerate(righe):
+            cx = 150 + (i % 2) * (colw + 20)
+            cy = y + 30 + (i // 2) * 62
+            T.text(surf, titolo, (cx, cy), 14, c, bold=True)
+            for j, pezzo in enumerate(_wrap(corpo, max(30, colw // 7))[:2]):
+                T.text(surf, pezzo, (cx, cy + 20 + j * 17), 13, T.DIM_2)
+        super().draw(surf)
+
+
+def _wrap(testo: str, n: int) -> list:
+    fuori, riga = [], ""
+    for parola in testo.split():
+        if len(riga) + len(parola) + 1 > n:
+            fuori.append(riga)
+            riga = parola
+        else:
+            riga = f"{riga} {parola}".strip()
+    if riga:
+        fuori.append(riga)
+    return fuori
 
 
 def eng_name(gs, t) -> str:

@@ -35,6 +35,7 @@ class Team:
     track_name: str = ""         # come si chiama la pista di proprieta', se c'e'
     track_id: str = ""           # e quale circuito e', per andarci a provare
     heritage: bool = False       # premio di anzianita' dal promoter
+    entry_season: int = 0        # stagione di ingresso, se e' una squadra nuova
     test_days_used: int = 0      # giornate di test private gia' spese
     preseason_done: list = field(default_factory=list)  # prove collettive gia' fatte
     correlation: float = 0.0     # quanto la galleria del vento dice il vero
@@ -43,8 +44,20 @@ class Team:
     setup_paper_track: str = ""  # per quale pista vale
     sim_sessions: int = 0        # sessioni di simulatore fatte per quel weekend
     car_understanding: float = 0.0  # quanto abbiamo capito la macchina di quest'anno
+    workforce: dict = None       # quanti ingegneri lavorano in ogni reparto
+    hired_this_season: dict = None  # quanti se ne sono assunti quest'anno, per reparto
+    pu_building: bool = False    # ha fondato il reparto motori e lo sta costruendo
     car: Car = None
-    drivers: list = field(default_factory=list)      # id piloti
+    drivers: list = field(default_factory=list)      # id piloti titolari
+    reserves: list = field(default_factory=list)     # terzo pilota e collaudatori
+    academy: list = field(default_factory=list)      # ragazzi del vivaio
+    academy_name: str = ""       # come si chiama il vivaio, se c'e'
+    setups: dict = None          # assetto montato, pilota per pilota
+    kits: list = None            # pezzi nuovi usciti dalla fabbrica, da montare
+    part_delta: dict = None      # specifiche montate su una macchina sola
+    last_spec: dict = None       # la specifica precedente, se un pezzo si distrugge
+    auto_dev: bool = False       # il reparto tecnico decide da solo gli aggiornamenti
+    auto_setup: bool = True      # gli ingegneri di pista preparano l'assetto da soli
     staff: list = field(default_factory=list)        # oggetti Staff
     points: float = 0.0
     wins: int = 0
@@ -69,8 +82,10 @@ class Team:
     is_player: bool = False
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
-    next_reg_share: float = 0.0   # quota di sviluppo dirottata sul regolamento futuro
+    next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
+    next_car_brief: dict = None   # la linea data al reparto per la vettura nuova
+    next_car_work: dict = None    # lavoro gia' fatto sul progetto dell'anno prossimo
 
     @property
     def is_satellite(self) -> bool:
@@ -119,18 +134,21 @@ class Team:
     @property
     def aero_strength(self) -> float:
         people = 0.55 * self._s("head_of_aero", "aero") + 0.45 * self._s("technical_director", "aero")
+        people *= self._org("aero")
         tools = (0.42 * self._fac("windtunnel") + 0.30 * self._fac("cfd") + 0.28 * self._fac("aero_dept"))
         return 0.58 * people + 0.42 * tools
 
     @property
     def mech_strength(self) -> float:
         people = 0.55 * self._s("chief_designer", "mechanical") + 0.45 * self._s("technical_director", "mechanical")
+        people *= self._org("progetto")
         tools = 0.55 * self._fac("design_office") + 0.45 * self._fac("factory")
         return 0.60 * people + 0.40 * tools
 
     @property
     def pu_strength(self) -> float:
-        return 0.70 * self._s("head_of_powertrain", "powertrain") + 0.30 * self._fac("factory")
+        return (0.70 * self._s("head_of_powertrain", "powertrain") * self._org("powertrain")
+                + 0.30 * self._fac("factory"))
 
     @property
     def strategy_strength(self) -> float:
@@ -144,15 +162,15 @@ class Team:
 
     @property
     def reliability_strength(self) -> float:
-        return (0.40 * self._s("chief_designer", "reliability")
-                + 0.30 * self._s("chief_mechanic", "reliability")
+        return ((0.40 * self._s("chief_designer", "reliability")
+                 + 0.30 * self._s("chief_mechanic", "reliability")) * self._org("affidabilita")
                 + 0.30 * self._fac("factory"))
 
     @property
     def setup_strength(self) -> float:
         pe = self.roles("performance_engineer")
         pe_v = sum(p.analysis for p in pe) / len(pe) if pe else 60.0
-        base = (0.42 * pe_v + 0.30 * self._fac("simulator")
+        base = (0.42 * pe_v * self._org("simulazione") + 0.30 * self._fac("simulator")
                 + 0.28 * self._s("technical_director", "analysis"))
         # chi ha una pista propria ci gira quando vuole: arriva al weekend con
         # meno da scoprire
@@ -172,11 +190,34 @@ class Team:
         return 0.50 + 1.10 * (raw / 100.0)
 
     @property
+    def finance_strength(self) -> float:
+        """Quanto la squadra sa dove sono i suoi soldi.
+
+        Un direttore finanziario bravo non fa risparmiare: fa sapere in
+        anticipo quanto si sta per spendere, che nel tetto di spesa e' la
+        stessa cosa. Senza di lui si naviga a vista e si sfora per sbaglio.
+        """
+        return (0.62 * self._s("financial_director", "management", 48.0)
+                + 0.38 * self._s("financial_director", "analysis", 48.0))
+
+    @property
     def scouting_strength(self) -> float:
         return 0.65 * self._s("head_of_scouting", "scouting") + 0.35 * self._fac("academy")
 
+    def _org(self, area: str) -> float:
+        """Quanto l'organico di quel reparto moltiplica i suoi responsabili."""
+        from ..core import departments
+        return departments.size_factor(self, area)
+
     @property
     def staff_cost(self) -> float:
+        """I responsabili piu' tutte le persone che lavorano sotto di loro."""
+        from ..core import departments
+        return round(sum(s.salary for s in self.staff) + departments.payroll(self), 2)
+
+    @property
+    def leaders_cost(self) -> float:
+        """Solo i nomi dell'organigramma, senza l'organico che dirigono."""
         return round(sum(s.salary for s in self.staff), 2)
 
     @property

@@ -16,6 +16,19 @@ Prima installazione delle dipendenze:
 python -m pip install -r requirements.txt
 ```
 
+Ogni cifra che si sceglie ha i due pulsantini ai lati del cursore: un clic vale un passo,
+tenendoli premuti si accelera, e la rotellina sopra la barra fa la stessa cosa. Il passo si
+ricava dal formato del numero - se si legge con due decimali, il passo non e' mai piu'
+grosso di quello che si vede - e i valori restano sempre multipli tondi, cosi' l'ingaggio
+si ferma a 26.5 M$ e non a 26.4837.
+
+La misura di riferimento e' 1600x900, ma la finestra si apre grande quanto ci sta
+davvero sullo schermo: un portatile a 1920x1080 con lo scaling di Windows al 125% ha un
+desktop da 1536x864, e aprire piu' grandi di cosi' taglia fuori il bordo destro e il
+fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il menu di
+sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
+il quale i pannelli non starebbero piu' in piedi.
+
 ## Versione web (iPad e tablet)
 
 Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:
@@ -58,6 +71,14 @@ nel browser quindi si usa quello incluso in pygame.
    McLaren, Williams, Racing Bulls e Haas restano squadre da telaio: comprano la power unit
    e mettono tutto sulla macchina. Il vincolo e' il campo `pu_capable` in
    `data/teams.json`, con accanto la motivazione: se non sei d'accordo, cambialo.
+
+   Oppure la squadra non la scegli: la **fondi**. Il pulsante *Fonda una scuderia*
+   apre l'iscrizione al campionato come dodicesima squadra, e da li' si comincia da
+   niente - senza montepremi, senza sponsor, senza fabbrica. Sotto c'e' come funziona.
+
+   Oppure la squadra non la scegli: la **fondi**. Il pulsante *Fonda una scuderia*
+   apre l'iscrizione al campionato come dodicesima squadra, e da li' si comincia da
+   niente - senza montepremi, senza sponsor, senza fabbrica. Sotto c'e' come funziona.
 
 2. Dal **Quartier Generale** gestisci la squadra fra una gara e l'altra.
 3. **WEEKEND DI GARA** apre prove libere → qualifica → (sprint) → gara.
@@ -170,12 +191,14 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sezione | Cosa fai |
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
-| Vettura e assetto | Stato dei dieci componenti, prestazioni derivate, sessioni al simulatore e sei regolazioni d'assetto attorno al riferimento del reparto |
+| Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
-| Ingegneri | Riunione tecnica: dove sei rispetto alla griglia, su cosa lavorare, allocazione consigliata |
-| Piloti e mercato | Rinnovi e acquisti a trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola rescissoria |
-| Staff tecnico | Organigramma completo e mercato del personale |
+| Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
+| Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
+| Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
+| Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
+| Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
@@ -228,6 +251,37 @@ quelle da cui dipendono. I tipi vengono rispettati - un numero resta un numero, 
 resta un si/no - perche' cambiare il tipo di un campo sotto ai piedi del gioco lo farebbe
 esplodere in un punto lontanissimo da li'. Una partita toccata con l'editor se lo porta
 scritto nel salvataggio.
+
+### Le gomme del weekend
+
+Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
+gamma - da C1, la piu' dura, a C6 - scelte in base a quanta energia il tracciato mette
+nelle gomme: **C1-C2-C3 a Losail**, **C2-C3-C4 a Bahrain e Silverstone**, **C4-C5-C6 a
+Monaco**. E non e' solo un'etichetta: la stessa "morbida" a Monaco e a Silverstone e' una
+gomma diversa, e dura di conseguenza.
+
+Poi si scelgono i set. Tredici per pilota (dodici nei weekend con la sprint), di cui tre
+li decide il regolamento - due mescole tenute per la gara e una morbida riservata al Q3 -
+e **dieci si dividono come si vuole**. La scelta si consegna prima di arrivare in pista e
+da quel momento e' pubblica: finche' non consegni la tua non sai cosa hanno in mano gli
+altri, e appena consegni le vedi tutte.
+
+Chi ha caricato morbide fa un giro secco migliore e finisce le gomme in gara; chi ha
+caricato dure vive peggio il venerdi' e meglio la domenica. Misurato su otto gare
+identiche ad Albert Park, con la stessa macchina e lo stesso pilota:
+
+| Scelta | Qualifica media | Arrivo medio |
+|---|---|---|
+| 8 morbide / 2 medie / 0 dure | **2.6** | 5.1 |
+| 6 / 3 / 1 | 4.9 | 6.9 |
+| 3 / 3 / 4 | 4.4 | **3.0** |
+
+E i set si consumano davvero: due per ogni sessione di libere, uno per ogni turno di
+qualifica, uno per ogni stint di gara. Se arrivi al sabato senza morbide nuove il giro
+buono lo fai con le medie e paghi tre decimi; se arrivi alla domenica senza dure, il piano
+soste te lo detta il camion e non il muretto. Le squadre del computer scelgono in base a
+dove sono in classifica: chi sta davanti difende la gara e carica dure, chi insegue si
+gioca la qualifica.
 
 ### Durante la gara
 
@@ -370,6 +424,23 @@ dipende dalla *fiducia del reparto*, che mette insieme:
 | in aggiunta: correlazione dai test privati (+22%) e conoscenza della vettura (+10%) | |
 | in sottrazione: la taglia del pacchetto (medio -6%, grande -14%) | |
 
+**Quanto costa, e chi ci lavora.** Un aggiornamento non e' una fattura: e' un gruppo di
+persone che per settimane disegna, prova in galleria, fa i pezzi e li monta. Il conto si
+legge in chiaro prima di firmare - materiali piu' straordinari - ma il vincolo vero e'
+un altro: **quelle persone non si sdoppiano**.
+
+| Taglia | Persone | Gare | Costo tipico (fondo) |
+|---|---|---|---|
+| Piccolo | 10 | 1 | 1,6 M$ |
+| Medio | 26 | 3 | 3,8 M$ |
+| Grande | 52 | 6 | 7,0 M$ |
+
+Un pacchetto grande sull'aerodinamica impegna 52 persone del reparto per sei gare. Se il
+reparto ne ha 88, il secondo pacchetto grande non parte: *"servono 52 persone e il reparto
+ne ha 36 libere: o si assume, o si chiude un cantiere"*. E' qui che l'organico smette di
+essere un numero e diventa la ragione per cui una squadra sviluppa piu' in fretta di
+un'altra.
+
 Da li' escono quattro esiti: *fallito* (da -30% a +15% del previsto), *sottotono*, *in
 linea*, *oltre le attese*. Con un pacchetto grande una squadra di vertice fallisce circa
 una volta su sei, una di coda una volta su tre. La pagina Sviluppo mostra la forbice prima
@@ -479,6 +550,112 @@ chi se ne costruisce una, che prende il nome della squadra; il Red Bull Ring c'e
 perche' e' anche una gara del mondiale. Girarci non costa niente oltre ai materiali: e' li'
 che una pista di proprieta' comincia a ripagarsi.
 
+**Fondare una squadra, e cosa vuol dire davvero.** Si sceglie un nome, una sede, una
+livrea e il motorista a cui chiedere la power unit; poi si decide quanto si mette sul
+tavolo, ed e' l'unica scelta che conti perche' da li' dipende tutto il resto.
+
+| | sul tavolo | dopo la quota | reputazione |
+|---|---|---|---|
+| Casa costruttrice | 900 M$ | 450 M$ | 42 |
+| Progetto privato | 650 M$ | 200 M$ | 30 |
+| Sfida da garage | 600 M$ | 150 M$ | 22 |
+
+La differenza sono i **450 M$ di quota di ingresso**, che non restano in cassa: vanno
+alle undici squadre gia' iscritte, quaranta milioni a testa, a compensarle del piatto che
+da adesso si divide in dodici. Si chiama anti-diluizione ed e' cosi' che si entra
+davvero.
+
+Quello che si trova il giorno dopo:
+
+- **Dal promoter, il primo anno, non arriva niente.** Il montepremi si divide fra chi si
+  e' classificato nei campionati scorsi, e uno che e' appena arrivato nei campionati
+  scorsi non c'era. Il secondo anno arriva la sola colonna di merito, meno della meta';
+  dal terzo si conta come tutti. E' la cosa che piu' di ogni altra rende dura la prima
+  stagione, ed e' successa alla Haas.
+- **Una macchina un secondo e mezzo dietro l'ultima**, e piu' di tre dietro la prima.
+  Cambio e freni si comprano gia' fatti da chi li fa per mezza griglia, tutto il resto
+  e' disegnato da zero da gente che quella macchina non l'ha mai vista girare.
+- **Galleria del vento in affitto, nessun simulatore, una fabbrica da tirare su.**
+  Portare tutte le strutture al livello di una squadra di meta' gruppo costa circa
+  **400 M$**: con il limite ordinario in conto capitale non ci si arriva nemmeno avendoli,
+  quindi il regolamento concede a chi entra fino a **190 M$ in piu' all'anno**, che si
+  spengono nell'arco di sei stagioni. E' quello che rende il capitale iniziale una scelta
+  e non un numero.
+- **Il proprietario paga il buco, e non e' poco.** Una squadra nuova perde circa **60 M$
+  l'anno** solo per esistere: gli incassi sono 15-25, i costi fissi 76-80. Il capitale e'
+  l'autonomia, e quello che avanza dopo aver coperto il buco e' il budget di sviluppo -
+  66 M$ l'anno per una casa costruttrice, 20 per un progetto privato, 11 per un garage.
+- **Uno sponsor, forse due.** Gli accordi grossi chiedono un nome che non si ha. Restano
+  l'officina di provincia e il distributore regionale, che pagano poco e ci credono.
+- **Due piloti che hanno detto di si'**: un veterano che sa dire se la macchina va, e un
+  ragazzo che si prende l'occasione dove gliela danno. Contratti di un anno, pagati sopra
+  il loro valore, perche' quello e' il prezzo per convincere qualcuno a salire su una
+  macchina che non esiste.
+- **Si parte ultimi, e per una volta conviene**: la scala ATR da' a chi sta in fondo tutte
+  le ore di galleria. E' l'unico vantaggio che c'e', e va speso.
+
+**E si sale piano.** Con una casa costruttrice dietro, giocando bene, il distacco
+dall'ultima delle altre passa da un secondo a nove decimi in sei stagioni: prima si
+peggiora - mentre si costruisce la fabbrica gli altri sviluppano - e solo dopo si comincia
+a recuperare. Con un progetto privato si galleggia intorno al secondo e mezzo finche' non
+arrivano montepremi e sponsor. Con un garage si sopravvive, e basta. Non e' una difficolta'
+tarata a tavolino: e' quello che esce dai conti, ed e' anche quello che succede davvero a
+chi entra in Formula 1.
+
+**Il nome se lo si fa, e ci vogliono anni.** La reputazione non era mai cambiata in tutta
+la carriera: adesso a fine stagione ogni squadra si muove di un quarto verso quello che i
+risultati dicono che vale, e chi e' entrato da poco ha comunque un tetto che si alza da
+solo, una stagione per volta. Serve a rendere vero quello che si sente giocando una
+squadra nuova: all'inizio dicono di no tutti - ingegneri, piloti, sponsor - e non c'e'
+niente da fare se non arrivare davanti a qualcuno. Una scuderia che sale di un posto
+l'anno passa da 30 a 57 in sette stagioni, e a quel punto le porte cominciano ad aprirsi.
+
+**Fondare una squadra, e cosa vuol dire davvero.** Si sceglie un nome, una sede, una
+livrea e il motorista a cui chiedere la power unit; poi si decide quanto si mette sul
+tavolo, ed e' l'unica scelta che conti perche' da li' dipende tutto il resto.
+
+| | sul tavolo | dopo la quota | reputazione |
+|---|---|---|---|
+| Casa costruttrice | 900 M$ | 450 M$ | 42 |
+| Progetto privato | 650 M$ | 200 M$ | 30 |
+| Sfida da garage | 520 M$ | 70 M$ | 22 |
+
+La differenza sono i **450 M$ di quota di ingresso**, che non restano in cassa: vanno
+alle undici squadre gia' iscritte, quaranta milioni a testa, a compensarle del piatto che
+da adesso si divide in dodici. Si chiama anti-diluizione ed e' cosi' che si entra
+davvero.
+
+Quello che si trova il giorno dopo:
+
+- **Dal promoter, il primo anno, non arriva niente.** Il montepremi si divide fra chi si
+  e' classificato nei campionati scorsi, e uno che e' appena arrivato nei campionati
+  scorsi non c'era. Il secondo anno arriva la sola colonna di merito, meno della meta';
+  dal terzo si conta come tutti. E' la cosa che piu' di ogni altra rende dura la prima
+  stagione, ed e' successa alla Haas.
+- **Una macchina un secondo e mezzo dietro l'ultima**, e piu' di tre dietro la prima.
+  Cambio e freni si comprano gia' fatti da chi li fa per mezza griglia, tutto il resto
+  e' disegnato da zero da gente che quella macchina non l'ha mai vista girare.
+- **Galleria del vento in affitto, nessun simulatore, una fabbrica da tirare su.** Con
+  il limite normale in conto capitale non ci si arriva, quindi il regolamento concede a
+  chi entra **190 M$ in piu'** per mettersi in pari: e' quello che rende il capitale
+  iniziale una scelta e non un numero.
+- **Uno sponsor, forse due.** Gli accordi grossi chiedono un nome che non si ha. Restano
+  l'officina di provincia e il distributore regionale, che pagano poco e ci credono.
+- **Due piloti che hanno detto di si'**: un veterano che sa dire se la macchina va, e un
+  ragazzo che si prende l'occasione dove gliela danno. Contratti di un anno, pagati sopra
+  il loro valore, perche' quello e' il prezzo per convincere qualcuno a salire su una
+  macchina che non esiste.
+- **Si parte ultimi, e per una volta conviene**: la scala ATR da' a chi sta in fondo tutte
+  le ore di galleria. E' l'unico vantaggio che c'e', e va speso.
+
+**Il nome se lo si fa, e ci vogliono anni.** La reputazione non era mai cambiata in tutta
+la carriera: adesso a fine stagione ogni squadra si muove di un quarto verso quello che i
+risultati dicono che vale, e chi e' entrato da poco ha comunque un tetto che si alza da
+solo, una stagione per volta. Serve a rendere vero quello che si sente giocando una
+squadra nuova: all'inizio dicono di no tutti - ingegneri, piloti, sponsor - e non c'e'
+niente da fare se non arrivare davanti a qualcuno. Una scuderia che sale di un posto
+l'anno passa da 30 a 57 in sette stagioni, e a quel punto le porte cominciano ad aprirsi.
+
 **Il montepremi ha due colonne.** Come nella realta': una parte del piatto e' uguale per
 tutti - 47 M$ a testa, il 45% dei 1150 distribuiti dal promoter - e il resto va a scalare
 sul piazzamento nel costruttori. Meta' di quello che incassa una squadra non dipende da
@@ -506,19 +683,109 @@ la meta' della griglia sta fra -10 e +20, e i due costruttori nuovi - Audi e Cad
 perdono 20-30 M$ costruendosi il reparto motori, che e' esattamente quello che sembra un
 ingresso in Formula 1.
 
-**Il proprietario.** Una squadra non e' un salvadanaio. A fine stagione chi ha chiuso in
-utile lo distribuisce alla proprieta' e tiene in cassa una riserva di lavoro (75 M$, un
-terzo del tetto di spesa); chi ha chiuso in perdita se la fa coprire, ma non gratis: l'anno
-dopo il budget e' stretto, e sviluppo, costruzioni e giornate di test scendono in
-proporzione. La stretta si allenta da sola quando i conti tornano.
+**Il proprietario, e perche' l'utile resta dentro.** A fine stagione chi ha chiuso in
+perdita se la fa coprire dalla proprieta', ma non gratis: l'anno dopo il budget e' stretto,
+e sviluppo, costruzioni e giornate di test scendono in proporzione. La stretta si allenta
+da sola quando i conti tornano, cosi' chi perde poco tutti gli anni si stabilizza intorno
+al 35%: fatica, ma non muore, che e' quello che succede davvero in fondo alla griglia.
 
-Senza questa regola il conto divergeva in tutte e due le direzioni, e su otto stagioni si
-vedeva bene: la prima della classe arrivava a **1661 M$** fermi in cassa - con il tetto di
-spesa gia' saturo al 99%, quindi senza nemmeno un modo di usarli - e l'ultima a **-191 M$**
-continuando a correre come se niente fosse. Adesso la piu' ricca oscilla fra 190 e 320 e la
-piu' povera fra 0 e -8, coperta e rimessa in riga ogni dicembre. Una squadra che perde
-poco tutti gli anni si stabilizza intorno al 35% di stretta: fatica, ma non muore, che e'
-quello che succede davvero in fondo alla griglia.
+L'utile invece **non viene prelevato**: resta in cassa. Il proprietario di una scuderia non
+e' un azionista che stacca il dividendo, e soprattutto quei soldi servono, perche' non
+tutto passa dal tetto di spesa. Basta guardare quanto incassa ogni squadra e quanto
+potrebbe spendere al massimo - il tetto di spesa piu' gli ingaggi dei piloti, la power
+unit e la quota annua per le costruzioni:
+
+| | Entrate | Spesa massima | Saldo |
+|---|---|---|---|
+| McLaren | 405 | 291 | **+114** |
+| Mercedes | 348 | 294 | +54 |
+| Red Bull | 322 | 331 | -9 |
+| Ferrari | 335 | 365 | -30 |
+| Williams | 220 | 277 | -57 |
+| Aston Martin | 199 | 271 | -72 |
+| Haas | 147 | 264 | -117 |
+| Alpine | 139 | 269 | -130 |
+| Cadillac | 119 | 278 | **-159** |
+
+Nove squadre su undici non arrivano nemmeno a riempire il budget che il regolamento gli
+concederebbe: per loro il vincolo non e' il tetto di spesa, e' la liquidita'. Togliergli
+l'utile a dicembre significherebbe togliergli l'unico modo di uscire da li'. Solo le prime
+due generano piu' di quanto possano spendere, e quel margine si vede in cassa invece di
+sparire.
+
+**E i soldi si spendono.** Perche' la liquidita' conti davvero, chi ha capitale oltre la
+riserva di lavoro (75 M$) spinge su tutto quello che il denaro puo' comprare: mette sul
+tavolo fino al 95% di quello che avanza invece del 55%, apre pacchetti piu' grossi, usa
+tutta la quota per le costruzioni ogni anno invece di alternarla, e paga fino al 40% sopra
+il valore di mercato per prendersi il pilota che vuole.
+
+Ed e' arrivato anche il mercato degli uomini per le scuderie del computer, che prima non
+esisteva: il loro organigramma restava quello del primo giorno per sempre. Adesso chi ha
+capitale interviene sul ruolo messo peggio - direttore tecnico, responsabile aerodinamica,
+capo progettista, powertrain, strategia - e se lo compra dal mercato dei liberi. E' la leva
+piu' diretta che ha una squadra per andare piu' forte, e adesso ce l'hanno tutti.
+
+**L'organico dei reparti.** Un capo aerodinamico da solo non disegna una macchina.
+Dietro ogni nome dell'organigramma ci sono decine di persone, e quante sono conta quanto
+sono bravi quelli che le dirigono. Cinque reparti, ognuno con una dimensione di
+riferimento - quella di una squadra di vertice in salute:
+
+| Reparto | Riferimento | Costo a persona | Cosa muove |
+|---|---|---|---|
+| Aerodinamica | 90 | 0,094 M$ | carico e efficienza |
+| Progettazione | 70 | 0,102 M$ | telaio, sospensioni, trasmissione |
+| Powertrain | 50 | 0,107 M$ | la power unit, per chi se la costruisce |
+| Simulazione e dati | 45 | 0,098 M$ | quanto si azzecca l'assetto |
+| Qualita' e affidabilita' | 35 | 0,086 M$ | le rotture che non capitano |
+
+L'organico moltiplica i responsabili da **x0,62** (reparto vuoto) a **x1,2** (molto sopra
+il riferimento), con rendimenti decrescenti: oltre un certo punto le persone si
+intralciano invece di aiutarsi. Chi compra il motore tiene solo il gruppo che lo integra,
+un terzo del riferimento, e il metro torna quello di tutti dal giorno in cui fonda il
+reparto motori.
+
+Gli stipendi stanno **dentro il tetto di spesa**: ogni persona in piu' e' un pezzo di
+aggiornamento in meno, ed e' letteralmente la scelta che il cost cap ha imposto a mezza
+griglia. Assumere costa una ricerca una tantum e non e' istantaneo - non si cresce di piu'
+del 28% del riferimento in una stagione - e mandare a casa costa una buonuscita fuori dal
+cap. Le scuderie del computer fanno lo stesso conto: chi incassa assume, chi non ce la fa
+taglia fino al 40% del riferimento e poi si ferma, perche' sotto quella soglia un reparto
+non esiste piu'.
+
+Il monte stipendi dei responsabili e' stato dimezzato: quello che si legge adesso e'
+l'ingaggio di una persona sola, mentre il costo del reparto lo paga l'organico. I conti
+totali restano dove erano - Ferrari 67 M$ di personale, Cadillac 20 - solo che adesso si
+vede da cosa sono fatti.
+
+**Un mercato vero.** Prima c'erano 12 piloti svincolati e una manciata di ingegneri
+liberi. Adesso sono **42 piloti** - da Ricciardo e Magnussen senza sedile fino ai ragazzi
+delle formule minori, Slater a 18 anni con 89 di potenziale - e **56 ingegneri** al via,
+almeno due per ogni ruolo, con qualche pezzo pregiato da 78-88 in mezzo a tanta gente
+onesta. Ogni inverno ne arrivano altri quattordici e cinque-nove giovani salgono dalle
+minori; il mercato tiene i migliori centocinquanta e lascia andare la coda.
+
+**Il terzo pilota.** Ogni contratto ha un posto: titolare o riserva. Una riserva costa il
+30% di un titolare, ma chi un volante ce l'ha non firma per stare fermo, e piu' uno vale
+piu' vuole essere pagato per aspettare. Serve davvero: quando un titolare sconta una
+squalifica prende il suo posto invece di far correre una macchina sola, e nei test privati
+e' lui che sale in macchina.
+
+**Il vivaio.** Otto squadre su undici ne hanno uno, con i ragazzi che ci stanno davvero -
+Camara, Taponen e Wharton in Ferrari, Ugochukwu e Dunne in McLaren, Goethe e Tramnitz in
+Red Bull, Browning e Voisin in Williams. Racing Bulls, Haas e Cadillac no.
+
+Aprirlo costa **15 M$** una volta sola e poi **4-6 M$ l'anno** di gestione, fuori dal tetto
+di spesa: e' un programma della casa, non un costo della monoposto. Ed e' li' il punto -
+non e' una spesa che si fa e finisce, e' un conto che torna solo se lo si regge per anni,
+perche' un ragazzo entra a sedici anni e ne servono tre prima che valga qualcosa. Chi non
+ha margine nel bilancio non lo apre: Cadillac, con quello che le avanza, non lo tiene
+aperto un anno.
+
+Che gente arriva dipende da osservatori, struttura e nome della squadra: un top team pesca
+ragazzi da 72-75 con 85-92 di potenziale, una squadra di meta' gruppo da 58-62. Crescono
+ogni stagione, e le giornate di test private li fanno crescere il doppio. A 24 anni il
+percorso finisce: o salgono in prima squadra o lasciano il programma. E chi il vivaio non
+ce l'ha compra i ragazzi degli altri, pagandoli.
 
 **Invecchiamento.** A fine stagione vettura e strutture perdono terreno: non si consumano,
 e' il resto del mondo che va avanti. Una monoposto lasciata ferma arretra di circa mezzo
@@ -527,6 +794,107 @@ gruppo. Per stare fermi bisogna investire, per migliorare bisogna investire pare
 il tetto di spesa nessuno riesce a tenere al passo tutte le strutture, quindi
 bisogna scegliere quali. Anche le scuderie del computer reinvestono, e siccome le grandi
 sono gia' contro il tetto mentre le piccole hanno margine, il gruppo tende a stringersi.
+
+**Delegare, e a chi.** Il reparto puo' lavorare da solo: si accende **"fanno da soli gli
+aggiornamenti"** nella pagina Ingegneri - la loro - e da li' in poi ripartizione, pacchetti
+e taglie li sceglie lui. E li sceglie **dove ha appena detto di volerli fare**: se in
+riunione dicono "gestione gomme ci costa quattordici punti, lavorerei su sospensioni e
+telaio", il pacchetto lo aprono li'. In cima alla riunione si legge su cosa stanno
+lavorando, e su una stagione intera escono otto pacchetti sui componenti che avevano
+indicato. Non
+e' gratis ne' uguale per tutti - quanto viene bene lo dice la **lucidita'**, che nasce dal
+direttore tecnico e dal team principal. Un reparto lucido apre il pacchetto giusto sulla
+parte giusta; uno meno lucido ogni tanto insegue quella sbagliata e sceglie la taglia
+sbagliata. Su dodici gare simulate, delegando a un reparto forte la macchina cresce di
++0,27 contro +0,06 lasciando fare al minimo sindacale, spendendo pure un po' meno.
+
+Lo stesso vale per l'assetto: **"se ne occupano gli ingegneri di pista"** e' acceso per
+difetto. Il reparto prepara il riferimento al simulatore da solo prima di ogni weekend, e
+chi ha buoni ingegneri ne fa due sessioni invece di una. Dimenticarsene porta il
+riferimento da +/-6 punti a +/-19, che e' la differenza fra arrivare in pista sapendo dove
+si va e arrivarci a tentoni.
+
+**La vettura dell'anno prossimo.** Una monoposto non nasce a gennaio: nasce durante la
+stagione precedente, mentre si corre con quella di adesso. Nella pagina Ingegneri si decide
+**quanta parte del lavoro va sull'anno prossimo** invece che su questo - una quota ci va
+sempre, e cresce da sola man mano che la stagione finisce e migliorare la macchina di adesso
+ha sempre meno senso.
+
+E li' si da' la **linea**. Non si disegna la macchina: si dice cosa si vuole, con cinque
+direzioni - piu' carico, piu' efficienza sui rettilinei, piu' trazione, piu' gentile con le
+gomme, piu' affidabilita' - e si guarda cosa arriva.
+
+Fra quello che si chiede e quello che arriva ci sono due persone. Il **team principal**, che
+deve far remare tutti nella stessa direzione, e il **direttore tecnico**, che deve tradurre
+una frase in un progetto. Da loro esce la *fedelta' alla linea*: al 97% il reparto fa quello
+che si e' chiesto, sotto il 55% fa quello che gli riesce e il lavoro finisce sparso dove
+capita - che e' esattamente come nasce una macchina che non e' quella che ci si era
+immaginati.
+
+A dicembre il progetto diventa la vettura con cui si corre. Una stagione al 40% con la linea
+su carico e gomme porta **+1,9 di media**, e si vede dove: carico +9,7 e gestione gomme
++13,9, mentre le aree lasciate a mezzo punto si muovono appena. Le squadre del computer
+fanno lo stesso conto e chiedono quello che gli manca, che e' il motivo per cui una squadra
+che soffre in trazione l'anno dopo arriva con un'altra sospensione.
+
+**Il direttore finanziario.** Una figura nuova nell'organigramma, e serve a una cosa sola:
+sapere in anticipo dove si andra' a finire col tetto di spesa. Somma quello che e' gia'
+uscito, quello a cui ci si e' impegnati con i pacchetti aperti e quello che le gare che
+restano si porteranno via comunque, e ne esce una previsione con una forbice.
+
+La forbice la decide lui: da **+/-18 M$** con un direttore scarso a **+/-2,5 M$** con uno
+bravo. Non fa risparmiare un milione - fa sapere quanto si puo' impegnare senza rischiare,
+che nel tetto di spesa e' la stessa cosa. Nella pagina Finanze c'e' il conto intero con la
+barra di quanto e' gia' impegnato e dove cade la stima; e prima di aprire un pacchetto e'
+lui a dire se ci sta: *"siamo al limite, il margine e' 4 M$ con un'incertezza di 6. Non ci
+metterei altro."*
+
+**Il verdetto arriva dalla pista.** Quando un pacchetto e' pronto va in macchina, ma quanto
+ha portato non lo dice la galleria: lo dicono i cronometri dopo un weekend. Alla gara dopo
+arriva il verdetto - *"porta +2.9 sulla vecchia, meno dei +5.4 promessi"* - e con lui
+**cosa ne pensano i due piloti**, che non e' la stessa cosa.
+
+**Il rilievo della macchina, e i pezzi da montare.** La vettura non e' piu' una lista di
+righe: e' disegnata dall'alto, e ogni componente si clicca. Il colore dice quanto vale
+rispetto al riferimento del ciclo, un pallino segnala il pezzo nuovo appena montato o
+quello che sta per finire, e a lato si apre la scheda con prestazione, stato e cosa c'e'
+in fabbrica.
+
+**Quanti esemplari escono lo dice la fabbrica.** Una squadra grande non ha mai fatto
+distinzioni fra i due box: il pezzo nuovo arriva doppio e le macchine restano uguali.
+Una squadra piccola, su un pacchetto importante, ne porta uno solo - e li' comincia una
+scelta. La soglia la decidono il capannone e la gente che ci lavora dentro:
+
+| Fabbrica | pacchetto piccolo | medio | grande |
+|---|---|---|---|
+| Ferrari, Mercedes, Red Bull, McLaren, Aston | 2 subito | 2 subito | 2 subito |
+| Williams, Audi, Alpine, Racing Bulls | 2 subito | 2 subito | 1, il secondo fra 3 gare |
+| Haas, Cadillac | 2 subito | 1, il secondo fra 2 gare | 1, il secondo fra 3-4 gare |
+
+Finche' c'e' un esemplare solo, montarlo su un pilota vuol dire non montarlo sull'altro -
+e l'altro lo sa. Da quel momento le due monoposto sono diverse davvero, in tutto:
+simulatore, prove, qualifica, gara. Quando il secondo arriva e va in macchina, la
+specifica nuova diventa quella di squadra e le vetture tornano uguali. Le scuderie del
+computer non tirano a sorte: il pezzo lo mettono a chi sta piu' avanti in classifica.
+
+**E poi c'e' il muro.** Per una squadra grande e' l'unico modo in cui le due macchine
+finiscono diverse. Nelle libere si va a sbattere - piu' spesso chi guida sul filo, chi
+sbaglia di piu' e quando piove - e ogni tanto quello che si porta via e' il pezzo nuovo.
+Succede anche in gara, dopo una botta vera. Se il ricambio non c'e', quella monoposto
+rimonta la specifica precedente e ci corre finche' la fabbrica non ne rifa' un altro:
+sulla pagina della vettura il componente diventa **"pezzo distrutto, in ricostruzione"**,
+e non c'e' niente da decidere se non aspettare. Su una stagione intera capita a mezza
+squadra: raro abbastanza da essere una notizia, frequente abbastanza da farsi sentire.
+
+Ogni pacchetto ha un suo carattere: rifare l'ala anteriore fa girare la macchina, lavorare
+dietro la pianta. Chi stacca tardi e vuole l'anteriore che morde si trova subito con una
+specifica nervosa; chi ha bisogno di sentirla piantata dice che gli scappa via. Lo stesso
+pacchetto, due giudizi opposti - e il carattere sposta anche la finestra d'assetto, quindi
+dopo un aggiornamento i riferimenti vanno ritrovati davvero.
+
+Se ha portato qualcosa il reparto passa ad altro e il banco torna libero. Se non ha
+portato niente resta in verifica, e li' si decide: rimontare la specifica vecchia, o
+tenerla e metterci il reparto sopra.
 
 **Power unit.** Le power unit sono omologate: non migliorano gara per gara, si cambia
 specifica. Quello che si fa al banco si accumula, e quando la si porta in pista arriva
@@ -566,13 +934,34 @@ reparti sono forti proprio nell'area che il nuovo regolamento premia.
 Le squadre gestite dal computer fanno lo stesso calcolo: a un anno dal cambio chi non ha
 piu' niente da giocarsi dirotta fino all'85%, chi si gioca il titolo si ferma al 33%.
 
-**Regolamento: due discussioni diverse.** Tre volte per stagione si riunisce la
-Commissione, e sempre **nei primi mesi dell'anno** (marzo, aprile, maggio): piu' avanti non
-ci sarebbe piu' il tempo di progettarci sopra. Li' si trattano i **ritocchi** al regolamento
+**Regolamento: due discussioni diverse.** Una volta per stagione si riunisce la
+Commissione, **in primavera**: piu' avanti non ci sarebbe piu' il tempo di progettarci
+sopra. Quattro proposte sul tavolo, una riunione sola, e chi c'era c'era. Li' si trattano
+i **ritocchi** al regolamento
 in vigore - la FIA porta al tavolo alcune proposte dal catalogo di `data/regulations.json` e
 le squadre votano. Non e' un sorteggio cieco - se una scuderia sta scappando si discute di
 riequilibrio, se i conti sono tesi si parla di costi - e ogni squadra vota secondo il
 proprio interesse sportivo ed economico, con FIA e FOM che guardano a costi e spettacolo.
+
+**Da quando vale quello che passa.** Non da subito. Una norma approvata a maggio entra in
+vigore **dalla stagione successiva**, e nella pagina Regolamento si legge dall'anno prima
+sotto "gia' approvate, in vigore piu' avanti": e' con quella che si progetta la macchina.
+A campionato in corso non si cambiano le carte, perche' una squadra la monoposto la
+disegna d'inverno e spostare i paletti a meta' anno manderebbe all'aria dodici mesi di
+lavoro.
+
+Le eccezioni sono due, e sono quelle vere:
+
+- **La sicurezza non aspetta il primo gennaio.** Raffreddamento obbligatorio del pilota
+  oltre i 31 gradi, strutture anti-intrusione rinforzate, limite in corsia box a 60 km/h,
+  metrica contro il saltellamento: se passano, valgono dal gran premio dopo.
+- **La direttiva tecnica dopo una violazione accertata.** Non sta nemmeno sul tavolo
+  finche' nessuno ha sforato: compare fra le proposte solo dopo che una squadra e' stata
+  sanzionata, e allora si stringono i test - per esempio quelli di flessibilita' delle ali
+  - con effetto immediato.
+
+Nella pagina si riconoscono dalla targhetta: SICUREZZA in arancione, DIRETTIVA in rosso,
+tutte e due con scritto "in vigore da subito".
 
 Il **cambiamento profondo** non passa di li'. Ogni quattro o cinque anni la FIA apre un
 **tavolo tecnico**, e quello ha bisogno di quattro o cinque riunioni prima di arrivare a un
