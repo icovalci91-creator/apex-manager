@@ -67,7 +67,8 @@ class MenuScene(Scene):
             pygame.draw.line(surf, (18, 24, 34), (0, y), (w, y), 2)
         T.text(surf, C.GAME_TITLE.upper(), (w // 2, h // 2 - 190), 78, T.TEXT, bold=True, align="center")
         T.text(surf, "MANAGER DI FORMULA 1", (w // 2, h // 2 - 110), 22, T.ACCENT, bold=True, align="center")
-        T.text(surf, f"versione {C.GAME_VERSION}", (w // 2, h - 40), 13, T.DIM_2, align="center")
+        from ... import version
+        T.text(surf, version.etichetta(), (w // 2, h - 40), 13, T.DIM_2, align="center")
         super().draw(surf)
 
 

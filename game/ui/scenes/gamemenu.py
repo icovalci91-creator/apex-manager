@@ -178,6 +178,10 @@ class GameMenuScene(Scene):
             "nuova": "La partita in corso non e' stata salvata: si perde tutto",
         }[self.modo]
         T.text(surf, sotto, (w // 2, 150), 15, T.DIM, align="center")
+        # la sigla della copia in esecuzione: se non e' quella che ci si
+        # aspetta, si sta guardando una versione vecchia
+        from ... import version
+        T.text(surf, version.etichetta(), (w // 2, h - 30), 12, T.DIM_2, align="center")
         if self.modo == "principale":
             T.paragraph(surf, "L'editor permette di modificare qualunque valore della "
                               "partita: squadre, piloti, vetture, circuiti, regolamento e "
