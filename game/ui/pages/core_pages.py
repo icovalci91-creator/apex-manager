@@ -125,6 +125,15 @@ class HQPage(Page):
         super().draw(surf)
 
 
+def _posto_in_griglia(campo: dict, part: str, valore: float):
+    """Quanto un pezzo sta sopra o sotto la media della griglia, da -1 a +1."""
+    voce = campo.get(part)
+    if not voce:
+        return None
+    lo, media, hi = voce
+    return max(-1.0, min(1.0, (valore - media) / max(1.5, (hi - lo) / 2.0)))
+
+
 def _car_rank_text(gs, team) -> str:
     rank = sorted(gs.teams.values(), key=lambda t: -t.car.rating)
     pos = [t.id for t in rank].index(team.id) + 1
@@ -149,6 +158,9 @@ Y_PULSANTI_VERIFICA = 108
 # Dove sta il pulsante che avvia il pacchetto, sotto costo, fiducia, bande e
 # le due righe di commento: le stesse che sopra vanno a capo da sole.
 Y_AVVIA = 248
+# Quanto si tiene l'intestazione della pagina Ingegneri: titolo, interruttore
+# e le due linguette fra la nostra vettura e tutta la griglia.
+TESTA_TECNICA = 84
 
 
 # ================================================================== VETTURA
@@ -252,9 +264,9 @@ class CarPage(Page):
         left = pygame.Rect(r.x, r.y, r.w * 0.42, r.h)
         # su una finestra stretta il disegno si rimpicciolisce: accanto ci va
         # la scheda del pezzo, e con 160 pixel non ci si scrive niente
-        larga = 176 if left.w >= 430 else max(118, int(left.w * 0.34))
-        self.car_rect = pygame.Rect(left.x + 20, left.y + 34, larga,
-                                    int(larga * 300 / 176))
+        larga = 150 if left.w >= 430 else max(104, int(left.w * 0.30))
+        self.car_rect = pygame.Rect(left.x + 16, left.y + 34, larga,
+                                    int(larga * cardraw.RATIO))
         k = self._kit_for(self.sel_part)
         self.kit_bottom = 0
         if k is not None:
@@ -388,21 +400,23 @@ class CarPage(Page):
         T.text(surf, "LA MACCHINA", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         T.text(surf, "clicca un pezzo", (left.right - 16, left.y + 12), 11, T.DIM_2,
                align="right")
-        rif = development.reference_level(gs)
+        # il colore dice come sta messo un pezzo rispetto agli altri undici,
+        # non rispetto al riferimento del ciclo: quello a inizio era sempre
+        # lontano e faceva sembrare rossa anche la macchina piu' veloce
+        campo = engineering.part_field(gs)
         d0 = self._driver()
         colori, segni = {}, {}
         for k in C.CAR_PARTS:
             p = car.parts[k]
             valore = kits.perf_for(team, d0.id, k) if d0 is not None else p.perf
-            base = T.stat_colour(valore, rif - 12.0, rif)
-            # scuriti: il disegno deve restare leggibile, non sembrare un semaforo
-            colori[k] = tuple(int(c * (0.62 if k != self.sel_part else 0.9)) for c in base)
+            colori[k] = cardraw.tinta(_posto_in_griglia(campo, k, valore),
+                                      acceso=(k == self.sel_part))
             if d0 is not None and k in (kits.deltas(team, d0.id) or {}):
                 segni[k] = T.ACCENT                  # pezzo nuovo montato qui
             elif p.condition < 55:
                 segni[k] = T.BAD                     # e' da rifare
-        cardraw.draw(surf, self.car_rect, colori, self.sel_part, segni)
-        cardraw.wheels(surf, self.car_rect)
+        cardraw.draw(surf, self.car_rect, colori, self.sel_part, segni,
+                     livery=T.hex_rgb(team.colour))
         if "floor" in segni:
             cardraw.floor_badge(surf, self.car_rect, segni["floor"])
 
@@ -414,10 +428,16 @@ class CarPage(Page):
         T.text(surf, meta["label"], (px, self.car_rect.y), 17, T.TEXT, bold=True, maxw=pw)
         valore = kits.perf_for(team, d0.id, self.sel_part) if d0 else part.perf
         T.text(surf, "Prestazione", (px, self.car_rect.y + 28), 13, T.DIM)
+        posto = _posto_in_griglia(campo, self.sel_part, valore)
         T.text(surf, f"{valore:.1f}", (px + pw, self.car_rect.y + 28), 14,
-               T.stat_colour(valore, rif - 12.0, rif), bold=True, align="right")
-        T.text(surf, f"riferimento del ciclo {rif:.0f}", (px, self.car_rect.y + 46), 11,
-               T.DIM_2, maxw=pw)
+               T.OK if (posto or 0) > 0.25 else (T.BAD if (posto or 0) < -0.25 else T.WARN),
+               bold=True, align="right")
+        campo_sel = campo.get(self.sel_part)
+        if campo_sel:
+            pos = 1 + sum(1 for t in gs.teams.values()
+                          if t.car.parts[self.sel_part].perf > valore)
+            T.text(surf, f"{pos}i della griglia, media {campo_sel[1]:.1f}",
+                   (px, self.car_rect.y + 46), 11, T.DIM_2, maxw=pw)
         T.text(surf, "Stato del pezzo", (px, self.car_rect.y + 68), 13, T.DIM)
         cond_col = (T.OK if part.condition > 80 else
                     T.WARN if part.condition > 55 else T.BAD)
@@ -582,8 +602,11 @@ class DevPage(Page):
                                            "Tienila e affinala",
                                            (lambda t=tr: self.keep(t)), "primary"))
             ty += ALT_VERIFICA
-        # il pannello si allunga fino a dove arriva l'ultima verifica: quello
-        # che sfora lo recupera lo scorrimento della pagina
+        # sotto le verifiche c'e' il registro di quello che e' gia' arrivato in
+        # pista: il pannello si allunga per tenerlo, e quello che sfora lo
+        # recupera lo scorrimento della pagina
+        self.log_y = int(ty + 10)
+        ty = self.log_y + self._alt_registro()
         self.left_h = max(r.h - 96, ty + 16 - (r.y + 96))
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
@@ -618,6 +641,69 @@ class DevPage(Page):
         # la quota sull'anno prossimo si decide con i propri uomini, nella
         # pagina Ingegneri: qui si lavora sulla macchina di adesso
         self.reg_slider = None
+
+    # Quante righe di registro si mostrano: le altre restano nel salvataggio,
+    # ma una pagina che scorre per sempre non la legge nessuno.
+    RIGHE_REGISTRO = 12
+
+    def _registro(self) -> list:
+        """Gli aggiornamenti portati in pista, dal piu' recente."""
+        return list(reversed(self.team.upgrade_log or []))[:self.RIGHE_REGISTRO]
+
+    def _alt_registro(self) -> int:
+        voci = self._registro()
+        if not voci:
+            return 60
+        return 46 + len(voci) * 34 + (18 if len(self.team.upgrade_log or []) >
+                                      self.RIGHE_REGISTRO else 0)
+
+    def _disegna_registro(self, surf, left) -> None:
+        """Cosa prometteva ogni pacchetto e cosa ha reso davvero.
+
+        Quanti aggiornamenti si sono fatti non dice niente: quello che conta e'
+        se quello che il reparto promette poi in pista si vede. Qui restano
+        tutte e due le cose, gara per gara.
+        """
+        team = self.team
+        y = getattr(self, "log_y", left.y + 400)
+        T.text(surf, "AGGIORNAMENTI PORTATI IN PISTA", (left.x + 16, y), 12,
+               T.DIM_2, bold=True)
+        voci = self._registro()
+        if not voci:
+            T.paragraph(surf, "Il registro e' vuoto. Da qui in avanti ogni pacchetto "
+                              "lascia una riga: quanto prometteva, quanto ha reso e "
+                              "com'e' finita.", (left.x + 16, y + 20), 12, T.DIM_2,
+                        left.w - 32)
+            return
+        tutti = team.upgrade_log or []
+        reso = sum(v.get("reso", 0.0) for v in tutti)
+        atteso = sum(v.get("atteso", 0.0) for v in tutti)
+        resa = (reso / atteso * 100.0) if atteso > 0.01 else 0.0
+        col_r = T.OK if resa > 85 else (T.WARN if resa > 55 else T.BAD)
+        # su una riga sua: accanto al titolo, con il pannello stretto, ci
+        # finiva sopra
+        T.text(surf, f"{reso:+.1f} punti in pista sui {atteso:+.1f} promessi "
+                     f"({resa:.0f}%)", (left.x + 16, y + 18), 12, col_r, bold=True,
+               maxw=left.w - 32)
+        y += 44
+        for v in voci:
+            col = _esito_colore(v)
+            T.text(surf, f"{v.get('stagione', '')}  g{v.get('gara', '')}",
+                   (left.x + 16, y), 12, T.DIM_2)
+            T.text(surf, f"{v.get('label', '')} ({v.get('size', '')})",
+                   (left.x + 82, y), 13, T.TEXT, maxw=left.w * 0.42)
+            T.text(surf, f"{v.get('atteso', 0.0):+.1f}", (left.right - 74, y), 12,
+                   T.DIM, align="right")
+            T.text(surf, f"{v.get('reso', 0.0):+.1f}", (left.right - 16, y), 13, col,
+                   bold=True, align="right")
+            nota = f"{v.get('esito', '')}  -  {v.get('costo', 0.0):.2f} M$"
+            if v.get("gp"):
+                nota += f"  -  {v['gp']}"
+            T.text(surf, nota, (left.x + 82, y + 16), 11, T.DIM_2, maxw=left.w - 108)
+            y += 34
+        if len(tutti) > self.RIGHE_REGISTRO:
+            T.text(surf, f"e altri {len(tutti) - self.RIGHE_REGISTRO} prima di questi",
+                   (left.x + 16, y), 11, T.DIM_2)
 
     def _set_auto(self, v) -> None:
         self.team.auto_dev = bool(v)
@@ -741,6 +827,7 @@ class DevPage(Page):
             T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
                          "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
                    maxw=left.w - 32)
+        self._disegna_registro(surf, left)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
@@ -859,13 +946,43 @@ class DevPage(Page):
         super().draw(surf)
 
 
+def _colonne_griglia(f_w: int, n_aree: int) -> tuple:
+    """Larghezza di nome, media e di ogni colonna d'area."""
+    nome = 190 if f_w > 900 else 150
+    tot = 76
+    col = max(58, (f_w - nome - tot - 12) / n_aree)
+    return nome, tot, col
+
+
+def _esito_colore(v: dict):
+    """Il colore con cui si legge com'e' finito un pacchetto."""
+    return {"oltre": T.OK, "in linea": T.ACCENT, "sottotono": T.WARN,
+            "fallito": T.BAD, "recuperata": T.OK, "pareggiata": T.WARN,
+            "mai capita": T.BAD, "rimontata la vecchia": T.BAD}.get(v.get("esito"), T.DIM)
+
+
 # ================================================================ INGEGNERI
 class EngineersPage(Page):
-    """La riunione con i propri uomini, e la linea per la macchina che verra'."""
+    """La riunione con i propri uomini, la linea per la macchina che verra',
+    e il confronto con tutte le altre squadre della griglia."""
+
+    SOTTO = [("noi", "La nostra vettura"), ("griglia", "Tutta la griglia")]
+
+    def __init__(self, shell):
+        super().__init__(shell)
+        self.vista = "noi"
 
     def build(self) -> None:
         r = self.rect
         self.widgets = []
+        self.tab_buttons = []
+        for i, (key, lab) in enumerate(self.SOTTO):
+            tb = Button((r.x + i * 188, r.y + TESTA_TECNICA - 38, 180, 30), lab,
+                        style="tab")
+            tb.on_click = (lambda k=key: self._vista(k))
+            tb.active = (key == self.vista)
+            self.tab_buttons.append(tb)
+            self.widgets.append(tb)
         b = Button((r.right - 300, r.y + 8, 300, 36),
                    "Applica il piano suggerito", self.apply_plan, "primary")
         b.enabled = not self.team.auto_dev
@@ -876,9 +993,11 @@ class EngineersPage(Page):
                                    self.team.auto_dev, on_change=self._set_auto_dev))
         self._brief = None
         self._report = None
+        if self.vista == "griglia":
+            return
 
         # --- la linea per la vettura dell'anno prossimo
-        left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
+        left = pygame.Rect(r.x, r.y + TESTA_TECNICA, r.w * 0.46, r.h - TESTA_TECNICA)
         self.nc_y = left.bottom - 40 - (len(nextcar.AREE) + 1) * 30
         self.share = Slider((left.x + 16, self.nc_y, left.w - 32, 26),
                             "Sull'anno prossimo", self.team.next_reg_share * 100.0,
@@ -894,6 +1013,101 @@ class EngineersPage(Page):
             self.area_sliders[key] = sl
             self.widgets.append(sl)
             y += 30
+
+    def _disegna_griglia(self, surf, r) -> None:
+        """Tutte le squadre, area per area: dove siamo avanti e dove indietro.
+
+        La nostra riga e' quella vera. Le altre sono le stime dello scouting:
+        una macchina avversaria non la si misura, la si guarda girare, e quanto
+        bene dipende da chi ci lavora e da quante gare si sono viste.
+        """
+        gs, team = self.gs, self.team
+        aree = list(engineering.AREAS.items())
+        righe = []
+        for t in gs.teams.values():
+            prof = (engineering.car_profile(t, gs) if t.id == team.id
+                    else engineering.estimate(gs, team, t))
+            tot = sum(prof[a] for a, _l in aree) / len(aree)
+            righe.append((t, prof, tot))
+        righe.sort(key=lambda x: -x[2])
+
+        x0, y = r.x, r.y + TESTA_TECNICA - 4
+        T.paragraph(surf, "Ogni casella e' quanto vale quella squadra in quell'area, da "
+                          "0 a 100 rispetto al resto della griglia. La nostra riga e' "
+                          "quella vera; le altre sono stime dello scouting, e diventano "
+                          "piu' precise con le gare disputate.",
+                    (x0, y), 12, T.DIM_2, r.w - 8)
+        y += 34
+        nome_w, tot_w, col_w = _colonne_griglia(r.w - 8, len(aree))
+        T.text(surf, "SQUADRA", (x0, y + 30), 11, T.DIM_2, bold=True)
+        T.text(surf, "MEDIA", (x0 + nome_w + tot_w - 8, y + 30), 11, T.DIM_2,
+               bold=True, align="right")
+        for i, (_a, lab) in enumerate(aree):
+            x = x0 + nome_w + tot_w + i * col_w
+            for j, parola in enumerate(T.wrap(lab, 11, col_w - 14, bold=True)[:3]):
+                T.text(surf, parola, (x, y + j * 13), 11, T.DIM_2, bold=True,
+                       maxw=col_w - 8)
+        y += 46
+        migliori = {a: max(x[1][a] for x in righe) for a, _l in aree}
+        for t, prof, tot in righe:
+            noi = (t.id == team.id)
+            riga = pygame.Rect(x0, y, r.w - 8, 30)
+            if noi:
+                T.panel(surf, riga, T.PANEL_3, radius=6)
+            pygame.draw.rect(surf, T.hex_rgb(t.colour), (riga.x + 4, riga.y + 5, 4, 20))
+            T.text(surf, t.name, (riga.x + 16, riga.y + 6), 14,
+                   T.TEXT if noi else T.DIM, bold=noi, maxw=nome_w - 24)
+            T.text(surf, f"{tot:.0f}", (x0 + nome_w + tot_w - 8, riga.y + 6), 15,
+                   T.stat_colour(tot, 40, 80), bold=True, align="right")
+            for i, (a, _lab) in enumerate(aree):
+                v = prof[a]
+                cella = pygame.Rect(int(x0 + nome_w + tot_w + i * col_w), riga.y + 3,
+                                    int(col_w - 6), 24)
+                tinta = T.mix(T.PANEL_2, T.stat_colour(v, 35, 78),
+                              0.30 + 0.55 * (v / 100.0))
+                pygame.draw.rect(surf, tinta, cella, border_radius=4)
+                if abs(v - migliori[a]) < 0.01:
+                    pygame.draw.rect(surf, T.GOLD, cella, 2, border_radius=4)
+                T.text(surf, f"{v:.0f}", (cella.centerx, cella.y + 4), 13, T.TEXT,
+                       bold=noi, align="center")
+            y += 32
+
+        # dove conviene mettere i soldi, viste le gare che restano
+        y += 14
+        T.text(surf, "DOVE CONVIENE LAVORARE", (x0, y), 12, T.DIM_2, bold=True)
+        y += 22
+        for lab, dx in (("AREA", 0), ("POSIZIONE", 240), ("DAL MIGLIORE", 360),
+                        ("QUANTO LA CHIEDONO LE GARE CHE RESTANO", 500)):
+            T.text(surf, lab, (x0 + dx, y), 11, T.DIM_2, bold=True)
+        y += 20
+        bias = engineering.calendar_bias(gs)
+        rep = self._report or engineering.field_report(gs)
+        ordinati = sorted(engineering.AREAS.items(),
+                          key=lambda kv: -(max(0.0, rep[kv[0]]["best"] - rep[kv[0]]["mine"])
+                                           * (0.6 + 0.8 * bias.get(kv[0], 0.5))))
+        for a, lab in ordinati:
+            d = rep[a]
+            gap = d["delta"]
+            colore = T.OK if gap >= -2 else (T.WARN if gap > -14 else T.BAD)
+            T.text(surf, lab, (x0, y), 13, T.TEXT, maxw=230)
+            T.text(surf, f"{d['rank']}i della griglia", (x0 + 240, y), 13, T.DIM)
+            T.text(surf, f"{gap:+.0f} da {d['best_team']}", (x0 + 360, y), 13, colore,
+                   bold=True)
+            dom = bias.get(a, 0.5)
+            T.bar(surf, (x0 + 500, y + 5, 200, 8), dom * 100, 100,
+                  T.GOLD if dom > 0.6 else T.DIM)
+            T.text(surf, f"{dom*100:.0f}%", (x0 + 712, y), 13,
+                   T.GOLD if dom > 0.6 else T.DIM)
+            y += 22
+        y += 6
+        T.paragraph(surf, "Recuperare dove le gare rimaste non premiano niente e' fatica "
+                          "sprecata: conviene guardare insieme il distacco e la colonna "
+                          "qui accanto.", (x0, y), 12, T.DIM_2, r.w - 8)
+
+    def _vista(self, k) -> None:
+        self.vista = k
+        self.build()
+        self.refresh()
 
     def _set_auto_dev(self, v) -> None:
         self.team.auto_dev = bool(v)
@@ -919,8 +1133,12 @@ class EngineersPage(Page):
         r = self.rect
         if self._brief is None:
             self.refresh()
-        T.text(surf, "CONFRONTO TECNICO", (r.x, r.y + 10), 22, T.TEXT, bold=True)
-        left = pygame.Rect(r.x, r.y + 56, r.w * 0.46, r.h - 56)
+        T.text(surf, "CONFRONTO TECNICO", (r.x, r.y + 4), 22, T.TEXT, bold=True)
+        if self.vista == "griglia":
+            self._disegna_griglia(surf, r)
+            super().draw(surf)
+            return
+        left = pygame.Rect(r.x, r.y + TESTA_TECNICA, r.w * 0.46, r.h - TESTA_TECNICA)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
@@ -930,22 +1148,24 @@ class EngineersPage(Page):
             T.text(surf, f"lavorano da soli su {nomi}", (left.right - 16, left.y + 12),
                    11, T.OK, align="right", maxw=left.w * 0.6)
         y = left.y + 40
+        saltati = 0
         for speaker, line in self._brief:
+            righe = T.wrap(line, 13, left.w - 44)
+            alto = 20 + len(righe) * 18 + 12
+            # si guarda prima se ci sta tutto: sotto ci va il progetto della
+            # macchina nuova, e mezza frase sopra il titolo non si legge
+            if y + alto > self.nc_y - 62:
+                saltati += 1
+                continue
             T.text(surf, speaker, (left.x + 16, y), 14, T.ACCENT, bold=True)
             y += 20
-            f = T.font(13)
-            words, cur = line.split(), ""
-            for wd in words:
-                if f.size(cur + " " + wd)[0] > left.w - 44:
-                    T.text(surf, cur, (left.x + 24, y), 13, T.TEXT)
-                    y += 18
-                    cur = wd
-                else:
-                    cur = (cur + " " + wd).strip()
-            T.text(surf, cur, (left.x + 24, y), 13, T.TEXT)
-            y += 30
-            if y > self.nc_y - 70:
-                break            # sotto ci va il progetto della macchina nuova
+            for riga in righe:
+                T.text(surf, riga, (left.x + 24, y), 13, T.TEXT)
+                y += 18
+            y += 12
+        if saltati:
+            T.text(surf, f"e altri {saltati} interventi: la riunione e' lunga",
+                   (left.x + 16, y), 11, T.DIM_2, maxw=left.w - 32)
 
         # --- il progetto della vettura dell'anno prossimo
         gs, team = self.gs, self.team
@@ -979,25 +1199,31 @@ class EngineersPage(Page):
                            "va sulla macchina di adesso."),
                     (left.x + 16, ty + 36), 11, T.DIM_2, left.w - 32)
 
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 56, r.w * 0.52 - 4, r.h - 56)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + TESTA_TECNICA, r.w * 0.52 - 4,
+                            r.h - TESTA_TECNICA)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "DOVE SIAMO RISPETTO ALLA GRIGLIA", (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)
         hy = right.y + 40
-        for lab, x in (("AREA", 16), ("NOI", 250), ("MIGLIORE", 320), ("GAP", 440), ("POS", 520)):
+        # le colonne si spartiscono il pannello: a larghezza fissa, su una
+        # finestra stretta l'ultima finiva fuori e non si vedeva
+        cx = {"noi": right.w * 0.44, "migliore": right.w * 0.55,
+              "gap": right.w * 0.79, "pos": right.w * 0.92}
+        for lab, x in (("AREA", 16), ("NOI", cx["noi"]), ("MIGLIORE", cx["migliore"]),
+                       ("GAP", cx["gap"]), ("POS", cx["pos"])):
             T.text(surf, lab, (right.x + x, hy), 11, T.DIM_2, bold=True)
         y = hy + 22
         for area, lab in engineering.AREAS.items():
             d = self._report[area]
-            T.text(surf, lab, (right.x + 16, y), 14, T.TEXT, maxw=220)
-            T.text(surf, f"{d['mine']:.0f}", (right.x + 250, y), 14,
+            T.text(surf, lab, (right.x + 16, y), 14, T.TEXT, maxw=cx["noi"] - 24)
+            T.text(surf, f"{d['mine']:.0f}", (right.x + cx["noi"], y), 14,
                    T.stat_colour(d["mine"], 40, 80), bold=True)
-            T.text(surf, f"{d['best']:.0f} {d['best_team']}", (right.x + 320, y), 13, T.DIM,
-                   maxw=110)
+            T.text(surf, f"{d['best']:.0f} {d['best_team']}", (right.x + cx["migliore"], y),
+                   13, T.DIM, maxw=cx["gap"] - cx["migliore"] - 8)
             gap = d["delta"]
-            T.text(surf, f"{gap:+.0f}", (right.x + 440, y), 14,
+            T.text(surf, f"{gap:+.0f}", (right.x + cx["gap"], y), 14,
                    T.OK if gap >= -2 else (T.WARN if gap > -14 else T.BAD), bold=True)
-            T.text(surf, f"{d['rank']}o", (right.x + 520, y), 14, T.TEXT)
+            T.text(surf, f"{d['rank']}o", (right.x + cx["pos"], y), 14, T.TEXT)
             T.bar(surf, (right.x + 16, y + 20, right.w - 40, 5), d["mine"], 100,
                   T.stat_colour(d["mine"], 40, 80))
             y += 40
