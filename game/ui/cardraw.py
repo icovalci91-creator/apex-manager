@@ -25,50 +25,59 @@ RATIO = 2.80
 # guardando una monoposto a effetto suolo: muso stretto attaccato all'ala,
 # pance che si stringono verso il retrotreno, fondo largo che lavora fino al
 # diffusore, ali a piu' profili.
+# Le forme vengono da una foto dall'alto di una monoposto, letta sezione per
+# sezione: per ogni fetta della macchina si e' guardato dove comincia e dove
+# finisce la carrozzeria. Il numero che ha cambiato tutto e' la larghezza a
+# meta' vettura: il corpo arriva al 74% della larghezza totale, non a meta'
+# come si tende a disegnarlo. Da li' in poi il resto viene da se'.
+#
+# Coordinate 0..1 sul rettangolo: x da un bordo all'altro (che e' anche la
+# distanza fra le due gomme), y dal muso alla coda.
 SHAPES = {
-    # il fondo: la piattaforma che tiene insieme tutto e fa il carico. I bordi
-    # escono fuori fra le ruote, come sulle macchine a effetto suolo
-    "floor": [[(0.384, 0.262), (0.262, 0.280), (0.202, 0.322), (0.170, 0.420),
-               (0.176, 0.556), (0.212, 0.652), (0.248, 0.726), (0.254, 0.808),
-               (0.230, 0.886), (0.770, 0.886), (0.746, 0.808), (0.752, 0.726),
-               (0.788, 0.652), (0.824, 0.556), (0.830, 0.420), (0.798, 0.322),
-               (0.738, 0.280), (0.616, 0.262)]],
-    # ala anteriore: profilo principale largo quanto la macchina, paratie
-    # inclinate in fuori
-    "front_wing": [[(0.010, 0.010), (0.990, 0.010), (0.990, 0.076), (0.010, 0.076)],
-                   [(0.000, 0.000), (0.058, 0.004), (0.078, 0.124), (0.020, 0.130)]],
-    # muso e cellula: un dito sottile che si allarga solo all'abitacolo
-    "chassis": [[(0.484, 0.026), (0.516, 0.026), (0.528, 0.120), (0.540, 0.200),
-                 (0.556, 0.270), (0.578, 0.340), (0.590, 0.430), (0.584, 0.532),
-                 (0.416, 0.532), (0.410, 0.430), (0.422, 0.340), (0.444, 0.270),
-                 (0.460, 0.200), (0.472, 0.120)]],
-    # sospensioni: i bracci che arrivano fino al mozzo
-    "suspension": [[(0.436, 0.176), (0.126, 0.152), (0.126, 0.180), (0.442, 0.206)],
-                   [(0.428, 0.256), (0.126, 0.238), (0.126, 0.264), (0.434, 0.286)],
-                   [(0.442, 0.758), (0.140, 0.740), (0.140, 0.766), (0.448, 0.784)],
-                   [(0.448, 0.822), (0.140, 0.808), (0.140, 0.832), (0.452, 0.848)]],
-    # impianto frenante: le prese d'aria attaccate alle ruote
+    # il fondo: la piattaforma piu' larga di tutto, si stringe davanti per far
+    # passare le ruote anteriori e si riapre nel diffusore
+    "floor": [[(0.350, 0.256), (0.286, 0.272), (0.224, 0.304), (0.170, 0.358),
+               (0.124, 0.432), (0.104, 0.512), (0.107, 0.598), (0.132, 0.666),
+               (0.178, 0.722), (0.224, 0.770), (0.242, 0.820), (0.234, 0.882),
+               (0.766, 0.882), (0.758, 0.820), (0.776, 0.770), (0.822, 0.722),
+               (0.868, 0.666), (0.893, 0.598), (0.896, 0.512), (0.876, 0.432),
+               (0.830, 0.358), (0.776, 0.304), (0.714, 0.272), (0.650, 0.256)]],
+    # ala anteriore: larga quanto la macchina, con le paratie inclinate
+    "front_wing": [[(0.012, 0.012), (0.988, 0.012), (0.988, 0.098), (0.012, 0.098)],
+                   [(0.000, 0.002), (0.056, 0.006), (0.078, 0.138), (0.018, 0.142)]],
+    # muso e cellula: sottile davanti, largo all'abitacolo
+    "chassis": [[(0.478, 0.022), (0.522, 0.022), (0.534, 0.100), (0.548, 0.180),
+                 (0.566, 0.250), (0.590, 0.320), (0.614, 0.396), (0.626, 0.456),
+                 (0.622, 0.530), (0.378, 0.530), (0.374, 0.456), (0.386, 0.396),
+                 (0.410, 0.320), (0.434, 0.250), (0.452, 0.180), (0.466, 0.100)]],
+    # sospensioni: i bracci fino al mozzo
+    "suspension": [[(0.408, 0.172), (0.128, 0.148), (0.128, 0.176), (0.414, 0.202)],
+                   [(0.400, 0.252), (0.128, 0.234), (0.128, 0.260), (0.406, 0.282)],
+                   [(0.310, 0.752), (0.146, 0.738), (0.146, 0.764), (0.316, 0.778)],
+                   [(0.300, 0.816), (0.146, 0.804), (0.146, 0.828), (0.306, 0.842)]],
+    # impianto frenante: le prese d'aria sulle ruote
     "brakes": [[(0.178, 0.180), (0.212, 0.180), (0.212, 0.282), (0.178, 0.282)],
                [(0.214, 0.788), (0.250, 0.788), (0.250, 0.884), (0.214, 0.884)]],
-    # fiancate: una goccia sola con il cofano, larga dietro l'abitacolo e
-    # stretta verso il retrotreno
-    "sidepods": [[(0.424, 0.384), (0.328, 0.398), (0.252, 0.432), (0.212, 0.486),
-                  (0.204, 0.544), (0.222, 0.604), (0.264, 0.660), (0.328, 0.704),
-                  (0.396, 0.730), (0.440, 0.742), (0.452, 0.706), (0.446, 0.416)]],
-    # raffreddamento: la bocca del radiatore e lo sfogo sul cofano
-    "cooling": [[(0.248, 0.434), (0.352, 0.406), (0.380, 0.430), (0.284, 0.468)],
-                [(0.442, 0.548), (0.558, 0.548), (0.550, 0.700), (0.450, 0.700)]],
+    # fiancate e cofano: una goccia sola, larghissima a meta' macchina e
+    # strettissima al cambio. E' la forma che si riconosce da lontano
+    "sidepods": [[(0.432, 0.376), (0.368, 0.388), (0.296, 0.408), (0.232, 0.440),
+                  (0.180, 0.486), (0.146, 0.544), (0.144, 0.598), (0.166, 0.648),
+                  (0.210, 0.694), (0.272, 0.732), (0.348, 0.758), (0.416, 0.774),
+                  (0.446, 0.742), (0.444, 0.404)]],
+    # raffreddamento: la bocca del radiatore e lo sfogo lungo la schiena
+    "cooling": [[(0.236, 0.442), (0.334, 0.408), (0.366, 0.434), (0.272, 0.478)],
+                [(0.436, 0.542), (0.564, 0.542), (0.556, 0.702), (0.444, 0.702)]],
     # trasmissione: il cambio, che chiude la macchina
-    "gearbox": [[(0.458, 0.726), (0.542, 0.726), (0.530, 0.804), (0.524, 0.872),
-                 (0.476, 0.872), (0.470, 0.804)]],
-    # ala posteriore: pilone, profilo principale e paratie. E' larga poco piu'
-    # di meta' macchina, non quanto quella davanti
-    "rear_wing": [[(0.362, 0.874), (0.638, 0.874), (0.556, 0.910), (0.444, 0.910)],
-                  [(0.272, 0.906), (0.728, 0.906), (0.728, 0.942), (0.272, 0.942)],
-                  [(0.246, 0.882), (0.292, 0.882), (0.292, 0.996), (0.246, 0.996)]],
+    "gearbox": [[(0.452, 0.740), (0.548, 0.740), (0.536, 0.808), (0.528, 0.876),
+                 (0.472, 0.876), (0.464, 0.808)]],
+    # ala posteriore: pilone, profilo e paratie. Larga poco piu' di meta'
+    # macchina, contro l'anteriore che e' larga quanto tutta
+    "rear_wing": [[(0.368, 0.878), (0.632, 0.878), (0.556, 0.912), (0.444, 0.912)],
+                  [(0.284, 0.908), (0.716, 0.908), (0.716, 0.944), (0.284, 0.944)],
+                  [(0.258, 0.884), (0.304, 0.884), (0.304, 0.996), (0.258, 0.996)]],
     # aero attiva: il profilo mobile dietro e i flap mobili davanti
-    "active_aero": [[(0.292, 0.946), (0.708, 0.946), (0.708, 0.984), (0.292, 0.984)],
-                    [(0.076, 0.016), (0.436, 0.016), (0.436, 0.042), (0.076, 0.042)]],
+    "active_aero": [[(0.304, 0.948), (0.696, 0.948), (0.696, 0.986), (0.304, 0.986)],
+                    [(0.078, 0.018), (0.430, 0.018), (0.430, 0.050), (0.078, 0.050)]],
 }
 
 # Alcuni pezzi stanno su tutti e due i lati: si disegnano specchiati. I
@@ -296,8 +305,8 @@ def _livrea(surf, r, colore) -> None:
 def _diffusore(surf, r, colore) -> None:
     """L'ultimo pezzo di fondo, quello che chiude il lavoro."""
     scuro = tuple(int(c * 0.35) for c in colore)
-    pygame.draw.polygon(surf, scuro, _pts([(0.252, 0.850), (0.748, 0.850),
-                                           (0.770, 0.886), (0.230, 0.886)], r))
+    pygame.draw.polygon(surf, scuro, _pts([(0.256, 0.848), (0.744, 0.848),
+                                           (0.766, 0.884), (0.234, 0.884)], r))
     if r.w > 90:
         for x in (0.330, 0.415, 0.585, 0.670):
             pygame.draw.line(surf, tuple(int(c * 0.2) for c in colore),
