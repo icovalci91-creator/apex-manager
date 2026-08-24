@@ -33,50 +33,72 @@ RATIO = 2.80
 #
 # Coordinate 0..1 sul rettangolo: x da un bordo all'altro (che e' anche la
 # distanza fra le due gomme), y dal muso alla coda.
+# Le forme non sono disegnate a mano: sono tracciate. Si e' presa una foto
+# dall'alto di una monoposto, si e' separata dallo sfondo (sfocatura a
+# blocchi per togliere la grana del cemento, sfondo stimato colonna per
+# colonna, e la grana stessa usata per distinguere il cemento dal nero liscio
+# della macchina) e si e' misurata la carrozzeria colonna per colonna: 407
+# sezioni, da cui esce il profilo delle semilarghezze. I poligoni qui sotto
+# sono quel profilo, campionato e reso simmetrico.
+#
+# Coordinate 0..1 sul rettangolo: x da un bordo all'altro (la larghezza fra le
+# gomme), y dal muso alla coda.
 SHAPES = {
-    # il fondo: la piattaforma piu' larga di tutto, si stringe davanti per far
-    # passare le ruote anteriori e si riapre nel diffusore
-    "floor": [[(0.350, 0.256), (0.286, 0.272), (0.224, 0.304), (0.170, 0.358),
-               (0.124, 0.432), (0.104, 0.512), (0.107, 0.598), (0.132, 0.666),
-               (0.178, 0.722), (0.224, 0.770), (0.242, 0.820), (0.234, 0.882),
-               (0.766, 0.882), (0.758, 0.820), (0.776, 0.770), (0.822, 0.722),
-               (0.868, 0.666), (0.893, 0.598), (0.896, 0.512), (0.876, 0.432),
-               (0.830, 0.358), (0.776, 0.304), (0.714, 0.272), (0.650, 0.256)]],
-    # ala anteriore: larga quanto la macchina, con le paratie inclinate
+    # il fondo: sotto tutto, sporge di poco dalla carrozzeria e si riapre nel
+    # diffusore
+    "floor": [[(0.620, 0.255), (0.715, 0.310), (0.800, 0.360),
+               (0.862, 0.420), (0.892, 0.500), (0.895, 0.580),
+               (0.876, 0.660), (0.832, 0.720), (0.786, 0.780),
+               (0.766, 0.840), (0.796, 0.885), (0.204, 0.885),
+               (0.234, 0.840), (0.214, 0.780), (0.168, 0.720),
+               (0.124, 0.660), (0.105, 0.580), (0.108, 0.500),
+               (0.138, 0.420), (0.200, 0.360), (0.285, 0.310),
+               (0.380, 0.255)]],
+    # ala anteriore: larga quanto tutta la macchina, con le paratie
     "front_wing": [[(0.012, 0.012), (0.988, 0.012), (0.988, 0.098), (0.012, 0.098)],
                    [(0.000, 0.002), (0.056, 0.006), (0.078, 0.138), (0.018, 0.142)]],
-    # muso e cellula: sottile davanti, largo all'abitacolo
-    "chassis": [[(0.478, 0.022), (0.522, 0.022), (0.534, 0.100), (0.548, 0.180),
-                 (0.566, 0.250), (0.590, 0.320), (0.614, 0.396), (0.626, 0.456),
-                 (0.622, 0.530), (0.378, 0.530), (0.374, 0.456), (0.386, 0.396),
-                 (0.410, 0.320), (0.434, 0.250), (0.452, 0.180), (0.466, 0.100)]],
+    # muso e cellula: dal tracciato, ripulito dai sobbalzi delle sospensioni
+    "chassis": [[(0.526, 0.018), (0.550, 0.060), (0.560, 0.120),
+                 (0.572, 0.200), (0.590, 0.280), (0.606, 0.340),
+                 (0.620, 0.400), (0.630, 0.460), (0.632, 0.520),
+                 (0.626, 0.570), (0.374, 0.570), (0.368, 0.520),
+                 (0.370, 0.460), (0.380, 0.400), (0.394, 0.340),
+                 (0.410, 0.280), (0.428, 0.200), (0.440, 0.120),
+                 (0.450, 0.060), (0.474, 0.018)]],
     # sospensioni: i bracci fino al mozzo
     "suspension": [[(0.408, 0.172), (0.128, 0.148), (0.128, 0.176), (0.414, 0.202)],
                    [(0.400, 0.252), (0.128, 0.234), (0.128, 0.260), (0.406, 0.282)],
-                   [(0.310, 0.752), (0.146, 0.738), (0.146, 0.764), (0.316, 0.778)],
-                   [(0.300, 0.816), (0.146, 0.804), (0.146, 0.828), (0.306, 0.842)]],
+                   [(0.322, 0.752), (0.146, 0.738), (0.146, 0.764), (0.328, 0.778)],
+                   [(0.312, 0.816), (0.146, 0.804), (0.146, 0.828), (0.318, 0.842)]],
     # impianto frenante: le prese d'aria sulle ruote
     "brakes": [[(0.178, 0.180), (0.212, 0.180), (0.212, 0.282), (0.178, 0.282)],
                [(0.214, 0.788), (0.250, 0.788), (0.250, 0.884), (0.214, 0.884)]],
-    # fiancate e cofano: una goccia sola, larghissima a meta' macchina e
-    # strettissima al cambio. E' la forma che si riconosce da lontano
-    "sidepods": [[(0.432, 0.376), (0.368, 0.388), (0.296, 0.408), (0.232, 0.440),
-                  (0.180, 0.486), (0.146, 0.544), (0.144, 0.598), (0.166, 0.648),
-                  (0.210, 0.694), (0.272, 0.732), (0.348, 0.758), (0.416, 0.774),
-                  (0.446, 0.742), (0.444, 0.404)]],
+    # fiancate e cofano: il pezzo tracciato piu' fedelmente, perche' e' quello
+    # che si riconosce. Larghissimo a meta' macchina, e finisce di colpo
+    "sidepods": [[(0.738, 0.385), (0.823, 0.410), (0.826, 0.440),
+                  (0.852, 0.470), (0.863, 0.500), (0.869, 0.530),
+                  (0.869, 0.560), (0.860, 0.600), (0.843, 0.640),
+                  (0.831, 0.680), (0.794, 0.710), (0.735, 0.735),
+                  (0.658, 0.755), (0.342, 0.755), (0.265, 0.735),
+                  (0.206, 0.710), (0.169, 0.680), (0.157, 0.640),
+                  (0.140, 0.600), (0.131, 0.560), (0.131, 0.530),
+                  (0.137, 0.500), (0.148, 0.470), (0.174, 0.440),
+                  (0.177, 0.410), (0.262, 0.385)]],
     # raffreddamento: la bocca del radiatore e lo sfogo lungo la schiena
-    "cooling": [[(0.236, 0.442), (0.334, 0.408), (0.366, 0.434), (0.272, 0.478)],
-                [(0.436, 0.542), (0.564, 0.542), (0.556, 0.702), (0.444, 0.702)]],
-    # trasmissione: il cambio, che chiude la macchina
-    "gearbox": [[(0.452, 0.740), (0.548, 0.740), (0.536, 0.808), (0.528, 0.876),
-                 (0.472, 0.876), (0.464, 0.808)]],
-    # ala posteriore: pilone, profilo e paratie. Larga poco piu' di meta'
-    # macchina, contro l'anteriore che e' larga quanto tutta
-    "rear_wing": [[(0.368, 0.878), (0.632, 0.878), (0.556, 0.912), (0.444, 0.912)],
-                  [(0.284, 0.908), (0.716, 0.908), (0.716, 0.944), (0.284, 0.944)],
-                  [(0.258, 0.884), (0.304, 0.884), (0.304, 0.996), (0.258, 0.996)]],
+    "cooling": [[(0.212, 0.418), (0.318, 0.392), (0.348, 0.420), (0.244, 0.452)],
+                [(0.436, 0.560), (0.564, 0.560), (0.556, 0.716), (0.444, 0.716)]],
+    # trasmissione: quello che resta dietro le fiancate
+    "gearbox": [[(0.658, 0.752), (0.616, 0.800), (0.584, 0.845),
+                 (0.563, 0.875), (0.545, 0.900), (0.455, 0.900),
+                 (0.437, 0.875), (0.416, 0.845), (0.384, 0.800),
+                 (0.342, 0.752)]],
+    # ala posteriore: larga poco piu' di meta' macchina, contro l'anteriore
+    # che e' larga quanto tutta
+    "rear_wing": [[(0.380, 0.892), (0.620, 0.892), (0.556, 0.918), (0.444, 0.918)],
+                  [(0.284, 0.914), (0.716, 0.914), (0.716, 0.950), (0.284, 0.950)],
+                  [(0.258, 0.890), (0.304, 0.890), (0.304, 0.998), (0.258, 0.998)]],
     # aero attiva: il profilo mobile dietro e i flap mobili davanti
-    "active_aero": [[(0.304, 0.948), (0.696, 0.948), (0.696, 0.986), (0.304, 0.986)],
+    "active_aero": [[(0.304, 0.952), (0.696, 0.952), (0.696, 0.990), (0.304, 0.990)],
                     [(0.078, 0.018), (0.430, 0.018), (0.430, 0.050), (0.078, 0.050)]],
 }
 
@@ -89,8 +111,8 @@ MIRRORED = ("sidepods", "suspension", "brakes", "cooling", "front_wing",
 # Misure vere: gomma anteriore larga 305 mm, posteriore 405, diametro 720 su
 # una macchina larga 2 metri e lunga 5,6. Vista dall'alto sono rettangoli molto
 # piu' lunghi che larghi, ed e' per questo che una monoposto si riconosce.
-WHEELS = [(0.025, 0.166, 0.150, 0.129), (0.825, 0.166, 0.150, 0.129),
-          (0.013, 0.780, 0.200, 0.129), (0.787, 0.780, 0.200, 0.129)]
+WHEELS = [(0.026, 0.166, 0.152, 0.130), (0.822, 0.166, 0.152, 0.130),
+          (0.010, 0.776, 0.212, 0.136), (0.778, 0.776, 0.212, 0.136)]
 
 
 # Il corpo vettura si disegna grigio: il colore qui vuol dire quanto quel pezzo
@@ -144,8 +166,12 @@ def polygons(part: str, rect) -> list:
 
 # In che ordine si cerca chi e' stato cliccato: prima i pezzi piccoli che
 # stanno sopra, per ultimi telaio e fondo che fanno da base a tutto.
-HIT_ORDER = ("brakes", "suspension", "cooling", "sidepods", "gearbox",
-             "active_aero", "rear_wing", "front_wing", "chassis", "floor")
+# Chi risponde per primo al clic. Le fiancate adesso sono un pezzo solo - la
+# goccia che comprende anche il cofano - e coprono anche il centro della
+# macchina: percio' muso e raffreddamento si cercano prima, se no cliccando
+# sull'abitacolo si sceglierebbe una fiancata.
+HIT_ORDER = ("brakes", "suspension", "cooling", "chassis", "gearbox",
+             "sidepods", "active_aero", "rear_wing", "front_wing", "floor")
 
 
 def hit(rect, pos) -> str | None:
@@ -254,8 +280,8 @@ def _profili(surf, r, colours) -> None:
     """
     if r.w < 150:
         return
-    for parte, quote in (("front_wing", (0.026, 0.044, 0.062)),
-                         ("rear_wing", (0.918, 0.930))):
+    for parte, quote in (("front_wing", (0.032, 0.056, 0.082, 0.106)),
+                         ("rear_wing", (0.924, 0.938))):
         col = colours.get(parte, T.PANEL_3)
         scuro = tuple(int(c * 0.45) for c in col)
         largo = 0.492 if parte == "front_wing" else 0.226
@@ -291,14 +317,14 @@ def _livrea(surf, r, colore) -> None:
     quello della scuderia vorrebbe dire non capire piu' ne' l'uno ne' l'altro.
     """
     colore = tuple(colore)
-    pygame.draw.polygon(surf, colore, _pts([(0.491, 0.048), (0.509, 0.048),
-                                            (0.524, 0.300), (0.476, 0.300)], r))
-    pygame.draw.polygon(surf, colore, _pts([(0.490, 0.664), (0.510, 0.664),
-                                            (0.510, 0.896), (0.490, 0.896)], r))
-    for poly in ([(0.246, 0.898), (0.292, 0.898), (0.292, 0.996), (0.246, 0.996)],
-                 [(0.754, 0.898), (0.708, 0.898), (0.708, 0.996), (0.754, 0.996)],
-                 [(0.006, 0.046), (0.062, 0.049), (0.078, 0.124), (0.020, 0.130)],
-                 [(0.994, 0.046), (0.938, 0.049), (0.922, 0.124), (0.980, 0.130)]):
+    pygame.draw.polygon(surf, colore, _pts([(0.492, 0.060), (0.508, 0.060),
+                                            (0.530, 0.330), (0.470, 0.330)], r))
+    pygame.draw.polygon(surf, colore, _pts([(0.490, 0.700), (0.510, 0.700),
+                                            (0.510, 0.900), (0.490, 0.900)], r))
+    for poly in ([(0.258, 0.906), (0.304, 0.906), (0.304, 0.998), (0.258, 0.998)],
+                 [(0.742, 0.906), (0.696, 0.906), (0.696, 0.998), (0.742, 0.998)],
+                 [(0.000, 0.062), (0.052, 0.064), (0.074, 0.150), (0.014, 0.154)],
+                 [(1.000, 0.062), (0.948, 0.064), (0.926, 0.150), (0.986, 0.154)]):
         pygame.draw.polygon(surf, colore, _pts(poly, r))
 
 
