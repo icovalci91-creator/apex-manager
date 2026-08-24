@@ -31,6 +31,35 @@ RATIO = 2.80
 #
 # Coordinate 0..1 sul rettangolo: x da un bordo all'altro (la larghezza fra le
 # gomme), y dal muso alla coda.
+# --- pianta dell'ala anteriore ----------------------------------------------
+# Le punte stanno dentro all'ingombro delle gomme, e i due lati lunghi non
+# corrono paralleli: convergono verso la punta. La corda e' profonda al centro
+# e si assottiglia fuori, come su un'ala vera vista dall'alto.
+ALA_MEZZA = 0.400          # semi-apertura, in frazione della larghezza
+
+
+def ala_entrata(u: float) -> float:
+    """Dove passa il bordo d'entrata a quella distanza dal centro."""
+    return 0.022 + 0.044 * (abs(u) / ALA_MEZZA) ** 1.7
+
+
+def ala_uscita(u: float) -> float:
+    """Dove passa il bordo d'uscita: quasi dritto, poi rientra sulla punta."""
+    f = abs(u) / ALA_MEZZA
+    return 0.178 + 0.006 * f - 0.043 * max(0.0, (f - 0.62) / 0.38) ** 1.6
+
+
+def _ala_pianta(dentro: float = 1.0, da: float = 0.0, a: float = 1.0) -> list:
+    """Il poligono dell'ala, o una sua fetta fra due frazioni di corda."""
+    passi = [(-1 + 2 * i / 16.0) * ALA_MEZZA * dentro for i in range(17)]
+    davanti, dietro = [], []
+    for u in passi:
+        e, x = ala_entrata(u), ala_uscita(u)
+        davanti.append((0.5 + u, e + (x - e) * da))
+        dietro.append((0.5 + u, e + (x - e) * a))
+    return davanti + list(reversed(dietro))
+
+
 SHAPES = {
     # il fondo: sotto tutto, sporge di poco dalla carrozzeria e si riapre nel
     # diffusore
@@ -45,13 +74,7 @@ SHAPES = {
     # ala anteriore: non e' una tavola dritta. Il bordo d'entrata e' a freccia
     # - avanti al centro, indietro alle estremita' - e la corda e' profonda,
     # un settimo della macchina. Misurata sulla foto stazione per stazione
-    "front_wing": [[(0.100, 0.060), (0.175, 0.050), (0.255, 0.040), (0.350, 0.031),
-                    (0.430, 0.024), (0.500, 0.022), (0.570, 0.024), (0.650, 0.031),
-                    (0.745, 0.040), (0.825, 0.050), (0.900, 0.060), (0.900, 0.152),
-                    (0.825, 0.168), (0.745, 0.176), (0.650, 0.178), (0.570, 0.178),
-                    (0.500, 0.178), (0.430, 0.178), (0.350, 0.178), (0.255, 0.176),
-                    (0.175, 0.168), (0.100, 0.152)],
-                   [(0.100, 0.052), (0.140, 0.056), (0.140, 0.196), (0.100, 0.192)]],
+    "front_wing": [None],          # riempito sotto: viene dalla pianta
     # muso e cellula: dal tracciato, ripulito dai sobbalzi delle sospensioni
     "chassis": [[(0.526, 0.018), (0.550, 0.060), (0.560, 0.120),
                  (0.572, 0.200), (0.590, 0.280), (0.606, 0.340),
@@ -93,9 +116,16 @@ SHAPES = {
                   [(0.284, 0.914), (0.716, 0.914), (0.716, 0.950), (0.284, 0.950)],
                   [(0.258, 0.890), (0.304, 0.890), (0.304, 0.998), (0.258, 0.998)]],
     # aero attiva: il profilo mobile dietro e i flap mobili davanti
+    # aero attiva: il profilo mobile dietro e il flap mobile davanti, che e'
+    # l'ultima fetta dell'ala anteriore e ne segue la forma
     "active_aero": [[(0.304, 0.952), (0.696, 0.952), (0.696, 0.990), (0.304, 0.990)],
-                    [(0.078, 0.018), (0.430, 0.018), (0.430, 0.050), (0.078, 0.050)]],
+                    None],
 }
+
+# l'ala e il suo flap si ricavano dalla pianta, cosi' non possono discordare
+SHAPES["front_wing"] = [_ala_pianta(), _ala_pianta(1.0, 0.86, 1.0)]
+SHAPES["active_aero"][1] = _ala_pianta(0.96, 0.60, 0.86)
+
 
 # Alcuni pezzi stanno su tutti e due i lati: si disegnano specchiati. I
 # poligoni gia' simmetrici si ricalcano su se stessi e non cambia niente.
@@ -277,15 +307,23 @@ def _profili(surf, r, colours) -> None:
     """
     if r.w < 150:
         return
-    for parte, quote in (("front_wing", (0.062, 0.092, 0.122, 0.152)),
-                         ("rear_wing", (0.924, 0.938))):
-        col = colours.get(parte, T.PANEL_3)
-        scuro = tuple(int(c * 0.45) for c in col)
-        largo = 0.388 if parte == "front_wing" else 0.226
-        for v in quote:
-            pygame.draw.line(surf, scuro,
-                             (int(r.x + (0.5 - largo) * r.w), int(r.y + v * r.h)),
-                             (int(r.x + (0.5 + largo) * r.w), int(r.y + v * r.h)))
+    # i profili dell'ala anteriore seguono la corda: nascono e finiscono dove
+    # nasce e finisce l'ala, percio' non possono sbordare
+    col = colours.get("front_wing", T.PANEL_3)
+    scuro = tuple(int(c * 0.45) for c in col)
+    for quota in (0.24, 0.46, 0.68):
+        punti = []
+        for i in range(25):
+            u = (-1 + 2 * i / 24.0) * ALA_MEZZA * 0.97
+            e, x = ala_entrata(u), ala_uscita(u)
+            punti.append((int(r.x + (0.5 + u) * r.w),
+                          int(r.y + (e + (x - e) * quota) * r.h)))
+        pygame.draw.lines(surf, scuro, False, punti)
+    col = colours.get("rear_wing", T.PANEL_3)
+    scuro = tuple(int(c * 0.45) for c in col)
+    for v in (0.924, 0.938):
+        pygame.draw.line(surf, scuro, (int(r.x + 0.294 * r.w), int(r.y + v * r.h)),
+                         (int(r.x + 0.706 * r.w), int(r.y + v * r.h)))
 
 
 def _abitacolo(surf, r) -> None:
@@ -320,8 +358,10 @@ def _livrea(surf, r, colore) -> None:
                                             (0.510, 0.900), (0.490, 0.900)], r))
     for poly in ([(0.258, 0.906), (0.304, 0.906), (0.304, 0.998), (0.258, 0.998)],
                  [(0.742, 0.906), (0.696, 0.906), (0.696, 0.998), (0.742, 0.998)],
-                 [(0.100, 0.054), (0.140, 0.058), (0.140, 0.194), (0.100, 0.190)],
-                 [(0.900, 0.054), (0.860, 0.058), (0.860, 0.194), (0.900, 0.190)]):
+                 [(0.100, ala_entrata(0.400)), (0.134, ala_entrata(0.366)),
+                  (0.134, ala_uscita(0.366)), (0.100, ala_uscita(0.400))],
+                 [(0.900, ala_entrata(0.400)), (0.866, ala_entrata(0.366)),
+                  (0.866, ala_uscita(0.366)), (0.900, ala_uscita(0.400))]):
         pygame.draw.polygon(surf, colore, _pts(poly, r))
 
 
