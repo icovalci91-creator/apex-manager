@@ -501,7 +501,14 @@ def _scheda_circuito(surf, r, gs, t) -> None:
     # ------------------------------------------------------------- il tracciato
     sx = pygame.Rect(r.x, r.y + 56, r.w * 0.40, r.h * 0.52)
     T.panel(surf, sx, T.PANEL, radius=10, border=T.LINE)
-    trackdraw.draw_track(surf, t, sx.inflate(-28, -78), width=9)
+    trackdraw.draw_track(surf, t, sx.inflate(-28, -108), width=9)
+    # dove tagliano gli intertempi e da che parte si gira: sono i due dati con
+    # cui si legge tutto il resto, dai distacchi alla posizione in pista
+    a, b = t.sector_time
+    verso = "in senso orario" if t.senso != "antiorario" else "in senso antiorario"
+    T.text(surf, f"intertempi a {t.pos_at(a) * t.length_km:.2f} e "
+                 f"{t.pos_at(b) * t.length_km:.2f} km dal traguardo, {verso}",
+           (sx.x + 16, sx.bottom - 74), 12, T.DIM_2, maxw=sx.w - 32)
     T.text(surf, f"{t.length_km:.3f} km   -   {t.corners} curve   -   {t.laps} giri",
            (sx.x + 16, sx.bottom - 52), 14, T.TEXT, bold=True)
     giri = int(round(t.laps * gs.race_distance))
