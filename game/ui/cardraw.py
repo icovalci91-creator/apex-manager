@@ -36,6 +36,10 @@ RATIO = 2.80
 # corrono paralleli: convergono verso la punta. La corda e' profonda al centro
 # e si assottiglia fuori, come su un'ala vera vista dall'alto.
 ALA_MEZZA = 0.400          # semi-apertura, in frazione della larghezza
+# Quanto e' profonda: il bordo d'entrata resta dov'e' e quello d'uscita si
+# avvicina. Un numero solo, perche' della corda vive tutta l'ala - flap
+# mobile, profili, paratie - e devono accorciarsi insieme.
+ALA_CORDA = 0.70
 
 
 def ala_entrata(u: float) -> float:
@@ -53,7 +57,7 @@ def ala_uscita(u: float) -> float:
     f = abs(u) / ALA_MEZZA
     fuori = 0.196 - 0.036 * max(0.0, (f - 0.72) / 0.28) ** 1.5
     dentro = 0.061 * min(1.0, max(0.0, (0.40 - f) / 0.25)) ** 1.3
-    return fuori - dentro
+    return ala_entrata(u) + (fuori - dentro - ala_entrata(u)) * ALA_CORDA
 
 
 def _ala_pianta(dentro: float = 1.0, da: float = 0.0, a: float = 1.0) -> list:
@@ -365,10 +369,15 @@ def _livrea(surf, r, colore) -> None:
                                             (0.510, 0.900), (0.490, 0.900)], r))
     for poly in ([(0.258, 0.906), (0.304, 0.906), (0.304, 0.998), (0.258, 0.998)],
                  [(0.742, 0.906), (0.696, 0.906), (0.696, 0.998), (0.742, 0.998)],
-                 [(0.100, ala_entrata(0.400)), (0.134, ala_entrata(0.366)),
-                  (0.134, ala_uscita(0.366)), (0.100, ala_uscita(0.400))],
-                 [(0.900, ala_entrata(0.400)), (0.866, ala_entrata(0.366)),
-                  (0.866, ala_uscita(0.366)), (0.900, ala_uscita(0.400))]):
+                 # le paratie si appoggiano alla punta dell'ala, dovunque stia
+                 [(0.5 - ALA_MEZZA, ala_entrata(ALA_MEZZA)),
+                  (0.534 - ALA_MEZZA, ala_entrata(ALA_MEZZA - 0.034)),
+                  (0.534 - ALA_MEZZA, ala_uscita(ALA_MEZZA - 0.034)),
+                  (0.5 - ALA_MEZZA, ala_uscita(ALA_MEZZA))],
+                 [(0.5 + ALA_MEZZA, ala_entrata(ALA_MEZZA)),
+                  (0.466 + ALA_MEZZA, ala_entrata(ALA_MEZZA - 0.034)),
+                  (0.466 + ALA_MEZZA, ala_uscita(ALA_MEZZA - 0.034)),
+                  (0.5 + ALA_MEZZA, ala_uscita(ALA_MEZZA))]):
         pygame.draw.polygon(surf, colore, _pts(poly, r))
 
 
