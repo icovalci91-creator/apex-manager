@@ -36,6 +36,14 @@ DRY_TANK_PENALTY = 8.0    # secondi al giro quando il serbatoio e' vuoto
 # che ferma le gare sono i contatti.
 RISCHIO_ROTTURA = 0.0088
 
+# A che distanza si riesce a stare dietro. Piu' vicino di cosi' non si sta:
+# l'aria della macchina davanti toglie carico all'anteriore e la macchina non
+# gira piu'. Dove si sorpassa facile ci si mette a mezzo secondo, dove non si
+# sorpassa si resta a un secondo abbondante e si aspetta l'errore.
+def follow_gap(track) -> float:
+    ot = float(track.traits.get("overtaking", 0.5))
+    return 22.0 + 40.0 * (1.0 - ot)
+
 
 # --------------------------------------------------------------------- meteo
 @dataclass
@@ -258,6 +266,7 @@ class RaceSim:
         # gia' dentro al giro base di ognuno. Qui resta solo quel poco che la
         # pista guadagna ancora mentre si corre, che vale mezzo secondo scarso
         self.evo = 1.004
+        self.follow = follow_gap(track)
         self.wind_noise = pace.wind_noise(self.cond)
         # su un asfalto che scotta la gomma dura meno: e' la ragione per cui la
         # stessa mescola fa venti giri in Bahrain e trentacinque a Montreal
@@ -278,6 +287,8 @@ class RaceSim:
         self.burn_per_lap = BURN_KG_PER_LAP
         self.leader_lap = 0
         self._order_cache = list(entrants)
+        # l'ordine in pista del passo precedente: serve a tenere la fila
+        self._coda = list(entrants)
 
     # ------------------------------------------------------------ utilita'
     def log(self, text: str, kind: str = "info") -> None:
@@ -370,10 +381,13 @@ class RaceSim:
                 e.lap = new_lap
                 self._on_lap_complete(e, lt)
 
+        self._queue()
         self._resolve_battles(dt)
         self._resolve_reviews(dt)
         self._update_positions()
         self._maybe_incident(dt)
+        self._coda = [e for e in self.entrants if e.status == "running"]
+        self._coda.sort(key=lambda e: -e.dist)
 
     def _meteo(self, dt: float) -> None:
         """Il tempo cambia mentre si corre: l'acqua arriva, e poi se ne va.
@@ -403,6 +417,23 @@ class RaceSim:
         # sotto l'acqua la gomma stesa se ne va, e con lei l'aderenza
         if w.wet > 0.2:
             self.evo = min(1.02, self.evo + dt * 0.0000050)
+
+    def _queue(self) -> None:
+        """Dietro si resta finche' il sorpasso non lo si fa davvero.
+
+        Le monoposto avanzano in metri, e due macchine con lo stesso passo si
+        scambierebbero di posto in continuazione solo per il rumore dei tempi
+        sul giro. In pista non funziona cosi': ci si mette a ridosso e li' si
+        resta, a perdere tempo nell'aria sporca, finche' non si trova il modo
+        di passare. Chi sta davanti fa da tappo, e il tempo che il secondo
+        perde in coda e' tempo vero.
+        """
+        coda = [e for e in self._coda if e.status == "running"]
+        for i in range(1, len(coda)):
+            davanti, dietro = coda[i - 1], coda[i]
+            limite = davanti.dist - self.follow
+            if dietro.dist > limite:
+                dietro.dist = limite
 
     def _wear_rate(self, e: Entrant) -> float:
         comp = C.COMPOUNDS[e.tyre]
@@ -488,24 +519,34 @@ class RaceSim:
 
     # ------------------------------------------------------------- strategia
     def _check_pit(self, e: Entrant) -> None:
+        bagnato = self.weather.wet > 0.12
         target = None
         for lap, comp in list(e.plan):
             if e.lap >= lap:
-                target = comp
                 e.plan.remove((lap, comp))
+                # quando piove il piano dell'asciutto si straccia: il muretto
+                # non rimanda in pista una macchina con le slick sotto l'acqua
+                if not bagnato:
+                    target = comp
                 break
+        if bagnato:
+            e.plan.clear()
         # sosta d'emergenza se la gomma e' andata
         if target is None and e.tyre_age > e.tyre_life * 1.35 and e.lap < self.laps - 2:
             target = self._pick_compound(e)
-        # cambio per la pioggia
+        # cambio per la pioggia. Le soglie di rientro sono piu' larghe di quelle
+        # di uscita: si monta la gomma da bagnato appena serve, ma non si torna
+        # indietro alla prima schiarita, altrimenti si vive ai box
         if target is None:
-            if self.weather.wet > 0.45 and e.tyre != "wet":
+            if self.weather.wet > 0.50 and e.tyre != "wet":
                 target = "wet"
-            elif 0.18 < self.weather.wet <= 0.45 and e.tyre not in ("inter", "wet"):
+            elif 0.20 < self.weather.wet <= 0.42 and e.tyre not in ("inter", "wet"):
                 target = "inter"
-            elif self.weather.wet < 0.10 and e.tyre in ("inter", "wet") and e.lap < self.laps - 3:
+            elif self.weather.wet < 0.30 and e.tyre == "wet":
+                target = "inter"
+            elif self.weather.wet < 0.08 and e.tyre == "inter" and e.lap < self.laps - 3:
                 target = self._pick_compound(e)
-        if target is None:
+        if target is None or target == e.tyre:
             return
         # opportunismo: sotto safety car si guadagna tempo
         e.status = "pitting"
@@ -591,15 +632,20 @@ class RaceSim:
         for i in range(1, len(live)):
             ahead, behind = live[i - 1], live[i]
             gap_m = ahead.dist - behind.dist
-            if gap_m > 90.0 or gap_m < 0:
+            if gap_m > self.follow * 2.4 or gap_m < 0:
                 behind.dirty_air = max(0.0, behind.dirty_air - dt * 1.5)
                 continue
             behind.dirty_air = min(1.0, behind.dirty_air + dt * 0.9) * (1.0 - 0.55 * ot_track)
-            if self.safety_car > 0 or behind.overtake_cd > 0 or gap_m > 45.0:
+            if (self.safety_car > 0 or behind.overtake_cd > 0
+                    or gap_m > self.follow * 1.25):
                 continue
             # da qui in poi e' il tentativo di questo giro, riuscito o no
             behind.overtake_cd = max(20.0, behind.last_lap * 0.85)
-            vantaggio = ahead.clean_lap - behind.clean_lap
+            # non conta solo il passo medio: conta come e' venuta fuori quella
+            # curva, se chi difende ha bloccato una ruota, se la trazione ha
+            # spinto meglio. Due macchine uguali non si passano mai per pura
+            # velocita', si passano quando capita l'occasione
+            vantaggio = ahead.clean_lap - behind.clean_lap + self.rng.gauss(0.0, 0.22)
             if vantaggio <= 0.0:
                 continue
             # quanto vantaggio serve per portare a casa il sorpasso
@@ -611,7 +657,7 @@ class RaceSim:
             p *= 1.0 + 0.35 * self.weather.wet
             if self.rng.random() >= min(0.85, p):
                 continue
-            behind.dist, ahead.dist = ahead.dist + 4.0, behind.dist - 4.0
+            behind.dist, ahead.dist = ahead.dist + 6.0, ahead.dist - self.follow * 0.6
             behind.overtake_cd = max(25.0, behind.last_lap * 1.1)
             ahead.overtake_cd = max(20.0, ahead.last_lap * 0.9)
             self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
