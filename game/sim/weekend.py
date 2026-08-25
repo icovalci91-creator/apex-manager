@@ -492,6 +492,16 @@ class RaceSim:
         if self.best_sectors[i] <= 0 or t < self.best_sectors[i]:
             self.best_sectors[i] = t
 
+    def sector_view(self, e) -> list:
+        """I tre parziali da mostrare: quelli di questo giro appena scattano.
+
+        Finche' il giro e' in corso si vedono i settori gia' passati; quelli
+        che mancano restano quelli del giro prima, cosi' la riga non si svuota
+        a ogni passaggio sul traguardo.
+        """
+        return [(e.live_sectors[i], True) if e.live_sectors[i] > 0
+                else (e.sectors[i], False) for i in range(3)]
+
     def sector_colour(self, e, i: int, valore: float | None = None):
         """Viola il migliore di tutti, verde il migliore suo, giallo il resto."""
         t = e.sectors[i] if valore is None else valore

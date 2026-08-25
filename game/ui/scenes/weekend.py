@@ -308,7 +308,12 @@ class WeekendScene(Scene):
         if self.turno and not self.turno.finita:
             mult = SPEEDS[self.speed_idx]
             if mult:
-                self.turno.update(dt * mult)
+                # a passo troppo largo il turno salterebbe interi pezzi di
+                # giro: si avanza a spezzoni, come per la gara
+                step = dt * mult
+                n = max(1, int(step / 2.0) + 1)
+                for _ in range(n):
+                    self.turno.update(step / n)
             if self.turno.finita:
                 self._on_turno_end()
             return
@@ -941,10 +946,13 @@ class WeekendScene(Scene):
             wear = e.compound_state()
             T.bar(surf, (x_bar, y + 5, 30, 6), wear * 100, 100,
                   T.OK if wear > 0.9 else (T.WARN if wear > 0.78 else T.BAD))
-            for k in range(3):
-                col = sim.sector_colour(e, k)
-                pygame.draw.rect(surf, _SETT.get(col, (46, 58, 78)),
-                                 (x_pip + k * 10, int(y) + 5, 7, 7))
+            vista = sim.sector_view(e)
+            for k, (val, vivo) in enumerate(vista):
+                col = sim.sector_colour(e, k, val) if val > 0 else None
+                c = _SETT.get(col, (46, 58, 78))
+                if not vivo and col:
+                    c = T.mix(c, (18, 24, 34), 0.55)
+                pygame.draw.rect(surf, c, (x_pip + k * 10, int(y) + 5, 7, 7))
             if e.sectors[2] > 0 and e.status != "retired":
                 giro = sum(e.sectors)
                 col = VIOLA if abs(giro - sim.best_lap) < 0.002 else (
@@ -1027,10 +1035,13 @@ class WeekendScene(Scene):
         T.text(surf, T.fmt_time(giro) if giro else "--:--.---", (r.x + 56, y), 13,
                T.TEXT, mono=True)
         sx = r.x + 140
-        for k in range(3):
-            col = sim.sector_colour(e, k)
-            T.text(surf, f"{e.sectors[k]:.3f}" if e.sectors[k] > 0 else "--.---",
-                   (sx + k * 62, y + 1), 11, _SETT.get(col, T.DIM_2), mono=True)
+        for k, (val, vivo) in enumerate(sim.sector_view(e)):
+            col = sim.sector_colour(e, k, val) if val > 0 else None
+            c = _SETT.get(col, T.DIM_2)
+            if not vivo and col:
+                c = T.mix(c, T.PANEL, 0.55)
+            T.text(surf, f"{val:.3f}" if val > 0 else "--.---",
+                   (sx + k * 62, y + 1), 11, c, mono=True)
         T.text(surf, "MIGLIORE", (r.x + 330, y + 2), 11, T.DIM_2, bold=True)
         T.text(surf, T.fmt_time(e.best_lap) if e.best_lap < 900 else "--:--.---",
                (r.x + 392, y), 13,
