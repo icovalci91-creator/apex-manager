@@ -513,15 +513,29 @@ def _scheda_circuito(surf, r, gs, t) -> None:
     cx = pygame.Rect(sx.right + 14, r.y + 56, r.w * 0.28, r.h * 0.52)
     T.panel(surf, cx, T.PANEL, radius=10, border=T.LINE)
     T.text(surf, "COM'E' FATTO", (cx.x + 16, cx.y + 12), 12, T.DIM_2, bold=True)
-    y = cx.y + 38
-    for chiave, nome, _spiega in TRATTI:
-        v = float(t.traits.get(chiave, 0.5))
-        T.text(surf, nome, (cx.x + 16, y), 12, T.DIM, maxw=cx.w - 130)
-        T.bar(surf, (cx.right - 106, y + 4, 90, 8), v * 100, 100,
-              T.stat_colour(v * 100, 35, 70))
-        y += 22
-    y += 8
-    T.text(surf, "CHE MACCHINA CI VUOLE", (cx.x + 16, y), 12, T.GOLD, bold=True)
+    # non un aggettivo: i dati del giro. Quanto tempo si passa in ogni parte
+    # del circuito, misurato facendoci girare la nostra macchina
+    dati = engineering.grid_domains(gs, t).get(gs.player_team, {})
+    domini = engineering.track_demand(gs, t)
+    T.text(surf, f"{dati.get('pieno_gas', 0)*100:.0f}% a tutto gas",
+           (cx.right - 16, cx.y + 12), 11, T.DIM_2, align="right")
+    y = cx.y + 36
+    for dom, quota in domini:
+        T.text(surf, engineering.NOMI_DOMINIO[dom], (cx.x + 16, y), 12, T.DIM,
+               maxw=cx.w - 150)
+        T.bar(surf, (cx.right - 126, y + 4, 74, 8), quota * 100, 45, T.ACCENT)
+        T.text(surf, f"{quota*100:.0f}%", (cx.right - 16, y), 12, T.DIM_2, align="right")
+        y += 20
+    curve = dati.get("curve") or []
+    lente = sum(1 for c in curve if c["classe"] == "lente")
+    veloci = sum(1 for c in curve if c["classe"] == "veloci")
+    T.text(surf, f"{len(curve)} curve, {lente} lente e {veloci} veloci",
+           (cx.x + 16, y + 6), 11, T.DIM_2, maxw=cx.w - 32)
+    T.text(surf, f"{dati.get('frenate', 0)} staccate, punta {dati.get('vmax', 0):.0f} km/h",
+           (cx.x + 16, y + 22), 11, T.DIM_2, maxw=cx.w - 32)
+    y += 46
+
+    T.text(surf, "DOVE PERDIAMO QUI", (cx.x + 16, y), 12, T.GOLD, bold=True)
     # quanto questa pista ci sta bene o male rispetto a tutte le altre del
     # calendario, e quanto vale in secondi
     from ...sim import pace as PACE
@@ -535,22 +549,16 @@ def _scheda_circuito(surf, r, gs, t) -> None:
     y += 20
     T.text(surf, frase, (cx.x + 16, y), 12, colf, bold=True, maxw=cx.w - 32)
     y += 20
-    bias = engineering.track_bias(t)
-    ordinate = sorted(bias.items(), key=lambda kv: -kv[1])
-    prof = engineering.car_profile(gs.player, gs)
-    for area, peso in ordinate[:4]:
-        nome = engineering.AREAS[area]
-        mia = prof.get(area, 50.0)
-        col = T.OK if mia > 66 else (T.WARN if mia > 40 else T.BAD)
-        T.text(surf, nome, (cx.x + 16, y), 12, T.TEXT if peso > 0.6 else T.DIM,
-               bold=peso > 0.6, maxw=cx.w - 150)
-        T.bar(surf, (cx.right - 126, y + 4, 60, 8), peso * 100, 100, T.GOLD)
-        T.text(surf, f"noi {mia:.0f}", (cx.right - 16, y), 12, col, align="right")
-        y += 20
-    manca = [engineering.AREAS[a] for a, p in ordinate[:3] if prof.get(a, 50) < 55]
-    if manca:
-        T.text(surf, "Qui ci mancano: " + ", ".join(x.lower() for x in manca) + ".",
-               (cx.x + 16, y + 6), 12, T.WARN, maxw=cx.w - 32)
+    # e il conto vero: in che parte del giro lasciamo secondi ai migliori
+    stand = engineering.domain_standing(gs, t)
+    peggio = sorted(stand.items(), key=lambda kv: -kv[1]["gap"])[:4]
+    for dom, d in peggio:
+        col = T.BAD if d["gap"] > 0.15 else (T.WARN if d["gap"] > 0.05 else T.OK)
+        T.text(surf, engineering.NOMI_DOMINIO[dom], (cx.x + 16, y), 12,
+               T.TEXT if d["gap"] > 0.05 else T.DIM, maxw=cx.w - 130)
+        T.text(surf, f"{d['gap']:+.2f} s", (cx.right - 16, y), 12, col, bold=True,
+               align="right")
+        y += 19
 
     # ------------------------------------------------------ il gran premio di quest'anno
     dx = pygame.Rect(cx.right + 14, r.y + 56, r.right - cx.right - 14, r.h * 0.52)

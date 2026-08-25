@@ -208,6 +208,12 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
             notes.append(f"{who} su {d.short}: fuori finestra, servono modifiche.")
         for riga in SETUP.hints(pt, track, d)[:2]:
             notes.append(riga)
+    # e quello che dicono i dati: dove si perde, quanto, e a che curva si vede
+    from ..core import engineering
+    try:
+        notes += engineering.practice_report(gs, pt, track, cond)
+    except Exception:
+        pass
     # e quello che la giornata sta facendo alla macchina: se il tempo non e'
     # quello che il reparto si aspettava, il riferimento del simulatore vale poco
     atteso = pace.nominal(track)

@@ -142,6 +142,60 @@ def track_demand(gs, track, cond=None) -> list:
     return sorted(((dom, v / tot) for dom, v in somma.items()), key=lambda x: -x[1])
 
 
+# Come si dice a parole quello che il cronometro dice in secondi, dominio per
+# dominio: prima quando li' si e' forti, poi quando si perde.
+GIUDIZIO = {
+    "lente": ("nelle lente la macchina gira, e' li' che facciamo la differenza",
+              "nelle lente non gira: si aspetta l'anteriore e si esce piano"),
+    "medie": ("nelle medie e' precisa in inserimento",
+              "nelle medie perde l'anteriore a meta' curva"),
+    "veloci": ("nelle veloci ha appoggio, si tiene il piede giu'",
+               "nelle veloci si muove e nessuno dei due la tira"),
+    "trazione": ("in uscita la mette a terra meglio di tutti",
+                 "in uscita pattina: si perde il tempo proprio dove si guadagna"),
+    "frenata": ("in staccata e' piantata, si ritarda quanto si vuole",
+                "in staccata si sbilancia e si frena prima del dovuto"),
+    "rettilinei": ("in fondo al rettilineo scorre",
+                   "sui dritti ci mangiano, e' una questione di resistenza"),
+}
+
+
+def practice_report(gs, team, track, cond=None) -> list:
+    """Cosa dicono i cronometri dopo una sessione, in secondi e per posto.
+
+    Non "la macchina va bene": dove va bene e dove no, quanto costa, e a che
+    curva si vede. E' la differenza fra un riscontro e un'impressione.
+    """
+    stand = domain_standing(gs, track, team, cond)
+    if not stand:
+        return []
+    per_gap = sorted(stand.items(), key=lambda kv: -kv[1]["gap"])
+    peggio, dati_p = per_gap[0]
+    meglio, dati_m = per_gap[-1]
+    out = []
+    if dati_p["gap"] > 0.04:
+        out.append(f"- {GIUDIZIO[peggio][1].capitalize()}. Sono "
+                   f"{dati_p['gap']:.2f} s dai migliori, su un "
+                   f"{dati_p['quota']*100:.0f}% di giro.")
+    if dati_m["gap"] < 0.03:
+        out.append(f"- {GIUDIZIO[meglio][0].capitalize()}.")
+    curva = _curva_di(track, peggio)
+    if curva and dati_p["gap"] > 0.04:
+        out.append(f"- Si vede alla curva {curva['n']} del settore {curva['settore']}, "
+                   f"quella da {curva['v']:.0f} all'ora.")
+    return out
+
+
+def _curva_di(track, dominio: str):
+    """Una curva rappresentativa di quel dominio, per dare un posto al problema."""
+    curve = [c for c in (getattr(track, "corner_map", None) or [])
+             if c["classe"] == dominio]
+    if not curve:
+        return None
+    return min(curve, key=lambda c: c["v"]) if dominio == "lente" else \
+        max(curve, key=lambda c: c["v"])
+
+
 def part_field(gs) -> dict:
     """Come sta messa la griglia, componente per componente.
 

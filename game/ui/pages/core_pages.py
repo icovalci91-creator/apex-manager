@@ -157,7 +157,7 @@ ALT_VERIFICA = 148
 Y_PULSANTI_VERIFICA = 108
 # Dove sta il pulsante che avvia il pacchetto, sotto costo, fiducia, bande e
 # le due righe di commento: le stesse che sopra vanno a capo da sole.
-Y_AVVIA = 248
+Y_AVVIA = 320
 # Quanto si tiene l'intestazione della pagina Ingegneri: titolo, interruttore
 # e le due linguette fra la nostra vettura e tutta la griglia.
 TESTA_TECNICA = 84
@@ -575,6 +575,7 @@ class DevPage(Page):
         super().__init__(shell)
         self.sel_part = "floor"
         self.sel_size = "medio"
+        self.sel_focus = ""      # su che parte del giro disegnarlo
 
     def build(self) -> None:
         r = self.rect
@@ -636,6 +637,18 @@ class DevPage(Page):
             b.on_click = (lambda s=sz: self._pick_size(s))
             b.active = (sz == self.sel_size)
             self.size_buttons.append(b)
+            self.widgets.append(b)
+        # su cosa disegnarlo: un fondo per le veloci non e' un fondo per le
+        # lente, e su un calendario intero la differenza si vede
+        self.focus_buttons = []
+        scelte = [("", "Nessun focus")] + [(d, engineering.NOMI_DOMINIO[d])
+                                           for d in self._domini()]
+        larg = (right.w - 32 - 6 * (len(scelte) - 1)) / max(1, len(scelte))
+        for i, (dom, lab) in enumerate(scelte):
+            b = Button((bx + i * (larg + 6), sy + 36, larg, 28), lab, style="tab")
+            b.on_click = (lambda d=dom: self._pick_focus(d))
+            b.active = (dom == self.sel_focus)
+            self.focus_buttons.append(b)
             self.widgets.append(b)
         self.auto_toggle = Toggle((left.x + 16, y + 50, left.w - 32, 30),
                                   "Decide il reparto", self.team.auto_dev,
@@ -725,10 +738,23 @@ class DevPage(Page):
         """Quota del budget di sviluppo dirottata sul regolamento che verra'."""
         self.team.next_reg_share = max(0.0, min(0.90, v / 100.0))
 
+    def _domini(self) -> list:
+        from ...model.car import DOMINI_PEZZO
+        return list(DOMINI_PEZZO.get(self.sel_part, {}).keys())
+
     def _pick_part(self, k) -> None:
         self.sel_part = k
         for b, key in zip(self.part_buttons, C.CAR_PARTS.keys()):
             b.active = (key == k)
+        if self.sel_focus not in self._domini():
+            self.sel_focus = ""
+        self.build()
+
+    def _pick_focus(self, dom) -> None:
+        self.sel_focus = dom
+        for b, (d, _l) in zip(self.focus_buttons,
+                              [("", "")] + [(x, "") for x in self._domini()]):
+            b.active = (d == dom)
 
     def _pick_size(self, s) -> None:
         self.sel_size = s
@@ -764,7 +790,8 @@ class DevPage(Page):
             self.build()
 
     def start_project(self) -> None:
-        ok, msg = development.start_project(self.gs, self.team, self.sel_part, self.sel_size)
+        ok, msg = development.start_project(self.gs, self.team, self.sel_part,
+                                            self.sel_size, self.sel_focus)
         self.app.toast(msg)
         if ok:
             self.gs.push(msg, "tecnico")
@@ -809,20 +836,18 @@ class DevPage(Page):
                        bold=True, align="right")
                 stato = ("da decidere" if tr.state == "in prova" else
                          f"in affinamento, {max(0, development.TRIAL_RACES + 1 - tr.races)} gare")
-                T.text(surf, f"{stato}  -  {tr.news}", (left.x + 16, ty + 19), 12, T.DIM,
-                       maxw=left.w - 32)
+                alta = T.paragraph(surf, f"{stato}  -  {tr.news}",
+                                   (left.x + 16, ty + 19), 12, T.DIM, left.w - 32)
                 # cosa ne dicono quelli che la guidano: un pacchetto che fa
                 # girare la macchina non sta bene a tutti e due allo stesso modo
-                voci = []
+                vy = ty + 22 + alta
                 for d in gs.lineup_of(team.id):
                     idx, frase = development.driver_verdict(gs, team, tr, d)
                     segno = "+" if idx > 0.12 else ("-" if idx < -0.12 else "=")
-                    voci.append(f"{segno} {d.short}: {frase}")
-                for j, voce in enumerate(voci[:2]):
-                    col_v = (T.OK if voce.startswith("+") else
-                             T.BAD if voce.startswith("-") else T.DIM_2)
-                    T.text(surf, voce, (left.x + 16, ty + 33 + j * 14), 11, col_v,
-                           maxw=left.w - 32)
+                    col_v = (T.OK if idx > 0.12 else T.BAD if idx < -0.12 else T.DIM_2)
+                    vy += T.paragraph(surf, f"{segno} {d.short}: {frase}",
+                                      (left.x + 16, vy), 11, col_v, left.w - 32)
+                vy += 4
                 tetto = development.trial_ceiling(gs, team, tr) - tr.old_perf
                 nota = (f"insistere puo' portarla a {tetto:+.1f} sulla vecchia e costa "
                         f"{tr.cost * development.TRIAL_UPKEEP:.2f} M$ a gara, con un "
@@ -830,8 +855,8 @@ class DevPage(Page):
                 if buco < -0.05:
                     nota += (f"  -  rimontare la vecchia costa "
                              f"{tr.cost * development.REVERT_SHARE:.2f} M$")
-                T.paragraph(surf, nota, (left.x + 16, ty + 62), 11, T.DIM_2, left.w - 32)
-                ty += ALT_VERIFICA
+                vy += T.paragraph(surf, nota, (left.x + 16, vy), 11, T.DIM_2, left.w - 32)
+                ty = max(ty + ALT_VERIFICA, vy + 12)
         elif team.dev_projects:
             T.text(surf, "Nessuna specifica in discussione: quello che e' arrivato "
                          "in pista ha funzionato.", (left.x + 16, ty), 12, T.DIM_2,
@@ -868,7 +893,7 @@ class DevPage(Page):
         if st:
             # il tavolo e' aperto: non si sa ancora la data, ma si sa la direzione
             dom = max(st["aree"], key=st["aree"].get)
-            ry = sy + 296
+            ry = sy + 368
             T.text(surf, f"TAVOLO TECNICO  -  RIUNIONE {st['riunioni']} DI {st['servono']}",
                    (right.x + 16, ry), 12, T.GOLD, bold=True)
             T.text(surf, f"Si sta andando verso {rules.ETICHETTA_AREA[dom]} "
@@ -881,7 +906,7 @@ class DevPage(Page):
             f = era.get("focus", {})
             dom = max(f, key=f.get) if f else "aero"
             nome = {"pu": "power unit", "chassis": "telaio", "aero": "aerodinamica"}[dom]
-            ry = sy + 244
+            ry = sy + 316
             T.text(surf, f"REGOLAMENTO {era['from']}  -  fra {left} "
                          f"{'stagione' if left == 1 else 'stagioni'}",
                    (right.x + 16, ry), 12, T.GOLD, bold=True)
@@ -906,22 +931,41 @@ class DevPage(Page):
         races = development.RACES_OF[self.sel_size]
         liberi = development.free_people(team, self.sel_part)
         serve = development.people_needed(self.sel_size)
+        # quello che conta non e' "+4.9 punti": e' quanti secondi al giro, dove
+        # si corre adesso e sulle piste che restano
+        focus = self.sel_focus or None
+        sec_qui = development.gain_seconds(gs, team, self.sel_part, gain,
+                                           gs.next_track, focus)
+        sec_cal = development.calendar_gain(gs, team, self.sel_part, gain, focus)
         T.text(surf, f"Costo {cost:.2f} M$   |   Sulla carta +{gain:.1f}   |   "
                      f"Tempo {races} gare",
-               (right.x + 16, sy + 42), 14, T.TEXT)
+               (right.x + 16, sy + 78), 14, T.TEXT)
+        T.text(surf, f"{sec_qui:+.3f} s al giro qui, {sec_cal:+.3f} di media "
+                     f"sul calendario che resta",
+               (right.x + 16, sy + 98), 13,
+               T.OK if sec_cal > 0.03 else (T.WARN if sec_cal > 0.005 else T.BAD),
+               maxw=right.w - 32)
+        dove = development.gain_domains(gs, team, self.sel_part, gain, gs.next_track, focus)
+        T.text(surf, development.spiega_dove(dove, 3).capitalize(),
+               (right.x + 16, sy + 116), 12, T.DIM, maxw=right.w - 32)
+        migliore, quanto = development.best_focus(gs, team, self.sel_part, gain)
+        if migliore and (self.sel_focus != migliore) and quanto - sec_cal > 0.004:
+            T.text(surf, f"Il reparto lo disegnerebbe per "
+                         f"{engineering.NOMI_DOMINIO[migliore].lower()}: {quanto:+.3f} s",
+                   (right.x + 16, sy + 134), 12, T.GOLD, maxw=right.w - 32)
         col_p = T.OK if liberi >= serve else T.BAD
         T.text(surf, f"{serve} persone del reparto per {races} gare "
                      f"({liberi} libere)   -   materiali {conto['materiali']:.2f} M$, "
                      f"straordinari {conto['lavoro']:.2f}",
-               (right.x + 16, sy + 62), 12, col_p, maxw=right.w - 32)
+               (right.x + 16, sy + 154), 12, col_p, maxw=right.w - 32)
         stato, parere = economy.cap_advice(gs, team, cost)
         col_cfo = {"male": T.BAD, "attento": T.WARN, "ok": T.DIM}[stato]
-        T.text(surf, parere, (right.x + 16, sy + 78), 12, col_cfo, maxw=right.w - 32)
+        T.text(surf, parere, (right.x + 16, sy + 172), 12, col_cfo, maxw=right.w - 32)
 
         col = T.OK if conf > 0.62 else (T.WARN if conf > 0.38 else T.BAD)
-        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 102), 13, T.DIM)
-        T.bar(surf, (right.x + 170, sy + 107, right.w - 260, 8), conf * 100, 100, col)
-        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 102), 13, col,
+        T.text(surf, "Fiducia del reparto", (right.x + 16, sy + 196), 13, T.DIM)
+        T.bar(surf, (right.x + 170, sy + 201, right.w - 260, 8), conf * 100, 100, col)
+        T.text(surf, f"{conf*100:.0f}%", (right.right - 16, sy + 196), 13, col,
                bold=True, align="right")
 
         # come puo' finire: quattro bande, disegnate in proporzione
@@ -931,10 +975,10 @@ class DevPage(Page):
         x = bx
         for nome, colore in bande:
             w = bw * odds[nome]
-            pygame.draw.rect(surf, colore, (int(x), sy + 130, max(2, int(w)), 10),
+            pygame.draw.rect(surf, colore, (int(x), sy + 224, max(2, int(w)), 10),
                              border_radius=2)
             x += w
-        yy = sy + 146
+        yy = sy + 240
         yy += T.paragraph(surf, f"fallisce {odds['fallito']*100:.0f}%   "
                                 f"sotto le attese {odds['sottotono']*100:.0f}%   "
                                 f"come previsto {odds['in linea']*100:.0f}%   "

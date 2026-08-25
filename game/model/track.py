@@ -402,8 +402,12 @@ class Track:
                     continue
                 tratto = range(inizio, i)
                 vmin = min(v[x] for x in tratto)
+                # una curva e' lenta o veloce per come la si percorre nel punto
+                # piu' stretto, non per come ci si arriva
+                classe = ("lente" if vmin < V_LENTA else
+                          "veloci" if vmin > V_VELOCE else "medie")
                 curve.append({"n": len(curve) + 1, "quota": (inizio + i) / 2.0 / len(v),
-                              "classe": classi[inizio], "v": vmin * 3.6,
+                              "classe": classe, "v": vmin * 3.6,
                               "settore": self.sector_of((inizio + i) // 2)})
         return curve
 
