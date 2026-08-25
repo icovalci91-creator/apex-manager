@@ -34,6 +34,7 @@ class WeekendState:
     tyre_choice: dict = field(default_factory=dict)  # team_id -> set scelti per mescola
     tyre_stock: dict = field(default_factory=dict)   # driver_id -> set ancora a disposizione
     tyres_published: bool = False                    # le scelte sono state rese pubbliche
+    practice_times: dict = field(default_factory=dict)  # il meglio di ognuno nelle libere
     # quanta gomma e' stata stesa sull'asfalto: cresce turno dopo turno e la
     # pioggia la porta via. E' il motivo per cui la domenica si gira piu' forte
     # del venerdi' anche con la stessa macchina
@@ -161,7 +162,7 @@ def practice_sessions(track) -> int:
     return 1 if track.sprint else 3
 
 
-def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
+def run_practice(gs, ws: WeekendState, delegate_player: bool = True, turno=None) -> list:
     """Una sessione di prove: la pista risponde e l'assetto si avvicina.
 
     Non si scopre l'assetto giusto guardandolo: si scopre girandoci. Quello che
@@ -171,9 +172,11 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     """
     from ..core import setup as SETUP
     track = ws.track
-    if ws.practice_done:
+    # con la sessione giocata dal vivo il tempo l'ha gia' mosso lei: qui si
+    # raccoglie soltanto quello che quell'ora in pista ha insegnato
+    if turno is None and ws.practice_done:
         ws.weather = ws.weather.drift(track, gs.rng)
-    cond = pace.of_weekend(ws, "prove")
+    cond = turno.cond if turno is not None else pace.of_weekend(ws, "prove")
     notes = []
     for team in gs.teams.values():
         drivers = gs.drivers_of(team.id)
@@ -289,15 +292,11 @@ def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> No
 
 
 # ---------------------------------------------------------------- qualifica
-# I tre turni, come stanno sul regolamento: nome, minuti, quante volte si esce
-# e la mescola che il regolamento impone (None = si sceglie). La qualifica del
-# gran premio e' lunga e le gomme le decide la squadra; la Sprint Qualifying e'
-# corta e la mescola la decide il regolamento.
-SEGMENTI = {
-    "gp": (("Q1", 18, 2, None), ("Q2", 15, 2, None), ("Q3", 12, 2, None)),
-    "sprint": (("SQ1", 12, 2, "medium"), ("SQ2", 10, 1, "medium"),
-               ("SQ3", 8, 1, "soft")),
-}
+# I tre turni stanno in sim.hotlap insieme al turno che li gioca: qui resta il
+# nome con cui li chiamano le schermate.
+from .hotlap import SEGMENTI, LapSession    # noqa: E402
+
+
 def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     """La qualifica, nel formato vero: tre turni a eliminazione.
 
@@ -310,85 +309,14 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     In tutti e due i casi si eliminano sei macchine per turno finche' ne
     restano dieci a giocarsi la pole; chi e' uscito prima parte comunque dietro
     a chi e' andato avanti, anche se nel suo turno ha girato piu' forte.
+
+    Il turno lo gioca sim.hotlap sul suo orologio: qui lo si fa correre tutto
+    d'un fiato. Guardarlo minuto per minuto porta esattamente allo stesso
+    tabellone.
     """
-    track = ws.track
-    ws.weather = ws.weather.drift(track, gs.rng)
-    weather = ws.weather
-    cond = pace.of_weekend(ws, "quali")
-    ents = build_entrants(gs, track, cond, quali=True)
-    alive = list(ents)
-    times = {}
-    reached = {}          # driver_id -> ultimo turno disputato (0 = Q1, 2 = Q3)
-    n = len(ents)
-    cuts = [max(10, n - 6), 10, 0]
-    turni = SEGMENTI["sprint" if kind == "sprint" else "gp"]
-
-    from ..core import tyres
-    for phase, keep in enumerate(cuts):
-        nome, _minuti, tentativi, imposta = turni[phase]
-        for e in alive:
-            t = e.base_lap
-            t += (85.0 - e.skill) * DRIVER_S_PER_POINT
-            t += 8.0 * 0.032                                  # serbatoio da qualifica
-            # con cosa si scende in pista dipende da cosa e' rimasto nel camion,
-            # e nel weekend sprint da cosa impone il regolamento
-            if ws.tyre_stock:
-                mescola = tyres.quali_run(gs, ws, e.driver_id, imposta)
-            else:
-                mescola = imposta or "soft"
-            t -= tyres.QUALI_GAIN.get(mescola, 0.35)
-            # la pista si gomma turno dopo turno: in Q3 si gira sull'asfalto
-            # migliore di tutto il fine settimana
-            t *= 1.0 - 0.0022 * phase
-            if weather.wet > 0.05:
-                t += (85.0 - e.wet_skill) * 0.06 * weather.wet * 4.0
-            # in un turno lungo si esce due volte e vale il migliore: e' per
-            # questo che il tempo di un pilota regolare somiglia a quello che
-            # vale davvero, e chi ne butta uno lo rifa'. In un turno corto no
-            giri = []
-            for _ in range(tentativi):
-                giro = t + gs.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.0028
-                                        + pace.wind_noise(cond))
-                # chi non si fida della macchina il giro perfetto non lo trova
-                sporco = 0.055 + (100.0 - e.consistency) * 0.0022
-                sporco *= 1.0 + (65.0 - e.confidence) * 0.009
-                if gs.rng.random() < max(0.010, sporco):
-                    giro += gs.rng.uniform(0.4, 2.4)           # giro sporcato
-                giri.append(giro)
-            tempo = min(giri)
-            times[e.driver_id] = tempo
-            reached[e.driver_id] = phase
-        classifica = sorted(alive, key=lambda e: times[e.driver_id])
-        if keep == 0:
-            break
-        alive = classifica[:keep]
-
-    # chi supera il taglio parte sempre davanti a chi e' stato eliminato prima,
-    # anche quando nel turno buono ha girato piu' lento
-    order = sorted(times.items(), key=lambda kv: (-reached[kv[0]], kv[1]))
-    griglia = [d for d, _ in order]
-    # la pole resta a chi ha fatto il tempo: le penalita' spostano la griglia,
-    # non cancellano il giro
-    pole = griglia[0]
-    note = _regola_107(gs, times, reached, turni[0][0])
-    for team in gs.teams.values():
-        team.car.wear(0.4, track)
-    # un turno in piu' sull'asfalto, e quello che si e' imparato girandoci
-    pace.rubber_in(ws, 0.006)
-    _learn_from_running(gs, ws, 0.55)
-    if kind == "sprint":
-        ws.sprint_grid, ws.sprint_times, ws.sprint_pole = griglia, times, pole
-        ws.sprint_phase = dict(reached)
-        ws.sprint_quali_done = True
-        return ws.sprint_grid
-    from ..core import penalties
-    ws.quali_times = times
-    ws.pole = pole
-    ws.quali_phase = dict(reached)
-    ws.grid, ws.grid_notes = penalties.apply_grid_penalties(gs, griglia)
-    ws.grid_notes = note + ws.grid_notes
-    ws.quali_done = True
-    return ws.grid
+    turno = LapSession(gs, ws, kind)
+    turno.corri_tutto()
+    return turno.applica()
 
 
 def _regola_107(gs, times: dict, reached: dict, primo: str) -> list:

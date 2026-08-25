@@ -7,6 +7,7 @@ from ... import config as C
 from ...core import season as SEASON
 from ...core import tyres as TY
 from ...sim import session as S
+from ...sim import hotlap as HOT
 from ...sim.weekend import Weather
 from ...sim import pace as PACE
 from .. import theme as T
@@ -22,6 +23,9 @@ SPEED_LABELS = ["II", "x1", "x4", "x12", "x40"]
 # doverli spiegare.
 VIOLA = (183, 96, 255)
 _SETT = {"viola": VIOLA, "verde": (53, 196, 106), "giallo": (245, 196, 80)}
+_STATO = {"box": "ai box", "uscita": "giro di lancio", "giro": "GIRO LANCIATO",
+          "rientro": "rientra ai box", "finito": "ha finito"}
+_CORTO = {"uscita": "lancio", "giro": "LANCIATO", "rientro": "rientra"}
 _ZONA = {"lente": "curva lenta", "medie": "curva media", "veloci": "curva veloce",
          "trazione": "in trazione", "frenata": "in frenata",
          "rettilinei": "a tutto gas", "box": "corsia box"}
@@ -45,6 +49,7 @@ class WeekendScene(Scene):
         self.stage = "gomme"   # gomme|prove|sq|sprint|assetto|qualifica|gara|fine
         self.tyre_pick = TY.suggested(self.track)
         self.sim = None
+        self.turno = None          # il turno in pista che si sta guardando
         self.speed_idx = 2
         self.result_rows = []
         self.sprint_rows = []
@@ -68,6 +73,8 @@ class WeekendScene(Scene):
         self.pts_rect = None
         if self.stage == "gomme":
             self._build_tyres(w, h)
+        elif self.turno is not None:
+            self._build_turno(w, h)
         elif self.sim is not None:
             self._build_race(w, h)
         else:
@@ -234,7 +241,8 @@ class WeekendScene(Scene):
             self.app.toast("Prove libere terminate: in un weekend sprint ce n'e' una sola."
                            if self.track.sprint else "Prove libere terminate.")
             return
-        S.run_practice(self.gs, self.ws)
+        self.turno = HOT.LapSession(self.gs, self.ws, "prove")
+        self.speed_idx = 3
         self.build()
 
     def to_quali(self) -> None:
@@ -244,13 +252,13 @@ class WeekendScene(Scene):
         self.build()
 
     def do_sprint_quali(self) -> None:
-        S.run_qualifying(self.gs, self.ws, kind="sprint")
-        self.stage = "sprint"
+        self.turno = HOT.LapSession(self.gs, self.ws, "sprint")
+        self.speed_idx = 3
         self.build()
 
     def do_quali(self) -> None:
-        S.run_qualifying(self.gs, self.ws)
-        self.stage = "gara"
+        self.turno = HOT.LapSession(self.gs, self.ws, "gp")
+        self.speed_idx = 3
         self.build()
 
     def start_race(self) -> None:
@@ -297,6 +305,13 @@ class WeekendScene(Scene):
 
     # ------------------------------------------------------------------- loop
     def update(self, dt: float) -> None:
+        if self.turno and not self.turno.finita:
+            mult = SPEEDS[self.speed_idx]
+            if mult:
+                self.turno.update(dt * mult)
+            if self.turno.finita:
+                self._on_turno_end()
+            return
         if self.sim and not self.sim.finished:
             mult = SPEEDS[self.speed_idx]
             if mult:
@@ -339,7 +354,9 @@ class WeekendScene(Scene):
             self._draw_tyres(surf)
             super().draw(surf)
             return
-        if self.sim:
+        if self.turno:
+            self._draw_turno(surf)
+        elif self.sim:
             self._draw_race(surf)
         else:
             self._draw_prep(surf)
@@ -463,7 +480,13 @@ class WeekendScene(Scene):
 
         left = pygame.Rect(28, 92, w * 0.42, h - 190)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        trackdraw.draw_track(surf, tr, left.inflate(-24, -32), width=10)
+        # finite le libere il disegno della pista lascia il posto ai tempi: e'
+        # quello che si guarda per capire dove si e' finiti
+        if self.stage == "prove" and ws.practice_times:
+            self._tempi_prove(surf, pygame.Rect(left.x + 16, left.y + 12,
+                                                left.w - 32, left.h - 116))
+        else:
+            trackdraw.draw_track(surf, tr, left.inflate(-24, -32), width=10)
         # cosa dicono i radar per la domenica: e' l'informazione su cui si
         # decide se rischiare o no
         prev = ws.weather.forecast_label()
@@ -472,7 +495,8 @@ class WeekendScene(Scene):
                T.WARN if acqua else T.DIM_2, bold=True, maxw=left.w - 40)
         # quanta gomma c'e' sull'asfalto: e' il motivo per cui i tempi calano
         # turno dopo turno anche senza toccare niente
-        gomma = (ws.rubber - PACE.PISTA_VERDE) / (PACE.PISTA_GOMMATA - PACE.PISTA_VERDE)
+        gomma = max(0.0, (ws.rubber - PACE.PISTA_VERDE)
+                    / (PACE.PISTA_GOMMATA - PACE.PISTA_VERDE))
         T.text(surf, f"PISTA GOMMATA AL {gomma*100:.0f}%", (left.right - 20, left.bottom - 62),
                11, T.stat_colour(gomma * 100, 25, 70), bold=True, align="right")
         # quello che resta nel camion: da qui in poi non se ne aggiunge
@@ -549,6 +573,37 @@ class WeekendScene(Scene):
             self._pannello_programma(surf, right, yy + 10)
         elif self.stage == "fine":
             self._draw_results(surf, right, self.result_rows, "gp", "ORDINE D'ARRIVO")
+
+    def _tempi_prove(self, surf, rect) -> None:
+        """La classifica delle libere: chi ha girato, in quanto, e a che distacco."""
+        gs, ws = self.gs, self.ws
+        T.text(surf, f"TEMPI DELLE LIBERE {ws.practice_done}", (rect.x, rect.y), 11,
+               T.DIM_2, bold=True)
+        ordine = sorted(ws.practice_times.items(), key=lambda kv: kv[1])
+        primo = ordine[0][1] if ordine else 0.0
+        rh = max(14.0, min(22.0, (rect.h - 26) / max(1, len(ordine))))
+        dim = 13 if rh >= 18 else 12
+        y = rect.y + 24
+        for i, (did, t) in enumerate(ordine, 1):
+            d = gs.drivers.get(did)
+            if not d:
+                continue
+            team = gs.teams[d.team]
+            mio = (team.id == gs.player_team)
+            if mio:
+                T.panel(surf, (rect.x - 6, int(y) - 2, rect.w + 12, int(rh)),
+                        T.PANEL_3, radius=5)
+            T.text(surf, str(i), (rect.x + 20, int(y)), dim, T.DIM, align="right")
+            pygame.draw.rect(surf, T.hex_rgb(team.colour),
+                             (rect.x + 28, int(y) + 2, 3, max(9, int(rh) - 6)))
+            T.text(surf, d.short, (rect.x + 40, int(y)), dim, T.TEXT if mio else T.DIM,
+                   bold=mio, maxw=rect.w * 0.42)
+            T.text(surf, T.fmt_time(t), (rect.right - 84, int(y)), dim, T.TEXT,
+                   mono=True, align="right")
+            if i > 1:
+                T.text(surf, f"+{t - primo:.3f}", (rect.right, int(y)), dim, T.DIM_2,
+                       mono=True, align="right")
+            y += rh
 
     def _pannello_turni(self, surf, right, y: int, quale: str) -> int:
         """I tre turni della qualifica, con durata, tagli e gomme obbligate."""
@@ -992,3 +1047,267 @@ class WeekendScene(Scene):
             T.text(surf, chi, (r.x + 16, r.bottom - 22), 11, col, bold=True)
             T.text(surf, m["text"], (r.x + 88, r.bottom - 23), 13, T.DIM,
                    maxw=r.w - 108)
+
+    # ------------------------------------------------------------ turno vivo
+    def _build_turno(self, w: int, h: int) -> None:
+        """I comandi mentre un turno e' in corso: la velocita' e la scorciatoia."""
+        bx, by = 40, h - 74
+        for i, lab in enumerate(SPEED_LABELS):
+            b = Button((bx + i * 62, by, 56, 34), lab, style="tab")
+            b.on_click = (lambda i=i: self.set_speed(i))
+            b.active = (i == self.speed_idx)
+            self.widgets.append(b)
+        self.widgets.append(Button((bx + 5 * 62 + 16, by, 210, 34),
+                                   "Vai alla fine del turno", self.skip_turno, "ghost"))
+
+    def skip_turno(self) -> None:
+        if self.turno:
+            self.turno.corri_tutto()
+            self._on_turno_end()
+
+    def _on_turno_end(self) -> None:
+        turno = self.turno
+        if turno is None:
+            return
+        turno.applica()
+        self.turno = None
+        if turno.kind == "prove":
+            pass                                  # si resta nelle libere
+        elif turno.kind == "sprint":
+            self.stage = "sprint"
+        else:
+            self.stage = "gara"
+        self.build()
+
+    def _draw_turno(self, surf) -> None:
+        w, h = surf.get_size()
+        tower_w = max(336, min(460, int(w * 0.30)))
+        self._turno_header(surf, w)
+        barra_y = h - 84 - self.BARRA_H
+        cronaca_y = barra_y - self.CRONACA_H - 8
+        vista = pygame.Rect(20, 68, w - tower_w - 48, cronaca_y - 76)
+        self._turno_map(surf, vista)
+        self._turno_events(surf, pygame.Rect(20, cronaca_y, vista.w, self.CRONACA_H))
+        self._turno_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
+        self._turno_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_H))
+
+    def _turno_header(self, surf, w: int) -> None:
+        t = self.turno
+        pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 58))
+        titolo = t.nome_fase
+        if t.kind == "prove":
+            titolo = f"PROVE LIBERE {self.ws.practice_done + 1}/{S.practice_sessions(self.track)}"
+        T.text(surf, f"{self.track.name.upper()}  -  {titolo}", (24, 10), 20, T.TEXT,
+               bold=True)
+        resta = t.resta()
+        col = T.BAD if resta < 120 else (T.WARN if resta < 300 else T.TEXT)
+        T.text(surf, _orologio(resta), (24, 34), 20, col, bold=True, mono=True)
+        T.text(surf, f"{t.weather.label} - {t.weather.air_temp:.0f}C aria, "
+                     f"{t.weather.track_temp:.0f}C asfalto, vento {t.weather.wind:.0f} km/h",
+               (128, 38), 13, T.DIM, maxw=w * 0.34)
+        if t.taglio_ora:
+            T.text(surf, f"PASSANO IN {t.fasi[t.phase + 1][0]}: I PRIMI {t.taglio_ora}",
+                   (w * 0.5, 14), 12, T.WARN, bold=True)
+        if t.best_lap > 0:
+            T.text(surf, "IL PIU' VELOCE", (w * 0.5, 36), 11, T.DIM_2, bold=True)
+            T.text(surf, f"{t.best_by}  {T.fmt_time(t.best_lap)}", (w * 0.5 + 96, 34), 14,
+                   VIOLA, mono=True, bold=True)
+        gomma = max(0.0, (self.ws.rubber - PACE.PISTA_VERDE)
+                    / (PACE.PISTA_GOMMATA - PACE.PISTA_VERDE))
+        T.text(surf, f"PISTA GOMMATA AL {gomma * 100:.0f}%", (w - 24, 20), 11,
+               T.stat_colour(gomma * 100, 25, 70), bold=True, align="right")
+
+    def _turno_map(self, surf, vista) -> None:
+        t, gs = self.turno, self.gs
+        T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
+        if self.pts is None or self.pts_rect != tuple(vista):
+            self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
+            self.pts_rect = tuple(vista)
+        trackdraw.draw_track(surf, self.track, vista, width=14, pts=self.pts)
+        self._etichette = []
+        self._marca_settori(surf)
+        fuori = [p for p in t.piste.values() if p.stato in ("uscita", "giro", "rientro")]
+        # chi e' lanciato si disegna per ultimo: e' quello che si guarda
+        fuori.sort(key=lambda p: p.stato == "giro")
+        for p in fuori:
+            x, y = trackdraw.car_pos(self.pts, self.track.pos_at(p.quota), 0.0)
+            mio = (p.e.team_id == gs.player_team)
+            lanciato = (p.stato == "giro")
+            r = 7 if (mio or lanciato) else 5
+            if lanciato:
+                pygame.draw.circle(surf, (255, 255, 255), (int(x), int(y)), r + 3, 1)
+            pygame.draw.circle(surf, p.e.colour, (int(x), int(y)), r)
+            pygame.draw.circle(surf, (10, 14, 20), (int(x), int(y)), r, 1)
+            if (mio or lanciato) and self._spazio(int(x) + 9, int(y) - 8):
+                T.text(surf, p.e.code, (int(x) + 9, int(y) - 8), 12,
+                       T.WHITE if mio else T.DIM, bold=mio)
+        if not fuori:
+            T.text(surf, "NESSUNO IN PISTA", (vista.centerx, vista.bottom - 26), 12,
+                   T.DIM_2, bold=True, align="center")
+
+    def _turno_events(self, surf, ev) -> None:
+        t = self.turno
+        T.panel(surf, ev, T.PANEL, radius=10, border=T.LINE)
+        cols = {"pass": T.OK, "warn": T.WARN, "flag": T.WHITE}
+        for i, e in enumerate(t.eventi[:3]):
+            y = ev.y + 8 + i * 18
+            T.text(surf, _orologio(e["t"]), (ev.x + 14, y), 12, T.DIM_2, mono=True)
+            T.text(surf, e["text"], (ev.x + 62, y), 13, cols.get(e["kind"], T.TEXT),
+                   maxw=ev.w - 84)
+
+    # ------------------------------------------------------- tabellone tempi
+    def _turno_tower(self, surf, tower) -> None:
+        """Il tabellone del turno: il tempo, il distacco e - soprattutto - il taglio.
+
+        Quello che si guarda in qualifica non e' il tempo: e' quanto manca a
+        quello dell'ultimo che passa il turno. Sta nell'ultima colonna, in
+        verde se si e' dentro e in rosso se si e' fuori.
+        """
+        t, gs = self.turno, self.gs
+        T.panel(surf, tower, T.PANEL, radius=10, border=T.LINE)
+        righe = t.righe()
+        taglio = t.tempo_taglio()
+        x_cut = tower.right - 14
+        x_gap = tower.right - 72
+        x_lap = tower.right - 134
+        x_pip = tower.right - 226
+        x_dot = tower.right - 252
+        T.text(surf, "POS  PILOTA", (tower.x + 16, tower.y + 12), 11, T.DIM_2, bold=True)
+        T.text(surf, "TEMPO", (x_lap, tower.y + 12), 11, T.DIM_2, bold=True, align="right")
+        T.text(surf, "DAL 1o", (x_gap, tower.y + 12), 11, T.DIM_2, bold=True, align="right")
+        if taglio:
+            T.text(surf, "TAGLIO", (x_cut, tower.y + 12), 11, T.DIM_2, bold=True,
+                   align="right")
+        y = tower.y + 34
+        rh = min(26.0, (tower.h - 46) / max(1, len(righe)))
+        nomi = [f[0] for f in t.fasi]
+        prima_fase = None
+        for i, p in enumerate(righe, 1):
+            e = p.e
+            mio = (e.team_id == gs.player_team)
+            if p.fuori and p.fase_uscita != prima_fase:
+                prima_fase = p.fase_uscita
+                eti = f"eliminati in {nomi[p.fase_uscita]}"
+                largo = T.width(eti, 10, bold=True)
+                pygame.draw.line(surf, T.LINE, (tower.x + 16, int(y) + 6),
+                                 (tower.right - 26 - largo, int(y) + 6))
+                T.text(surf, eti, (tower.right - 16, int(y)), 10, T.DIM_2, bold=True,
+                       align="right")
+                y += 16
+            if mio:
+                T.panel(surf, (tower.x + 8, y - 1, tower.w - 16, rh - 1), T.PANEL_3, radius=5)
+            if p.stato == "giro":
+                pygame.draw.rect(surf, VIOLA, (tower.x + 8, y - 1, 2, rh - 2))
+            T.text(surf, str(i), (tower.x + 32, y), 13, T.DIM, align="right")
+            pygame.draw.rect(surf, e.colour, (tower.x + 42, y + 2, 3, max(9, int(rh) - 6)))
+            # chi e' lanciato si vede a colpo d'occhio anche quando la colonna
+            # dello stato non ci sta: sigla accesa e riga segnata a sinistra
+            col_cod = T.ACCENT if p.stato == "giro" else (T.TEXT if mio else T.DIM)
+            T.text(surf, e.code, (tower.x + 52, y), 14, col_cod,
+                   bold=(mio or p.stato == "giro"), mono=True)
+            stato = "" if p.fuori else _CORTO.get(p.stato, "")
+            if stato and x_dot - (tower.x + 94) >= 76:
+                T.text(surf, stato, (tower.x + 94, y + 1), 11,
+                       T.ACCENT if p.stato == "giro" else T.DIM_2,
+                       bold=(p.stato == "giro"), maxw=x_dot - (tower.x + 108))
+            comp = C.COMPOUNDS.get(p.mescola, C.COMPOUNDS["soft"])
+            pygame.draw.circle(surf, comp["colour"], (x_dot, int(y) + 8), 6)
+            pygame.draw.circle(surf, (12, 16, 24), (x_dot, int(y) + 8), 6, 1)
+            for k in range(3):
+                vivo = p.stato == "giro"
+                val = p.live[k] if vivo else p.settori[k]
+                col = t.sector_colour(p, k, val) if val > 0 else None
+                pygame.draw.rect(surf, _SETT.get(col, (46, 58, 78)),
+                                 (x_pip + k * 10, int(y) + 5, 7, 7))
+            if p.tempo > 0:
+                col = VIOLA if abs(p.tempo - t.best_lap) < 0.002 else T.TEXT
+                T.text(surf, T.fmt_time(p.tempo), (x_lap, y), 12, col, mono=True,
+                       align="right")
+                if t.best_lap > 0 and p.tempo > t.best_lap + 0.0005:
+                    T.text(surf, f"+{p.tempo - t.best_lap:.3f}", (x_gap, y), 12, T.DIM,
+                           mono=True, align="right")
+            else:
+                T.text(surf, "senza tempo", (x_lap, y), 11, T.DIM_2, align="right")
+            if p.fuori:
+                T.text(surf, "OUT", (x_cut, y), 12, T.BAD, align="right", bold=True)
+            elif taglio and p.tempo > 0:
+                d = p.tempo - taglio
+                T.text(surf, f"{d:+.3f}" if abs(d) > 0.0005 else "limite",
+                       (x_cut, y), 12, T.BAD if d > 0 else T.OK, mono=True, align="right")
+            y += rh
+
+    # ------------------------------------------------- le nostre due macchine
+    def _turno_bar(self, surf, barra) -> None:
+        t, gs = self.turno, self.gs
+        nostre = [p for p in t.righe() if p.e.team_id == gs.player_team]
+        if not nostre:
+            return
+        larga = (barra.w - 12 * (len(nostre) - 1)) / len(nostre)
+        for i, p in enumerate(nostre):
+            self._pannello_turno(surf, pygame.Rect(barra.x + i * (larga + 12), barra.y,
+                                                   larga, barra.h), p, i + 1)
+
+    def _pannello_turno(self, surf, r, p, _n) -> None:
+        t = self.turno
+        e = p.e
+        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
+        pygame.draw.rect(surf, e.colour, (r.x, r.y + 8, 4, r.h - 16))
+        posto = next((i for i, q in enumerate(t.righe(), 1) if q is p), 0)
+        T.text(surf, f"P{posto}", (r.x + 16, r.y + 8), 15, T.GOLD, bold=True)
+        T.text(surf, e.name, (r.x + 54, r.y + 8), 16, T.TEXT, bold=True, maxw=150)
+        T.text(surf, _STATO.get(p.stato, ""), (r.x + 210, r.y + 10), 12,
+               T.ACCENT if p.stato == "giro" else T.DIM_2, bold=(p.stato == "giro"))
+        quante = len(p.corse)
+        ora = min(quante, p.indice + (0 if p.stato == "box" else 1))
+        if r.w >= 470:
+            T.text(surf, f"uscita {ora} di {quante}", (r.right - 90, r.y + 11), 11,
+                   T.DIM_2, align="right")
+        comp = C.COMPOUNDS.get(p.mescola, C.COMPOUNDS["soft"])
+        pygame.draw.circle(surf, comp["colour"], (r.right - 30, r.y + 18), 8)
+        pygame.draw.circle(surf, (12, 16, 24), (r.right - 30, r.y + 18), 8, 1)
+        T.text(surf, comp["label"].upper(), (r.right - 46, r.y + 11), 12, T.DIM,
+               align="right")
+        # ---- i tre parziali, grandi: sono quelli che si guardano
+        y = r.y + 36
+        vivo = (p.stato == "giro")
+        for k in range(3):
+            val = p.live[k] if vivo else p.settori[k]
+            col = t.sector_colour(p, k, val) if val > 0 else None
+            T.text(surf, f"S{k + 1}", (r.x + 16 + k * 96, y + 4), 11, T.DIM_2, bold=True)
+            T.text(surf, f"{val:.3f}" if val > 0 else "--.---",
+                   (r.x + 40 + k * 96, y), 15, _SETT.get(col, T.DIM_2), mono=True)
+        T.text(surf, "MIGLIORE", (r.x + 306, y + 4), 11, T.DIM_2, bold=True)
+        T.text(surf, T.fmt_time(p.tempo) if p.tempo > 0 else "--:--.---",
+               (r.x + 370, y), 15,
+               VIOLA if p.tempo > 0 and abs(p.tempo - t.best_lap) < 0.002 else T.TEXT,
+               mono=True)
+        # ---- riga tre: dove siamo rispetto agli altri
+        y = r.y + 62
+        if p.tempo > 0 and t.best_lap > 0:
+            d = p.tempo - t.best_lap
+            T.text(surf, "DAL PIU' VELOCE", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
+            T.text(surf, f"+{d:.3f}" if d > 0.0005 else "e' il piu' veloce",
+                   (r.x + 122, y), 13, T.TEXT if d > 0.0005 else VIOLA, mono=(d > 0.0005))
+        taglio = t.tempo_taglio()
+        if taglio and p.tempo > 0:
+            d = p.tempo - taglio
+            T.text(surf, "DAL TAGLIO", (r.x + 230, y + 2), 11, T.DIM_2, bold=True)
+            T.text(surf, f"{d:+.3f}", (r.x + 306, y), 13, T.BAD if d > 0 else T.OK,
+                   mono=True)
+            T.text(surf, "fuori" if d > 0 else "dentro", (r.x + 372, y + 2), 12,
+                   T.BAD if d > 0 else T.OK, bold=True)
+        elif p.tempo <= 0:
+            T.text(surf, "non ha ancora segnato un tempo", (r.x + 16, y), 13, T.DIM_2)
+        # ---- riga quattro: quante uscite restano
+        m = t.radio_of(p.e.driver_id)
+        if m:
+            chi = "MURETTO" if m["chi"] == "muretto" else p.e.code
+            T.text(surf, chi, (r.x + 16, r.bottom - 22), 11,
+                   T.ACCENT if m["chi"] == "muretto" else T.GOLD, bold=True)
+            T.text(surf, m["text"], (r.x + 88, r.bottom - 23), 13, T.DIM, maxw=r.w - 108)
+
+
+def _orologio(secondi: float) -> str:
+    """Il tempo che resta, come lo scrive il tabellone: minuti e secondi."""
+    m, sec = divmod(max(0.0, secondi), 60.0)
+    return f"{int(m)}:{int(sec):02d}"
