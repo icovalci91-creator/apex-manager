@@ -247,6 +247,98 @@ def expected_gain(gs, team, part: str, size: str) -> float:
     return round(mult * (dept / 100.0) * team.dev_rate * yield_factor(gs, cur) * 0.93, 2)
 
 
+# ------------------------------------------- quanto vale, in secondi al giro
+# Le schermate parlano di "punti prestazione" perche' e' la moneta con cui il
+# reparto ragiona, ma un punto non vuol dire niente finche' non lo si traduce
+# in cronometro. Qui lo si traduce: si prende la macchina, le si alza quel
+# componente e le si rifa' fare il giro. Il risultato dipende dalla pista - un
+# fondo a Silverstone e un fondo a Monaco non sono lo stesso fondo.
+_SEC = {}
+
+
+def _impronta(gs, team, part, delta, track, focus):
+    p = team.car.parts[part]
+    return (id(gs), team.id, part, round(delta, 2), track.id, focus or p.focus,
+            round(p.perf, 1), round(team.car.rating, 2))
+
+
+def gain_seconds(gs, team, part: str, delta: float, track=None, focus=None) -> float:
+    """Quanti secondi al giro vale alzare di `delta` quel componente, qui."""
+    track = track or gs.next_track
+    if track is None or delta == 0:
+        return 0.0
+    chiave = _impronta(gs, team, part, delta, track, focus)
+    if chiave in _SEC:
+        return _SEC[chiave]
+    prima, dopo = _due_giri(gs, team, part, delta, track, focus)
+    val = round(prima[0] - dopo[0], 4)
+    if len(_SEC) > 400:
+        _SEC.clear()
+    _SEC[chiave] = val
+    return val
+
+
+def gain_domains(gs, team, part: str, delta: float, track=None, focus=None) -> dict:
+    """Dove li guadagna: i secondi divisi per parte del giro."""
+    track = track or gs.next_track
+    if track is None or delta == 0:
+        return {}
+    prima, dopo = _due_giri(gs, team, part, delta, track, focus)
+    return {d: round(prima[1].get(d, 0.0) - dopo[1].get(d, 0.0), 4)
+            for d in prima[1]}
+
+
+def _due_giri(gs, team, part: str, delta: float, track, focus):
+    """Il giro prima e dopo l'aggiornamento, con l'assetto ritrovato ogni volta."""
+    from ..sim import pace
+    cond = pace.nominal(track)
+    grip = pace.surface_grip(cond)
+    car = team.car
+    p = car.parts[part]
+    salva = (dict(car.setup), p.perf, p.focus, car.fuel_kg)
+    car.fuel_kg = 0.0
+
+    def misura():
+        car.setup = car.optimal_setup(track, cond=cond)
+        car.evaluate_setup(track, None, cond)
+        d = track.telemetry(car, wet=cond.wet, grip=grip, rho=cond.rho,
+                            bias=car.domain_bias)
+        return d["tempo"] / car.apply_setup_effects(), d["domini"]
+
+    prima = misura()
+    p.perf = max(20.0, p.perf + delta)
+    if focus is not None:
+        p.focus = focus
+    dopo = misura()
+    car.setup, p.perf, p.focus, car.fuel_kg = salva
+    return prima, dopo
+
+
+def calendar_gain(gs, team, part: str, delta: float, focus=None, quante: int = 5) -> float:
+    """Quanto vale in media sulle piste che restano da correre."""
+    restano = gs.tracks[gs.round:] or gs.tracks
+    passo = max(1, len(restano) // quante)
+    scelte = restano[::passo][:quante]
+    if not scelte:
+        return 0.0
+    return round(sum(gain_seconds(gs, team, part, delta, t, focus)
+                     for t in scelte) / len(scelte), 3)
+
+
+def best_focus(gs, team, part: str, delta: float, track=None) -> tuple:
+    """Su quale dominio conviene disegnare questo pacchetto, e quanto rende.
+
+    Non esiste il pezzo buono in assoluto: esiste quello disegnato per le curve
+    che ci sono nelle piste che restano. Il reparto le prova tutte e dice
+    quale rende di piu' da qui a fine campionato.
+    """
+    from ..model.car import DOMINI_PEZZO
+    domini = list(DOMINI_PEZZO.get(part, {}).keys()) or ["lente", "veloci"]
+    fuori = [(calendar_gain(gs, team, part, delta, d), d) for d in domini]
+    fuori.sort(reverse=True)
+    return fuori[0][1], fuori[0][0]
+
+
 # --------------------------------------------------- funzionera' o no?
 # Le bande di esito di un pacchetto, dalla piu' brutta alla migliore. La
 # forbice del "fallito" comincia sotto zero: un aggiornamento che non correla

@@ -34,15 +34,58 @@ PESO_PEZZI = {
 }
 
 
+# A cosa serve ogni pezzo, dominio per dominio. Non e' una tassonomia: e' dove
+# quel pezzo sposta il cronometro. Il fondo lavora quando la macchina va forte,
+# le sospensioni quando va piano, il cambio in uscita di curva, i freni in
+# staccata. Da qui viene il carattere di una vettura, e da qui si capisce cosa
+# serve sviluppare per la pista di domenica prossima.
+DOMINI_PEZZO = {
+    "floor":       {"veloci": 1.00, "medie": 0.55, "lente": 0.15},
+    "front_wing":  {"medie": 0.75, "lente": 0.55, "veloci": 0.35},
+    "rear_wing":   {"veloci": 0.75, "medie": 0.45, "trazione": 0.35},
+    "sidepods":    {"veloci": 0.45, "medie": 0.35},
+    "active_aero": {"veloci": 0.65, "medie": 0.25},
+    "suspension":  {"lente": 0.95, "trazione": 0.65, "frenata": 0.35},
+    "chassis":     {"lente": 0.45, "medie": 0.45, "frenata": 0.35},
+    "gearbox":     {"trazione": 0.95},
+    "brakes":      {"frenata": 0.85, "lente": 0.20},
+    "cooling":     {},
+}
+
+# Quanto pesa il carattere: un pezzo sei punti sopra la media della sua
+# macchina vale circa il due per cento di aderenza in piu' nel suo dominio.
+FORZA_DOMINIO = 0.30
+
+# Quanto pesa ogni dominio in un giro medio del calendario, misurato sulle
+# ventiquattro piste. Serve a tenere il carattere a somma zero su quello che
+# conta davvero e non su sei caselle uguali.
+QUOTA_DOMINIO = {"lente": 0.29, "medie": 0.23, "veloci": 0.12,
+                 "trazione": 0.13, "frenata": 0.23}
+
+
 @dataclass
 class Part:
     perf: float
     condition: float = 100.0   # 0-100, scende con usura e danni
     upgrade_progress: float = 0.0
+    # su cosa e' stata disegnata questa specifica: un fondo puo' nascere per le
+    # curve veloci o per la trazione, e non e' la stessa cosa
+    focus: str = ""
 
     @property
     def effective(self) -> float:
         return self.perf * (0.55 + 0.45 * self.condition / 100.0)
+
+    def domains(self, key: str) -> dict:
+        """Dove lavora questo pezzo, tenuto conto di come e' stato disegnato."""
+        base = dict(DOMINI_PEZZO.get(key, {}))
+        if not self.focus:
+            return base
+        base[self.focus] = base.get(self.focus, 0.0) * 1.5 + 0.30
+        tot = sum(base.values()) or 1.0
+        atteso = sum(DOMINI_PEZZO.get(key, {}).values()) or 1.0
+        # la somma resta quella: un pezzo specializzato non e' un pezzo migliore
+        return {d: w * atteso / tot for d, w in base.items()}
 
 
 @dataclass
@@ -135,7 +178,35 @@ class Car:
     @property
     def braking(self) -> float:
         base = (0.70 * self.p("brakes") + 0.30 * self.p("suspension")) / 100.0
-        return (0.830 + 0.255 * base)
+        return (0.790 + 0.300 * base)
+
+    @property
+    def domain_bias(self) -> dict:
+        """L'aderenza che questa macchina ha in ogni dominio, attorno a 1.
+
+        Non e' quanto e' forte: e' dove. Si guarda quali pezzi sono meglio del
+        resto della macchina - un fondo migliore del suo telaio, un cambio
+        migliore dei suoi freni - e si vede in che parte del giro quel vantaggio
+        si trasforma in tempo. Due vetture con la stessa media vanno forte in
+        posti diversi.
+        """
+        vals = [p.effective for p in self.parts.values()]
+        if not vals:
+            return {}
+        medio = sum(vals) / len(vals)
+        b = {}
+        for k, p in self.parts.items():
+            scarto = (p.effective - medio) / 100.0
+            for dom, w in p.domains(k).items():
+                b[dom] = b.get(dom, 0.0) + w * scarto
+        if not b:
+            return {}
+        # il carattere e' una forma, non un livello: si centra su quanto pesa
+        # ogni dominio in un giro medio, cosi' un pezzo migliore sposta dove si
+        # e' forti senza regalare o togliere velocita' in assoluto
+        centro = sum(QUOTA_DOMINIO.get(d, 0.2) * v for d, v in b.items())
+        centro /= max(1e-6, sum(QUOTA_DOMINIO.get(d, 0.2) for d in b))
+        return {d: 1.0 + FORZA_DOMINIO * (v - centro) for d, v in b.items()}
 
     @property
     def reliability(self) -> float:

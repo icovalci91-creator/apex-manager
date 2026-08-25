@@ -193,7 +193,8 @@ def lap_base(gs, team, track, driver=None, cond: Conditions | None = None,
                 ripristina[parte] = car.parts[parte].perf
                 car.parts[parte].perf = float(valore)
     car.evaluate_setup(track, driver, cond)
-    t, _, _ = track.lap_model(car, wet=cond.wet, grip=surface_grip(cond), rho=cond.rho)
+    t, _, _ = track.lap_model(car, wet=cond.wet, grip=surface_grip(cond), rho=cond.rho,
+                              bias=car.domain_bias)
     effetto = car.apply_setup_effects()
     car.fuel_kg, car.setup = old_fuel, old_setup
     for parte, valore in ripristina.items():

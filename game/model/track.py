@@ -18,6 +18,23 @@ from .. import config as C
 
 STEP_M = 8.0  # risoluzione della discretizzazione (metri)
 
+# Dove finisce una curva lenta e dove comincia una veloce, in metri al secondo.
+# Sono le soglie con cui in pista si divide il lavoro: sotto i centotrenta
+# all'ora comanda l'aderenza meccanica, sopra i duecento comanda il carico.
+V_LENTA = 36.0
+V_VELOCE = 56.0
+
+# I domini in cui si spezza un giro: e' su questi che una macchina e' forte o
+# debole, e su questi che un aggiornamento porta o non porta.
+DOMINI = ("lente", "medie", "veloci", "trazione", "frenata", "rettilinei")
+
+# Sotto questa frazione della velocita' massima una curva conta come curva.
+SOGLIA_CURVA = 0.93
+
+# Fin dove arriva l'uscita di curva: sopra questa frazione della velocita'
+# massima non e' piu' trazione, e' un rettilineo.
+V_USCITA = 0.62
+
 
 @dataclass
 class Segment:
@@ -187,38 +204,65 @@ class Track:
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
 
     # ------------------------------------------------------- modello di giro
-    def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None):
+    def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
+                  bias: dict | None = None):
         """Restituisce (tempo_giro_s, vmax_kmh, profilo_velocita).
 
         `car` espone: downforce, drag, power, mech_grip, braking, mass_base,
         mass_extra. `rho` e' la densita' dell'aria: a Citta' del Messico ce n'e'
         un quarto di meno che sul mare, e una monoposto senza aria non ha
-        carico - ne' resistenza.
+        carico - ne' resistenza. `bias` sono i moltiplicatori di aderenza per
+        dominio: una macchina non e' brava allo stesso modo nelle curve lente e
+        in quelle veloci.
         """
+        t, vmax, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias)
+        return t, vmax, v
+
+    def _solve(self, car, wet: float, grip: float, rho, bias: dict | None):
+        """Il conto vero: profilo di velocita', limiti e classe di ogni punto."""
         rho = C.RHO if rho is None else rho
+        b = bias or {}
         cla = C.CLA_BASE * car.downforce
         cda = C.CDA_BASE * car.drag
         mass = car.mass_base + car.mass_extra
         power = C.POWER_W * car.power
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
-        mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet)
+        mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet) * b.get("frenata", 1.0)
+        mu_t = mu * b.get("trazione", 1.0)
 
         n = len(self.curvature)
         ds = self.ds
 
         # velocita' massima assoluta (potenza contro resistenza)
         vmax = (2.0 * power / (rho * cda)) ** (1.0 / 3.0)
+        aero = (rho * cla) / (2.0 * mass)
 
-        def lat_limit(k: float) -> float:
+        def lat_limit(k: float):
+            """Velocita' massima in curva e che tipo di curva e'.
+
+            La classe si legge sulla velocita' che quella curva permette a una
+            macchina di riferimento: sotto i centotrenta e' una curva lenta,
+            sopra i duecento e' una curva veloce, e sono due mondi diversi -
+            nella prima conta l'aderenza meccanica, nella seconda il carico.
+            """
             if k <= 1e-9:
-                return vmax
-            denom = k - (rho * cla) / (2.0 * mass)
+                return vmax, ""
+            denom = k - aero
             if denom <= 1e-6:
-                return vmax
-            v = math.sqrt(mu * C.G / denom)
-            return min(v, vmax)
+                return vmax, ""
+            v0 = math.sqrt(mu * C.G / denom)
+            # una curva e' una curva se rallenta davvero: la curvatura residua
+            # di un rettilineo non lo e', per quanto il rilievo la misuri
+            if v0 >= vmax * SOGLIA_CURVA:
+                return vmax, ""
+            classe = ("lente" if v0 < V_LENTA else
+                      "veloci" if v0 > V_VELOCE else "medie")
+            v = math.sqrt(mu * b.get(classe, 1.0) * C.G / denom)
+            return min(v, vmax), classe
 
-        vlim = [lat_limit(k) for k in self.curvature]
+        limiti = [lat_limit(k) for k in self.curvature]
+        vlim = [x[0] for x in limiti]
+        classi = [x[1] for x in limiti]
 
         v = list(vlim)
         for _ in range(2):  # due giri per far propagare la chiusura dell'anello
@@ -227,7 +271,10 @@ class Track:
                 j = (i + 1) % n
                 vi = max(v[i], 5.0)
                 drag_a = 0.5 * rho * cda * vi * vi / mass
-                a = min(power / (mass * vi), mu * C.G * 0.85) - drag_a
+                # anche in accelerazione il carico aerodinamico spinge a terra:
+                # a duecento all'ora la trazione non e' quella di un semaforo
+                a = min(power / (mass * vi),
+                        mu_t * (C.G + aero * vi * vi) * 0.85) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -246,7 +293,83 @@ class Track:
             j = (i + 1) % n
             vm = max(3.0, 0.5 * (v[i] + v[j]))
             t += ds / vm
-        return t * self.calibration, vmax * 3.6, v
+        return t * self.calibration, vmax * 3.6, v, vlim, classi
+
+    # ---------------------------------------------------------- telemetria
+    def telemetry(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
+                  bias: dict | None = None) -> dict:
+        """Il giro raccontato dai dati, non da un aggettivo.
+
+        Dove si sta a tutto gas, dove si frena, quanto tempo si passa nelle
+        curve lente e quanto in quelle veloci, quali sono le curve e a che
+        velocita' si affrontano. Da qui viene tutto il resto: cosa chiede un
+        circuito, dove una macchina guadagna, cosa serve svilupparle.
+        """
+        t, vmax_kmh, v, vlim, classi = self._solve(car, wet, grip, rho, bias)
+        n = len(v)
+        ds = self.ds
+        scala = (t / self.calibration) if self.calibration else 1.0
+        tempi = {d: 0.0 for d in DOMINI}
+        mass = car.mass_base + car.mass_extra
+        power = C.POWER_W * car.power
+        mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
+        aero = (C.RHO if rho is None else rho) * C.CLA_BASE * car.downforce / (2.0 * mass)
+        vmax = vmax_kmh / 3.6
+        pieno = 0.0
+        frenate = 0
+        in_frenata = False
+        for i in range(n):
+            j = (i + 1) % n
+            vm = max(3.0, 0.5 * (v[i] + v[j]))
+            dt = ds / vm
+            dv = v[j] - v[i]
+            frena = dv < -0.012 * vm
+            if frena and not in_frenata:
+                frenate += 1
+            in_frenata = frena
+            if classi[i] and v[i] <= vlim[i] * 1.03:
+                tempi[classi[i]] += dt
+            elif frena:
+                tempi["frenata"] += dt
+            elif dv > 0.002 * vm and v[i] < V_USCITA * vmax:
+                # si accelera uscendo da una curva: e' li' che si vede chi ha
+                # trazione, fra chi la mette a terra e chi pattina
+                tempi["trazione"] += dt
+            else:
+                tempi["rettilinei"] += dt
+            if not frena:
+                pieno += dt
+        # i tempi si riportano alla scala della calibrazione, come il giro
+        k = self.calibration if self.calibration else 1.0
+        tempi = {d: x * k for d, x in tempi.items()}
+        return {
+            "tempo": t,
+            "vmax": vmax_kmh,
+            "v_media": self.length_km * 1000.0 / max(1e-6, t) * 3.6,
+            "domini": tempi,
+            "pieno_gas": pieno * k / max(1e-6, t),
+            "curve": self.corner_list(v, vlim, classi),
+            "frenate": frenate,
+        }
+
+    def corner_list(self, v, vlim, classi) -> list:
+        """Le curve del giro: dove sono, che tipo sono, a quanto ci si passa."""
+        curve = []
+        dentro = False
+        for i, cl in enumerate(classi):
+            if cl and not dentro:
+                dentro = True
+                inizio = i
+            elif not cl and dentro:
+                dentro = False
+                if i - inizio < 3:
+                    continue
+                tratto = range(inizio, i)
+                vmin = min(v[x] for x in tratto)
+                curve.append({"n": len(curve) + 1, "quota": (inizio + i) / 2.0 / len(v),
+                              "classe": classi[inizio], "v": vmin * 3.6,
+                              "settore": self.sector_of((inizio + i) // 2)})
+        return curve
 
     def calibrate(self, ref_car) -> None:
         """Allinea il modello al tempo sul giro di riferimento della pista reale.

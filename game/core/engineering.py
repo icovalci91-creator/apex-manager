@@ -71,6 +71,77 @@ def shape_car(team, forza: float = 1.0) -> None:
         p.perf = max(20.0, min(99.0, p.perf + (d - medio) * forza))
 
 
+# ------------------------------------------------- la macchina misurata in pista
+# I domini di un giro, con il nome che si usa parlandone.
+NOMI_DOMINIO = {
+    "lente": "Curve lente", "medie": "Curve medie", "veloci": "Curve veloci",
+    "trazione": "Trazione in uscita", "frenata": "Frenata", "rettilinei": "Rettilinei",
+}
+
+_MEMO = {}
+
+
+def grid_domains(gs, track, cond=None) -> dict:
+    """Quanto tempo passa ogni vettura in ogni parte del giro, qui.
+
+    Non e' una stima: e' il modello di giro fatto girare per tutte e undici le
+    macchine su questo circuito, con l'assetto giusto per ognuna, e poi spezzato
+    nei domini. Da qui si legge tutto quello che serve sapere - dove siamo forti,
+    dove perdiamo, quanto vale un decimo di carico in piu' proprio qui.
+    """
+    from ..sim import pace
+    cond = cond or pace.nominal(track)
+    impronta = (track.id, round(cond.rho, 3), round(cond.track_temp), round(cond.wet, 2),
+                tuple(round(p.perf, 1) for t in gs.teams.values()
+                      for p in t.car.parts.values()))
+    if impronta in _MEMO:
+        return _MEMO[impronta]
+    grip = pace.surface_grip(cond)
+    out = {}
+    for team in gs.teams.values():
+        car = team.car
+        salva, benzina = dict(car.setup), car.fuel_kg
+        car.setup = car.optimal_setup(track, cond=cond)
+        car.fuel_kg = 0.0
+        out[team.id] = car_telemetry = track.telemetry(
+            car, wet=cond.wet, grip=grip, rho=cond.rho, bias=car.domain_bias)
+        car.setup, car.fuel_kg = salva, benzina
+    _MEMO.clear() if len(_MEMO) > 24 else None
+    _MEMO[impronta] = out
+    return out
+
+
+def domain_standing(gs, track, team=None, cond=None) -> dict:
+    """Per ogni dominio: quanto perdiamo o guadagniamo rispetto al migliore.
+
+    In secondi, perche' e' l'unica unita' di misura che conta. Sotto zero vuol
+    dire che li' siamo i piu' forti della griglia.
+    """
+    me = team if team is not None else gs.player
+    dati = grid_domains(gs, track, cond)
+    mio = dati[me.id]["domini"]
+    fuori = {}
+    for dom, mio_t in mio.items():
+        altri = [d["domini"][dom] for tid, d in dati.items() if tid != me.id]
+        migliore = min(altri) if altri else mio_t
+        media = sum(altri) / len(altri) if altri else mio_t
+        fuori[dom] = {"nostro": mio_t, "migliore": migliore, "media": media,
+                      "gap": mio_t - migliore, "vs_media": mio_t - media,
+                      "quota": mio_t / max(1e-6, sum(mio.values()))}
+    return fuori
+
+
+def track_demand(gs, track, cond=None) -> list:
+    """Cosa chiede questo circuito, in ordine: la quota di giro per dominio."""
+    dati = grid_domains(gs, track, cond)
+    somma = {}
+    for d in dati.values():
+        for dom, t in d["domini"].items():
+            somma[dom] = somma.get(dom, 0.0) + t
+    tot = sum(somma.values()) or 1.0
+    return sorted(((dom, v / tot) for dom, v in somma.items()), key=lambda x: -x[1])
+
+
 def part_field(gs) -> dict:
     """Come sta messa la griglia, componente per componente.
 
