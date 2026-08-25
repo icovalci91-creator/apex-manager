@@ -87,9 +87,20 @@ def ensure_paper(gs, team, track) -> None:
     _draw_paper(gs, team, track)
 
 
+def _attese(track):
+    """Le condizioni che il reparto si aspetta di trovare.
+
+    Al simulatore non si prova il tempo di domenica: si prova quel gran premio,
+    con il clima che ha di solito e l'aria che si respira a quella quota. La
+    pioggia, se arriva, e' una sorpresa che si paga il venerdi'.
+    """
+    from ..sim import pace
+    return pace.nominal(track)
+
+
 def _draw_paper(gs, team, track) -> None:
     """Estrae la previsione attorno all'ottimo vero, con l'errore del momento."""
-    opt = team.car.optimal_setup(track)
+    opt = team.car.optimal_setup(track, cond=_attese(track))
     err = paper_error(team, track, team.sim_sessions)
     team.setup_paper = {k: max(0.0, min(100.0, opt[k] + gs.rng.gauss(0.0, err)))
                         for k in SETUP_KEYS}
@@ -117,7 +128,7 @@ def run_simulator(gs, team, track) -> tuple:
 
 def _refine(gs, team, track, err: float) -> None:
     """Riporta la previsione dentro un errore piu' stretto attorno al vero."""
-    opt = team.car.optimal_setup(track)
+    opt = team.car.optimal_setup(track, cond=_attese(track))
     paper = team.setup_paper or {}
     for k in SETUP_KEYS:
         cur = paper.get(k, 50.0)
@@ -150,14 +161,17 @@ def track_learning(team, feedback: float) -> float:
     return max(0.10, min(0.45, 0.10 + 0.28 * (persone / 100.0)))
 
 
-def learn_from_track(gs, team, track, feedback: float, share: float = 1.0) -> None:
+def learn_from_track(gs, team, track, feedback: float, share: float = 1.0,
+                     cond=None) -> None:
     """La pista risponde: la previsione si avvicina a quello che serve.
 
     Con share si pesa quanto vale il turno: una gara sprint insegna qualcosa
-    sulla macchina, ma meno di una sessione di prove fatta apposta.
+    sulla macchina, ma meno di una sessione di prove fatta apposta. Quello che
+    si scopre e' l'assetto giusto per la giornata che c'e', non per quella che
+    ci si aspettava: se piove, il riferimento del simulatore va buttato.
     """
     ensure_paper(gs, team, track)
-    opt = team.car.optimal_setup(track)
+    opt = team.car.optimal_setup(track, cond=cond if cond is not None else _attese(track))
     passo = track_learning(team, feedback) * max(0.0, min(1.0, share))
     paper = team.setup_paper
     for k in SETUP_KEYS:

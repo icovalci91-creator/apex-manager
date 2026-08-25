@@ -6,6 +6,13 @@ from dataclasses import dataclass, field
 
 from .. import config as C
 
+# Le grandezze fisiche derivate sono scritte come "centro + scala * qualita'":
+# il centro e' la macchina media della griglia, la scala dice quanto separa la
+# migliore dalla peggiore. Sono tarate perche' fra la prima e l'ultima vettura
+# ci sia quello che si vede in pista - due secondi e mezzo scarsi su un giro da
+# novanta - e perche' nessuna delle cinque grandezze da sola faccia il campione:
+# chi ha il carico e non ha la potenza vince dove si curva e perde dove si tira.
+#
 # Assetto: ogni voce va da 0 a 100. L'ottimo dipende dalla pista.
 SETUP_KEYS = {
     "wing":        "Carico alare",
@@ -14,6 +21,16 @@ SETUP_KEYS = {
     "camber":      "Campanatura",
     "gearing":     "Rapporti al cambio",
     "brake_bias":  "Ripartizione di frenata",
+}
+
+
+# Quanto pesa ogni pezzo sul tempo sul giro. Non e' un'opinione: e' misurato
+# alzando di cinque punti un pezzo alla volta e guardando il cronometro su otto
+# circuiti diversi.
+PESO_PEZZI = {
+    "suspension": 0.177, "chassis": 0.168, "floor": 0.146, "rear_wing": 0.129,
+    "sidepods": 0.090, "gearbox": 0.087, "front_wing": 0.070, "brakes": 0.050,
+    "cooling": 0.047, "active_aero": 0.038,
 }
 
 
@@ -34,6 +51,7 @@ class Car:
     engine: dict = field(default_factory=dict)    # stats del motorista
     setup: dict = field(default_factory=dict)     # SETUP_KEYS -> 0..100
     setup_quality: float = 0.5                    # 0..1, quanto e' azzeccato
+    _setup_cost: float = 0.0                      # quanto si perde, 0..1
     fuel_kg: float = 0.0
     reg_downforce_index: float = 0.70
     active_aero_allowed: bool = True
@@ -70,24 +88,29 @@ class Car:
     @property
     def downforce(self) -> float:
         """Moltiplicatore su ClA di riferimento."""
-        base = (0.30 * self.p("floor") + 0.22 * self.p("front_wing")
-                + 0.22 * self.p("rear_wing") + 0.14 * self.p("sidepods")
-                + 0.12 * self.p("chassis")) / 100.0
+        # il fondo e' la macchina: da li' viene la maggior parte del carico, e
+        # l'ala posteriore non va contata due volte perche' pesa gia' tanto
+        # sulla resistenza
+        base = (0.42 * self.p("floor") + 0.20 * self.p("front_wing")
+                + 0.16 * self.p("rear_wing") + 0.12 * self.p("sidepods")
+                + 0.10 * self.p("chassis")) / 100.0
         aa = self.p("active_aero") / 100.0 if self.active_aero_allowed else 0.0
         wing = 0.62 + 0.74 * (self.setup.get("wing", 50.0) / 100.0)
-        rh = 1.0 + 0.10 * (1.0 - self.setup.get("ride_height", 50.0) / 100.0)
         idx = self.reg_downforce_index / 0.70
-        return (0.62 + 0.80 * base) * wing * rh * idx * (1.0 + 0.07 * aa)
+        return (0.620 + 0.800 * base) * wing * idx * (1.0 + 0.07 * aa)
 
     @property
     def drag(self) -> float:
-        wing = 0.80 + 0.44 * (self.setup.get("wing", 50.0) / 100.0)
+        # l'ala che da' carico si porta dietro la sua resistenza, quasi in
+        # proporzione: e' il motivo per cui esiste un'ala giusta per ogni pista
+        # invece di metterla sempre al massimo
+        wing = 0.57 + 0.90 * (self.setup.get("wing", 50.0) / 100.0)
         eff = (0.45 * self.p("rear_wing") + 0.30 * self.p("sidepods")
                + 0.25 * self.p("cooling")) / 100.0
         aa = 0.94 if self.active_aero_allowed else 1.0
         # e lo impacchetta piu' stretto, con meno resistenza all'avanzamento
         integ = 1.0 - 0.018 * self.pu_integration
-        return wing * (1.30 - 0.42 * eff) * aa * integ
+        return wing * (1.214 - 0.315 * eff) * aa * integ
 
     @property
     def power(self) -> float:
@@ -95,25 +118,24 @@ class Car:
         pu = (0.62 * e.get("power", 85) + 0.38 * e.get("ers", 85)) / 100.0
         cooling = 0.96 + 0.06 * (self.p("cooling") / 100.0)
         gears = 0.97 + 0.05 * (self.p("gearbox") / 100.0)
-        gearing = 0.985 + 0.03 * (self.setup.get("gearing", 50.0) / 100.0)
         # chi costruisce il motore lo sfrutta meglio: mappature, raffreddamento
         # e trasmissione sono disegnati sullo stesso tavolo
         integ = 1.0 + 0.020 * self.pu_integration
-        return (0.80 + 0.42 * pu * cooling * gears * gearing) * integ
+        # la scala tiene il valore medio dov'era e allarga la forbice: fra la
+        # power unit migliore e la peggiore ci deve essere quello che si vede a
+        # Monza, non un'inezia che sparisce nel rumore
+        return (0.761 + 0.465 * pu * cooling * gears) * integ
 
     @property
     def mech_grip(self) -> float:
-        base = (0.50 * self.p("suspension") + 0.32 * self.p("chassis")
-                + 0.18 * self.p("gearbox")) / 100.0
-        stiff = 1.0 - abs(self.setup.get("stiffness", 50.0) - 50.0) / 420.0
-        camber = 1.0 - abs(self.setup.get("camber", 50.0) - 50.0) / 500.0
-        return (0.82 + 0.26 * base) * stiff * camber
+        base = (0.42 * self.p("suspension") + 0.36 * self.p("chassis")
+                + 0.22 * self.p("gearbox")) / 100.0
+        return (0.918 + 0.141 * base)
 
     @property
     def braking(self) -> float:
         base = (0.70 * self.p("brakes") + 0.30 * self.p("suspension")) / 100.0
-        bias = 1.0 - abs(self.setup.get("brake_bias", 50.0) - 50.0) / 460.0
-        return (0.84 + 0.24 * base) * bias
+        return (0.830 + 0.255 * base)
 
     @property
     def reliability(self) -> float:
@@ -124,30 +146,41 @@ class Car:
 
     @property
     def rating(self) -> float:
-        """Indice sintetico 0-100 per le schermate di riepilogo."""
-        vals = [p.effective for p in self.parts.values()]
-        car = sum(vals) / max(1, len(vals))
+        """Indice sintetico 0-100 per le schermate di riepilogo.
+
+        I pezzi non contano uguale: mezzo punto di fondo vale piu' di mezzo
+        punto di raffreddamento. I pesi sono misurati sul modello di giro -
+        quanto sposta il cronometro cambiare quel pezzo - cosi' il numero che
+        si legge a schermo e' d'accordo con quello che succede in pista.
+        """
+        peso = tot = 0.0
+        for k, p in self.parts.items():
+            w = PESO_PEZZI.get(k, 0.05)
+            tot += w * p.effective
+            peso += w
+        car = tot / max(1e-6, peso)
         eng = (self.engine.get("power", 85) + self.engine.get("ers", 85)) / 2.0
         return 0.72 * car + 0.28 * eng
 
     # ------------------------------------------------------------- assetto
-    def optimal_setup(self, track, driver=None) -> dict:
-        """L'assetto ideale su questo circuito, per questo pilota.
+    def optimal_setup(self, track, driver=None, cond=None) -> dict:
+        """L'assetto ideale su questo circuito, per questo pilota, con questo tempo.
 
         Senza pilota e' l'ottimo del tracciato e basta - quello che scrive il
         reparto sulla carta. Con un pilota ci si somma il suo stile di guida,
         ed e' per quello che due compagni di squadra non vogliono la stessa
-        macchina.
+        macchina. Con le condizioni ci si somma la giornata: sull'acqua e
+        nell'aria sottile del Messico l'assetto giusto e' un altro.
         """
-        base = self._track_optimum(track)
+        base = self._track_optimum(track, cond)
         if driver is None:
             return base
         from ..core import driving
         off = driving.offsets(driver)
         return {k: max(0.0, min(100.0, v + off.get(k, 0.0))) for k, v in base.items()}
 
-    def _track_optimum(self, track) -> dict:
-        """L'ottimo del tracciato, spostato da come e' fatta la macchina.
+    def _track_optimum(self, track, cond=None) -> dict:
+        """L'ottimo del tracciato, spostato da com'e' fatta la macchina e dal tempo.
 
         Un pacchetto che fa girare di piu' la vettura sposta anche dove sta la
         finestra: si frena piu' avanti e si porta un filo meno carico. Per
@@ -155,14 +188,41 @@ class Car:
         """
         t = track.traits
         b = max(-1.0, min(1.0, self.balance))
-        base = self._optimum_raw(t)
+        base = self._optimum_raw(t, track)
         base["brake_bias"] = max(0.0, min(100.0, base["brake_bias"] + 5.0 * b))
         base["wing"] = max(0.0, min(100.0, base["wing"] - 3.0 * b))
+        if cond is not None:
+            base = self._weather_shift(base, cond)
+        return {k: max(0.0, min(100.0, v)) for k, v in base.items()}
+
+    def _weather_shift(self, base: dict, cond) -> dict:
+        """Come la giornata sposta la finestra d'assetto.
+
+        Dove l'aria e' sottile il carico non c'e': si mette l'ala grande e si
+        prende comunque meno carico che altrove col cucchiaio. Sul bagnato si
+        alza la macchina, la si ammorbidisce e si carica, perche' li' il tempo
+        lo fa la trazione e non la percorrenza.
+        """
+        rho = float(getattr(cond, "rho", C.RHO))
+        wet = float(getattr(cond, "wet", 0.0))
+        aria = C.RHO / max(0.5, rho) - 1.0          # 0 sul mare, +0.30 in Messico
+        base["wing"] += 42.0 * aria + 16.0 * wet
+        base["gearing"] += 14.0 * aria
+        base["ride_height"] += 22.0 * wet
+        base["stiffness"] -= 20.0 * wet
+        base["camber"] -= 10.0 * wet
+        base["brake_bias"] -= 8.0 * wet
         return base
 
-    def _optimum_raw(self, t) -> dict:
+    def _optimum_raw(self, t, track=None) -> dict:
+        # l'ala non e' un'opinione: e' il punto in cui il carico che si guadagna
+        # in curva vale piu' della resistenza che si paga in fondo al rettilineo,
+        # e quel punto lo trova il modello di giro, circuito per circuito
+        ala = getattr(track, "wing_ref", None)
+        if ala is None:
+            ala = 100.0 * min(1.0, max(0.0, t["downforce"]))
         return {
-            "wing":        100.0 * min(1.0, max(0.0, t["downforce"])),
+            "wing":        float(ala),
             "ride_height": 100.0 * min(1.0, max(0.0, 0.28 + 0.62 * t["bumpiness"])),
             "stiffness":   100.0 * min(1.0, max(0.0, 0.72 - 0.50 * t["bumpiness"] + 0.18 * t["downforce"])),
             "camber":      100.0 * min(1.0, max(0.0, 0.35 + 0.45 * t["downforce"] - 0.15 * t["power"])),
@@ -170,15 +230,41 @@ class Car:
             "brake_bias":  100.0 * min(1.0, max(0.0, 0.35 + 0.40 * t["braking"])),
         }
 
-    def evaluate_setup(self, track, driver=None) -> float:
-        opt = self.optimal_setup(track, driver)
-        err = sum(abs(self.setup.get(k, 50.0) - opt[k]) for k in opt) / len(opt)
-        self.setup_quality = max(0.0, 1.0 - (err / 45.0) ** 1.35)
+    def evaluate_setup(self, track, driver=None, cond=None) -> float:
+        """Quanto la macchina e' dentro alla finestra, e quanto costa esserne fuori.
+
+        Non tutte le regolazioni contano uguale dappertutto: l'altezza da terra
+        la si paga dove l'asfalto e' sconnesso, i rapporti dove si tira, la
+        ripartizione di frenata dove si stacca forte. Il carico alare fa storia
+        a se': quello lo pesa gia' il modello di giro, in resistenza e in
+        percorrenza, e contarlo due volte sarebbe barare.
+        """
+        opt = self.optimal_setup(track, driver, cond)
+        t = track.traits
+        pesi = {
+            "wing":        0.6 + 0.8 * t.get("downforce", 0.5),
+            "ride_height": 0.5 + 1.0 * t.get("bumpiness", 0.4),
+            "stiffness":   0.6 + 0.9 * t.get("bumpiness", 0.4),
+            "camber":      0.5 + 0.9 * t.get("tyre_wear", 0.6),
+            "gearing":     0.5 + 0.9 * t.get("power", 0.5),
+            "brake_bias":  0.5 + 1.0 * t.get("braking", 0.5),
+        }
+        tot = peso_tot = costo = peso_costo = 0.0
+        for k, ideale in opt.items():
+            p = pesi.get(k, 1.0)
+            fuori = min(1.0, (abs(self.setup.get(k, 50.0) - ideale) / 40.0) ** 1.4)
+            tot += p * fuori
+            peso_tot += p
+            if k != "wing":
+                costo += p * fuori
+                peso_costo += p
+        self.setup_quality = max(0.0, 1.0 - tot / max(1e-6, peso_tot))
+        self._setup_cost = costo / max(1e-6, peso_costo)
         return self.setup_quality
 
     def apply_setup_effects(self):
-        """Penalita' di prestazione per un assetto sbagliato (0..1)."""
-        return 0.988 + 0.012 * self.setup_quality
+        """Quanto si perde al giro per come e' regolata, da 0 a 1.8 per cento."""
+        return 1.0 - 0.018 * float(getattr(self, "_setup_cost", 0.0))
 
     # --------------------------------------------------------------- usura
     def wear(self, amount: float, track) -> None:

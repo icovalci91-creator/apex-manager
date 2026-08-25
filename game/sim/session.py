@@ -5,7 +5,8 @@ import random
 from dataclasses import dataclass, field
 
 from .. import config as C
-from .weekend import BURN_KG_PER_LAP, Entrant, RaceSim, Weather
+from . import pace
+from .weekend import BURN_KG_PER_LAP, DRIVER_S_PER_POINT, Entrant, RaceSim, Weather
 
 
 @dataclass
@@ -30,43 +31,71 @@ class WeekendState:
     tyre_choice: dict = field(default_factory=dict)  # team_id -> set scelti per mescola
     tyre_stock: dict = field(default_factory=dict)   # driver_id -> set ancora a disposizione
     tyres_published: bool = False                    # le scelte sono state rese pubbliche
+    # quanta gomma e' stata stesa sull'asfalto: cresce turno dopo turno e la
+    # pioggia la porta via. E' il motivo per cui la domenica si gira piu' forte
+    # del venerdi' anche con la stessa macchina
+    rubber: float = pace.PISTA_VERDE
+
+
+# Quanto lascia un turno in pista. Girare e' la sola cosa che insegna davvero:
+# i dati del venerdi' valgono per la domenica, e quello che si e' capito del
+# circuito vale per l'anno prossimo. Sono numeri piccoli di proposito - un
+# weekend non e' una giornata di prove private - ma sono ventiquattro l'anno.
+CAPIRE_TURNO = 0.014       # della macchina: quota del divario ancora da colmare
+CIRCUITO_TURNO = 0.035     # del circuito: si somma, e invecchia di anno in anno
+
+
+def _learn_from_running(gs, ws, quota: float = 1.0) -> None:
+    """Quello che tutte le squadre si portano a casa da un turno in pista.
+
+    La conoscenza della vettura non cresce leggendo: cresce girandoci. Quanto se
+    ne porta a casa dipende da chi legge i dati e da chi li racconta - un pilota
+    che sa spiegare cosa fa la macchina vale un pomeriggio di lavoro.
+    """
+    from ..core import driving
+    track = ws.track
+    for team in gs.teams.values():
+        piloti = gs.lineup_of(team.id)
+        if not piloti:
+            continue
+        fb = sum(d.feedback for d in piloti) / len(piloti)
+        resa = 0.30 + 0.70 * (0.55 * fb + 0.45 * team.setup_strength) / 100.0
+        passo = CAPIRE_TURNO * quota * resa
+        team.car_understanding = min(1.0, team.car_understanding
+                                     + passo * (1.0 - team.car_understanding))
+        if team.setup_knowledge is None:
+            team.setup_knowledge = {}
+        prima = float(team.setup_knowledge.get(track.id, 0.0))
+        team.setup_knowledge[track.id] = min(
+            1.0, prima + CIRCUITO_TURNO * quota * resa * (1.0 - 0.6 * prima))
+        # e i piloti si fanno un'idea di cosa hanno sotto
+        for d in piloti:
+            driving.settle_confidence(gs, team, d, track, 0.10 + 0.22 * quota)
 
 
 # --------------------------------------------------------------- base lap
-def base_lap_for(gs, team, track, weather: Weather, driver=None) -> float:
-    """Il giro base di questa vettura, con l'assetto di questo pilota.
+def base_lap_for(gs, team, track, weather=None, driver=None, cond=None) -> float:
+    """Il giro di riferimento di questa vettura, con l'assetto di questo pilota.
 
-    Senza pilota vale l'assetto generico della squadra; con un pilota si monta
-    il suo, perche' quello del compagno di box e' un altro.
+    Il conto vero sta in sim.pace: qui resta solo il nome con cui lo chiamano
+    le schermate, che ragionano ancora in termini di meteo.
     """
-    from ..core import powertrain, driving
-    car = team.car
-    # rinfrescata qui: se il reparto motori e' cambiato (ingaggi, debutto della
-    # propria unita') l'integrazione deve valere gia' da questo weekend
-    car.pu_integration = powertrain.integration(gs, team)
-    from ..core import kits
-    old_fuel, old_setup = car.fuel_kg, dict(car.setup)
-    car.fuel_kg = 0.0
-    ripristina = {}
-    if driver is not None:
-        car.setup = dict(driving.setup_of(team, driver))
-        # i pezzi montati solo su questa macchina valgono solo per lei
-        for parte, valore in (kits.deltas(team, driver.id) or {}).items():
-            if parte in car.parts:
-                ripristina[parte] = car.parts[parte].perf
-                car.parts[parte].perf = float(valore)
-    car.evaluate_setup(track, driver)
-    t, _, _ = track.lap_model(car, wet=weather.wet)
-    car.fuel_kg = old_fuel
-    effetto = car.apply_setup_effects()
-    car.setup = old_setup
-    for parte, valore in ripristina.items():
-        car.parts[parte].perf = valore
-    return t / effetto
+    if cond is None:
+        cond = pace.nominal(track)
+        if weather is not None:
+            cond.wet = weather.wet
+            cond.air_temp = weather.air_temp
+            cond.track_temp = weather.track_temp
+            cond.wind = float(getattr(weather, "wind", cond.wind))
+            cond.rho = pace.air_density(weather.air_temp, getattr(track, "altitude", 0.0))
+    return pace.lap_base(gs, team, track, driver, cond)
 
 
-def build_entrants(gs, track, weather: Weather) -> list:
+def build_entrants(gs, track, cond, quali: bool = False) -> list:
+    """Chi scende in pista, con che passo e in che condizioni."""
     from ..core import penalties
+    from ..core.driving import FIDUCIA_BASE
+    aff = pace.affinities(gs, track)
     out = []
     for team in gs.teams.values():
         # il pacchetto lavora uguale per tutti e due, l'assetto no
@@ -74,15 +103,17 @@ def build_entrants(gs, track, weather: Weather) -> list:
         pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
                + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
         for d in gs.lineup_of(team.id):
-            base = base_lap_for(gs, team, track, weather, d) + pacchetto
+            base = pace.lap_base(gs, team, track, d, cond, aff.get(team.id, 0.0)) + pacchetto
+            reso = pace.quali_rating(d, cond) if quali else pace.race_rating(d, cond)
             col = _hex(team.colour)
             out.append(Entrant(
                 driver_id=d.id, team_id=team.id, code=d.code, name=d.short,
                 colour=col, number=d.number, base_lap=base,
-                skill=d.race_rating(weather.wet) - gs.rng.gauss(0.0, 1.3),
+                skill=reso - gs.rng.gauss(0.0, 1.3),
                 consistency=d.consistency,
                 tyre_skill=d.tyre_mgmt, aggression=d.aggression, racecraft=d.racecraft,
                 wet_skill=d.wet, stamina=d.fitness,
+                confidence=float(getattr(d, "confidence", FIDUCIA_BASE)),
                 reliability=team.car.reliability * penalties.health_factor(d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 is_player=(team.id == gs.player_team),
@@ -115,11 +146,12 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     """
     from ..core import setup as SETUP
     track = ws.track
+    cond = pace.of_weekend(ws, "prove")
     notes = []
     for team in gs.teams.values():
         drivers = gs.drivers_of(team.id)
         fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
-        SETUP.learn_from_track(gs, team, track, fb)
+        SETUP.learn_from_track(gs, team, track, fb, cond=cond)
         quota = 1.0
         if team.id == gs.player_team and not delegate_player:
             quota = 0.45      # il giocatore tiene in mano i regolatori
@@ -140,6 +172,10 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     from ..core import tyres
     tyres.spend_practice(gs, ws)
     ws.practice_done += 1
+    # la pista si gomma e il weekend insegna: sono le due cose che rendono la
+    # domenica diversa dal venerdi'
+    pace.rubber_in(ws, 0.014)
+    _learn_from_running(gs, ws, 1.0)
     pt = gs.player
     piloti = gs.lineup_of(pt.id)
     eng = pt.role("technical_director")
@@ -171,7 +207,8 @@ def learn_from_sprint(gs, ws: WeekendState) -> list:
     for team in gs.teams.values():
         drivers = gs.drivers_of(team.id)
         fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
-        SETUP.learn_from_track(gs, team, track, fb, share=0.55)
+        SETUP.learn_from_track(gs, team, track, fb, share=0.55,
+                               cond=pace.of_weekend(ws, "sprint"))
         SETUP.apply_paper(gs, team, 1.0)
     pt = gs.player
     eng = pt.role("race_engineer") or pt.role("technical_director")
@@ -204,6 +241,8 @@ def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> No
 
 
 # ---------------------------------------------------------------- qualifica
+# Quanti tentativi si fanno in ogni turno: vale il migliore, come in pista.
+GIRI_PER_TURNO = 2
 def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     """Un turno di qualifica: schiera il gran premio, o la sprint del sabato.
 
@@ -212,7 +251,8 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     penalizzazioni in griglia si scontano nel gran premio.
     """
     track, weather = ws.track, ws.weather
-    ents = build_entrants(gs, track, weather)
+    cond = pace.of_weekend(ws, "quali")
+    ents = build_entrants(gs, track, cond, quali=True)
     pool = {e.driver_id: e for e in ents}
     alive = list(ents)
     times = {}
@@ -225,18 +265,30 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
         results = []
         for e in alive:
             t = e.base_lap
-            t += (85.0 - e.skill) * 0.046
+            t += (85.0 - e.skill) * DRIVER_S_PER_POINT
             t += 8.0 * 0.032                                  # serbatoio da qualifica
             # con cosa si scende in pista dipende da cosa e' rimasto nel camion
             mescola = tyres.quali_run(gs, ws, e.driver_id) if ws.tyre_stock else "soft"
             t -= tyres.QUALI_GAIN.get(mescola, 0.35)
-            t *= 1.0 - 0.0016 * phase                          # evoluzione pista tra i turni
+            # la pista si gomma turno dopo turno: in Q3 si gira sull'asfalto
+            # migliore di tutto il fine settimana
+            t *= 1.0 - 0.0022 * phase
             if weather.wet > 0.05:
                 t += (85.0 - e.wet_skill) * 0.06 * weather.wet * 4.0
-            t += gs.rng.gauss(0.0, 0.21 + (100.0 - e.consistency) * 0.005)
-            if gs.rng.random() < 0.020 + (100.0 - e.consistency) * 0.0009:
-                t += gs.rng.uniform(0.4, 2.4)                  # giro sporcato
-            results.append((t, e))
+            # in un turno di qualifica non si fa un giro solo: se ne fanno due e
+            # vale il migliore. E' per questo che il tempo di un pilota regolare
+            # somiglia a quello che vale davvero, e chi ne butta uno lo rifa'
+            giri = []
+            for _ in range(GIRI_PER_TURNO):
+                giro = t + gs.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.0028
+                                        + pace.wind_noise(cond))
+                # chi non si fida della macchina il giro perfetto non lo trova
+                sporco = 0.055 + (100.0 - e.consistency) * 0.0022
+                sporco *= 1.0 + (65.0 - e.confidence) * 0.009
+                if gs.rng.random() < max(0.010, sporco):
+                    giro += gs.rng.uniform(0.4, 2.4)           # giro sporcato
+                giri.append(giro)
+            results.append((min(giri), e))
         results.sort(key=lambda x: x[0])
         for t, e in results:
             times[e.driver_id] = t
@@ -254,6 +306,9 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     pole = griglia[0]
     for team in gs.teams.values():
         team.car.wear(0.4, track)
+    # un turno in piu' sull'asfalto, e quello che si e' imparato girandoci
+    pace.rubber_in(ws, 0.006)
+    _learn_from_running(gs, ws, 0.55)
     if kind == "sprint":
         ws.sprint_grid, ws.sprint_times, ws.sprint_pole = griglia, times, pole
         ws.sprint_quali_done = True
@@ -339,7 +394,8 @@ def race_laps(gs, track, kind: str = "gp") -> int:
 def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
     track, weather = ws.track, ws.weather
     laps = race_laps(gs, track, kind)
-    ents = build_entrants(gs, track, weather)
+    cond = pace.of_weekend(ws, kind)
+    ents = build_entrants(gs, track, cond)
     by_id = {e.driver_id: e for e in ents}
     grid = (ws.sprint_grid if kind == "sprint" else ws.grid) or list(by_id.keys())
 
@@ -358,7 +414,7 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
         e.tyre_life = 25.0
         ordered.append(e)
 
-    sim = RaceSim(gs, track, ordered, weather, laps, kind=kind, rng=gs.rng)
+    sim = RaceSim(gs, track, ordered, weather, laps, kind=kind, rng=gs.rng, cond=cond)
     # il serbatoio e' quello che e': il consumo si tara su di lui lasciando un
     # 10% di riserva. Basta per attaccare in un terzo dei giri, non per tutta
     # la gara: chi ci prova resta a piedi prima della bandiera.

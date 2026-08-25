@@ -124,6 +124,10 @@ class GameState:
                 heritage=bool(td.get("heritage", False)),
             )
             team.car = Car.build(td["car"], engine, gs.regulations)
+            # la filosofia non e' una scritta sulla scheda: da' alla macchina
+            # una forma, e quella forma decide dove va forte
+            from .engineering import shape_car
+            shape_car(team, 1.5)
             team.is_player = (td["id"] == team_id)
             team.engine_customer_cost = engine.get("cost_per_customer", 25.0)
             team.resource_alloc = {k: 1.0 / len(C.CAR_PARTS) for k in C.CAR_PARTS}

@@ -46,6 +46,10 @@ class Driver:
 
     morale: float = 70.0
     form: float = 0.0          # -10..+10, oscilla nella stagione
+    # quanto si fida della macchina che ha sotto: non e' il morale (quello
+    # riguarda la squadra) ed e' quello che decide se in curva quattro alza il
+    # piede o no. Si costruisce girando, si perde in un attimo
+    confidence: float = 65.0
     fitness: float = 100.0
     points: float = 0.0
     wins: int = 0

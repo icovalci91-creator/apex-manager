@@ -80,6 +80,72 @@ def label(driver) -> str:
     return "equilibrato, si adatta a quello che trova"
 
 
+# --------------------------------------------------- la fiducia nella macchina
+# Un pilota va forte quando si fida di quello che ha sotto. Non e' il morale -
+# quello riguarda la squadra, il contratto, come lo trattano - e' un'altra cosa:
+# e' sapere in anticipo cosa fara' la macchina quando la butti dentro. Si
+# costruisce girando, con una vettura che gli assomiglia e che non si rompe, e
+# si perde in un attimo con un botto.
+FIDUCIA_BASE = 65.0
+
+
+def car_fit(team, driver) -> float:
+    """Quanto la macchina somiglia a quella che vorrebbe lui, da -1 a +1.
+
+    Il carattere della vettura e' uno solo per tutti e due i piloti: c'e' la
+    macchina piantata dietro, che perdona, e quella che gira di piu' ma ti
+    sorprende. A chi stacca tardi la seconda piace, a chi vuole essere sicuro
+    di quello che fa l'anteriore no.
+    """
+    t = traits(driver)
+    b = max(-1.0, min(1.0, float(getattr(team.car, "balance", 0.0))))
+    voluto = 0.60 * t["attacco"] - 0.50 * t["stabilita"]
+    return max(-1.0, min(1.0, 1.0 - abs(b - voluto) * 1.25))
+
+
+def confidence_target(gs, team, driver, track=None) -> float:
+    """Dove finisce la fiducia se le cose restano come stanno, 0..100."""
+    def limita(v):
+        return max(-1.5, min(1.0, v))
+
+    fit = car_fit(team, driver)
+    affidabile = limita((team.car.reliability - 0.80) / 0.15)
+    umore = limita((driver.morale - 70.0) / 25.0)
+    assetto = 0.0
+    if track is not None:
+        assetto = limita((quality_of(gs, team, driver, track) - 0.78) / 0.22)
+    v = (66.0 + 15.0 * fit + 6.0 * affidabile + 6.0 * umore + 8.0 * assetto
+         + 1.6 * driver.form)
+    return max(12.0, min(98.0, v))
+
+
+def settle_confidence(gs, team, driver, track=None, passo: float = 0.28) -> float:
+    """Un turno in pista in piu': la fiducia si sposta verso quello che sente."""
+    obiettivo = confidence_target(gs, team, driver, track)
+    ora = float(getattr(driver, "confidence", FIDUCIA_BASE))
+    driver.confidence = round(ora + (obiettivo - ora) * passo, 2)
+    return driver.confidence
+
+
+def shake_confidence(driver, quanto: float) -> None:
+    """Un botto, un cedimento: quello che si era costruito se ne va subito."""
+    ora = float(getattr(driver, "confidence", FIDUCIA_BASE))
+    driver.confidence = round(max(8.0, ora - quanto), 2)
+
+
+def confidence_label(driver) -> str:
+    c = float(getattr(driver, "confidence", FIDUCIA_BASE))
+    if c >= 85:
+        return "ci si butta dentro a occhi chiusi"
+    if c >= 72:
+        return "si fida della macchina"
+    if c >= 58:
+        return "ci sta prendendo le misure"
+    if c >= 42:
+        return "non e' a suo agio"
+    return "non si fida di quello che ha sotto"
+
+
 def distance(a, b) -> float:
     """Quanto sono lontani due stili: dice se un assetto solo puo' bastare a entrambi."""
     oa, ob = offsets(a), offsets(b)
@@ -101,12 +167,12 @@ def set_value(team, driver, key: str, value: float) -> None:
     setup_of(team, driver)[key] = max(0.0, min(100.0, float(value)))
 
 
-def quality_of(gs, team, driver, track) -> float:
-    """Quanto l'assetto montato e' vicino a quello che serve a lui."""
+def quality_of(gs, team, driver, track, cond=None) -> float:
+    """Quanto l'assetto montato e' vicino a quello che serve a lui, oggi."""
     car = team.car
     saved = dict(car.setup)
     car.setup = dict(setup_of(team, driver))
-    q = car.evaluate_setup(track, driver)
+    q = car.evaluate_setup(track, driver, cond)
     car.setup = saved
     car.setup_quality = q
     return q

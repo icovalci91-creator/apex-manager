@@ -37,29 +37,49 @@ class Weather:
     wet: float = 0.0          # 0 asciutto .. 1 diluvio
     track_temp: float = 30.0
     air_temp: float = 22.0
+    wind: float = 8.0         # km/h: quanto e' ballerina la macchina in curva
+    cloud: float = 0.2        # 0 sole pieno .. 1 coperto: scalda l'asfalto o no
     rain_forecast: list = field(default_factory=list)
 
     @classmethod
     def generate(cls, track, rng: random.Random) -> "Weather":
-        t = track.traits
-        base_wet_chance = 0.18 + 0.12 * (1.0 - t.get("power", 0.5))
-        if track.id in ("spa", "silverstone", "interlagos", "suzuka", "zandvoort", "shanghai"):
-            base_wet_chance += 0.14
-        if track.id in ("bahrain", "jeddah", "lusail", "yasmarina", "lasvegas"):
-            base_wet_chance -= 0.14
+        """Il tempo che fa dove e quando si corre davvero.
+
+        Non e' un numero a caso fra dodici e trentaquattro gradi: Las Vegas si
+        corre di notte a novembre e Singapore col buio in ottobre, e sono due
+        mondi. Ogni circuito porta con se' la temperatura del suo mese, quanto
+        piove da quelle parti e quanto tira vento; il resto - sole o nuvole,
+        acquazzone o no - cambia da un fine settimana all'altro.
+        """
+        clima = getattr(track, "climate", None) or {}
+        media = float(clima.get("temp", 22.0))
+        oscilla = float(clima.get("swing", 6.0))
+        pioggia = float(clima.get("rain", 0.20))
+        vento_base = float(clima.get("wind", 10.0))
+
         wet = 0.0
         label = "sereno"
+        cloud = max(0.0, min(1.0, rng.betavariate(2.0, 3.5)))
         r = rng.random()
-        if r < base_wet_chance * 0.45:
-            wet, label = rng.uniform(0.55, 0.95), "pioggia intensa"
-        elif r < base_wet_chance:
-            wet, label = rng.uniform(0.20, 0.55), "pioggia leggera"
-        elif r < base_wet_chance + 0.25:
-            label = "nuvoloso"
-        elif r < base_wet_chance + 0.35:
-            label = "coperto"
-        air = rng.uniform(12, 34) - 8 * wet
-        return cls(label=label, wet=wet, track_temp=air + rng.uniform(6, 18) - 10 * wet, air_temp=air)
+        if r < pioggia * 0.40:
+            wet, label, cloud = rng.uniform(0.55, 0.95), "pioggia intensa", 1.0
+        elif r < pioggia:
+            wet, label, cloud = rng.uniform(0.20, 0.55), "pioggia leggera", 0.9
+        elif r < pioggia + 0.22:
+            label, cloud = "nuvoloso", max(cloud, 0.55)
+        elif r < pioggia + 0.32:
+            label, cloud = "coperto", max(cloud, 0.80)
+        else:
+            cloud = min(cloud, 0.35)
+
+        air = rng.gauss(media, oscilla * 0.45) - 4.0 * wet - 2.0 * cloud
+        # l'asfalto prende il sole: di giorno arriva a venti gradi sopra
+        # all'aria, di notte a pochi, e sotto la pioggia si raffredda
+        sole = (0.30 if getattr(track, "night", False) else 1.0) * (1.0 - 0.75 * cloud)
+        track_temp = air + 3.0 + 17.0 * sole - 6.0 * wet
+        vento = max(0.0, rng.gauss(vento_base, vento_base * 0.45))
+        return cls(label=label, wet=wet, track_temp=round(track_temp, 1),
+                   air_temp=round(air, 1), wind=round(vento, 1), cloud=round(cloud, 2))
 
 
 # ------------------------------------------------------------------ concorrente
@@ -80,6 +100,7 @@ class Entrant:
     racecraft: float = 80.0
     wet_skill: float = 80.0
     stamina: float = 90.0
+    confidence: float = 65.0      # quanto si fida della macchina che ha sotto
     reliability: float = 0.95
     pit_time: float = 2.6
     strategy_skill: float = 75.0
@@ -130,7 +151,7 @@ class Entrant:
 # ------------------------------------------------------------------ simulazione
 class RaceSim:
     def __init__(self, gs, track, entrants: list, weather: Weather, laps: int,
-                 kind: str = "gp", rng: random.Random | None = None):
+                 kind: str = "gp", rng: random.Random | None = None, cond=None):
         self.gs = gs
         self.track = track
         self.entrants = entrants
@@ -146,7 +167,16 @@ class RaceSim:
         self.events: list = []
         self.finished = False
         self.classification: list = []
-        self.grip = 0.965          # evoluzione pista
+        from . import pace
+        self.cond = cond if cond is not None else pace.from_weather(track, weather)
+        # l'asfalto che si sono trovati - freddo o caldo, verde o gommato - sta
+        # gia' dentro al giro base di ognuno. Qui resta solo quel poco che la
+        # pista guadagna ancora mentre si corre, che vale mezzo secondo scarso
+        self.evo = 1.004
+        self.wind_noise = pace.wind_noise(self.cond)
+        # su un asfalto che scotta la gomma dura meno: e' la ragione per cui la
+        # stessa mescola fa venti giri in Bahrain e trentacinque a Montreal
+        self.temp_wear = max(0.72, min(1.55, 1.0 + 0.020 * (self.cond.track_temp - 35.0)))
         # degrado imposto dal regolamento in vigore: fisso per tutta la gara
         reg = getattr(gs, "regulations", None) or {}
         self.tyre_deg = float(reg.get("tyres", {}).get("deg_multiplier", 1.0))
@@ -181,7 +211,7 @@ class RaceSim:
         t += (1.0 - comp["grip"]) * 28.0
         t += (1.0 - e.compound_state()) * 22.0
         t += e.damage * 0.06
-        t *= (2.0 - self.grip) if self.grip < 1.0 else 1.0
+        t *= self.evo
         t -= (max(0.90, min(1.10, e.push_mode)) - 1.0) * PUSH_S_PER_LAP
         if e.fuel <= 0.01:
             t += DRY_TANK_PENALTY
@@ -199,7 +229,8 @@ class RaceSim:
             t += (85.0 - e.wet_skill) * 0.06 * self.weather.wet * 4.0
         if self.safety_car > 0:
             t *= 1.42 if not self.vsc else 1.30
-        var = self.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.006)
+        var = self.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.006
+                             + self.wind_noise)
         e.clean_lap = clean
         return max(20.0, t + var)
 
@@ -212,7 +243,8 @@ class RaceSim:
             self.finished = True
             return
         self.time += dt
-        self.grip = min(1.0, self.grip + dt * 0.000045)
+        # la pista continua a gommarsi mentre si corre
+        self.evo = max(0.9995, self.evo - dt * 0.0000030)
         if self.safety_car > 0:
             self.safety_car = max(0.0, self.safety_car - dt)
             if self.safety_car == 0.0:
@@ -260,7 +292,7 @@ class RaceSim:
         push = e.push_mode ** PUSH_WEAR_EXP
         sc = 0.45 if self.safety_car > 0 else 1.0
         wet = 1.0 - 0.35 * self.weather.wet
-        return base * skill * push * sc * wet
+        return base * skill * push * sc * wet * self.temp_wear
 
     def _on_lap_complete(self, e: Entrant, lt: float) -> None:
         if lt < e.best_lap:
@@ -284,6 +316,9 @@ class RaceSim:
         err = (100.0 - e.consistency) * 0.00013 * (0.6 + 0.8 * e.push_mode)
         err *= 1.0 + 2.2 * self.weather.wet
         err *= 1.0 + (1.0 - e.compound_state()) * 1.2
+        # chi non si fida di quello che ha sotto sbaglia di piu': non e' che
+        # guidi peggio, e' che la macchina lo sorprende
+        err *= max(0.60, 1.0 + (65.0 - e.confidence) * 0.008)
         if self.rng.random() < err:
             if self.rng.random() < 0.14:
                 e.status = "retired"

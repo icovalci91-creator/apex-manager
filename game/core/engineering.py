@@ -27,6 +27,50 @@ AREA_PARTS = {
 }
 
 
+# ------------------------------------------------------- carattere della vettura
+# Due macchine con la stessa valutazione media non sono la stessa macchina: una
+# nasce attorno al fondo e alle ali, l'altra attorno a sospensioni e telaio. La
+# prima vive di carico aerodinamico, che cresce col quadrato della velocita', e
+# va forte dove si curva forte; la seconda vive di aderenza meccanica, che c'e'
+# anche da fermi, e va forte dove si curva piano. Da qui - e non da un
+# coefficiente scritto a mano - nasce il fatto che l'ordine cambi da Monza a
+# Monaco.
+#
+# Gli scostamenti sono a somma zero: la filosofia non rende una squadra piu'
+# forte, le da' una forma.
+CARATTERE = {
+    "aero": {"floor": 3.2, "front_wing": 2.4, "rear_wing": 1.4, "active_aero": 1.6,
+             "sidepods": 0.4, "cooling": -0.8, "gearbox": -1.6, "brakes": -1.4,
+             "chassis": -1.2, "suspension": -4.0},
+    "mechanical": {"suspension": 3.4, "chassis": 2.2, "brakes": 1.8, "gearbox": 1.2,
+                   "sidepods": -0.4, "cooling": -0.4, "floor": -2.6, "front_wing": -1.8,
+                   "rear_wing": -1.6, "active_aero": -1.8},
+    "powertrain": {"cooling": 2.8, "gearbox": 2.4, "sidepods": 1.8, "chassis": 0.6,
+                   "brakes": -1.0, "suspension": -1.2, "floor": -1.8, "front_wing": -1.6,
+                   "rear_wing": -0.4, "active_aero": -1.6},
+    "efficiency": {"rear_wing": 2.4, "sidepods": 2.2, "cooling": 1.8, "active_aero": 1.6,
+                   "gearbox": -0.6, "brakes": -0.8, "chassis": -1.2, "suspension": -1.4,
+                   "front_wing": -1.8, "floor": -2.2},
+}
+
+
+def shape_car(team, forza: float = 1.0) -> None:
+    """Da' alla vettura la forma della filosofia della squadra.
+
+    Si chiama quando la macchina nasce: dopo ci pensano gli aggiornamenti, che
+    seguono la stessa linea, a tenerla in quella direzione.
+    """
+    delta = CARATTERE.get(team.philosophy)
+    if not delta or not team.car:
+        return
+    medio = sum(delta.values()) / max(1, len(delta))
+    for parte, d in delta.items():
+        p = team.car.parts.get(parte)
+        if p is None:
+            continue
+        p.perf = max(20.0, min(99.0, p.perf + (d - medio) * forza))
+
+
 def part_field(gs) -> dict:
     """Come sta messa la griglia, componente per componente.
 

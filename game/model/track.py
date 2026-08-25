@@ -49,6 +49,10 @@ class Track:
     tradition: float = 0.3       # quanto e' intoccabile (Monaco 1.0)
     popularity: float = 60.0     # richiamo di pubblico
     calibration: float = 1.0
+    wing_ref: float | None = None   # l'ala che il modello di giro vuole qui
+    altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
+    night: bool = False          # si corre col buio: l'asfalto non prende sole
+    climate: dict = field(default_factory=dict)   # temperatura, pioggia e vento del mese
     geo: list = field(default_factory=list)   # [[lat, lon], ...] del tracciato reale
 
     segments: list = field(default_factory=list)
@@ -68,6 +72,9 @@ class Track:
             contract_until=int(d.get("contract_until", 9999)),
             fee=float(d.get("fee", 25.0)), tradition=float(d.get("tradition", 0.3)),
             popularity=float(d.get("popularity", 60.0)),
+            altitude=float(d.get("altitude", 0.0)),
+            night=bool(d.get("night", False)),
+            climate=dict(d.get("climate") or {}),
             geo=d.get("geo") or [],
         )
         if t.geo:
@@ -180,12 +187,15 @@ class Track:
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
 
     # ------------------------------------------------------- modello di giro
-    def lap_model(self, car, wet: float = 0.0, grip: float = 1.0):
+    def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None):
         """Restituisce (tempo_giro_s, vmax_kmh, profilo_velocita).
 
         `car` espone: downforce, drag, power, mech_grip, braking, mass_base,
-        mass_extra.
+        mass_extra. `rho` e' la densita' dell'aria: a Citta' del Messico ce n'e'
+        un quarto di meno che sul mare, e una monoposto senza aria non ha
+        carico - ne' resistenza.
         """
+        rho = C.RHO if rho is None else rho
         cla = C.CLA_BASE * car.downforce
         cda = C.CDA_BASE * car.drag
         mass = car.mass_base + car.mass_extra
@@ -197,12 +207,12 @@ class Track:
         ds = self.ds
 
         # velocita' massima assoluta (potenza contro resistenza)
-        vmax = (2.0 * power / (C.RHO * cda)) ** (1.0 / 3.0)
+        vmax = (2.0 * power / (rho * cda)) ** (1.0 / 3.0)
 
         def lat_limit(k: float) -> float:
             if k <= 1e-9:
                 return vmax
-            denom = k - (C.RHO * cla) / (2.0 * mass)
+            denom = k - (rho * cla) / (2.0 * mass)
             if denom <= 1e-6:
                 return vmax
             v = math.sqrt(mu * C.G / denom)
@@ -216,7 +226,7 @@ class Track:
             for i in range(n):
                 j = (i + 1) % n
                 vi = max(v[i], 5.0)
-                drag_a = 0.5 * C.RHO * cda * vi * vi / mass
+                drag_a = 0.5 * rho * cda * vi * vi / mass
                 a = min(power / (mass * vi), mu * C.G * 0.85) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
@@ -226,7 +236,7 @@ class Track:
             for i in range(n - 1, -1, -1):
                 j = (i + 1) % n
                 vj = max(v[j], 5.0)
-                a_b = mu_b * C.G + 0.5 * C.RHO * cla * vj * vj / mass
+                a_b = mu_b * C.G + 0.5 * rho * cla * vj * vj / mass
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
                 if cand < v[i]:
                     v[i] = cand
@@ -239,14 +249,49 @@ class Track:
         return t * self.calibration, vmax * 3.6, v
 
     def calibrate(self, ref_car) -> None:
-        """Allinea il modello al tempo sul giro di riferimento della pista reale."""
+        """Allinea il modello al tempo sul giro di riferimento della pista reale.
+
+        I tempi di riferimento sono pole vere: sono state fatte col clima di
+        quel posto in quel mese, a quella quota, su una pista gommata. E' li'
+        che si allinea il modello, cosi' tutto il resto - una giornata fredda,
+        il venerdi' mattina, l'aria sottile del Messico - si legge come uno
+        scarto da quello e non come un errore di taratura.
+        """
+        from ..sim import pace
         self.calibration = 1.0
         ref_car.setup = ref_car.optimal_setup(self)
         ref_car.evaluate_setup(self)
         ref_car.fuel_kg = 0.0
-        raw, _, _ = self.lap_model(ref_car)
+        cond = pace.nominal(self)
+        raw, _, _ = self.lap_model(ref_car, grip=pace.surface_grip(cond), rho=cond.rho)
         if raw > 1.0:
             self.calibration = self.ref_lap / raw
+        # meta' quello che dice il modello e meta' quello che dice la scheda del
+        # circuito: la prima sa fare i conti, la seconda sa cosa ci portano
+        # davvero le squadre. Da sole sbagliano tutte e due
+        fisica = self._best_wing(ref_car, cond)
+        scheda = 100.0 * min(1.0, max(0.0, self.traits.get("downforce", 0.5)))
+        self.wing_ref = round(0.5 * fisica + 0.5 * scheda, 1)
+
+    def _best_wing(self, ref_car, cond) -> float:
+        """L'ala piu' veloce qui: si prova, non si indovina.
+
+        Passata grossolana ogni dieci punti e poi una fine attorno al migliore:
+        tredici giri simulati per circuito, una volta sola all'avvio.
+        """
+        from ..sim import pace
+        saved = dict(ref_car.setup)
+        grip = pace.surface_grip(cond)
+
+        def giro(w):
+            ref_car.setup["wing"] = float(w)
+            t, _, _ = self.lap_model(ref_car, grip=grip, rho=cond.rho)
+            return t
+
+        best = min(range(0, 101, 10), key=giro)
+        fine = min(range(max(0, best - 8), min(100, best + 8) + 1, 4), key=giro)
+        ref_car.setup = saved
+        return float(fine)
 
     def sector_of(self, idx: int) -> int:
         a, b = self.sector_bounds
