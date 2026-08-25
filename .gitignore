@@ -3,3 +3,6 @@ __pycache__/
 saves/*.json
 _*.py
 _*.png
+
+# i tracciati di confronto scaricati da tools/anchor_tracks.py: si riscaricano
+tools/_cache/

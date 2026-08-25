@@ -69,6 +69,9 @@ class Track:
     wing_ref: float | None = None   # l'ala che il modello di giro vuole qui
     domain_map: list = field(default_factory=list)   # cosa e' ogni metro di pista
     corner_map: list = field(default_factory=list)   # le curve, una per una
+    start: list = field(default_factory=list)   # [lat, lon] della linea del traguardo
+    senso: str = ""              # "orario" | "antiorario": da che parte si gira
+    settori: list = field(default_factory=list)  # dove tagliano i due intertempi
     altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
     night: bool = False          # si corre col buio: l'asfalto non prende sole
     climate: dict = field(default_factory=dict)   # temperatura, pioggia e vento del mese
@@ -99,6 +102,9 @@ class Track:
             contract_until=int(d.get("contract_until", 9999)),
             fee=float(d.get("fee", 25.0)), tradition=float(d.get("tradition", 0.3)),
             popularity=float(d.get("popularity", 60.0)),
+            start=list(d.get("start") or []),
+            senso=str(d.get("senso", "")),
+            settori=list(d.get("settori") or []),
             altitude=float(d.get("altitude", 0.0)),
             night=bool(d.get("night", False)),
             climate=dict(d.get("climate") or {}),
@@ -139,11 +145,38 @@ class Track:
         n = max(64, int(round(target / STEP_M)))
         pts = _resample(pts, n)
         pts = _smooth(pts, passes=2)
+        pts = self._al_traguardo(pts, k if raw_len > 1.0 else 1.0)
 
         self.ds = target / len(pts)
         self.curvature = _curvature(pts)
         self.points = _normalise(pts)
         self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
+
+    def _al_traguardo(self, pts: list, scala: float) -> list:
+        """Mette il tracciato nel verso di gara e lo fa cominciare dal traguardo.
+
+        Le strade di OpenStreetMap cominciano dove ha cominciato a disegnarle
+        chi le ha disegnate, e vanno nel verso in cui le ha disegnate: nessuna
+        delle due cose ha a che vedere con la gara. Il gioco pero' conta tutto
+        da quella linea - i giri, i settori, i distacchi, dove sono le vetture -
+        quindi il tracciato va girato nel verso giusto e ruotato fin li'.
+        """
+        if self.senso:
+            area = 0.0
+            for i in range(len(pts)):
+                j = (i + 1) % len(pts)
+                area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]
+            antiorario = area > 0
+            if antiorario != (self.senso == "antiorario"):
+                pts = [pts[0]] + pts[:0:-1]        # si gira dall'altra parte
+        if len(self.start) == 2:
+            # la linea sta in gradi: si porta nello stesso piano in metri del
+            # tracciato, con la stessa origine e la stessa scala
+            tutti = _project(list(self.geo) + [list(self.start)])
+            bx, by = tutti[-1][0] * scala, tutti[-1][1] * scala
+            i0 = min(range(len(pts)), key=lambda i: (pts[i][0] - bx) ** 2 + (pts[i][1] - by) ** 2)
+            pts = pts[i0:] + pts[:i0]
+        return pts
 
     def _parse_layout(self) -> None:
         raw: list[Segment] = []
@@ -376,9 +409,29 @@ class Track:
             zona.append(mappa[idx] if idx < len(mappa) else "rettilinei")
         self.time_map, self.speed_map, self.zone_map = pos, vel, zona
         self.speed_peak = max(vel) if vel else 0.0
-        a, b = self.sector_bounds
-        self.sector_time = (round(tempi[min(n, int(a))] / tot, 4),
-                            round(tempi[min(n, int(b))] / tot, 4))
+        self._taglia_settori(tempi, tot, pos)
+
+    def _taglia_settori(self, tempi: list, tot: float, pos: list) -> None:
+        """Dove tagliano i due intertempi.
+
+        La federazione mette le due linee in modo che i tre settori durino piu'
+        o meno uguale: non un terzo di strada per uno - un terzo di Spa fatto
+        di curvoni si percorre in molto meno tempo di un terzo fatto di
+        tornanti - ma un terzo di cronometro. E' quello che si fa qui, dove del
+        circuito non si sa altro. Dove invece si sa dove stanno davvero le due
+        linee, il dato del circuito comanda: a Spa il secondo settore e' mezzo
+        giro, e i tempi che escono devono dirlo.
+        """
+        n = len(tempi) - 1
+        if len(self.settori) == 2:
+            a, b = (max(0.02, min(0.98, float(x))) for x in self.settori)
+            self.sector_bounds = (a * n, b * n)
+            self.sector_time = (round(tempi[int(a * n)] / tot, 4),
+                                round(tempi[int(b * n)] / tot, 4))
+            return
+        k = len(pos)
+        self.sector_time = (0.3333, 0.6667)
+        self.sector_bounds = (pos[k // 3] * n, pos[2 * k // 3] * n)
 
     # ------------------------------------------------- dove si e', a quanto va
     def pos_at(self, frazione_tempo: float) -> float:

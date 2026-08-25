@@ -16,6 +16,10 @@ che il gioco fa nel README.
 
 Serve rete verso openstreetmap.org e overpass-api.de. Entrambi chiedono
 gentilezza: una richiesta al secondo e uno user agent riconoscibile.
+
+Un tracciato appena scaricato comincia dove ha cominciato a disegnarlo chi
+l'ha disegnato: per dire al gioco dov'e' la linea del traguardo e da che parte
+si corre c'e' tools/anchor_tracks.py, da lanciare dopo questo.
 """
 from __future__ import annotations
 

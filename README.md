@@ -318,6 +318,33 @@ risultato, perché un tracciato sbagliato è peggio di nessun tracciato. Serve r
 Google Maps non è utilizzabile: i suoi dati sono proprietari e le condizioni d'uso vietano
 di estrarli per usarli altrove. OpenStreetMap è aperto e chiede solo la citazione qui sotto.
 
+**Dove sta il traguardo.** Una strada di OpenStreetMap comincia dove ha cominciato a
+disegnarla chi l'ha disegnata, e va nel verso in cui l'ha disegnata: nessuna delle due cose
+ha a che vedere con la gara. Il gioco però conta tutto da quella linea — i giri, i settori,
+i distacchi, la posizione delle vetture sul disegno — quindi ogni circuito porta anche
+`start` (le coordinate della linea del traguardo) e `senso` (`orario` o `antiorario`), e il
+tracciato viene ruotato e girato al momento di costruirlo.
+
+```bash
+python tools/anchor_tracks.py            # trova la linea e la scrive
+python tools/anchor_tracks.py --dry-run  # stampa il referto senza scrivere
+```
+
+Per una ventina di circuiti la linea si trova da sola: si confronta il profilo di curvatura
+del nostro tracciato con quello delle linee mediane del
+[racetrack-database](https://github.com/TUMFTM/racetrack-database) del Politecnico di
+Monaco di Baviera, che cominciano dal traguardo, provando tutte le rotazioni e tutti e due
+i versi. Di quei dati non resta niente nel gioco: il risultato è un punto sul nostro
+tracciato. Gli altri — le cittadine soprattutto — hanno la coordinata scritta a mano nello
+strumento, che la aggancia al tracciato e dice di quanto l'ha dovuta spostare.
+
+**I settori.** La federazione mette le due linee degli intertempi in modo che i tre settori
+durino più o meno uguale: non un terzo di strada per uno — un terzo di Spa fatto di curvoni
+si percorre in molto meno tempo di un terzo fatto di tornanti — ma un terzo di cronometro.
+È quello che fa il gioco dove del circuito non si sa altro. Dove invece i settori veri sono
+molto diversi fra loro il circuito porta il campo `settori`, e quello comanda: a Spa e a
+Monaco le due linee stanno dove i tempi dei settori dicono che stanno.
+
 **Infrastrutture.** Una struttura appena rifatta resta di riferimento per tre stagioni e in
 quel periodo non perde nulla: e' il premio di chi investe. Dopo comincia a restare indietro,
 e piu' passa il tempo piu' in fretta lo fa, perche' nel frattempo gli altri sono andati
@@ -1056,10 +1083,22 @@ saves/               salvataggi
 I layout scaricati con `tools/fetch_layouts.py` provengono da OpenStreetMap:
 © OpenStreetMap contributors, licenza [ODbL](https://www.openstreetmap.org/copyright).
 
+La posizione della linea del traguardo è stata trovata confrontando i tracciati con le
+linee mediane del [racetrack-database](https://github.com/TUMFTM/racetrack-database) del
+Politecnico di Monaco di Baviera (licenza LGPL): nel gioco non ne è finito alcun dato, solo
+il risultato del confronto.
+
 ## Limiti noti
 
-- I 24 tracciati inclusi sono ancora ricostruiti dai dati reali (lunghezza, numero e tipo
-  di curve) e non dalle coordinate: la forma è coerente e distinta per ogni pista, non
-  identica all'originale. Con `tools/fetch_layouts.py` si sostituiscono con quelli veri.
-- Le sprint usano lo stesso formato della qualifica principale.
-- Le penalità in gara (bandiere, investigazioni) non sono ancora modellate.
+- Il tracciato di Miami scaricato da OpenStreetMap non è quello vero: è un anello della
+  lunghezza giusta ma sei chilometri più a sud del circuito. Va riscaricato
+  (`tools/fetch_layouts.py --force --only miami`), e finché non lo si fa la sua linea del
+  traguardo resta dove capita. Stesso problema per Tsukuba, fra i candidati.
+- Madrid non ha riferimenti con cui allineare il traguardo — è un circuito nuovo: la linea
+  è messa in fondo al rettilineo più lungo, che è dove sta quasi sempre, ma è una stima.
+- Le coordinate di OpenStreetMap sono rade: a Monza il tracciato ha un punto ogni
+  quarantacinque metri, e le chicane più strette escono smussate. Il tempo sul giro non ne
+  risente (è tarato sul reale) ma qualche curva secca il modello non la conta.
+- Il traguardo dei circuiti che il confronto automatico non copre — le cittadine — è messo
+  a mano: la coordinata è agganciata al tracciato, quindi cade sull'asfalto, ma può essere
+  qualche decina di metri più avanti o più indietro di quella vera.
