@@ -111,7 +111,15 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
     """Chi scende in pista, con che passo e in che condizioni."""
     from ..core import penalties
     from ..core.driving import FIDUCIA_BASE
+    from ..core import engineering
     aff = pace.affinities(gs, track)
+    # la punta di velocita' di ogni vettura, per il tachimetro in pista: e' il
+    # modello di giro, non un numero scritto a mano
+    try:
+        punte = {t: d.get("vmax", 330.0) for t, d in
+                 engineering.grid_domains(gs, track, cond).items()}
+    except Exception:
+        punte = {}
     out = []
     for team in gs.teams.values():
         # il pacchetto lavora uguale per tutti e due, l'assetto no
@@ -132,6 +140,7 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 confidence=float(getattr(d, "confidence", FIDUCIA_BASE)),
                 reliability=_affidabile(team, d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
+                vmax=float(punte.get(team.id, 330.0)),
                 is_player=(team.id == gs.player_team),
             ))
     return out

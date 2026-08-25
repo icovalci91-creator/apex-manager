@@ -175,6 +175,12 @@ class Weather:
         return f"{forte} in arrivo {quando}"
 
 
+def _mmss(t: float) -> str:
+    """Un tempo sul giro come lo scrive il tabellone."""
+    m, s = divmod(max(0.0, t), 60.0)
+    return f"{int(m)}:{s:06.3f}"
+
+
 # ------------------------------------------------------------------ concorrente
 @dataclass
 class Entrant:
@@ -209,6 +215,14 @@ class Entrant:
     total_time: float = 0.0
     last_lap: float = 0.0
     best_lap: float = 999.0
+    # il giro spezzato in tre, come sul tabellone: quello appena fatto, il
+    # migliore di ognuno e i parziali gia' presi in questo giro
+    sectors: list = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    best_sectors: list = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    live_sectors: list = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    lap_t0: float = 0.0           # da quando si sta girando questo giro
+    sector_done: int = 0          # quanti parziali sono gia' scattati
+    vmax: float = 340.0           # punta di velocita' della vettura, km/h
     status: str = "running"       # running | pitting | retired | finished
     dnf_reason: str = ""
     pit_timer: float = 0.0
@@ -232,6 +246,10 @@ class Entrant:
     under_review: float = 0.0        # secondi di attesa prima della decisione
     review_kind: str = ""
     track_warnings: int = 0
+
+    def lap_fraction(self, track_len: float) -> float:
+        """A che punto del giro si e', contato sul cronometro."""
+        return (self.dist % track_len) / track_len
 
     def compound_state(self) -> float:
         """1.0 = gomma fresca, cala fino allo 0 dopo il degrado."""
@@ -286,6 +304,16 @@ class RaceSim:
         # make_race lo ricalcola appena sa quanta benzina c'e' a bordo.
         self.burn_per_lap = BURN_KG_PER_LAP
         self.leader_lap = 0
+        # il meglio della sessione, settore per settore: e' quello che sul
+        # tabellone si colora di viola
+        self.best_sectors = [0.0, 0.0, 0.0]
+        self.best_lap = 0.0
+        self.best_lap_by = ""
+        # quello che si sente alla radio: il pilota che racconta la macchina e
+        # il muretto che risponde. Ne resta in memoria l'ultimo pezzo
+        self.radio: list = []
+        self._radio_cd: dict = {}
+        self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
         self._coda = list(entrants)
@@ -294,6 +322,46 @@ class RaceSim:
     def log(self, text: str, kind: str = "info") -> None:
         self.events.insert(0, {"lap": self.leader_lap + 1, "text": text, "kind": kind})
         del self.events[60:]
+
+    def radio_say(self, e, testo: str, chi: str = "pilota") -> None:
+        """Una voce alla radio. Solo per chi corre per noi: gli altri hanno la loro."""
+        if not e.is_player:
+            return
+        self.radio.insert(0, {"driver_id": e.driver_id, "code": e.code, "chi": chi,
+                              "text": testo, "lap": e.lap + 1, "t": self.time})
+        del self.radio[12:]
+
+    def radio_of(self, driver_id: str) -> dict | None:
+        """L'ultima cosa detta da quel box."""
+        for m in self.radio:
+            if m["driver_id"] == driver_id:
+                return m
+        return None
+
+    def speed_of(self, e) -> float:
+        """A quanto sta andando adesso, in km/h.
+
+        La forma del giro la da' il tracciato - dove si tira e dove si frena -
+        e il livello lo da' la vettura: chi ha la punta piu' alta la vede piu'
+        alta anche qui, e chi sta girando con dieci secondi di ritardo la vede
+        scendere tutta insieme.
+        """
+        if e.status == "pitting":
+            return 80.0
+        if e.status == "retired":
+            return 0.0
+        tr = self.track
+        if not tr.speed_map:
+            return 0.0
+        v = tr.speed_at(e.lap_fraction(self.track_len), e.last_lap or e.base_lap)
+        scala = e.vmax / tr.speed_peak if tr.speed_peak else 1.0
+        return v * scala
+
+    def zone_of(self, e) -> str:
+        """Che cosa sta facendo in questo momento: tirare, frenare, girare."""
+        if e.status == "pitting":
+            return "box"
+        return self.track.zone_at(e.lap_fraction(self.track_len))
 
     def order(self) -> list:
         live = [e for e in self.entrants if e.status != "retired"]
@@ -375,6 +443,7 @@ class RaceSim:
             e.fuel = max(0.0, e.fuel - burn * dt / lt)
 
             self._track_limits(e, dt)
+            self._intertempi(e, lt)
 
             new_lap = int(e.dist // self.track_len)
             if new_lap > e.lap:
@@ -388,6 +457,51 @@ class RaceSim:
         self._maybe_incident(dt)
         self._coda = [e for e in self.entrants if e.status == "running"]
         self._coda.sort(key=lambda e: -e.dist)
+
+    # ------------------------------------------------------------ intertempi
+    def _intertempi(self, e, lt: float) -> None:
+        """I parziali, quando si passa sotto al traguardo di settore.
+
+        La pista e' divisa in tre, come sul tabellone vero: ogni volta che una
+        macchina taglia una di quelle linee il tempo si ferma e va a schermo.
+        E' con questi che si vede dove si guadagna prima ancora che il giro sia
+        finito.
+        """
+        if e.dist < 0 or e.sector_done >= 2 or e.lap < 1:
+            return
+        soglie = self.track.sector_time
+        f = e.lap_fraction(self.track_len)
+        while e.sector_done < 2 and f >= soglie[e.sector_done]:
+            i = e.sector_done
+            # il traguardo di settore e' stato tagliato dentro al passo di
+            # calcolo, non alla fine: quel pezzo di secondo va tolto, se no i
+            # parziali vengono fuori tutti arrotondati al passo
+            oltre = (f - soglie[i]) * lt
+            parziale = (e.total_time - e.lap_t0) - oltre - sum(e.live_sectors[:i])
+            e.live_sectors[i] = max(0.1, parziale)
+            e.sector_done += 1
+            self._segna_settore(e, i)
+
+    def _segna_settore(self, e, i: int) -> None:
+        """Aggiorna il migliore di quel settore, personale e di tutta la pista."""
+        t = e.live_sectors[i]
+        if t <= 0.1:
+            return
+        if e.best_sectors[i] <= 0 or t < e.best_sectors[i]:
+            e.best_sectors[i] = t
+        if self.best_sectors[i] <= 0 or t < self.best_sectors[i]:
+            self.best_sectors[i] = t
+
+    def sector_colour(self, e, i: int, valore: float | None = None):
+        """Viola il migliore di tutti, verde il migliore suo, giallo il resto."""
+        t = e.sectors[i] if valore is None else valore
+        if t <= 0:
+            return None
+        if self.best_sectors[i] > 0 and t <= self.best_sectors[i] + 1e-6:
+            return "viola"
+        if e.best_sectors[i] > 0 and t <= e.best_sectors[i] + 1e-6:
+            return "verde"
+        return "giallo"
 
     def _meteo(self, dt: float) -> None:
         """Il tempo cambia mentre si corre: l'acqua arriva, e poi se ne va.
@@ -445,8 +559,28 @@ class RaceSim:
         return base * skill * push * sc * wet * self.temp_wear
 
     def _on_lap_complete(self, e: Entrant, lt: float) -> None:
-        if lt < e.best_lap:
-            e.best_lap = lt
+        # il giro che il cronometro ha visto davvero: dentro ci sono la coda
+        # dietro a chi non si passa, la sosta ai box, la safety car. Il
+        # traguardo lo si taglia dentro al passo di calcolo, quindi il pezzo di
+        # secondo gia' corso nel giro nuovo si scala da questo
+        oltre = (e.dist - e.lap * self.track_len) * lt / self.track_len
+        giro = e.total_time - e.lap_t0 - oltre
+        if e.sector_done >= 2 and giro > 1.0:
+            e.live_sectors[2] = max(0.1, giro - e.live_sectors[0] - e.live_sectors[1])
+            self._segna_settore(e, 2)
+            e.sectors = list(e.live_sectors)
+        e.lap_t0 = e.total_time - oltre
+        e.live_sectors = [0.0, 0.0, 0.0]
+        e.sector_done = 0
+        record = 20.0 < giro < e.best_lap
+        if record:
+            e.best_lap = giro
+            if self.best_lap <= 0 or giro < self.best_lap:
+                # non finisce nella cronaca: col serbatoio che si svuota il
+                # primato cade quasi a ogni giro, e riempirebbe la colonna.
+                # Sul tabellone dei tempi si vede, e li' basta
+                self.best_lap, self.best_lap_by = giro, e.code
+        self._parla(e, giro, record)
         if e.position == 1:
             e.laps_led += 1
         self.leader_lap = max(self.leader_lap, min(e.lap, self.laps))
@@ -503,6 +637,76 @@ class RaceSim:
         self._check_pit(e)
         if all(x.status in ("finished", "retired") for x in self.entrants):
             self.finished = True
+
+    # ------------------------------------------------------------------ radio
+    def _parla(self, e: Entrant, giro: float, record: bool = False) -> None:
+        """Quello che il pilota racconta e quello che il muretto risponde.
+
+        Non e' colore: ogni frase esce da un numero che sta succedendo davvero
+        - la gomma che ha finito il suo, l'aria sporca di chi sta davanti, la
+        benzina che non basta, l'acqua che arriva, il posto perso al giro
+        prima. Quando alla radio si sente che le gomme sono andate, sul
+        tabellone la barra e' gia' scesa.
+        """
+        if not e.is_player or e.status != "running":
+            return
+        prima = self._pos_prima.get(e.driver_id, e.position)
+        self._pos_prima[e.driver_id] = e.position
+        if e.lap < self._radio_cd.get(e.driver_id, -9):
+            return
+        stato = e.compound_state()
+        avanti = self._chi_davanti(e)
+        dietro = self._chi_dietro(e)
+        metri_s = max(20.0, self.track_len / max(30.0, giro))
+        gap_a = (avanti.dist - e.dist) / metri_s if avanti else 99.0
+        gap_d = (e.dist - dietro.dist) / metri_s if dietro else 99.0
+        resta = self.laps - e.lap
+        voci = []
+        if e.damage > 25:
+            voci.append((9, "pilota", "Ho preso un colpo, la macchina non e' piu' dritta."))
+        if self.weather.wet > 0.05 and e.tyre in ("soft", "medium", "hard"):
+            voci.append((10, "pilota", "Qui piove, con queste gomme non tengo la macchina."))
+        elif self.weather.wet < 0.06 and e.tyre in ("inter", "wet"):
+            voci.append((8, "pilota", "La linea si sta asciugando, sto cuocendo le gomme."))
+        if e.fuel_warned and e.fuel < resta * self.burn_per_lap:
+            voci.append((8, "muretto", "Benzina al limite: risparmia in staccata o non arriviamo."))
+        if stato < 0.72:
+            voci.append((8, "pilota", "Le gomme sono finite, sto scivolando dappertutto."))
+        elif stato < 0.82:
+            voci.append((5, "pilota", "Comincio a perdere il posteriore in trazione."))
+        if e.tyre_age < 1.5 and e.stops:
+            voci.append((6, "muretto", "Gomme nuove: due curve per metterle in temperatura."))
+        if e.position < prima:
+            voci.append((7, "muretto", f"Bene cosi', sei {e.position}."))
+        elif e.position > prima:
+            voci.append((6, "muretto", f"Ti hanno passato, adesso sei {e.position}."))
+        if e.dirty_air > 0.55 and gap_a < 2.0:
+            voci.append((6, "pilota", "Nella sua aria non giro, perdo l'anteriore in ingresso."))
+        elif 0.1 < gap_a < 1.0 and avanti:
+            voci.append((6, "muretto", f"Sei a {gap_a:.1f} da {avanti.code}: e' il momento."))
+        if 0.1 < gap_d < 1.2 and dietro:
+            voci.append((5, "muretto", f"{dietro.code} e' a {gap_d:.1f}, ti sta arrivando."))
+        if self.safety_car > 0:
+            voci.append((7, "muretto", "Safety car in pista: tieni in temperatura le gomme."))
+        if 0 < resta <= 3:
+            voci.append((6, "muretto", f"{resta} giri alla fine, porta a casa la macchina."))
+        if record and self.best_lap_by == e.code and e.lap > 2:
+            voci.append((4, "muretto", f"Giro veloce della gara: {_mmss(giro)}."))
+        if not voci:
+            return
+        voci.sort(key=lambda x: -x[0])
+        peso, chi, testo = voci[0]
+        self.radio_say(e, testo, chi)
+        # piu' e' importante quello che c'e' da dire, prima si torna a parlare
+        self._radio_cd[e.driver_id] = e.lap + max(2, 12 - peso)
+
+    def _chi_dietro(self, e: Entrant):
+        dietro = [x for x in self.entrants if x.status == "running" and x.dist < e.dist]
+        return max(dietro, key=lambda x: x.dist) if dietro else None
+
+    def _chi_davanti(self, e: Entrant):
+        avanti = [x for x in self.entrants if x.status == "running" and x.dist > e.dist]
+        return min(avanti, key=lambda x: x.dist - e.dist) if avanti else None
 
     def _fuel_check(self, e: Entrant) -> None:
         """Avvisa quando la benzina non basta piu' per arrivare in fondo.
@@ -574,6 +778,9 @@ class RaceSim:
         e.tyre_life = self._tyre_life(e, target)
         e.stops += 1
         self.log(f"{e.name} ai box: monta {C.COMPOUNDS[target]['label']}", "pit")
+        self.radio_say(e, f"Box, box, box: montiamo {C.COMPOUNDS[target]['label'].lower()}.",
+                       "muretto")
+        self._radio_cd[e.driver_id] = e.lap + 2
 
     def _pick_compound(self, e: Entrant) -> str:
         remaining = self.laps - e.lap

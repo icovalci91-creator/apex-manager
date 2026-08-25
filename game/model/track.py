@@ -79,6 +79,14 @@ class Track:
     curvature: list = field(default_factory=list)   # 1/raggio per ogni punto
     ds: float = STEP_M
     sector_bounds: tuple = (0.0, 0.0)
+    # il giro visto dal cronometro invece che dal metro: a ogni frazione di
+    # tempo, a che punto del tracciato si e' e a che velocita' ci si passa
+    time_map: list = field(default_factory=list)     # frazione di giro percorsa
+    speed_map: list = field(default_factory=list)    # velocita' in km/h, vettura campione
+    zone_map: list = field(default_factory=list)     # che cosa si sta facendo li'
+    sector_time: tuple = (0.3333, 0.6667)            # quando scattano gli intertempi
+    ref_time: float = 0.0                            # il giro a cui quelle velocita' si riferiscono
+    speed_peak: float = 0.0                          # la punta della vettura campione, km/h
 
     # ---------------------------------------------------------------- build
     @classmethod
@@ -325,6 +333,94 @@ class Track:
                 mappa.append("rettilinei")
         self.domain_map = mappa
         self.corner_map = self.corner_list(v, vlim, classi)
+        self._map_time(v, mappa)
+
+    # ------------------------------------------------------- il giro nel tempo
+    CAMPIONI = 720          # quanto e' fitto il giro raccontato dal cronometro
+
+    def _map_time(self, v, mappa) -> None:
+        """Il giro riletto a passo di cronometro invece che a passo di metro.
+
+        Una monoposto non percorre il giro a velocita' costante: in fondo al
+        rettilineo copre trecento metri in tre secondi e nel tornantino ne
+        copre trenta. Chi guarda la pista vede questo, non un puntino che
+        scivola uguale ovunque. Qui il giro viene ricampionato a intervalli di
+        tempo uguali: per ogni istante si sa a che punto del tracciato si e', a
+        che velocita' ci si passa e che cosa si sta facendo - frenare, tirare,
+        girare. Da qui vengono l'animazione, il tachimetro e gli intertempi.
+        """
+        n = len(v)
+        if n < 8:
+            return
+        ds = self.ds
+        acc, tempi = 0.0, [0.0]
+        for i in range(n):
+            j = (i + 1) % n
+            acc += ds / max(3.0, 0.5 * (v[i] + v[j]))
+            tempi.append(acc)
+        tot = acc or 1.0
+        # il tempo a cui quelle velocita' appartengono: e' il metro con cui si
+        # riscalano quando in pista si gira piu' piano - serbatoio pieno,
+        # gomme finite, pioggia
+        self.ref_time = tot * self.calibration
+        k = self.CAMPIONI
+        pos, vel, zona = [], [], []
+        idx = 0
+        for s in range(k):
+            tau = tot * s / k
+            while idx < n - 1 and tempi[idx + 1] < tau:
+                idx += 1
+            dentro = (tau - tempi[idx]) / max(1e-9, tempi[idx + 1] - tempi[idx])
+            pos.append((idx + min(1.0, max(0.0, dentro))) / n)
+            vel.append(round(v[idx] * 3.6, 1))
+            zona.append(mappa[idx] if idx < len(mappa) else "rettilinei")
+        self.time_map, self.speed_map, self.zone_map = pos, vel, zona
+        self.speed_peak = max(vel) if vel else 0.0
+        a, b = self.sector_bounds
+        self.sector_time = (round(tempi[min(n, int(a))] / tot, 4),
+                            round(tempi[min(n, int(b))] / tot, 4))
+
+    # ------------------------------------------------- dove si e', a quanto va
+    def pos_at(self, frazione_tempo: float) -> float:
+        """A che punto del giro si e' dopo questa frazione di tempo sul giro."""
+        m = self.time_map
+        if not m:
+            return frazione_tempo % 1.0
+        f = (frazione_tempo % 1.0) * len(m)
+        i = int(f) % len(m)
+        j = (i + 1) % len(m)
+        a, b = m[i], m[j]
+        if b < a:
+            b += 1.0
+        return (a + (b - a) * (f - int(f))) % 1.0
+
+    def speed_at(self, frazione_tempo: float, giro: float = 0.0) -> float:
+        """A quanto si va li', in km/h.
+
+        Le velocita' sono quelle della vettura campione sul giro di
+        riferimento: chi sta girando piu' piano - benzina a bordo, gomme
+        andate, pioggia - le vede scalate nella stessa proporzione.
+        """
+        m = self.speed_map
+        if not m:
+            return 0.0
+        v = m[int((frazione_tempo % 1.0) * len(m)) % len(m)]
+        if giro > 1.0 and self.ref_time > 1.0:
+            v *= self.ref_time / giro
+        return v
+
+    def zone_at(self, frazione_tempo: float) -> str:
+        """Che cosa si sta facendo in quel punto: frenare, tirare, girare."""
+        m = self.zone_map
+        if not m:
+            return "rettilinei"
+        return m[int((frazione_tempo % 1.0) * len(m)) % len(m)]
+
+    def sector_at(self, frazione_tempo: float) -> int:
+        """In che settore si e' a questa frazione di giro."""
+        a, b = self.sector_time
+        f = frazione_tempo % 1.0
+        return 1 if f < a else (2 if f < b else 3)
 
     # ---------------------------------------------------------- telemetria
     def telemetry(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
