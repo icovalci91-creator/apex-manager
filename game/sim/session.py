@@ -190,6 +190,21 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
             notes.append(f"{who} su {d.short}: fuori finestra, servono modifiche.")
         for riga in SETUP.hints(pt, track, d)[:2]:
             notes.append(riga)
+    # e quello che la giornata sta facendo alla macchina: se il tempo non e'
+    # quello che il reparto si aspettava, il riferimento del simulatore vale poco
+    atteso = pace.nominal(track)
+    if ws.weather.wet > 0.15:
+        notes.append(f"{who}: sull'acqua serve un altro assetto - piu' carico, "
+                     f"piu' alta, piu' morbida - e il riferimento del simulatore "
+                     f"non vale piu'.")
+    scarto = ws.weather.track_temp - atteso.track_temp
+    if abs(scarto) >= 9:
+        dove = "piu' caldo" if scarto > 0 else "piu' freddo"
+        cosa = ("le gomme vanno oltre la finestra: si degrada"
+                if scarto > 0 else "le gomme non arrivano in temperatura")
+        notes.append(f"{who}: asfalto {abs(scarto):.0f} gradi {dove} del solito, {cosa}.")
+    if ws.weather.wind >= 22:
+        notes.append(f"{who}: con questo vento la macchina cambia a ogni passaggio.")
     ws.practice_notes = notes
     return notes
 

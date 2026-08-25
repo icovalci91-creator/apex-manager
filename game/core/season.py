@@ -57,6 +57,7 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
                 if ws.pole == d.id:
                     d.poles += 1
             _update_morale(gs, d, team, pos, e.status)
+            _shake_confidence(gs, team, d, e, track)
             _pay_bonuses(gs, d, team, pos, pts, e.status, kind)
         team.points += pts
         team_points[team.id] = team_points.get(team.id, 0.0) + pts
@@ -174,6 +175,25 @@ def _distribute_damage(gs, team, amount: float, driver=None) -> None:
         riga = kits.wreck(gs, team, driver, kits._pezzo_colpito(gs))
         if riga:
             gs.push(f"{team.name}: {riga}", "tecnico")
+
+
+def _shake_confidence(gs, team, d, e, track) -> None:
+    """Come finisce la gara cambia il modo in cui ci si sale sopra la prossima volta.
+
+    Un botto lo si porta dietro: si rientra piu' morbidi, si aspetta che la
+    macchina faccia di nuovo quello che ci si aspetta. Un cedimento pesa meno -
+    non e' colpa di chi guida - ma nemmeno zero: la fiducia e' anche sapere che
+    quello che si ha sotto arriva in fondo.
+    """
+    from . import driving
+    if e.dnf_reason == "incidente":
+        driving.shake_confidence(d, 15.0)
+    elif e.status == "retired":
+        driving.shake_confidence(d, 6.0)
+    elif e.damage > 20.0:
+        driving.shake_confidence(d, 4.0)
+    else:
+        driving.settle_confidence(gs, team, d, track, 0.30)
 
 
 def _update_morale(gs, d, team, pos: int, status: str) -> None:

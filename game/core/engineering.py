@@ -119,6 +119,26 @@ def raw_profile(team) -> dict:
         car.setup = saved
 
 
+def grid_profiles(gs) -> dict:
+    """Il profilo di tutte le vetture in una passata sola.
+
+    car_profile per ogni squadra rifarebbe i conti di tutta la griglia ogni
+    volta: undici squadre diventano centoventun profili per niente.
+    """
+    grid = {t.id: raw_profile(t) for t in gs.teams.values()}
+    aree = next(iter(grid.values())).keys() if grid else []
+    scale = {}
+    for area in aree:
+        vals = [g[area] for g in grid.values()]
+        lo, hi = min(vals), max(vals)
+        scale[area] = (lo, max(1e-6, hi - lo))
+    out = {}
+    for tid, raw in grid.items():
+        out[tid] = {a: max(3.0, min(100.0, 8.0 + 92.0 * (v - scale[a][0]) / scale[a][1]))
+                    for a, v in raw.items()}
+    return out
+
+
 def car_profile(team, gs=None) -> dict:
     """Profilo 0-100 rapportato al resto della griglia (0 = ultimo, 100 = migliore).
 

@@ -522,11 +522,23 @@ def _scheda_circuito(surf, r, gs, t) -> None:
         y += 22
     y += 8
     T.text(surf, "CHE MACCHINA CI VUOLE", (cx.x + 16, y), 12, T.GOLD, bold=True)
-    y += 24
+    # quanto questa pista ci sta bene o male rispetto a tutte le altre del
+    # calendario, e quanto vale in secondi
+    from ...sim import pace as PACE
+    sec = PACE.affinities(gs, t).get(gs.player_team, 0.0) * PACE.AFFINITA_S * t.ref_lap
+    if abs(sec) < 0.03:
+        frase, colf = "pista neutra per la nostra macchina", T.DIM
+    elif sec > 0:
+        frase, colf = f"qui ci troviamo bene: {sec:.2f} s al giro", T.OK
+    else:
+        frase, colf = f"qui perdiamo {-sec:.2f} s al giro", T.BAD
+    y += 20
+    T.text(surf, frase, (cx.x + 16, y), 12, colf, bold=True, maxw=cx.w - 32)
+    y += 20
     bias = engineering.track_bias(t)
     ordinate = sorted(bias.items(), key=lambda kv: -kv[1])
     prof = engineering.car_profile(gs.player, gs)
-    for area, peso in ordinate[:5]:
+    for area, peso in ordinate[:4]:
         nome = engineering.AREAS[area]
         mia = prof.get(area, 50.0)
         col = T.OK if mia > 66 else (T.WARN if mia > 40 else T.BAD)

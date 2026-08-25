@@ -152,10 +152,9 @@ def affinities(gs, track) -> dict:
     qui = _pesi(engineering.track_bias(track))
     media = _pesi(engineering.calendar_bias(gs, gs.tracks))
     out = {}
-    for team in gs.teams.values():
-        prof = engineering.car_profile(team, gs)
+    for tid, prof in engineering.grid_profiles(gs).items():
         val = (_pesato(prof, qui) - _pesato(prof, media)) / 22.0
-        out[team.id] = max(-1.0, min(1.0, val))
+        out[tid] = max(-1.0, min(1.0, val))
     return out
 
 

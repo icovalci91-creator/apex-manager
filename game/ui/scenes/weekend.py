@@ -8,6 +8,7 @@ from ...core import season as SEASON
 from ...core import tyres as TY
 from ...sim import session as S
 from ...sim.weekend import Weather
+from ...sim import pace as PACE
 from .. import theme as T
 from .. import trackdraw
 from ..app import Scene
@@ -425,9 +426,13 @@ class WeekendScene(Scene):
         else:
             laps = S.race_laps(gs, tr, "gp")
             dist = f"{laps} giri" if laps == tr.laps else f"{laps} giri su {tr.laps}"
-        T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - meteo {ws.weather.label} "
-                     f"({ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C asfalto)",
-               (28, 42), 14, T.DIM)
+        # il programma del weekend occupa la destra della barra: la riga delle
+        # condizioni si ferma prima invece di finirci sopra
+        largo = self._programma(surf, w)
+        T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - {ws.weather.label}, "
+                     f"{ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C "
+                     f"asfalto, vento {ws.weather.wind:.0f} km/h",
+               (28, 42), 14, T.DIM, maxw=w - 68 - largo)
         # se un componente contingentato e' agli sgoccioli lo si deve sapere
         # prima di scendere in pista, non quando si rompe
         from ...core import penalties as PEN
@@ -444,11 +449,15 @@ class WeekendScene(Scene):
             T.text(surf, "DURATA DELLA GARA", self.dist_label_at, 11, T.DIM_2, bold=True)
         T.text(surf, STAGE_LAB.get(self.stage, ""), (w - 28, 14), 22, T.ACCENT,
                bold=True, align="right")
-        self._programma(surf, w)
 
         left = pygame.Rect(28, 92, w * 0.42, h - 190)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         trackdraw.draw_track(surf, tr, left.inflate(-24, -32), width=10)
+        # quanta gomma c'e' sull'asfalto: e' il motivo per cui i tempi calano
+        # turno dopo turno anche senza toccare niente
+        gomma = (ws.rubber - PACE.PISTA_VERDE) / (PACE.PISTA_GOMMATA - PACE.PISTA_VERDE)
+        T.text(surf, f"PISTA GOMMATA AL {gomma*100:.0f}%", (left.right - 20, left.bottom - 62),
+               11, T.stat_colour(gomma * 100, 25, 70), bold=True, align="right")
         # quello che resta nel camion: da qui in poi non se ne aggiunge
         if ws.tyre_stock:
             T.text(surf, f"GOMME RIMASTE  ({TY.nomination_label(tr)})",
@@ -550,8 +559,12 @@ class WeekendScene(Scene):
                    T.DIM if i >= ora else T.DIM_2, maxw=right.w - 236)
             y += 26
 
-    def _programma(self, surf, w: int) -> None:
-        """Il programma del fine settimana, con la sessione di adesso accesa."""
+    def _programma(self, surf, w: int) -> int:
+        """Il programma del fine settimana, con la sessione di adesso accesa.
+
+        Ritorna quanto spazio ha preso, cosi' chi scrive a sinistra sa dove
+        deve fermarsi.
+        """
         tappe = [("prove", "PROVE")]
         if self.track.sprint:
             tappe += [("sq", "SPRINT QUALIFYING"), ("sprint", "SPRINT"),
@@ -571,6 +584,7 @@ class WeekendScene(Scene):
             if i < len(pezzi) - 1:
                 T.text(surf, "-", (x + 5, 46), 11, T.DIM_2)
                 x += 14
+        return largo
 
     @staticmethod
     def _riga_alta(rect, righe: int, riservato: int = 0) -> float:

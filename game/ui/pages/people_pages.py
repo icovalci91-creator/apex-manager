@@ -356,6 +356,14 @@ class DriversPage(Page):
                          f"Punti {d.points:.0f}   Vittorie {d.wins}   Podi {d.podiums}",
                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
             y += 18
+        # quanto si fida della macchina che ha sotto: cambia il giro secco piu'
+        # di quanto cambi il passo gara
+        if y + 18 <= limite and d.team:
+            from ...core import driving
+            fid = float(getattr(d, "confidence", driving.FIDUCIA_BASE))
+            T.text(surf, f"Fiducia nella macchina {fid:.0f}   -   {driving.confidence_label(d)}",
+                   (c.x + 16, y), 12, T.stat_colour(fid, 45, 75), maxw=c.w - 32)
+            y += 18
         if y + 18 <= limite:
             testo = f"Licenza {lic}/12 punti   -   in carriera {d.races} gare, "
             testo += f"{d.career_points:.0f} punti"

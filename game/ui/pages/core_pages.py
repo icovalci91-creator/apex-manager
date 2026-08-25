@@ -527,25 +527,34 @@ class CarPage(Page):
             # e su una finestra stretta veniva tagliato a meta'
             T.text(surf, f"stile di {d.short}: {driving.label(d)}",
                    (right.x + 16, right.y + 52), 12, T.GOLD, maxw=right.w - 32)
-            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 72), 13, T.DIM)
             barra = max(90, right.w - 250)
-            T.bar(surf, (right.x + 176, right.y + 76, barra, 10), q * 100)
-            T.text(surf, f"{q*100:.0f}%", (right.right - 16, right.y + 70), 15, qc,
+            # quanto si fida di quello che ha sotto: non e' il morale, e' il
+            # motivo per cui in curva quattro alza il piede o no
+            fiducia = float(getattr(d, "confidence", driving.FIDUCIA_BASE))
+            fc = T.stat_colour(fiducia, 45, 75)
+            T.text(surf, "Fiducia nella macchina", (right.x + 16, right.y + 70), 13, T.DIM)
+            T.bar(surf, (right.x + 176, right.y + 74, barra, 10), fiducia, 100, fc)
+            T.text(surf, f"{fiducia:.0f}", (right.right - 16, right.y + 68), 15, fc,
                    bold=True, align="right")
+            T.text(surf, "Vicinanza al riferimento", (right.x + 16, right.y + 90), 13, T.DIM)
+            T.bar(surf, (right.x + 176, right.y + 94, barra, 10), q * 100)
+            T.text(surf, f"{q*100:.0f}%", (right.right - 16, right.y + 88), 15, qc,
+                   bold=True, align="right")
+            T.text(surf, driving.confidence_label(d), (right.x + 16, right.y + 110), 12,
+                   fc, maxw=right.w - 32)
             err = SETUP.paper_error(team, nt, team.sim_sessions)
             fid = max(0.0, min(1.0, 1.0 - (err - SETUP.ERR_MIN) / (SETUP.ERR_MAX - SETUP.ERR_MIN)))
-            T.text(surf, f"riferimento del reparto +/-{err:.0f} punti",
-                   (right.x + 16, right.y + 92), 13,
-                   T.stat_colour(fid * 100, 40, 75), bold=True, maxw=right.w - 32)
-            alta = T.paragraph(surf, f"Il triangolo dorato e' il riferimento del reparto, "
-                                     f"gia' corretto per il suo stile: {team.sim_sessions} "
-                                     f"sessioni al simulatore su {SETUP.SIM_MAX}. Il resto "
-                                     f"lo dira' la pista.",
-                               (right.x + 16, right.y + 112), 12, T.DIM_2, right.w - 32)
+            T.text(surf, f"riferimento +/-{err:.0f} punti, {team.sim_sessions} "
+                         f"sessioni su {SETUP.SIM_MAX} al simulatore",
+                   (right.x + 16, right.y + 128), 12,
+                   T.stat_colour(fid * 100, 40, 75), bold=True, maxw=right.w - 210)
+            und = team.car_understanding
+            T.text(surf, f"vettura capita al {und*100:.0f}%", (right.right - 16, right.y + 128),
+                   12, T.stat_colour(und * 100, 30, 65), bold=True, align="right")
             car.setup = dict(driving.setup_of(team, d))
-            T.text(surf, f"Downforce {car.downforce:.2f}  |  Drag {car.drag:.2f}  |  "
-                         f"Potenza {car.power:.2f}  |  Grip {car.mech_grip:.2f}",
-                   (right.x + 16, right.y + 114 + alta), 13, T.DIM, maxw=right.w - 32)
+            T.text(surf, f"Carico {car.downforce:.2f}  |  Resistenza {car.drag:.2f}  |  "
+                         f"Potenza {car.power:.2f}  |  Aderenza {car.mech_grip:.2f}",
+                   (right.x + 16, right.y + 148), 13, T.DIM, maxw=right.w - 32)
         else:
             T.text(surf, "Nessuna gara in programma.", (right.x + 16, right.y + 40), 15, T.DIM)
         yy = getattr(self, "auto_toggle", None)

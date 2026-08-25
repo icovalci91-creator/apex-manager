@@ -432,6 +432,11 @@ class RaceSim:
                 return m
         return voluta[0]           # non resta niente: si monta l'usato
 
+    # A che temperatura d'asfalto lavora ogni mescola. La morbida arriva in
+    # temperatura subito e va oltre altrettanto in fretta; la dura sull'asfalto
+    # freddo non si accende e scivola tutta la gara.
+    FINESTRA = {"soft": 30.0, "medium": 37.0, "hard": 44.0, "inter": 22.0, "wet": 18.0}
+
     def _tyre_life(self, e: Entrant, comp: str) -> float:
         base = {"soft": 17.0, "medium": 26.0, "hard": 37.0, "inter": 22.0, "wet": 26.0}[comp]
         wear_t = self.track.traits.get("tyre_wear", 0.6)
@@ -440,7 +445,12 @@ class RaceSim:
         if comp in ("soft", "medium", "hard"):
             from ..core import tyres
             base *= tyres.life_scale(tyres.nomination(self.track)[comp])
-        life = base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
+        # e nemmeno la stessa mescola e' uguale a se stessa: sopra la sua
+        # finestra si sfoglia, sotto non si accende
+        fuori = (self.cond.track_temp - self.FINESTRA.get(comp, 37.0)) / 18.0
+        finestra = 1.0 - 0.22 * max(0.0, fuori) ** 1.6 - 0.10 * max(0.0, -fuori) ** 1.6
+        life = (base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
+                * max(0.55, finestra))
         return life * self.distance
 
     # --------------------------------------------------------------- duelli
