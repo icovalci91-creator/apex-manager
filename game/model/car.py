@@ -139,10 +139,16 @@ class Car:
 
     @property
     def reliability(self) -> float:
-        """0..1, probabilita' di NON rompersi in una gara."""
+        """0..1, probabilita' di NON rompersi in una gara.
+
+        Fra la power unit piu' solida e quella piu' fragile ci passa quasi il
+        doppio dei guasti: e' una delle ragioni per cui un motorista lo si
+        sceglie, e non solo per i cavalli. Il resto lo dice come sta messa la
+        macchina - un pezzo malandato e' un pezzo che cede.
+        """
         mech = sum(self.parts[k].condition for k in self.parts) / (100.0 * max(1, len(self.parts)))
         eng = self.engine.get("reliability", 85) / 100.0
-        return max(0.30, min(0.995, 0.55 + 0.30 * mech + 0.14 * eng))
+        return max(0.30, min(0.995, 0.22 + 0.46 * mech + 0.32 * eng))
 
     @property
     def rating(self) -> float:

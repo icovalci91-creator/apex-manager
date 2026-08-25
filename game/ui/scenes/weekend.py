@@ -510,10 +510,12 @@ class WeekendScene(Scene):
                    (right.x + 20, y), 13, T.DIM_2, maxw=right.w - 40)
         elif self.stage == "sprint" and ws.sprint_quali_done:
             self._draw_grid(surf, right, "GRIGLIA DELLA SPRINT", ws.sprint_grid,
-                            ws.sprint_times, ws.sprint_pole, [])
+                            ws.sprint_times, ws.sprint_pole, [], ws.sprint_phase,
+                            "sprint")
         elif self.stage == "gara" and ws.quali_done:
             self._draw_grid(surf, right, "GRIGLIA DI PARTENZA", ws.grid,
-                            ws.quali_times, ws.pole, ws.grid_notes)
+                            ws.quali_times, ws.pole, ws.grid_notes, ws.quali_phase,
+                            "gp")
         elif self.stage == "assetto":
             self._draw_results(surf, right, self.sprint_rows, "sprint",
                                "ORDINE D'ARRIVO DELLA SPRINT", self.sprint_notes[:3])
@@ -522,7 +524,8 @@ class WeekendScene(Scene):
                    bold=True)
             alto = T.paragraph(surf, "Si decide la griglia della sprint, e basta quella.",
                                (right.x + 20, right.y + 44), 16, T.TEXT, maxw=right.w - 40)
-            self._pannello_programma(surf, right, right.y + 60 + alto)
+            yy = self._pannello_turni(surf, right, right.y + 56 + alto, "sprint")
+            self._pannello_programma(surf, right, yy + 10)
         elif self.stage == "qualifica":
             T.text(surf, "QUALIFICA DEL GRAN PREMIO", (right.x + 20, right.y + 16), 12,
                    T.DIM_2, bold=True)
@@ -531,9 +534,25 @@ class WeekendScene(Scene):
                      else "Si decide la griglia del gran premio.")
             alto = T.paragraph(surf, testo, (right.x + 20, right.y + 44), 16, T.TEXT,
                                maxw=right.w - 40)
-            self._pannello_programma(surf, right, right.y + 60 + alto)
+            yy = self._pannello_turni(surf, right, right.y + 56 + alto, "gp")
+            self._pannello_programma(surf, right, yy + 10)
         elif self.stage == "fine":
             self._draw_results(surf, right, self.result_rows, "gp", "ORDINE D'ARRIVO")
+
+    def _pannello_turni(self, surf, right, y: int, quale: str) -> int:
+        """I tre turni della qualifica, con durata, tagli e gomme obbligate."""
+        turni = S.SEGMENTI["sprint" if quale == "sprint" else "gp"]
+        T.text(surf, "COME FUNZIONA", (right.x + 20, y), 11, T.DIM_2, bold=True)
+        y += 22
+        for i, (nome, minuti, giri, mescola) in enumerate(turni):
+            T.text(surf, nome, (right.x + 20, y), 13, T.ACCENT, bold=True, maxw=60)
+            fuori = ("si eliminano gli ultimi sei" if i < 2
+                     else "si gioca la pole position")
+            gomma = (f" - obbligo di {TY.LABEL[mescola].lower()}" if mescola else "")
+            T.text(surf, f"{minuti} minuti, {fuori}{gomma}", (right.x + 80, y + 1), 12,
+                   T.DIM, maxw=right.w - 110)
+            y += 22
+        return y
 
     def _pannello_programma(self, surf, right, y: int) -> None:
         """Il programma del fine settimana spiegato riga per riga."""
@@ -603,7 +622,8 @@ class WeekendScene(Scene):
         return max(14.0, min(25.0, (rect.h - 98 - riservato) / max(1, righe)))
 
     def _draw_grid(self, surf, right, titolo: str, griglia: list, tempi: dict,
-                   pole: str, note: list) -> None:
+                   pole: str, note: list, fasi: dict | None = None,
+                   quale: str = "gp") -> None:
         gs = self.gs
         T.text(surf, titolo, (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
         note = note[:4]
@@ -611,10 +631,28 @@ class WeekendScene(Scene):
             T.text(surf, "PENALIZZAZIONI IN GRIGLIA", (right.right - 20, right.y + 16),
                    11, T.WARN, bold=True, align="right")
         y = right.y + 44
-        rh = self._riga_alta(right, len(griglia), 20 * len(note))
+        fasi = fasi or {}
+        nomi = [x[0] for x in S.SEGMENTI["sprint" if quale == "sprint" else "gp"]]
+        # una riga di stacco dove finisce un turno: si vede a colpo d'occhio chi
+        # e' uscito in Q1 e chi si e' giocato la pole
+        stacchi = 0
+        if fasi:
+            stacchi = len({fasi.get(d, 0) for d in griglia}) - 1
+        rh = self._riga_alta(right, len(griglia), 20 * len(note) + 18 * stacchi)
         dim = 14 if rh >= 20 else 13
         p0 = tempi.get(pole, 0)
+        prima = None
         for i, did in enumerate(griglia, 1):
+            fase = fasi.get(did)
+            if fase is not None and prima is not None and fase != prima:
+                eti = f"eliminati in {nomi[fase]}"
+                largo = T.width(eti, 10, bold=True)
+                pygame.draw.line(surf, T.LINE, (right.x + 20, int(y) + 8),
+                                 (right.right - 32 - largo, int(y) + 8))
+                T.text(surf, eti, (right.right - 20, int(y) + 2), 10, T.DIM_2,
+                       bold=True, align="right")
+                y += 18
+            prima = fase
             d = gs.drivers[did]
             t = gs.teams[d.team]
             hl = (t.id == gs.player_team)

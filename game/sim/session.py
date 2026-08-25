@@ -1,6 +1,7 @@
 """Orchestrazione del weekend: prove libere, qualifica, griglia, gara."""
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, field
 
@@ -28,6 +29,8 @@ class WeekendState:
     sprint_grid: list = field(default_factory=list)
     sprint_pole: str = ""
     sprint_times: dict = field(default_factory=dict)
+    quali_phase: dict = field(default_factory=dict)   # fin dove e' arrivato ognuno
+    sprint_phase: dict = field(default_factory=dict)
     tyre_choice: dict = field(default_factory=dict)  # team_id -> set scelti per mescola
     tyre_stock: dict = field(default_factory=dict)   # driver_id -> set ancora a disposizione
     tyres_published: bool = False                    # le scelte sono state rese pubbliche
@@ -91,6 +94,19 @@ def base_lap_for(gs, team, track, weather=None, driver=None, cond=None) -> float
     return pace.lap_base(gs, team, track, driver, cond)
 
 
+def _affidabile(team, driver) -> float:
+    """Quanto e' probabile che questa macchina arrivi in fondo.
+
+    Alla base c'e' com'e' messa la vettura e quanto sono logori i componenti
+    contingentati. Poi c'e' il tempo: una macchina la si rende affidabile
+    capendola, e i guasti dei primi weekend non sono quelli di settembre.
+    """
+    from ..core import penalties
+    base = team.car.reliability * penalties.health_factor(driver)
+    matura = 1.20 - 0.35 * max(0.0, min(1.0, team.car_understanding))
+    return max(0.10, 1.0 - (1.0 - base) * matura)
+
+
 def build_entrants(gs, track, cond, quali: bool = False) -> list:
     """Chi scende in pista, con che passo e in che condizioni."""
     from ..core import penalties
@@ -114,7 +130,7 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 tyre_skill=d.tyre_mgmt, aggression=d.aggression, racecraft=d.racecraft,
                 wet_skill=d.wet, stamina=d.fitness,
                 confidence=float(getattr(d, "confidence", FIDUCIA_BASE)),
-                reliability=team.car.reliability * penalties.health_factor(d),
+                reliability=_affidabile(team, d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 is_player=(team.id == gs.player_team),
             ))
@@ -258,47 +274,64 @@ def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> No
 
 
 # ---------------------------------------------------------------- qualifica
-# Quanti tentativi si fanno in ogni turno: vale il migliore, come in pista.
-GIRI_PER_TURNO = 2
+# I tre turni, come stanno sul regolamento: nome, minuti, quante volte si esce
+# e la mescola che il regolamento impone (None = si sceglie). La qualifica del
+# gran premio e' lunga e le gomme le decide la squadra; la Sprint Qualifying e'
+# corta e la mescola la decide il regolamento.
+SEGMENTI = {
+    "gp": (("Q1", 18, 2, None), ("Q2", 15, 2, None), ("Q3", 12, 2, None)),
+    "sprint": (("SQ1", 12, 2, "medium"), ("SQ2", 10, 1, "medium"),
+               ("SQ3", 8, 1, "soft")),
+}
 def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
-    """Un turno di qualifica: schiera il gran premio, o la sprint del sabato.
+    """La qualifica, nel formato vero: tre turni a eliminazione.
 
-    Nel weekend sprint se ne corrono due, e non sono la stessa cosa: la Sprint
-    Qualifying del venerdi' decide la griglia della sprint e basta, mentre le
-    penalizzazioni in griglia si scontano nel gran premio.
+    Il gran premio ha Q1 da diciotto minuti, Q2 da quindici e Q3 da dodici: si
+    fa in tempo a uscire due volte in tutti e tre. La Sprint Qualifying del
+    venerdi' e' un'altra cosa - dodici, dieci e otto minuti - e il regolamento
+    non lascia nemmeno scegliere le gomme: media nei primi due turni, morbida
+    nell'ultimo. Meno tempo, meno tentativi, piu' peso al primo giro buono.
+
+    In tutti e due i casi si eliminano sei macchine per turno finche' ne
+    restano dieci a giocarsi la pole; chi e' uscito prima parte comunque dietro
+    a chi e' andato avanti, anche se nel suo turno ha girato piu' forte.
     """
     track = ws.track
     ws.weather = ws.weather.drift(track, gs.rng)
     weather = ws.weather
     cond = pace.of_weekend(ws, "quali")
     ents = build_entrants(gs, track, cond, quali=True)
-    pool = {e.driver_id: e for e in ents}
     alive = list(ents)
     times = {}
     reached = {}          # driver_id -> ultimo turno disputato (0 = Q1, 2 = Q3)
     n = len(ents)
-    cuts = [max(10, n - 6), 10]
+    cuts = [max(10, n - 6), 10, 0]
+    turni = SEGMENTI["sprint" if kind == "sprint" else "gp"]
 
     from ..core import tyres
-    for phase, keep in enumerate(cuts + [0]):
-        results = []
+    for phase, keep in enumerate(cuts):
+        nome, _minuti, tentativi, imposta = turni[phase]
         for e in alive:
             t = e.base_lap
             t += (85.0 - e.skill) * DRIVER_S_PER_POINT
             t += 8.0 * 0.032                                  # serbatoio da qualifica
-            # con cosa si scende in pista dipende da cosa e' rimasto nel camion
-            mescola = tyres.quali_run(gs, ws, e.driver_id) if ws.tyre_stock else "soft"
+            # con cosa si scende in pista dipende da cosa e' rimasto nel camion,
+            # e nel weekend sprint da cosa impone il regolamento
+            if ws.tyre_stock:
+                mescola = tyres.quali_run(gs, ws, e.driver_id, imposta)
+            else:
+                mescola = imposta or "soft"
             t -= tyres.QUALI_GAIN.get(mescola, 0.35)
             # la pista si gomma turno dopo turno: in Q3 si gira sull'asfalto
             # migliore di tutto il fine settimana
             t *= 1.0 - 0.0022 * phase
             if weather.wet > 0.05:
                 t += (85.0 - e.wet_skill) * 0.06 * weather.wet * 4.0
-            # in un turno di qualifica non si fa un giro solo: se ne fanno due e
-            # vale il migliore. E' per questo che il tempo di un pilota regolare
-            # somiglia a quello che vale davvero, e chi ne butta uno lo rifa'
+            # in un turno lungo si esce due volte e vale il migliore: e' per
+            # questo che il tempo di un pilota regolare somiglia a quello che
+            # vale davvero, e chi ne butta uno lo rifa'. In un turno corto no
             giri = []
-            for _ in range(GIRI_PER_TURNO):
+            for _ in range(tentativi):
                 giro = t + gs.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.0028
                                         + pace.wind_noise(cond))
                 # chi non si fida della macchina il giro perfetto non lo trova
@@ -307,14 +340,13 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
                 if gs.rng.random() < max(0.010, sporco):
                     giro += gs.rng.uniform(0.4, 2.4)           # giro sporcato
                 giri.append(giro)
-            results.append((min(giri), e))
-        results.sort(key=lambda x: x[0])
-        for t, e in results:
-            times[e.driver_id] = t
+            tempo = min(giri)
+            times[e.driver_id] = tempo
             reached[e.driver_id] = phase
+        classifica = sorted(alive, key=lambda e: times[e.driver_id])
         if keep == 0:
             break
-        alive = [e for _, e in results[:keep]]
+        alive = classifica[:keep]
 
     # chi supera il taglio parte sempre davanti a chi e' stato eliminato prima,
     # anche quando nel turno buono ha girato piu' lento
@@ -323,6 +355,7 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     # la pole resta a chi ha fatto il tempo: le penalita' spostano la griglia,
     # non cancellano il giro
     pole = griglia[0]
+    note = _regola_107(gs, times, reached, turni[0][0])
     for team in gs.teams.values():
         team.car.wear(0.4, track)
     # un turno in piu' sull'asfalto, e quello che si e' imparato girandoci
@@ -330,14 +363,35 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     _learn_from_running(gs, ws, 0.55)
     if kind == "sprint":
         ws.sprint_grid, ws.sprint_times, ws.sprint_pole = griglia, times, pole
+        ws.sprint_phase = dict(reached)
         ws.sprint_quali_done = True
         return ws.sprint_grid
     from ..core import penalties
     ws.quali_times = times
     ws.pole = pole
+    ws.quali_phase = dict(reached)
     ws.grid, ws.grid_notes = penalties.apply_grid_penalties(gs, griglia)
+    ws.grid_notes = note + ws.grid_notes
     ws.quali_done = True
     return ws.grid
+
+
+def _regola_107(gs, times: dict, reached: dict, primo: str) -> list:
+    """La regola del 107 per cento: chi resta fuori dal tempo va dai commissari.
+
+    Nella pratica il permesso lo danno sempre - basta aver girato su quei tempi
+    nelle libere - ma la riga sul foglio resta, e a chi si e' qualificato per il
+    rotto della cuffia ricorda quanto e' stato vicino a restare a casa.
+    """
+    q1 = [t for d, t in times.items() if reached[d] == 0]
+    if not q1:
+        return []
+    limite = min(times.values()) * 1.07
+    fuori = [d for d, t in times.items() if reached[d] == 0 and t > limite]
+    if not fuori:
+        return []
+    nomi = ", ".join(gs.drivers[d].short for d in fuori if d in gs.drivers)
+    return [f"Oltre il 107% in {primo}: {nomi}. I commissari li ammettono al via."]
 
 
 # -------------------------------------------------------------------- gara
@@ -404,8 +458,16 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
 
 
 def race_laps(gs, track, kind: str = "gp") -> int:
-    """Giri effettivi, ridotti secondo la durata scelta dal giocatore."""
-    full = track.laps if kind == "gp" else max(10, int(100.0 / track.length_km))
+    """Giri effettivi, ridotti secondo la durata scelta dal giocatore.
+
+    La sprint e' sui cento chilometri: si prende il primo numero di giri che li
+    supera, che e' esattamente come li conta il regolamento - diciannove giri a
+    Shanghai, ventiquattro a Interlagos, quindici a Spa.
+    """
+    if kind == "gp":
+        full = track.laps
+    else:
+        full = max(10, int(math.ceil(100.0 / track.length_km)))
     factor = float(getattr(gs, "race_distance", 1.0))
     return max(3, int(round(full * factor)))
 

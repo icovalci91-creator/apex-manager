@@ -29,6 +29,13 @@ PUSH_WEAR_EXP = 2.5       # attaccare consuma circa il 27% di gomma in piu'
 PUSH_FUEL_EXP = 2.5       # e altrettanta benzina
 DRY_TANK_PENALTY = 8.0    # secondi al giro quando il serbatoio e' vuoto
 
+# Quanto spesso si rompe qualcosa. E' la probabilita' per giro di una vettura
+# perfettamente sana moltiplicata per quanto le manca all'affidabilita' piena:
+# tarata perche' in una stagione i guasti siano circa uno a gara su ventidue
+# macchine, come succede davvero. Le monoposto moderne si rompono poco: quello
+# che ferma le gare sono i contatti.
+RISCHIO_ROTTURA = 0.0088
+
 
 # --------------------------------------------------------------------- meteo
 @dataclass
@@ -414,14 +421,16 @@ class RaceSim:
         self.leader_lap = max(self.leader_lap, min(e.lap, self.laps))
 
         # rottura meccanica
-        risk = (1.0 - e.reliability) * 0.030 * (1.0 + e.damage / 70.0)
+        risk = (1.0 - e.reliability) * RISCHIO_ROTTURA * (1.0 + e.damage / 70.0)
         if self.rng.random() < risk:
             e.status = "retired"
             e.dnf_reason = self.rng.choice([
                 "problema idraulico", "cedimento power unit", "surriscaldamento",
                 "guasto al cambio", "perdita di pressione olio", "rottura sospensione"])
             self.log(f"RITIRO: {e.name} - {e.dnf_reason}", "dnf")
-            self._maybe_safety_car(0.30)
+            # una macchina che si spegne la si parcheggia: la bandiera
+            # gialla basta quasi sempre
+            self._maybe_safety_car(0.12)
             return
 
         # errore del pilota
@@ -432,11 +441,11 @@ class RaceSim:
         # guidi peggio, e' che la macchina lo sorprende
         err *= max(0.60, 1.0 + (65.0 - e.confidence) * 0.008)
         if self.rng.random() < err:
-            if self.rng.random() < 0.14:
+            if self.rng.random() < 0.22:
                 e.status = "retired"
                 e.dnf_reason = "incidente"
                 self.log(f"INCIDENTE: {e.name} finisce contro le barriere!", "dnf")
-                self._maybe_safety_car(0.65)
+                self._maybe_safety_car(0.35)
             else:
                 loss = self.rng.uniform(1.5, 6.0)
                 e.dist -= loss * (self.track_len / lt)
@@ -567,6 +576,15 @@ class RaceSim:
 
     # --------------------------------------------------------------- duelli
     def _resolve_battles(self, dt: float) -> None:
+        """Chi sta dietro prova a passare: una volta a giro, come in pista.
+
+        Sorpassare non e' una moneta lanciata ogni secondo. Si arriva a ridosso,
+        si studia il punto, e una volta a giro ci si prova: in fondo al
+        rettilineo dove si puo', all'uscita dell'ultima curva dove non si puo'.
+        Quanto serve per riuscirci lo dice il circuito - a Monza bastano due
+        decimi al giro, a Monaco non basta un secondo - e poi contano il mestiere
+        di chi attacca e quello di chi si difende.
+        """
         live = [e for e in self.entrants if e.status == "running"]
         live.sort(key=lambda e: -e.dist)
         ot_track = self.track.traits.get("overtaking", 0.5)
@@ -579,26 +597,39 @@ class RaceSim:
             behind.dirty_air = min(1.0, behind.dirty_air + dt * 0.9) * (1.0 - 0.55 * ot_track)
             if self.safety_car > 0 or behind.overtake_cd > 0 or gap_m > 45.0:
                 continue
-            pace = ahead.clean_lap - behind.clean_lap
-            if pace <= -0.15:
+            # da qui in poi e' il tentativo di questo giro, riuscito o no
+            behind.overtake_cd = max(20.0, behind.last_lap * 0.85)
+            vantaggio = ahead.clean_lap - behind.clean_lap
+            if vantaggio <= 0.0:
                 continue
-            chance = dt * (0.20 + 0.85 * ot_track) * min(1.0, max(0.08, pace + 0.15) / 0.9)
-            chance *= 0.65 + 0.7 * (behind.racecraft / 100.0)
-            chance *= 0.8 + 0.5 * (behind.aggression / 100.0)
-            chance /= max(0.55, 0.6 + 0.6 * (ahead.racecraft / 100.0))
-            if self.rng.random() < chance:
-                behind.dist, ahead.dist = ahead.dist + 4.0, behind.dist - 4.0
-                behind.overtake_cd = 4.0
-                ahead.overtake_cd = 2.0
-                self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
-                if self.rng.random() < 0.016 * (behind.aggression / 100.0) * (1.0 + self.weather.wet):
-                    dmg = self.rng.uniform(4, 22)
-                    behind.damage = min(100.0, behind.damage + dmg)
-                    ahead.damage = min(100.0, ahead.damage + dmg * 0.8)
-                    self.log(f"Contatto tra {behind.name} e {ahead.name}!", "warn")
-                    grave = dmg > 12
-                    self._investigate(behind, "contatto" if grave else "contatto_lieve")
-                    self._maybe_safety_car(0.35)
+            # quanto vantaggio serve per portare a casa il sorpasso
+            soglia = 0.18 + 1.05 * (1.0 - ot_track)
+            p = max(0.0, (vantaggio - 0.35 * soglia) / soglia) * 0.55
+            p *= 0.70 + 0.60 * (behind.racecraft / 100.0)
+            p *= 0.85 + 0.35 * (behind.aggression / 100.0)
+            p /= max(0.60, 0.65 + 0.55 * (ahead.racecraft / 100.0))
+            p *= 1.0 + 0.35 * self.weather.wet
+            if self.rng.random() >= min(0.85, p):
+                continue
+            behind.dist, ahead.dist = ahead.dist + 4.0, behind.dist - 4.0
+            behind.overtake_cd = max(25.0, behind.last_lap * 1.1)
+            ahead.overtake_cd = max(20.0, ahead.last_lap * 0.9)
+            self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
+            if self.rng.random() < 0.075 * (behind.aggression / 100.0) * (1.0 + self.weather.wet):
+                dmg = self.rng.uniform(4, 26)
+                behind.damage = min(100.0, behind.damage + dmg)
+                ahead.damage = min(100.0, ahead.damage + dmg * 0.8)
+                self.log(f"Contatto tra {behind.name} e {ahead.name}!", "warn")
+                grave = dmg > 12
+                self._investigate(behind, "contatto" if grave else "contatto_lieve")
+                # una toccata forte non e' un'ala da cambiare: e' la gara finita
+                if dmg > 18:
+                    for x, quota in ((behind, 0.28), (ahead, 0.20)):
+                        if x.status == "running" and self.rng.random() < quota:
+                            x.status = "retired"
+                            x.dnf_reason = "danni da contatto"
+                            self.log(f"RITIRO: {x.name} - danni da contatto", "dnf")
+                self._maybe_safety_car(0.18)
 
     # ------------------------------------------------------------ commissari
     def _investigate(self, e, kind: str) -> None:

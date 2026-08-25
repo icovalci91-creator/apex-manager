@@ -94,9 +94,12 @@ def suggested(track, aggressivita: float = 0.5) -> dict:
     soft = max(2, min(liberi - 3, soft))
     hard = max(0, min(liberi - soft - 2, hard))
     medium = liberi - soft - hard
-    if medium < 2:                    # senza medie la domenica non si va da nessuna parte
-        soft -= 2 - medium
-        medium = 2
+    # senza medie la domenica non si va da nessuna parte, e nel weekend sprint
+    # il regolamento ne vuole due buone per SQ1 e SQ2
+    minimo = 3 if getattr(track, "sprint", False) else 2
+    if medium < minimo:
+        soft -= minimo - medium
+        medium = minimo
     return {"soft": soft, "medium": medium, "hard": hard}
 
 
@@ -170,6 +173,20 @@ SET_PER_SESSIONE = 2
 RISERVE = {"soft": 2, "medium": 1, "hard": 1}
 
 
+def reserves(track) -> dict:
+    """Quello che il venerdi' non si tocca.
+
+    Due morbide per il sabato e le due mescole che il regolamento tiene da parte
+    per la domenica. Nel fine settimana con la sprint si mettono via anche due
+    medie: SQ1 e SQ2 si corrono per forza con quelle, e presentarsi senza vuol
+    dire buttare la Sprint Qualifying.
+    """
+    r = dict(RISERVE)
+    if getattr(track, "sprint", False):
+        r["medium"] = 2
+    return r
+
+
 def spend_practice(gs, ws) -> None:
     """Una sessione di libere consuma set: si gira, e girare costa gomme.
 
@@ -177,13 +194,14 @@ def spend_practice(gs, ws) -> None:
     alle morbide solo se non c'e' altro. Le ultime tre morbide non si toccano:
     quelle sono del sabato.
     """
+    tenute = reserves(ws.track)
     for did in list(getattr(ws, "tyre_stock", {})):
         st = ws.tyre_stock[did]
         for _ in range(SET_PER_SESSIONE):
             # quello che si puo' bruciare e' solo cio' che avanza dopo aver
             # messo da parte le morbide del sabato e le due mescole che il
             # regolamento vuole intatte per la gara
-            avanzo = {m: st.get(m, 0) - RISERVE[m] for m in MESCOLE}
+            avanzo = {m: st.get(m, 0) - tenute[m] for m in MESCOLE}
             liberi = [m for m in MESCOLE if avanzo[m] > 0]
             if liberi:
                 # si consuma in proporzione a quello che si e' portato: chi ha
@@ -205,9 +223,18 @@ def spend_practice(gs, ws) -> None:
 QUALI_GAIN = {"soft": 0.35, "medium": 0.05, "hard": -0.30}
 
 
-def quali_run(gs, ws, driver_id: str) -> str:
-    """Monta il set per un turno di qualifica e lo consuma. Ritorna la mescola."""
-    m = best_available(ws, driver_id, ("soft", "medium", "hard"))
+def quali_run(gs, ws, driver_id: str, imposta: str | None = None) -> str:
+    """Monta il set per un turno di qualifica e lo consuma. Ritorna la mescola.
+
+    Nel fine settimana con la sprint il regolamento non lascia scegliere: media
+    nei primi due turni, morbida nell'ultimo. Se quella mescola e' finita si
+    monta quello che c'e' - e si paga.
+    """
+    if imposta:
+        prefer = (imposta,) + tuple(m for m in ("soft", "medium", "hard") if m != imposta)
+    else:
+        prefer = ("soft", "medium", "hard")
+    m = best_available(ws, driver_id, prefer)
     use(ws, driver_id, m)
     return m
 
