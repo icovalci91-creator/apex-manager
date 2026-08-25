@@ -40,6 +40,12 @@ SOGLIA_CURVA = 0.93
 # spalancata, mezzo in meno e si frena.
 SENSIBILITA_CARICO = 0.18
 
+# Quanto e' piena l'ellisse dell'aderenza combinata. Con 2 e' un cerchio: quel
+# che si spende in curva si toglie tutto dalla frenata. Una monoposto con le
+# ali fa molto meglio - frena forte anche piegata - e il suo diagramma e' piu'
+# squadrato: e' quello che dice questo esponente.
+ELLISSE = 3.0
+
 # Fin dove arriva l'uscita di curva: sopra questa frazione della velocita'
 # massima non e' piu' trazione, e' un rettilineo.
 V_USCITA = 0.62
@@ -270,8 +276,13 @@ class Track:
         t, vmax, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias)
         return t, vmax, v
 
-    def _solve(self, car, wet: float, grip: float, rho, bias: dict | None):
-        """Il conto vero: profilo di velocita', limiti e classe di ogni punto."""
+    def _solve(self, car, wet: float, grip: float, rho, bias: dict | None, giri: int = 2):
+        """Il conto vero: profilo di velocita', limiti e classe di ogni punto.
+
+        `giri` sono le passate avanti-indietro: due fanno propagare bene la
+        chiusura dell'anello, una basta quando il tempo serve solo per
+        confrontare due assetti fra loro.
+        """
         rho = C.RHO if rho is None else rho
         b = bias or {}
         cla = C.CLA_BASE * car.downforce
@@ -309,6 +320,32 @@ class Track:
         def carico(v2: float) -> float:
             """Quanti pesi della macchina sta portando la gomma a quella velocita'."""
             return 1.0 + aero * v2 / C.G
+
+        inv_ell = 1.0 / ELLISSE
+
+        def resta(chiesto: float, presa: float, rapporto: float) -> float:
+            """Quanta gomma avanza per frenare o accelerare mentre si gira.
+
+            Una gomma ha una sola aderenza e la spende tutta insieme: quello
+            che serve per tenere la macchina in curva non e' piu' disponibile
+            per rallentare o per spingere. Il conto sta su un'ellisse - piena
+            in rettilineo, zero all'apice della curva - ed e' la ragione per
+            cui si frena forte dritti e si molla il freno entrando, e per cui
+            il gas si apre poco alla volta all'uscita.
+
+            `chiesto` e' l'accelerazione laterale che quel punto pretende,
+            `presa` quella che la gomma da' in quella direzione e `rapporto`
+            quanto vale l'aderenza laterale rispetto a quella: cosi' il calo
+            dovuto al carico si calcola una volta sola, fuori di qui.
+            """
+            if chiesto <= 1e-9:
+                return 1.0
+            lato = chiesto * rapporto / max(1e-6, presa)
+            if lato <= 0.25:
+                return 1.0                     # in curva cosi' larga non si spende niente
+            if lato >= 1.0:
+                return 0.0
+            return (1.0 - lato ** ELLISSE) ** inv_ell
 
         def lat_limit(k: float):
             """Velocita' massima in curva e che tipo di curva e'.
@@ -352,8 +389,11 @@ class Track:
         vlim = [x[0] for x in limiti]
         classi = [x[1] for x in limiti]
 
+        # quanto vale l'aderenza laterale rispetto a quella che si sta usando:
+        # serve all'ellisse, e non cambia mai dentro al giro
+        rap_t, rap_b = mu_t / mu, mu_b / mu
         v = list(vlim)
-        for _ in range(2):  # due giri per far propagare la chiusura dell'anello
+        for _ in range(giri):  # due giri per far propagare la chiusura dell'anello
             # passata in avanti: limite di trazione/potenza
             for i in range(n):
                 j = (i + 1) % n
@@ -362,8 +402,10 @@ class Track:
                 # anche in accelerazione il carico aerodinamico spinge a terra:
                 # a duecento all'ora la trazione non e' quella di un semaforo
                 mu_v = mu_t * carico(vi * vi) ** -SENSIBILITA_CARICO
-                a = min(potenza(vi) / (mass * vi),
-                        mu_v * (C.G + aero * vi * vi) * 0.85) - drag_a
+                presa = mu_v * (C.G + aero * vi * vi)
+                ki = self.curvature[i]
+                quota = resta(vi * vi * ki, presa, rap_t) if ki > 1e-9 else 1.0
+                a = min(potenza(vi) / (mass * vi), presa * 0.85 * quota) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -376,7 +418,10 @@ class Track:
                 # tengono di piu', e rallenta l'aria: a trecento all'ora vale
                 # quasi mezzo g da sola
                 mu_v = mu_b * carico(vj * vj) ** -SENSIBILITA_CARICO
-                a_b = mu_v * (C.G + aero * vj * vj) + 0.5 * rho * cda * vj * vj / mass
+                presa = mu_v * (C.G + aero * vj * vj)
+                kj = self.curvature[j]
+                quota = resta(vj * vj * kj, presa, rap_b) if kj > 1e-9 else 1.0
+                a_b = presa * quota + 0.5 * rho * cda * vj * vj / mass
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
                 if cand < v[i]:
                     v[i] = cand
@@ -650,8 +695,10 @@ class Track:
         grip = pace.surface_grip(cond)
 
         def giro(w):
+            # per scegliere l'ala basta confrontare, non serve il tempo esatto:
+            # una passata sola invece di due, e sono la meta' dei conti
             ref_car.setup["wing"] = float(w)
-            t, _, _ = self.lap_model(ref_car, grip=grip, rho=cond.rho)
+            t, _, _, _, _ = self._solve(ref_car, 0.0, grip, cond.rho, None, giri=1)
             return t
 
         # la curva del tempo contro l'ala ha un minimo solo: una passata larga
