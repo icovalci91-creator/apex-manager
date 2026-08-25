@@ -67,6 +67,8 @@ class Track:
     popularity: float = 60.0     # richiamo di pubblico
     calibration: float = 1.0
     wing_ref: float | None = None   # l'ala che il modello di giro vuole qui
+    domain_map: list = field(default_factory=list)   # cosa e' ogni metro di pista
+    corner_map: list = field(default_factory=list)   # le curve, una per una
     altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
     night: bool = False          # si corre col buio: l'asfalto non prende sole
     climate: dict = field(default_factory=dict)   # temperatura, pioggia e vento del mese
@@ -295,6 +297,35 @@ class Track:
             t += ds / vm
         return t * self.calibration, vmax * 3.6, v, vlim, classi
 
+    def _map_domains(self, ref_car, cond) -> None:
+        """Divide il giro in domini una volta per tutte, sulla vettura campione.
+
+        Un circuito e' fatto di pezzi: questo e' un rettilineo, questa una
+        staccata, questa una curva lenta. Dove finisce uno e comincia l'altro
+        non puo' dipendere da chi ci passa, se no due macchine non si possono
+        confrontare. Si decide una volta, con la vettura di riferimento, e
+        quella mappa vale per tutti.
+        """
+        from ..sim import pace
+        _t, vmax_kmh, v, vlim, classi = self._solve(
+            ref_car, 0.0, pace.surface_grip(cond), cond.rho, None)
+        vmax = vmax_kmh / 3.6
+        mappa = []
+        for i in range(len(v)):
+            j = (i + 1) % len(v)
+            vm = max(3.0, 0.5 * (v[i] + v[j]))
+            dv = v[j] - v[i]
+            if classi[i] and v[i] <= vlim[i] * 1.03:
+                mappa.append(classi[i])
+            elif dv < -0.012 * vm:
+                mappa.append("frenata")
+            elif dv > 0.002 * vm and v[i] < V_USCITA * vmax:
+                mappa.append("trazione")
+            else:
+                mappa.append("rettilinei")
+        self.domain_map = mappa
+        self.corner_map = self.corner_list(v, vlim, classi)
+
     # ---------------------------------------------------------- telemetria
     def telemetry(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
                   bias: dict | None = None) -> dict:
@@ -318,6 +349,7 @@ class Track:
         pieno = 0.0
         frenate = 0
         in_frenata = False
+        mappa = self.domain_map
         for i in range(n):
             j = (i + 1) % n
             vm = max(3.0, 0.5 * (v[i] + v[j]))
@@ -327,7 +359,11 @@ class Track:
             if frena and not in_frenata:
                 frenate += 1
             in_frenata = frena
-            if classi[i] and v[i] <= vlim[i] * 1.03:
+            # a che pezzo di pista appartiene questo metro lo dice la mappa del
+            # circuito, uguale per tutti: cosi' due macchine si confrontano
+            if mappa:
+                tempi[mappa[i]] += dt
+            elif classi[i] and v[i] <= vlim[i] * 1.03:
                 tempi[classi[i]] += dt
             elif frena:
                 tempi["frenata"] += dt
@@ -348,7 +384,7 @@ class Track:
             "v_media": self.length_km * 1000.0 / max(1e-6, t) * 3.6,
             "domini": tempi,
             "pieno_gas": pieno * k / max(1e-6, t),
-            "curve": self.corner_list(v, vlim, classi),
+            "curve": self.corner_map or self.corner_list(v, vlim, classi),
             "frenate": frenate,
         }
 
@@ -395,6 +431,10 @@ class Track:
         fisica = self._best_wing(ref_car, cond)
         scheda = 100.0 * min(1.0, max(0.0, self.traits.get("downforce", 0.5)))
         self.wing_ref = round(0.5 * fisica + 0.5 * scheda, 1)
+        # e con l'ala giusta si segna, metro per metro, che cosa e' questo
+        # circuito: dove si frena, dove si curva piano, dove si tira
+        ref_car.setup = ref_car.optimal_setup(self, cond=cond)
+        self._map_domains(ref_car, cond)
 
     def _best_wing(self, ref_car, cond) -> float:
         """L'ala piu' veloce qui: si prova, non si indovina.

@@ -86,6 +86,7 @@ class Project:
     confidence: float = 0.5  # 0..1 quanto il reparto se la sente
     size: str = "medio"
     started_round: int = 0
+    focus: str = ""          # su che parte del giro e' disegnato
 
     @property
     def progress(self) -> float:
@@ -116,6 +117,9 @@ class Trial:
     new_perf: float = 0.0    # quanto vale la specifica nuova, montata
     carattere: float = 0.0   # -1 macchina piu' piantata, +1 piu' nervosa
     band: str = ""           # come e' uscita: fallito, sottotono, in linea, oltre
+    focus: str = ""          # su che parte del giro era disegnata
+    secondi: float = 0.0     # quanto vale al giro sulla pista di adesso
+    dove: dict = field(default_factory=dict)   # e in che parte del giro
 
 
 def next_era(gs):
@@ -480,7 +484,7 @@ def _unsettle(team, quota: float) -> None:
                                 for k, v in team.setup_knowledge.items()}
 
 
-def start_project(gs, team, part: str, size: str) -> tuple:
+def start_project(gs, team, part: str, size: str, focus: str = "") -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
     from . import departments
     cost = cost_of_upgrade(gs, team, part, size)
@@ -499,14 +503,22 @@ def start_project(gs, team, part: str, size: str) -> tuple:
         return False, "Non c'e' liquidita' nemmeno per la prima tranche."
     if team.spent + cost > economy.cap_limit(gs):
         return False, "Il pacchetto intero non ci sta dentro il tetto di spesa."
+    from ..model.car import DOMINI_PEZZO
+    if focus and focus not in DOMINI_PEZZO.get(part, {}):
+        focus = ""
     pr = Project(part=part, label=f"{C.CAR_PARTS[part]['label']} - pacchetto {size}",
                  invested=0.0, budget=cost, races_left=races,
                  expected=expected_gain(gs, team, part, size),
                  confidence=project_confidence(gs, team, part, size),
-                 size=size, started_round=gs.round)
+                 size=size, started_round=gs.round, focus=focus)
     team.dev_projects.append(pr)
-    return True, (f"Progetto avviato: {pr.label} (+{pr.expected:.1f} attesi in {races} gare, "
-                  f"fiducia del reparto {pr.confidence*100:.0f}%).")
+    from . import engineering
+    dove = (f", disegnato per {engineering.NOMI_DOMINIO.get(focus, focus).lower()}"
+            if focus else "")
+    sec = calendar_gain(gs, team, part, pr.expected, focus or None)
+    return True, (f"Progetto avviato: {pr.label}{dove}. In galleria vale +{pr.expected:.1f}, "
+                  f"che su queste piste sono {sec:.3f} s al giro. Fiducia del reparto "
+                  f"{pr.confidence*100:.0f}%, pronto in {races} gare.")
 
 
 def deliver(gs, team, pr: Project) -> list:
@@ -531,7 +543,7 @@ def deliver(gs, team, pr: Project) -> list:
     # dalla fabbrica non escono due esemplari: ne esce uno, e su quale macchina
     # va lo decide il muretto. Finche' non c'e' il secondo, le due monoposto
     # sono diverse
-    kit = kits.add(gs, team, pr.part, nuova, prima, pr.size, pr.budget)
+    kit = kits.add(gs, team, pr.part, nuova, prima, pr.size, pr.budget, focus=pr.focus)
     if not team.is_player or team.auto_dev:
         kits.ai_fit(gs, team)
     # ogni pacchetto ha un suo carattere: c'e' quello che pianta la macchina e
@@ -546,18 +558,36 @@ def deliver(gs, team, pr: Project) -> list:
     _unsettle(team, quota)
     # ogni specifica nuova passa dalla verifica: quanto ha portato lo dicono i
     # cronometri, non la galleria, e finche' non ha girato non si sa
+    # quanto vale davvero, in secondi, sulla pista dove si corre adesso e in
+    # che parte del giro: e' quello che il reparto scrive sulla relazione
+    secondi = gain_seconds(gs, team, pr.part, gain, gs.next_track, pr.focus or None)
+    dove = gain_domains(gs, team, pr.part, gain, gs.next_track, pr.focus or None)
     team.spec_trials.append(Trial(
         part=pr.part, label=nome, old_perf=prima, expected=pr.expected,
         size=pr.size, cost=pr.budget, gain=round(gain, 2),
-        carattere=carattere, band=band, new_perf=round(nuova, 2)))
+        carattere=carattere, band=band, new_perf=round(nuova, 2),
+        focus=pr.focus, secondi=round(secondi, 3),
+        dove={k: round(v, 3) for k, v in dove.items()}))
     if not team.is_player:
         return []
     assetto = (" Ci vorranno un paio di sessioni per ritrovare la finestra "
                "d'assetto." if quota > 0.18 else "")
     quanti = "due esemplari" if kit.ready >= 2 else "un esemplare solo"
-    return [f"{nome}: specifica nuova pronta, in fabbrica c'e' {quanti}. In "
-            f"galleria prometteva +{pr.expected:.1f}: si monta dalla pagina "
-            f"della vettura, il verdetto arriva dopo che ha girato.{assetto}"]
+    return [f"{nome}: specifica nuova pronta, in fabbrica c'e' {quanti}. In galleria "
+            f"prometteva +{pr.expected:.1f}, i banchi dicono {secondi:+.3f} s al giro "
+            f"su {gs.next_track.name if gs.next_track else 'questa pista'}: "
+            f"{spiega_dove(dove)}. Si monta dalla pagina della vettura, il verdetto "
+            f"vero lo danno i cronometri.{assetto}"]
+
+
+def spiega_dove(dove: dict, quante: int = 2) -> str:
+    """Le parti del giro dove un pacchetto porta di piu', dette a parole."""
+    from . import engineering
+    voci = sorted(((v, k) for k, v in (dove or {}).items() if v > 0.002), reverse=True)
+    if not voci:
+        return "non si vede da nessuna parte"
+    pezzi = [f"{engineering.NOMI_DOMINIO[k].lower()} {v:+.3f}" for v, k in voci[:quante]]
+    return "guadagna soprattutto in " + ", ".join(pezzi)
 
 
 # Da cosa dipende il carattere di un pacchetto: rifare l'ala anteriore o il
@@ -574,12 +604,32 @@ def _carattere(gs, part: str) -> float:
     return max(-1.0, min(1.0, base + gs.rng.gauss(0.0, 0.28)))
 
 
+# Cosa dice un pilota quando una specifica cambia qualcosa in una parte del
+# giro: la prima frase e' quando va meglio, la seconda quando va peggio.
+FRASI_DOMINIO = {
+    "lente": ("nelle lente adesso gira",
+              "nelle lente non gira piu', devo aspettarla"),
+    "medie": ("nelle medie e' piu' precisa in inserimento",
+              "nelle medie perdo l'anteriore a meta' curva"),
+    "veloci": ("nelle veloci ha appoggio, si puo' tenere il piede giu'",
+               "nelle veloci si muove e non mi da' confidenza"),
+    "trazione": ("in uscita la mette a terra",
+                 "in uscita pattina, devo aspettare per dare gas"),
+    "frenata": ("in staccata e' piantata, si puo' ritardare",
+                "in staccata si sbilancia, devo anticipare"),
+    "rettilinei": ("scorre meglio in fondo al rettilineo",
+                   "sui dritti sembra di avere il freno a mano"),
+}
+
+
 def driver_verdict(gs, team, tr: Trial, driver) -> tuple:
     """Cosa ne pensa un pilota della specifica nuova. Ritorna (indice, frase).
 
     L'indice va da -1 a +1: e' l'incontro fra come e' fatto il pacchetto e come
     guida lui. Una macchina che gira di piu' e' un regalo per chi stacca tardi
-    e un problema per chi ha bisogno di sentirla piantata.
+    e un problema per chi ha bisogno di sentirla piantata. Ma un pilota non
+    parla solo di carattere: parla di dove la sente, curva per curva, ed e'
+    quello che serve al reparto per capire se ha funzionato.
     """
     from . import driving
     attacco = driving.traits(driver)["attacco"]
@@ -594,6 +644,17 @@ def driver_verdict(gs, team, tr: Trial, driver) -> tuple:
         frase = "fatica a fidarsi, chiede di rimetterla come prima dietro"
     else:
         frase = "non riesce a guidarla, dice che gli scappa via"
+    # quanto sente davvero dipende anche da lui: chi sa raccontare la macchina
+    # indovina il posto giusto, chi non lo sa dice solo che va o non va
+    dove = tr.dove or {}
+    if dove:
+        forti = sorted(dove.items(), key=lambda kv: -abs(kv[1]))
+        dom, val = forti[0]
+        if abs(val) > 0.004:
+            if driver.feedback < 70 and gs.rng.random() > driver.feedback / 100.0:
+                dom, val = gs.rng.choice(forti[:3])       # sbaglia il posto
+            buono, cattivo = FRASI_DOMINIO.get(dom, ("va meglio", "va peggio"))
+            frase += "; " + (buono if val > 0 else cattivo)
     return round(idx, 2), frase
 
 
@@ -742,17 +803,24 @@ def check_trials(gs, team) -> list:
         tr.races += 1
         buco = deficit(team, tr)
         if tr.state == "in prova":
+            # quanto ha portato davvero, sulla pista dove si e' appena corso
+            sec = gain_seconds(gs, team, tr.part, buco, gs.next_track) if buco else 0.0
+            tr.secondi = round(sec, 3)
+            tr.dove = {k: round(v, 3) for k, v in
+                       (gain_domains(gs, team, tr.part, buco, gs.next_track).items()
+                        if buco else [])}
+            quanto = f"{buco:+.1f} in prestazione, {sec:+.3f} s al giro"
             if buco < -0.05:
                 why = weakest_link(gs, team, tr.part)
-                tr.news = f"in pista va peggio della vecchia di {abs(buco):.1f}: {why}"
+                tr.news = f"in pista va peggio della vecchia ({quanto}): {why}"
             elif buco < 0.15:
                 why = weakest_link(gs, team, tr.part)
                 tr.news = f"non ha cambiato niente rispetto alla vecchia: {why}"
             elif buco < tr.expected * 0.7:
-                tr.news = (f"porta {buco:+.1f} sulla vecchia, meno dei "
-                           f"+{tr.expected:.1f} promessi")
+                tr.news = (f"porta {quanto}, meno dei +{tr.expected:.1f} promessi: "
+                           f"{spiega_dove(tr.dove)}")
             else:
-                tr.news = f"porta {buco:+.1f} sulla vecchia, come prometteva"
+                tr.news = f"porta {quanto} come prometteva: {spiega_dove(tr.dove)}"
             # il verdetto si da' una volta sola, e lo si da' sempre: anche
             # quando il pacchetto ha funzionato si vuole sapere quanto ha
             # portato e come l'hanno trovata i piloti
@@ -967,6 +1035,22 @@ def ai_development(gs) -> None:
         advance_projects(gs, team)
 
 
+def _ai_focus(gs, team, part: str, size: str) -> str:
+    """Su cosa lo fa disegnare una squadra del computer.
+
+    Le squadre che sanno quello che fanno lo mandano dove rende di piu' sulle
+    piste che restano; le altre seguono l'istinto del reparto e a volte
+    sbagliano bersaglio.
+    """
+    q = lucidita(team)
+    if gs.rng.random() > 0.35 + 0.6 * q:
+        from ..model.car import DOMINI_PEZZO
+        scelte = list(DOMINI_PEZZO.get(part, {}).keys())
+        return gs.rng.choice(scelte) if scelte else ""
+    focus, _ = best_focus(gs, team, part, expected_gain(gs, team, part, size))
+    return focus
+
+
 def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) -> None:
     """Decide se aprire un pacchetto e quanto grande farlo.
 
@@ -1006,10 +1090,9 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
         return
     scelte.sort(reverse=True)
     # il migliore lo prende chi ci vede chiaro; gli altri ogni tanto sbagliano
-    if gs.rng.random() < lucidita(team) or len(scelte) == 1:
-        start_project(gs, team, part, scelte[0][1])
-    else:
-        start_project(gs, team, part, gs.rng.choice(scelte)[1])
+    size = scelte[0][1] if (gs.rng.random() < lucidita(team) or len(scelte) == 1) \
+        else gs.rng.choice(scelte)[1]
+    start_project(gs, team, part, size, _ai_focus(gs, team, part, size))
 
 
 def new_car_season(gs) -> None:

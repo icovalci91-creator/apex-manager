@@ -30,6 +30,7 @@ class Kit:
     round_ready: int = 0     # da che gara si conta il lavoro della fabbrica
     cost: float = 0.0
     reason: str = "nuovo"    # "nuovo" dalla progettazione, "danno" da rifare
+    focus: str = ""          # la parte del giro su cui e' stata disegnata
 
     @property
     def gain(self) -> float:
@@ -94,7 +95,7 @@ def open_kits(team) -> list:
 
 
 def add(gs, team, part: str, new_perf: float, old_perf: float, size: str,
-        cost: float = 0.0) -> Kit:
+        cost: float = 0.0, focus: str = "") -> Kit:
     """Registra un pezzo nuovo appena uscito dalla fabbrica."""
     if team.kits is None:
         team.kits = []
@@ -105,7 +106,7 @@ def add(gs, team, part: str, new_perf: float, old_perf: float, size: str,
         team.kits.remove(vecchio)
     k = Kit(part=part, label=C.CAR_PARTS[part]["label"], perf=round(new_perf, 2),
             old_perf=round(old_perf, 2), size=size,
-            ready=first_batch(team, size), round_ready=gs.round, cost=cost)
+            ready=first_batch(team, size), round_ready=gs.round, cost=cost, focus=focus)
     team.kits.append(k)
     return k
 
@@ -126,6 +127,9 @@ def fit(gs, team, kit: Kit, driver) -> tuple:
         return False, why
     kit.fitted.append(driver.id)
     deltas(team, driver.id)[kit.part] = kit.perf
+    # il carattere della specifica va in macchina con lei
+    if kit.focus:
+        team.car.parts[kit.part].focus = kit.focus
     if len(kit.fitted) >= 2:
         # ce l'hanno tutte e due: da qui e' la specifica della squadra
         _promote(team, kit)
@@ -157,6 +161,8 @@ def _promote(team, kit: Kit) -> None:
     if kit.reason == "nuovo" and kit.gain > 0:
         team.last_spec[kit.part] = kit.old_perf
     team.car.parts[kit.part].perf = kit.perf
+    if kit.focus:
+        team.car.parts[kit.part].focus = kit.focus
     for d in (team.part_delta or {}).values():
         d.pop(kit.part, None)
     if kit in (team.kits or []):

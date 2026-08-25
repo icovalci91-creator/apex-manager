@@ -464,7 +464,8 @@ class GameState:
                     "staff": [s.to_dict() for s in t.staff],
                     "dev_projects": [asdict(p) for p in t.dev_projects],
                     "spec_trials": [asdict(x) for x in t.spec_trials],
-                    "car_parts": {k: {"perf": p.perf, "condition": p.condition}
+                    "car_parts": {k: {"perf": p.perf, "condition": p.condition,
+                                      "focus": p.focus}
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup, "setups": t.setups or {},
                     "auto_dev": t.auto_dev, "auto_setup": t.auto_setup,
@@ -561,6 +562,7 @@ class GameState:
                 if k in t.car.parts:
                     t.car.parts[k].perf = p["perf"]
                     t.car.parts[k].condition = p["condition"]
+                    t.car.parts[k].focus = p.get("focus", "")
             t.car.setup = td.get("setup", t.car.setup)
             t.car.balance = float(td.get("balance", 0.0))
             from .kits import Kit
