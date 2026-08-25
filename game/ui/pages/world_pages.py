@@ -575,6 +575,17 @@ def _scheda_circuito(surf, r, gs, t) -> None:
             T.text(surf, f"pole {pole.short}", (dx.x + 16, y), 12, T.ACCENT)
         if vel:
             T.text(surf, f"giro veloce {vel.short}", (dx.x + dx.w * 0.5, y), 12, T.ACCENT)
+        # il sabato conta anche lui: dove c'e' stata la sprint si vede chi ha vinto
+        spr = next((x for x in gs.results if x.track_id == t.id and x.season == gs.season
+                    and x.kind == "sprint"), None)
+        if spr and spr.order:
+            primi = []
+            for riga in spr.order[:3]:
+                d = gs.drivers.get(riga["driver"])
+                if d:
+                    primi.append(f"{riga['pos']}o {d.code}")
+            T.text(surf, "sprint   " + "   ".join(primi), (dx.x + 16, y + 20), 12, T.GOLD,
+                   maxw=dx.w - 32)
     else:
         T.text(surf, "GRAN PREMIO NON ANCORA DISPUTATO", (dx.x + 16, dx.y + 12), 12,
                T.DIM_2, bold=True)

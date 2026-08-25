@@ -216,6 +216,13 @@ class GameShell(Scene):
             self.app.push(OffseasonScene(self.app))
             return
         from .weekend import WeekendScene
+        # se il weekend e' gia' cominciato si riprende quello: uscire a
+        # sistemare l'assetto non deve rimandare tutti a casa il venerdi'
+        aperto = getattr(self.app, "weekend", None)
+        if (isinstance(aperto, WeekendScene) and aperto.gs is gs
+                and aperto.track is gs.next_track and aperto.stage != "fine"):
+            self.app.push(aperto)
+            return
         self.app.push(WeekendScene(self.app))
 
     def save(self) -> None:

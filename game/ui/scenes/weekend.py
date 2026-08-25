@@ -16,6 +16,10 @@ from ..widgets import Button
 SPEEDS = [0, 1, 4, 12, 40]
 SPEED_LABELS = ["II", "x1", "x4", "x12", "x40"]
 
+STAGE_LAB = {"prove": "PROVE LIBERE", "sq": "SPRINT QUALIFYING", "sprint": "SPRINT",
+             "assetto": "ASSETTO E VETTURA", "qualifica": "QUALIFICA", "gara": "GARA",
+             "fine": "RISULTATI"}
+
 
 class WeekendScene(Scene):
     def __init__(self, app):
@@ -24,15 +28,23 @@ class WeekendScene(Scene):
         self.gs = gs
         self.track = gs.next_track
         self.ws = S.WeekendState(track=self.track, weather=Weather.generate(self.track, gs.rng))
-        # il weekend comincia prima di scendere in pista: si scelgono le gomme
-        self.stage = "gomme"          # gomme | prove | qualifica | sprint | gara | fine
+        # il weekend comincia prima di scendere in pista: si scelgono le gomme.
+        # Con la sprint in programma il fine settimana ha due qualifiche: la
+        # Sprint Qualifying schiera la sprint, poi si rimette mano alla macchina
+        # e la qualifica vera schiera il gran premio.
+        self.stage = "gomme"   # gomme|prove|sq|sprint|assetto|qualifica|gara|fine
         self.tyre_pick = TY.suggested(self.track)
         self.sim = None
         self.speed_idx = 2
         self.result_rows = []
+        self.sprint_rows = []
+        self.sprint_notes = []
         self.pts = None
         self.applied = False
         self.sprint_pending = self.track.sprint
+        # la scena resta viva anche se si esce a cambiare l'assetto: il weekend
+        # non si ricomincia da capo solo per essere passati dalla pagina Vettura
+        app.weekend = self
         # la preparazione delle squadre del computer e' gia' stata fatta quando
         # il calendario e' avanzato: qui si corre e basta
         self.build()
@@ -44,8 +56,6 @@ class WeekendScene(Scene):
         self.pts = None
         if self.stage == "gomme":
             self._build_tyres(w, h)
-        elif self.stage in ("prove", "qualifica", "sprint", "gara") and self.sim is None:
-            self._build_prep(w, h)
         elif self.sim is not None:
             self._build_race(w, h)
         else:
@@ -60,14 +70,24 @@ class WeekendScene(Scene):
             self.widgets.append(Button((x, y - 56, bw, bh),
                                        f"Prove libere {min(tot, self.ws.practice_done + 1)}/{tot}",
                                        self.do_practice, "normal"))
+            avanti = "Vai alla Sprint Qualifying" if self.sprint_pending else "Vai alla qualifica"
+            self.widgets.append(Button((x, y, bw, bh), avanti, self.to_quali, "primary"))
+            self.widgets.append(Button((x - bw - 16, y, bw, bh), "Assetto e vettura",
+                                       self.open_setup, "ghost"))
+            self._build_distance(x - bw - 16, y - 56, bw)
+        elif self.stage == "sq":
+            self.widgets.append(Button((x, y, bw, bh), "Disputa la Sprint Qualifying",
+                                       self.do_sprint_quali, "primary"))
+        elif self.stage == "assetto":
+            # fra sprint e qualifica il parco chiuso si riapre: e' l'ultima
+            # occasione per correggere quello che la sprint ha fatto vedere
             self.widgets.append(Button((x, y, bw, bh), "Vai alla qualifica",
                                        self.to_quali, "primary"))
             self.widgets.append(Button((x - bw - 16, y, bw, bh), "Assetto e vettura",
                                        self.open_setup, "ghost"))
-            self._build_distance(x - bw - 16, y - 56, bw)
         elif self.stage == "qualifica":
-            lab = "Sprint Qualifying" if self.sprint_pending else "Disputa la qualifica"
-            self.widgets.append(Button((x, y, bw, bh), lab, self.do_quali, "primary"))
+            self.widgets.append(Button((x, y, bw, bh), "Disputa la qualifica",
+                                       self.do_quali, "primary"))
         elif self.stage in ("sprint", "gara"):
             lab = "Vai alla Sprint" if self.stage == "sprint" else "Vai in griglia"
             self.widgets.append(Button((x, y, bw, bh), lab, self.start_race, "primary"))
@@ -83,9 +103,11 @@ class WeekendScene(Scene):
         if not self.ws.tyres_published:
             y = left.y + 120
             for m in TY.MESCOLE:
-                meno = Button((left.x + 300, y, 34, 30), "-")
+                # ancorati al bordo destro del pannello: su finestre strette la
+                # colonna "quanti set in tutto" arrivava a coprirli
+                meno = Button((left.right - 250, y, 34, 30), "-")
                 meno.on_click = (lambda k=m: self._bump(k, -1))
-                piu = Button((left.x + 400, y, 34, 30), "+")
+                piu = Button((left.right - 190, y, 34, 30), "+")
                 piu.on_click = (lambda k=m: self._bump(k, +1))
                 self.widgets += [meno, piu]
                 y += 40
@@ -175,8 +197,19 @@ class WeekendScene(Scene):
     def on_resize(self) -> None:
         self.build()
 
+    def enter(self) -> None:
+        # si puo' rientrare dopo essere passati dalla pagina Vettura: la
+        # finestra potrebbe essere cambiata, e i pulsanti vanno rifatti
+        self.build()
+
     # ------------------------------------------------------------------ azioni
     def open_setup(self) -> None:
+        """Torna alla pagina Vettura senza chiudere il weekend.
+
+        La scena resta appesa all'app: rientrando dal pulsante "Vai al weekend"
+        si riprende da dove si era, con le gomme gia' consegnate e le prove
+        gia' fatte.
+        """
         from .shell import GameShell
         for s in self.app.scenes:
             if isinstance(s, GameShell):
@@ -193,12 +226,19 @@ class WeekendScene(Scene):
         self.build()
 
     def to_quali(self) -> None:
-        self.stage = "qualifica"
+        # dalle prove libere di un weekend sprint non si va in qualifica: prima
+        # c'e' la Sprint Qualifying, e la qualifica arriva dopo la sprint
+        self.stage = "sq" if (self.sprint_pending and self.stage == "prove") else "qualifica"
+        self.build()
+
+    def do_sprint_quali(self) -> None:
+        S.run_qualifying(self.gs, self.ws, kind="sprint")
+        self.stage = "sprint"
         self.build()
 
     def do_quali(self) -> None:
         S.run_qualifying(self.gs, self.ws)
-        self.stage = "sprint" if self.sprint_pending else "gara"
+        self.stage = "gara"
         self.build()
 
     def start_race(self) -> None:
@@ -234,6 +274,7 @@ class WeekendScene(Scene):
         self.build()
 
     def finish(self) -> None:
+        self.app.weekend = None
         self.app.pop()
         from .shell import GameShell
         if isinstance(self.app.scene, GameShell):
@@ -261,12 +302,18 @@ class WeekendScene(Scene):
         kind = self.sim.kind
         SEASON.apply_result(self.gs, self.ws, self.sim, kind=kind)
         win = self.sim.result_order()[0]
-        self.gs.push(f"{self.track.gp}: vince {win.name} ({self.gs.teams[win.team_id].short}).", "gara")
+        dove = f"Sprint di {self.track.gp}" if kind == "sprint" else self.track.gp
+        self.gs.push(f"{dove}: vince {win.name} ({self.gs.teams[win.team_id].short}).", "gara")
         self.result_rows = self.sim.result_order()
         if kind == "sprint":
             self.sprint_pending = False
+            self.ws.sprint_done = True
+            self.sprint_rows = self.result_rows
+            # la gara ha detto qualcosa sulla macchina: si arriva alla qualifica
+            # sapendone di piu', e c'e' ancora tempo per cambiare
+            self.sprint_notes = S.learn_from_sprint(self.gs, self.ws)
             self.sim = None
-            self.stage = "gara"
+            self.stage = "assetto"
             self.build()
         else:
             SEASON.after_race(self.gs)
@@ -317,9 +364,10 @@ class WeekendScene(Scene):
                    "hard": (235, 235, 235)}[m]
             pygame.draw.circle(surf, col, (left.x + 34, y + 15), 11, 4)
             T.text(surf, TY.LABEL[m], (left.x + 56, y + 6), 16, T.TEXT, bold=True)
-            T.text(surf, TY.GAMMA[nom[m] - 1], (left.x + 180, y + 8), 14, T.DIM)
+            T.text(surf, TY.GAMMA[nom[m] - 1], (left.x + 180, y + 8), 14, T.DIM,
+                   maxw=left.w - 440)
             if not ws.tyres_published:
-                T.text(surf, f"{n}", (left.x + 380, y + 4), 18, T.TEXT, bold=True,
+                T.text(surf, f"{n}", (left.right - 200, y + 4), 18, T.TEXT, bold=True,
                        align="right")
             T.text(surf, f"{tot} set in tutto", (left.right - 20, y + 8), 13, T.DIM,
                    align="right")
@@ -371,8 +419,12 @@ class WeekendScene(Scene):
         gs, tr, ws = self.gs, self.track, self.ws
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 72))
         T.text(surf, tr.gp.upper(), (28, 12), 24, T.TEXT, bold=True)
-        laps = S.race_laps(gs, tr, "gp")
-        dist = f"{laps} giri" if laps == tr.laps else f"{laps} giri su {tr.laps}"
+        # nelle fasi della sprint la distanza che conta e' quella della sprint
+        if self.stage in ("sq", "sprint"):
+            dist = f"sprint su {S.race_laps(gs, tr, 'sprint')} giri"
+        else:
+            laps = S.race_laps(gs, tr, "gp")
+            dist = f"{laps} giri" if laps == tr.laps else f"{laps} giri su {tr.laps}"
         T.text(surf, f"{tr.name} - {tr.length_km:.3f} km - {dist} - meteo {ws.weather.label} "
                      f"({ws.weather.air_temp:.0f}C aria, {ws.weather.track_temp:.0f}C asfalto)",
                (28, 42), 14, T.DIM)
@@ -390,9 +442,9 @@ class WeekendScene(Scene):
                    (28, 62), 12, T.BAD, bold=True, maxw=w * 0.6)
         if self.stage == "prove" and getattr(self, "dist_label_at", None):
             T.text(surf, "DURATA DELLA GARA", self.dist_label_at, 11, T.DIM_2, bold=True)
-        stage_lab = {"prove": "PROVE LIBERE", "qualifica": "QUALIFICA",
-                     "sprint": "SPRINT", "gara": "GARA", "fine": "RISULTATI"}[self.stage]
-        T.text(surf, stage_lab, (w - 28, 20), 22, T.ACCENT, bold=True, align="right")
+        T.text(surf, STAGE_LAB.get(self.stage, ""), (w - 28, 14), 22, T.ACCENT,
+               bold=True, align="right")
+        self._programma(surf, w)
 
         left = pygame.Rect(28, 92, w * 0.42, h - 190)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
@@ -441,66 +493,171 @@ class WeekendScene(Scene):
             y += 12
             T.text(surf, "Puoi regolare l'assetto dalla pagina Vettura, oppure delegare al reparto.",
                    (right.x + 20, y), 13, T.DIM_2, maxw=right.w - 40)
-        elif self.stage in ("qualifica", "sprint", "gara") and ws.quali_done:
-            title = "GRIGLIA DI PARTENZA" if self.stage != "qualifica" else "QUALIFICA"
-            T.text(surf, title, (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
-            if ws.grid_notes:
-                T.text(surf, "PENALIZZAZIONI IN GRIGLIA", (right.right - 20, right.y + 16),
-                       11, T.WARN, bold=True, align="right")
-            y = right.y + 44
-            p0 = ws.quali_times.get(ws.pole, 0)
-            for i, did in enumerate(ws.grid, 1):
-                d = gs.drivers[did]
-                t = gs.teams[d.team]
-                col = T.hex_rgb(t.colour)
-                hl = (t.id == gs.player_team)
-                if hl:
-                    T.panel(surf, (right.x + 12, y - 3, right.w - 24, 24), T.PANEL_3, radius=5)
-                T.text(surf, f"{i}", (right.x + 40, y), 14, T.DIM, align="right")
-                pygame.draw.rect(surf, col, (right.x + 50, y + 2, 3, 14))
-                T.text(surf, d.name, (right.x + 62, y), 14, T.TEXT, maxw=170)
-                T.text(surf, t.short, (right.x + 246, y + 1), 12, T.DIM, maxw=110)
-                tt = ws.quali_times.get(did, 0)
-                T.text(surf, T.fmt_time(tt), (right.x + 430, y), 13, T.TEXT, mono=True)
-                if i > 1:
-                    T.text(surf, f"+{tt - p0:.3f}", (right.right - 20, y), 13, T.DIM,
-                           mono=True, align="right")
-                y += 25
-            for nota in ws.grid_notes[:4]:
-                T.text(surf, "- " + nota, (right.x + 20, y + 6), 12, T.WARN,
-                       maxw=right.w - 40)
-                y += 18
+        elif self.stage == "sprint" and ws.sprint_quali_done:
+            self._draw_grid(surf, right, "GRIGLIA DELLA SPRINT", ws.sprint_grid,
+                            ws.sprint_times, ws.sprint_pole, [])
+        elif self.stage == "gara" and ws.quali_done:
+            self._draw_grid(surf, right, "GRIGLIA DI PARTENZA", ws.grid,
+                            ws.quali_times, ws.pole, ws.grid_notes)
+        elif self.stage == "assetto":
+            self._draw_results(surf, right, self.sprint_rows, "sprint",
+                               "ORDINE D'ARRIVO DELLA SPRINT", self.sprint_notes[:3])
+        elif self.stage == "sq":
+            T.text(surf, "SPRINT QUALIFYING", (right.x + 20, right.y + 16), 12, T.DIM_2,
+                   bold=True)
+            alto = T.paragraph(surf, "Si decide la griglia della sprint, e basta quella.",
+                               (right.x + 20, right.y + 44), 16, T.TEXT, maxw=right.w - 40)
+            self._pannello_programma(surf, right, right.y + 60 + alto)
         elif self.stage == "qualifica":
-            T.text(surf, "Tutto pronto per la qualifica.", (right.x + 20, right.y + 30), 16, T.TEXT)
+            T.text(surf, "QUALIFICA DEL GRAN PREMIO", (right.x + 20, right.y + 16), 12,
+                   T.DIM_2, bold=True)
+            testo = ("Da qui in poi la macchina e' in parco chiuso: quello che c'era da "
+                     "cambiare andava cambiato adesso." if ws.sprint_done
+                     else "Si decide la griglia del gran premio.")
+            alto = T.paragraph(surf, testo, (right.x + 20, right.y + 44), 16, T.TEXT,
+                               maxw=right.w - 40)
+            self._pannello_programma(surf, right, right.y + 60 + alto)
         elif self.stage == "fine":
-            self._draw_results(surf, right)
+            self._draw_results(surf, right, self.result_rows, "gp", "ORDINE D'ARRIVO")
 
-    def _draw_results(self, surf, rect) -> None:
+    def _pannello_programma(self, surf, right, y: int) -> None:
+        """Il programma del fine settimana spiegato riga per riga."""
         gs = self.gs
-        T.text(surf, "ORDINE D'ARRIVO", (rect.x + 20, rect.y + 16), 12, T.DIM_2, bold=True)
+        n_punti = len(gs.regulations["sporting"].get("sprint_points",
+                                                     [8, 7, 6, 5, 4, 3, 2, 1]))
+        tot = S.practice_sessions(self.track)
+        prove = "una sola, poi si va in parco chiuso" if tot == 1 else f"{tot} sessioni"
+        voci = [("prove", "PROVE LIBERE", prove)]
+        if self.track.sprint:
+            voci += [
+                ("sq", "SPRINT QUALIFYING", "decide la griglia della sprint"),
+                ("sprint", "SPRINT", f"cento chilometri senza soste, punti ai primi {n_punti}"),
+                ("assetto", "ASSETTO", "il parco chiuso si riapre: ultima occasione "
+                                       "per correggere la macchina"),
+            ]
+        voci += [("qualifica", "QUALIFICA", "decide la griglia del gran premio, "
+                                            "e qui si scontano le penalizzazioni"),
+                 ("gara", "GRAN PREMIO", "la domenica")]
+        chiavi = [k for k, _, _ in voci]
+        ora = chiavi.index(self.stage) if self.stage in chiavi else len(chiavi)
+        T.text(surf, "PROGRAMMA DEL FINE SETTIMANA", (right.x + 20, y), 11, T.DIM_2,
+               bold=True)
+        y += 24
+        for i, (_k, lab, spiega) in enumerate(voci):
+            col = T.ACCENT if i == ora else (T.OK if i < ora else T.TEXT)
+            T.text(surf, lab, (right.x + 20, y), 13, col, bold=True, maxw=180)
+            T.text(surf, spiega, (right.x + 210, y + 1), 12,
+                   T.DIM if i >= ora else T.DIM_2, maxw=right.w - 236)
+            y += 26
+
+    def _programma(self, surf, w: int) -> None:
+        """Il programma del fine settimana, con la sessione di adesso accesa."""
+        tappe = [("prove", "PROVE")]
+        if self.track.sprint:
+            tappe += [("sq", "SPRINT QUALIFYING"), ("sprint", "SPRINT"),
+                      ("assetto", "ASSETTO")]
+        tappe += [("qualifica", "QUALIFICA"), ("gara", "GARA")]
+        fatte = [k for k, _ in tappe]
+        ora = fatte.index(self.stage) if self.stage in fatte else len(fatte)
+        pezzi = []
+        for i, (_k, lab) in enumerate(tappe):
+            col = T.ACCENT if i == ora else (T.DIM_2 if i > ora else T.OK)
+            pezzi.append((lab, col))
+        largo = sum(T.width(lab, 11, bold=True) for lab, _ in pezzi) + 14 * (len(pezzi) - 1)
+        x = w - 28 - largo
+        for i, (lab, col) in enumerate(pezzi):
+            T.text(surf, lab, (x, 46), 11, col, bold=True)
+            x += T.width(lab, 11, bold=True)
+            if i < len(pezzi) - 1:
+                T.text(surf, "-", (x + 5, 46), 11, T.DIM_2)
+                x += 14
+
+    @staticmethod
+    def _riga_alta(rect, righe: int, riservato: int = 0) -> float:
+        """Altezza di riga che fa stare tutte le righe dentro il pannello.
+
+        Una griglia di ventidue macchine non ci sta a passo fisso: meglio
+        stringere le righe che finire sotto ai pulsanti. Si tolgono l'altezza
+        dell'intestazione e la striscia dei pulsanti in fondo.
+        """
+        return max(14.0, min(25.0, (rect.h - 98 - riservato) / max(1, righe)))
+
+    def _draw_grid(self, surf, right, titolo: str, griglia: list, tempi: dict,
+                   pole: str, note: list) -> None:
+        gs = self.gs
+        T.text(surf, titolo, (right.x + 20, right.y + 16), 12, T.DIM_2, bold=True)
+        note = note[:4]
+        if note:
+            T.text(surf, "PENALIZZAZIONI IN GRIGLIA", (right.right - 20, right.y + 16),
+                   11, T.WARN, bold=True, align="right")
+        y = right.y + 44
+        rh = self._riga_alta(right, len(griglia), 20 * len(note))
+        dim = 14 if rh >= 20 else 13
+        p0 = tempi.get(pole, 0)
+        for i, did in enumerate(griglia, 1):
+            d = gs.drivers[did]
+            t = gs.teams[d.team]
+            hl = (t.id == gs.player_team)
+            if hl:
+                T.panel(surf, (right.x + 12, int(y) - 2, right.w - 24, int(rh)),
+                        T.PANEL_3, radius=5)
+            T.text(surf, f"{i}", (right.x + 40, int(y)), dim, T.DIM, align="right")
+            pygame.draw.rect(surf, T.hex_rgb(t.colour),
+                             (right.x + 50, int(y) + 2, 3, max(10, int(rh) - 6)))
+            T.text(surf, d.name, (right.x + 62, int(y)), dim, T.TEXT, maxw=170)
+            T.text(surf, t.short, (right.x + 246, int(y) + 1), 12, T.DIM, maxw=110)
+            tt = tempi.get(did, 0)
+            T.text(surf, T.fmt_time(tt), (right.x + 430, int(y)), 13, T.TEXT, mono=True)
+            if i > 1:
+                T.text(surf, f"+{tt - p0:.3f}", (right.right - 20, int(y)), 13, T.DIM,
+                       mono=True, align="right")
+            y += rh
+        for nota in note:
+            T.text(surf, "- " + nota, (right.x + 20, int(y) + 6), 12, T.WARN,
+                   maxw=right.w - 40)
+            y += 18
+
+    def _draw_results(self, surf, rect, rows: list, kind: str = "gp",
+                      titolo: str = "ORDINE D'ARRIVO", note: list | None = None) -> None:
+        """La classifica di una gara, sprint o gran premio che sia."""
+        gs = self.gs
+        T.text(surf, titolo, (rect.x + 20, rect.y + 16), 12, T.DIM_2, bold=True)
+        if kind == "sprint":
+            T.text(surf, "il parco chiuso si riapre fino alla qualifica",
+                   (rect.right - 20, rect.y + 16), 11, T.OK, bold=True, align="right")
+        note = note or []
+        alte = (18 * len(note) + 12) if note else 0
         y = rect.y + 44
-        rows = self.result_rows
+        rh = self._riga_alta(rect, len(rows), alte)
+        dim = 14 if rh >= 20 else 13
         lead = rows[0].finished_time if rows and rows[0].status == "finished" else 0
         for i, e in enumerate(rows, 1):
             d = gs.drivers.get(e.driver_id)
             t = gs.teams[e.team_id]
-            col = T.hex_rgb(t.colour)
             hl = (t.id == gs.player_team)
             if hl:
-                T.panel(surf, (rect.x + 12, y - 3, rect.w - 24, 24), T.PANEL_3, radius=5)
-            T.text(surf, f"{i}", (rect.x + 40, y), 14, T.DIM, align="right")
-            pygame.draw.rect(surf, col, (rect.x + 50, y + 2, 3, 14))
-            T.text(surf, d.name if d else e.name, (rect.x + 62, y), 14, T.TEXT, maxw=170)
-            T.text(surf, t.short, (rect.x + 246, y + 1), 12, T.DIM, maxw=100)
+                T.panel(surf, (rect.x + 12, int(y) - 2, rect.w - 24, int(rh)),
+                        T.PANEL_3, radius=5)
+            T.text(surf, f"{i}", (rect.x + 40, int(y)), dim, T.DIM, align="right")
+            pygame.draw.rect(surf, T.hex_rgb(t.colour),
+                             (rect.x + 50, int(y) + 2, 3, max(10, int(rh) - 6)))
+            T.text(surf, d.name if d else e.name, (rect.x + 62, int(y)), dim, T.TEXT, maxw=170)
+            T.text(surf, t.short, (rect.x + 246, int(y) + 1), 12, T.DIM, maxw=100)
             if e.status == "finished":
-                txt = T.fmt_time(e.finished_time) if i == 1 else f"+{e.finished_time - lead:.3f}"
-                T.text(surf, txt, (rect.x + 420, y), 13, T.TEXT, mono=True)
+                txt = T.fmt_race(e.finished_time) if i == 1 else f"+{e.finished_time - lead:.3f}"
+                T.text(surf, txt, (rect.x + 420, int(y)), 13, T.TEXT, mono=True)
             else:
-                T.text(surf, f"RIT - {e.dnf_reason}", (rect.x + 420, y), 12, T.BAD, maxw=170)
-            pts = SEASON.points_for(gs, i, "gp") if e.status == "finished" else 0
+                T.text(surf, f"RIT - {e.dnf_reason}", (rect.x + 420, int(y)), 12, T.BAD, maxw=170)
+            pts = SEASON.points_for(gs, i, kind) if e.status == "finished" else 0
             if pts:
-                T.text(surf, f"{pts:.0f}", (rect.right - 20, y), 14, T.GOLD, bold=True, align="right")
-            y += 25
+                T.text(surf, f"{pts:.0f}", (rect.right - 20, int(y)), dim, T.GOLD,
+                       bold=True, align="right")
+            y += rh
+        y += 10
+        for riga in note:
+            T.text(surf, riga, (rect.x + 20, int(y)), 12,
+                   T.DIM if riga.startswith("-") else T.TEXT, maxw=rect.w - 40)
+            y += 18
 
     # ------------------------------------------------------------------- gara
     def _draw_race(self, surf) -> None:
@@ -511,7 +668,9 @@ class WeekendScene(Scene):
         lap = min(sim.leader_lap + 1, sim.laps)
         T.text(surf, f"{self.track.name.upper()}  -  GIRO {lap}/{sim.laps}", (24, 10), 20,
                T.TEXT, bold=True)
-        T.text(surf, f"meteo {sim.weather.label}", (24, 38), 13, T.DIM)
+        sessione = "SPRINT" if sim.kind == "sprint" else "GRAN PREMIO"
+        T.text(surf, f"{sessione}  -  meteo {sim.weather.label}", (24, 38), 13,
+               T.GOLD if sim.kind == "sprint" else T.DIM)
         if sim.safety_car > 0:
             lab = "VIRTUAL SAFETY CAR" if sim.vsc else "SAFETY CAR"
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)

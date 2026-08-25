@@ -222,6 +222,21 @@ def fmt_time(t: float) -> str:
     return f"{int(m)}:{s:06.3f}"
 
 
+def fmt_race(t: float) -> str:
+    """Durata di una gara: ore, minuti, secondi.
+
+    fmt_time e' fatto per i giri e sopra i 999 secondi si arrende: il tempo del
+    vincitore di un gran premio non e' un giro, sono quasi due ore.
+    """
+    if t is None or t <= 0:
+        return "--:--.---"
+    h, r = divmod(t, 3600)
+    m, s = divmod(r, 60)
+    if h >= 1:
+        return f"{int(h)}:{int(m):02d}:{s:06.3f}"
+    return f"{int(m)}:{s:06.3f}"
+
+
 def fmt_gap(g: float) -> str:
     if g is None:
         return "--"

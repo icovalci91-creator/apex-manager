@@ -21,8 +21,10 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
     track = ws.track
     order = sim.result_order()
     fastest = min((e for e in sim.entrants if e.best_lap < 900), key=lambda e: e.best_lap, default=None)
+    # la sprint ha la sua pole, quella della Sprint Qualifying del venerdi'
+    pole = getattr(ws, "sprint_pole", "") if kind == "sprint" else ws.pole
     rr = RaceResult(track_id=track.id, round=gs.round, season=gs.season, kind=kind,
-                    pole=ws.pole, fastest_lap=fastest.driver_id if fastest else "",
+                    pole=pole, fastest_lap=fastest.driver_id if fastest else "",
                     weather=ws.weather.label)
 
     mese = int(getattr(track, "month", 3))

@@ -18,10 +18,15 @@ class WeekendState:
     pole: str = ""
     quali_times: dict = field(default_factory=dict)
     practice_notes: list = field(default_factory=list)
-    sprint_done: bool = False
-    race: RaceSim | None = None
-    sprint: RaceSim | None = None
     grid_notes: list = field(default_factory=list)   # penalizzazioni scontate in griglia
+    # il fine settimana con la sprint ha due qualifiche e due griglie: la
+    # Sprint Qualifying del venerdi' schiera la sprint, la qualifica del sabato
+    # schiera il gran premio, e fra le due si puo' rimettere mano alla macchina
+    sprint_quali_done: bool = False
+    sprint_done: bool = False
+    sprint_grid: list = field(default_factory=list)
+    sprint_pole: str = ""
+    sprint_times: dict = field(default_factory=dict)
     tyre_choice: dict = field(default_factory=dict)  # team_id -> set scelti per mescola
     tyre_stock: dict = field(default_factory=dict)   # driver_id -> set ancora a disposizione
     tyres_published: bool = False                    # le scelte sono state rese pubbliche
@@ -153,6 +158,38 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     return notes
 
 
+def learn_from_sprint(gs, ws: WeekendState) -> list:
+    """Quello che la sprint ha insegnato, prima della qualifica del sabato.
+
+    Sono cento chilometri di gara vera, non una sessione di prove: si scopre
+    meno di un turno libero, ma si scopre sulla macchina carica. Fra sprint e
+    qualifica il parco chiuso si riapre, quindi quello che si e' capito si fa
+    ancora in tempo a montarlo.
+    """
+    from ..core import setup as SETUP
+    track = ws.track
+    for team in gs.teams.values():
+        drivers = gs.drivers_of(team.id)
+        fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
+        SETUP.learn_from_track(gs, team, track, fb, share=0.55)
+        SETUP.apply_paper(gs, team, 1.0)
+    pt = gs.player
+    eng = pt.role("race_engineer") or pt.role("technical_director")
+    chi = eng.name if eng else "Il muretto"
+    note = []
+    for d in gs.lineup_of(pt.id):
+        q = SETUP.believed_quality(pt, d)
+        if q > 0.9:
+            note.append(f"{chi} su {d.short}: in gara la macchina ha risposto, ci siamo.")
+        elif q > 0.7:
+            note.append(f"{chi} su {d.short}: in gara mancava equilibrio, si puo' sistemare.")
+        else:
+            note.append(f"{chi} su {d.short}: fuori finestra, cosi' la qualifica la buttiamo.")
+        for riga in SETUP.hints(pt, track, d)[:1]:
+            note.append(riga)
+    return note
+
+
 def setup_hints(team, track, driver=None) -> list:
     """Indicazioni comprensibili su cosa cambiare, secondo il reparto."""
     from ..core import setup as SETUP
@@ -167,7 +204,13 @@ def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> No
 
 
 # ---------------------------------------------------------------- qualifica
-def run_qualifying(gs, ws: WeekendState) -> list:
+def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
+    """Un turno di qualifica: schiera il gran premio, o la sprint del sabato.
+
+    Nel weekend sprint se ne corrono due, e non sono la stessa cosa: la Sprint
+    Qualifying del venerdi' decide la griglia della sprint e basta, mentre le
+    penalizzazioni in griglia si scontano nel gran premio.
+    """
     track, weather = ws.track, ws.weather
     ents = build_entrants(gs, track, weather)
     pool = {e.driver_id: e for e in ents}
@@ -205,16 +248,21 @@ def run_qualifying(gs, ws: WeekendState) -> list:
     # chi supera il taglio parte sempre davanti a chi e' stato eliminato prima,
     # anche quando nel turno buono ha girato piu' lento
     order = sorted(times.items(), key=lambda kv: (-reached[kv[0]], kv[1]))
-    ws.grid = [d for d, _ in order]
-    ws.quali_times = times
+    griglia = [d for d, _ in order]
     # la pole resta a chi ha fatto il tempo: le penalita' spostano la griglia,
     # non cancellano il giro
-    ws.pole = ws.grid[0]
-    from ..core import penalties
-    ws.grid, ws.grid_notes = penalties.apply_grid_penalties(gs, ws.grid)
-    ws.quali_done = True
+    pole = griglia[0]
     for team in gs.teams.values():
         team.car.wear(0.4, track)
+    if kind == "sprint":
+        ws.sprint_grid, ws.sprint_times, ws.sprint_pole = griglia, times, pole
+        ws.sprint_quali_done = True
+        return ws.sprint_grid
+    from ..core import penalties
+    ws.quali_times = times
+    ws.pole = pole
+    ws.grid, ws.grid_notes = penalties.apply_grid_penalties(gs, griglia)
+    ws.quali_done = True
     return ws.grid
 
 
@@ -293,7 +341,7 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
     laps = race_laps(gs, track, kind)
     ents = build_entrants(gs, track, weather)
     by_id = {e.driver_id: e for e in ents}
-    grid = ws.grid or list(by_id.keys())
+    grid = (ws.sprint_grid if kind == "sprint" else ws.grid) or list(by_id.keys())
 
     ordered = []
     for i, did in enumerate(grid):

@@ -150,11 +150,15 @@ def track_learning(team, feedback: float) -> float:
     return max(0.10, min(0.45, 0.10 + 0.28 * (persone / 100.0)))
 
 
-def learn_from_track(gs, team, track, feedback: float) -> None:
-    """La pista risponde: la previsione si avvicina a quello che serve."""
+def learn_from_track(gs, team, track, feedback: float, share: float = 1.0) -> None:
+    """La pista risponde: la previsione si avvicina a quello che serve.
+
+    Con share si pesa quanto vale il turno: una gara sprint insegna qualcosa
+    sulla macchina, ma meno di una sessione di prove fatta apposta.
+    """
     ensure_paper(gs, team, track)
     opt = team.car.optimal_setup(track)
-    passo = track_learning(team, feedback)
+    passo = track_learning(team, feedback) * max(0.0, min(1.0, share))
     paper = team.setup_paper
     for k in SETUP_KEYS:
         cur = paper.get(k, 50.0)

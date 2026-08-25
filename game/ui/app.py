@@ -69,6 +69,7 @@ class App:
         self.running = True
         self.scenes: list = []
         self.gs = None
+        self.weekend = None         # weekend di gara aperto, se ce n'e' uno
         self.editor = False         # editor di gioco: si accende dal menu
         self.toast_text = ""
         self.toast_t = 0.0
