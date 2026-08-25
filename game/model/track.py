@@ -84,6 +84,10 @@ class Track:
     wing_ref: float | None = None   # l'ala che il modello di giro vuole qui
     domain_map: list = field(default_factory=list)   # cosa e' ogni metro di pista
     corner_map: list = field(default_factory=list)   # le curve, una per una
+    zone_ala: list = field(default_factory=list)     # dove si apre l'ala e si prova a passare
+    mappa_ala: list = field(default_factory=list)    # le stesse, in tabella per la gara
+    energia_giro: float = 0.0    # MJ che si riescono a recuperare in un giro
+    ers_secondi: float = 0.0     # quanto vale la spinta elettrica, in secondi al giro
     start: list = field(default_factory=list)   # [lat, lon] della linea del traguardo
     senso: str = ""              # "orario" | "antiorario": da che parte si gira
     settori: list = field(default_factory=list)  # dove tagliano i due intertempi
@@ -263,7 +267,7 @@ class Track:
 
     # ------------------------------------------------------- modello di giro
     def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
-                  bias: dict | None = None):
+                  bias: dict | None = None, elettrico: float = 1.0):
         """Restituisce (tempo_giro_s, vmax_kmh, profilo_velocita).
 
         `car` espone: downforce, drag, power, mech_grip, braking, mass_base,
@@ -273,10 +277,11 @@ class Track:
         dominio: una macchina non e' brava allo stesso modo nelle curve lente e
         in quelle veloci.
         """
-        t, vmax, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias)
+        t, vmax, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias, elettrico=elettrico)
         return t, vmax, v
 
-    def _solve(self, car, wet: float, grip: float, rho, bias: dict | None, giri: int = 2):
+    def _solve(self, car, wet: float, grip: float, rho, bias: dict | None, giri: int = 2,
+               elettrico: float = 1.0):
         """Il conto vero: profilo di velocita', limiti e classe di ogni punto.
 
         `giri` sono le passate avanti-indietro: due fanno propagare bene la
@@ -304,15 +309,17 @@ class Track:
             accelerare, molto prima di dove la porterebbe la sola resistenza
             dell'aria.
             """
-            if v <= C.V_TAGLIO_ERS:
-                return power
-            quota = max(0.0, 1.0 - (v - C.V_TAGLIO_ERS) / (C.V_FINE_ERS - C.V_TAGLIO_ERS))
-            return power * (1.0 - C.QUOTA_ELETTRICA + C.QUOTA_ELETTRICA * quota)
+            quota = 1.0
+            if v > C.V_TAGLIO_ERS:
+                quota = max(0.0, 1.0 - (v - C.V_TAGLIO_ERS)
+                            / (C.V_FINE_ERS - C.V_TAGLIO_ERS))
+            return power * (1.0 - C.QUOTA_ELETTRICA
+                            + C.QUOTA_ELETTRICA * quota * elettrico)
 
         # velocita' massima assoluta: dove la potenza che resta non basta piu'
         # a vincere l'aria. Si trova a tentativi perche' la potenza dipende
         # dalla velocita' e la velocita' dalla potenza
-        vmax = (2.0 * power / (rho * cda)) ** (1.0 / 3.0)
+        vmax = (2.0 * potenza(1.0) / (rho * cda)) ** (1.0 / 3.0)
         for _ in range(6):
             vmax = (2.0 * potenza(vmax) / (rho * cda)) ** (1.0 / 3.0)
         aero = (rho * cla) / (2.0 * mass)
@@ -461,7 +468,101 @@ class Track:
                 mappa.append("rettilinei")
         self.domain_map = mappa
         self.corner_map = self.corner_list(v, vlim, classi)
+        self._map_ala(v)
+        self._map_energia(ref_car, cond, v, _t)
         self._map_time(v, mappa)
+
+    # ------------------------------------------------------------- l'energia
+    def _map_energia(self, ref_car, cond, v: list, t_con: float) -> None:
+        """Quanta energia si riprende in un giro, e quanto vale l'elettrico qui.
+
+        Il motore elettrico si ricarica frenando, e frenare vuol dire buttare
+        via energia cinetica: quanta se ne riesce a riprendere lo dice il
+        circuito - Monte Carlo frena venti volte da poco, Monza quattro volte
+        da tanto - e quanto vale riaverla dipende da quanti rettilinei ci sono
+        da tirare. Sono le due facce della stessa cosa, e in un weekend
+        decidono se si arriva in fondo al dritto con la spinta o senza.
+        """
+        n, ds = len(v), self.ds
+        mass = ref_car.mass_base + ref_car.mass_extra
+        rho = cond.rho
+        cda = C.CDA_BASE * ref_car.drag
+        potenza_e = C.POWER_W * C.QUOTA_ELETTRICA
+        preso = 0.0
+        for i in range(n):
+            j = (i + 1) % n
+            if v[j] >= v[i]:
+                continue
+            vm = max(3.0, 0.5 * (v[i] + v[j]))
+            cinetica = 0.5 * mass * (v[i] * v[i] - v[j] * v[j])
+            aria = 0.5 * rho * cda * vm * vm * ds      # questa se la porta via il vento
+            dt = ds / vm
+            # piu' di cosi' il motore non riesce a riprendere, per quanto forte
+            # si freni: e' un motore, non un pozzo
+            preso += max(0.0, min(cinetica - aria, potenza_e * dt))
+        self.energia_giro = round(min(preso / 1e6, C.RECUPERO_MAX_MJ), 2)
+        # e quanto vale averla: il giro con la spinta contro il giro senza. Il
+        # primo e' gia' stato fatto qui sopra, si rifa' solo quello senza
+        from ..sim import pace
+        t_senza, _, _ = self.lap_model(ref_car, grip=pace.surface_grip(cond),
+                                       rho=cond.rho, elettrico=0.0)
+        self.ers_secondi = round(max(0.0, t_senza - t_con), 3)
+
+    # -------------------------------------------------- dove si apre l'ala
+    # L'ala mobile del 2026 non e' il vecchio DRS: si apre in X-mode nei tratti
+    # in cui la macchina va dritta, e la si richiude per curvare. I tratti sono
+    # questi, e sono anche i soli posti in cui un sorpasso e' pensabile: un
+    # pezzo di pista abbastanza lungo da prendere la scia, con in fondo una
+    # staccata vera in cui infilarsi. Uno dei due da solo non basta.
+    ALA_MIN_M = 300.0        # sotto questa lunghezza non si prende la scia
+    ALA_MIN_SALTO = 40.0     # e sotto questa frenata non c'e' dove infilarsi
+    ALA_ATTACCO = 0.30       # l'attacco si gioca nell'ultimo pezzo del dritto
+    ALA_CASELLE = 360        # in quante caselle si spezza il giro per cercarle
+
+    def _map_ala(self, v: list) -> None:
+        """I tratti in cui l'ala si apre, misurati sul giro."""
+        n, ds = len(v), self.ds
+        apici = [i for i in range(n) if v[i] <= v[(i - 1) % n] and v[i] < v[(i + 1) % n]]
+        if len(apici) < 2:
+            self.zone_ala = []
+            return
+        zone = []
+        for a, b in zip(apici, apici[1:] + apici[:1]):
+            passi = (b - a) % n
+            lung = passi * ds
+            if lung < self.ALA_MIN_M:
+                continue
+            picco = max(v[(a + j) % n] for j in range(passi))
+            salto = (picco - v[b]) * 3.6
+            if salto < self.ALA_MIN_SALTO:
+                continue
+            # quanto vale come posto per passare: quanta scia si prende e
+            # quanto si stacca in fondo
+            qualita = max(0.15, min(1.0, (lung / 1400.0) * (salto / 250.0)))
+            zone.append({"fine": b / n, "inizio": a / n, "lung": round(lung),
+                         "salto": round(salto), "qualita": round(qualita, 3),
+                         "attacco": (b / n - self.ALA_ATTACCO * passi / n) % 1.0})
+        zone.sort(key=lambda z: -z["qualita"])
+        self.zone_ala = zone[:8]
+        # la stessa cosa in tabella, perche' la gara la chiede a ogni passo
+        # per ogni macchina: cercarla nella lista ogni volta costerebbe
+        self.mappa_ala = [0.0] * self.ALA_CASELLE
+        for z in self.zone_ala:
+            a = int(z["attacco"] * self.ALA_CASELLE)
+            b = int(z["fine"] * self.ALA_CASELLE)
+            i = a
+            while True:
+                self.mappa_ala[i % self.ALA_CASELLE] = max(
+                    self.mappa_ala[i % self.ALA_CASELLE], z["qualita"])
+                if i % self.ALA_CASELLE == b % self.ALA_CASELLE:
+                    break
+                i += 1
+
+    def zona_di(self, frazione: float) -> float:
+        """Quanto vale come posto per passare il punto in cui si e' adesso."""
+        if not self.mappa_ala:
+            return 0.45          # senza tracciato non si sa: si tira a indovinare
+        return self.mappa_ala[int((frazione % 1.0) * self.ALA_CASELLE) % self.ALA_CASELLE]
 
     # ------------------------------------------------------- il giro nel tempo
     CAMPIONI = 720          # quanto e' fitto il giro raccontato dal cronometro
@@ -563,6 +664,26 @@ class Track:
         if not m:
             return "rettilinei"
         return m[int((frazione_tempo % 1.0) * len(m)) % len(m)]
+
+    def sector_shares(self, car, wet: float = 0.0, grip: float = 1.0, rho=None,
+                      bias: dict | None = None) -> tuple:
+        """Come questa vettura spezza il giro nei tre settori, in quota di tempo.
+
+        I due traguardi di settore stanno dove stanno - sono punti della pista -
+        ma quanto tempo ci mette ognuno ad arrivarci dipende da com'e' fatta la
+        macchina: una che va forte nelle curve lente guadagna nel settore in cui
+        stanno le curve lente. Senza questo conto tutti farebbero tre settori
+        uguali fra loro, e il tabellone non direbbe niente.
+        """
+        _t, _vm, v, _vl, _cl = self._solve(car, wet, grip, rho, bias)
+        n, ds = len(v), self.ds
+        a, b = self.sector_bounds
+        tempi = [0.0]
+        for i in range(n):
+            j = (i + 1) % n
+            tempi.append(tempi[-1] + ds / max(3.0, 0.5 * (v[i] + v[j])))
+        tot = tempi[-1] or 1.0
+        return (tempi[min(n, int(a))] / tot, tempi[min(n, int(b))] / tot)
 
     def sector_at(self, frazione_tempo: float) -> int:
         """In che settore si e' a questa frazione di giro."""

@@ -108,6 +108,25 @@ def _affidabile(team, driver) -> float:
     return max(0.10, 1.0 - (1.0 - base) * matura)
 
 
+def _quote_settori(gs, team, track, cond) -> tuple:
+    """Come questa vettura spezza il giro nei tre settori.
+
+    Non e' un terzo per uno: i traguardi di settore stanno dove stanno, e
+    quanto ci si mette ad arrivarci dipende da cosa c'e' in mezzo e da come e'
+    fatta la macchina.
+    """
+    car = team.car
+    salva = car.fuel_kg
+    car.fuel_kg = 0.0
+    try:
+        quote = track.sector_shares(car, wet=cond.wet, grip=pace.surface_grip(cond),
+                                    rho=cond.rho, bias=car.domain_bias)
+    except Exception:
+        quote = getattr(track, "sector_time", (0.3333, 0.6667))
+    car.fuel_kg = salva
+    return quote
+
+
 def build_entrants(gs, track, cond, quali: bool = False) -> list:
     """Chi scende in pista, con che passo e in che condizioni."""
     from ..core import penalties
@@ -125,6 +144,7 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
     for team in gs.teams.values():
         # il pacchetto lavora uguale per tutti e due, l'assetto no
         pacchetto = gs.rng.gauss(0.0, 0.13)
+        quote = _quote_settori(gs, team, track, cond)
         pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
                + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
         for d in gs.lineup_of(team.id):
@@ -142,6 +162,8 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 reliability=_affidabile(team, d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 vmax=float(punte.get(team.id, 330.0)),
+                ers_skill=float((team.car.engine or {}).get("ers", 85)),
+                sector_shares=list(quote),
                 is_player=(team.id == gs.player_team),
             ))
     return out
@@ -435,6 +457,9 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
         # benzina per i giri che si corrono davvero, con un filo di margine:
         # guidando normale si arriva, attaccando tutta la gara no
         e.fuel = min(C.FUEL_MASS_KG, laps * BURN_KG_PER_LAP * 1.04)
+        # in griglia la batteria e' piena: e' l'unico giro in cui lo e' per tutti
+        e.carica = float((gs.regulations.get("power_unit", {}) or {}).get(
+            "batteria_mj", C.BATTERIA_MJ))
         e.stock = ws.tyre_stock.get(did) if ws.tyre_stock else None
         e.plan = plan_strategy(gs, e, track, laps, weather) if kind == "gp" else []
         e.tyre_life = 25.0

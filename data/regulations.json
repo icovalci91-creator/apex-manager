@@ -16,7 +16,15 @@
       "fuel": "100% sostenibile",
       "units_per_season": 4,
       "energy_store_per_season": 2,
-      "penalty_grid": 10
+      "penalty_grid": 10,
+      "_energia_nota": "Numeri del regolamento tecnico 2026. La batteria tiene 4 MJ utili; in un giro se ne recuperano al massimo 8.5 in frenata, e senza MGU-H passa tutto dal motore posteriore. La spinta elettrica cala da 290 a 355 km/h; chi insegue entro un secondo puo' chiedere l'override e riavere i 350 kW pieni fino a 337 km/h, per mezzo megajoule. Nel modello di giro la discesa e' tarata piu' in alto (game/config.py) perche' li' la batteria non esiste: quel modello rappresenta l'erogazione media di un giro, e i tempi di riferimento sono ancora pole della generazione precedente.",
+      "batteria_mj": 4.0,
+      "recupero_max_mj": 8.5,
+      "v_taglio_kmh": 290,
+      "v_fine_kmh": 355,
+      "override_kmh": 337,
+      "override_mj": 0.5,
+      "override_gap_s": 1.0
     },
     "aero": {
       "active_aero": true,

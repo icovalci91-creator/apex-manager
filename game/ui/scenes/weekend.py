@@ -197,6 +197,23 @@ class WeekendScene(Scene):
             self.widgets.append(b)
         self.widgets.append(Button((bx + 5 * 62 + 16, by, 190, 34), "Simula fino alla fine",
                                    self.skip_to_end, "ghost"))
+        # i comandi dell'energia stanno dentro al pannello della vettura, che
+        # e' dove si guardano i megajoule: non in fondo insieme a tutto il resto
+        from ...sim import energia as EN
+        for e, r in self._pannelli_barra(w, h):
+            x = r.x + 320 if r.w >= 470 else r.x + 16
+            yy = r.y + 78
+            for modo in EN.MODI:
+                b = Button((x, yy, 62, 20), EN.ETICHETTA[modo][:4], style="tab")
+                b.on_click = (lambda k=e.driver_id, m=modo: self.set_energia(k, m))
+                b.active = (e.energy_mode == modo)
+                self.widgets.append(b)
+                x += 66
+            b = Button((x, yy, 52, 20), "L&C", style="tab")
+            b.on_click = (lambda k=e.driver_id: self.set_energia(k, "lift"))
+            b.active = e.lift_coast
+            self.widgets.append(b)
+
         px = bx + 5 * 62 + 226
         for i, did in enumerate(self.gs.player.drivers):
             d = self.gs.drivers.get(did)
@@ -212,6 +229,24 @@ class WeekendScene(Scene):
                 self.widgets.append(b)
                 px += 34
             px += 14
+
+    def set_energia(self, driver_id: str, modo: str) -> None:
+        """Il muretto prende in mano la batteria: da qui non decide piu' da solo."""
+        if not self.sim:
+            return
+        from ...sim import energia
+        for e in self.sim.entrants:
+            if e.driver_id != driver_id:
+                continue
+            if modo == "lift":
+                e.lift_coast = not e.lift_coast
+            else:
+                e.energy_mode = modo
+            e.energy_manual = True
+            nome = ("lift and coast " + ("acceso" if e.lift_coast else "spento")
+                    if modo == "lift" else energia.ETICHETTA[modo].lower())
+            self.sim.radio_say(e, f"Passiamo a {nome}.", "muretto")
+        self.build()
 
     def on_resize(self) -> None:
         self.build()
@@ -791,7 +826,7 @@ class WeekendScene(Scene):
     # ------------------------------------------------------------------- gara
     # Quanto spazio si prende la barra in basso con le due macchine, e quanto
     # ne resta alla cronaca sopra di lei.
-    BARRA_H = 108
+    BARRA_H = 134
     CRONACA_H = 62
 
     def _draw_race(self, surf) -> None:
@@ -842,6 +877,7 @@ class WeekendScene(Scene):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
             self.pts_rect = tuple(vista)
         trackdraw.draw_track(surf, self.track, vista, width=14, pts=self.pts)
+        self._marca_zone(surf)
         # le sigle sul disegno si danno fastidio quando le macchine sono
         # incollate: chi non ha spazio resta senza nome, il pallino basta
         self._etichette = []
@@ -864,6 +900,24 @@ class WeekendScene(Scene):
             if (mio or e.position <= 3) and self._spazio(int(x) + 9, int(y) - 8):
                 T.text(surf, e.code, (int(x) + 9, int(y) - 8), 12,
                        T.WHITE if mio else T.DIM, bold=mio)
+
+    def _marca_zone(self, surf) -> None:
+        """I punti dove si passa, accesi sul nastro d'asfalto.
+
+        Non sono decorazione: sono gli stessi che la gara usa per decidere se
+        un attacco si puo' nemmeno tentare. Chi guarda vede subito perche' a
+        Monza si passa e a Monte Carlo no.
+        """
+        zone = getattr(self.track, "zone_ala", [])[:3]
+        for z in zone:
+            a, b = z["attacco"], z["fine"]
+            passo = 0.004
+            quanti = int((((b - a) % 1.0) or 1.0) / passo) + 1
+            punti = [trackdraw.car_pos(self.pts, (a + i * passo) % 1.0, 0.0)
+                     for i in range(quanti + 1)]
+            col = T.mix((0, 200, 255), (40, 52, 70), 1.0 - 0.75 * z["qualita"])
+            if len(punti) > 1:
+                pygame.draw.lines(surf, col, False, punti, 4)
 
     def _spazio(self, x: int, y: int) -> bool:
         """C'e' posto per una sigla qui, o ce n'e' gia' una addosso?"""
@@ -938,6 +992,10 @@ class WeekendScene(Scene):
             elif e.penalty_pending > 0:
                 T.text(surf, f"+{e.penalty_pending:.0f}s", (x_nome, y + 1), 11,
                        (255, 120, 90), bold=True)
+            elif e.override_t > 0:
+                T.text(surf, "OVR", (x_nome, y + 1), 11, VIOLA, bold=True)
+            elif e.clipping:
+                T.text(surf, "0 MJ", (x_nome, y + 1), 11, T.BAD, bold=True)
             elif largo_nome >= 70:
                 T.text(surf, e.name, (x_nome, y), 13, T.TEXT if mio else T.DIM,
                        maxw=largo_nome)
@@ -976,6 +1034,18 @@ class WeekendScene(Scene):
             y += rh
 
     # ------------------------------------------------- la barra delle due auto
+    def _pannelli_barra(self, w: int, h: int) -> list:
+        """Dove finisce il pannello di ognuna delle nostre due macchine."""
+        gs = self.gs
+        nostre = [e for e in (self.sim.entrants if self.sim else [])
+                  if e.team_id == gs.player_team]
+        if not nostre:
+            return []
+        barra = pygame.Rect(20, h - 84 - self.BARRA_H, w - 40, self.BARRA_H)
+        larga = (barra.w - 12 * (len(nostre) - 1)) / len(nostre)
+        return [(e, pygame.Rect(barra.x + i * (larga + 12), barra.y, larga, barra.h))
+                for i, e in enumerate(nostre)]
+
     def _race_bar(self, surf, barra) -> None:
         """Le nostre due macchine viste da dentro il box.
 
@@ -983,15 +1053,8 @@ class WeekendScene(Scene):
         andando, cosa ha sotto, quanta benzina resta, che tempo ha fatto e cosa
         ha appena detto alla radio.
         """
-        sim, gs = self.sim, self.gs
-        nostre = [e for e in sim.entrants if e.team_id == gs.player_team]
-        if not nostre:
-            return
-        n = len(nostre)
-        larga = (barra.w - 12 * (n - 1)) / n
-        for i, e in enumerate(nostre):
-            self._pannello_vettura(surf, pygame.Rect(barra.x + i * (larga + 12), barra.y,
-                                                     larga, barra.h), e)
+        for e, r in self._pannelli_barra(*surf.get_size()):
+            self._pannello_vettura(surf, r, e)
 
     def _pannello_vettura(self, surf, r, e) -> None:
         sim = self.sim
@@ -1056,7 +1119,21 @@ class WeekendScene(Scene):
                VIOLA if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002 else T.TEXT,
                mono=True)
 
-        # ---- riga quattro: la radio
+        # ---- riga quattro: l'energia, che e' meta' della macchina
+        y = r.y + 80
+        piena = getattr(sim, "batteria_max", 4.0)
+        quota = e.carica / max(0.1, piena)
+        col = T.OK if quota > 0.55 else (T.WARN if quota > 0.25 else T.BAD)
+        T.text(surf, "BATTERIA", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
+        T.bar(surf, (r.x + 78, y + 4, 86, 9), quota * 100, 100, col)
+        T.text(surf, f"{e.carica:.1f} MJ", (r.x + 172, y), 12, col, mono=True)
+        if e.clipping:
+            T.text(surf, "CLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
+        elif e.override_t > 0:
+            T.text(surf, "OVERRIDE", (r.x + 232, y + 1), 11, VIOLA, bold=True)
+        elif e.lift_coast:
+            T.text(surf, "LIFT & COAST", (r.x + 232, y + 1), 11, T.ACCENT)
+        # ---- riga cinque: la radio
         m = sim.radio_of(e.driver_id)
         if m:
             chi = "MURETTO" if m["chi"] == "muretto" else e.code

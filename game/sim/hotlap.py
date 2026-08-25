@@ -219,8 +219,9 @@ class LapSession:
         return mescola, t
 
     def _spezza(self, tempo: float, e) -> list:
-        """Il giro diviso nei tre settori, come lo divide il tracciato."""
-        a, b = getattr(self.track, "sector_time", (0.3333, 0.6667))
+        """Il giro diviso nei tre settori, come lo divide questa vettura."""
+        a, b = (getattr(e, "sector_shares", None)
+                or getattr(self.track, "sector_time", (0.3333, 0.6667)))
         quote = [a, b - a, 1.0 - b]
         rng = self.gs.rng
         pezzi = [max(0.05, q * (1.0 + rng.gauss(0.0, 0.006))) for q in quote]

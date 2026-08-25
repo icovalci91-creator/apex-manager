@@ -540,7 +540,17 @@ def _scheda_circuito(surf, r, gs, t) -> None:
            (cx.x + 16, y + 6), 11, T.DIM_2, maxw=cx.w - 32)
     T.text(surf, f"{dati.get('frenate', 0)} staccate, punta {dati.get('vmax', 0):.0f} km/h",
            (cx.x + 16, y + 22), 11, T.DIM_2, maxw=cx.w - 32)
-    y += 46
+    # dove si passa: e' quello che decide se una gara e' una processione
+    zone = [z for z in (t.zone_ala or []) if z["qualita"] >= 0.35]
+    if zone:
+        m = zone[0]
+        T.text(surf, f"{len(zone)} punti dove si passa, il migliore {m['lung']} m "
+                     f"e -{m['salto']} km/h in staccata",
+               (cx.x + 16, y + 38), 11, T.DIM_2, maxw=cx.w - 32)
+    else:
+        T.text(surf, "nessun punto vero dove passare: si vince il sabato",
+               (cx.x + 16, y + 38), 11, T.WARN, maxw=cx.w - 32)
+    y += 62
 
     T.text(surf, "DOVE PERDIAMO QUI", (cx.x + 16, y), 12, T.GOLD, bold=True)
     # quanto questa pista ci sta bene o male rispetto a tutte le altre del

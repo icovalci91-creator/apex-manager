@@ -27,6 +27,10 @@ POWER_W = 745_000.0         # ~1000 CV: 400 kW termico + 350 kW elettrico
 # senza questo il modello arrivava a quattrocento all'ora a Monza, cinquanta
 # piu' del vero, e ci compensava rallentando nelle curve.
 QUOTA_ELETTRICA = 0.47
+# Quanta ne entra in un giro, al massimo, per regolamento: e' il tetto, poi
+# quanta se ne riesca davvero a riprendere lo dice quanto si frena li'.
+RECUPERO_MAX_MJ = 8.5
+BATTERIA_MJ = 4.0
 V_TAGLIO_ERS = 320.0 / 3.6
 V_FINE_ERS = 380.0 / 3.6
 MU_LAT = 2.15               # coefficiente di aderenza laterale slick
