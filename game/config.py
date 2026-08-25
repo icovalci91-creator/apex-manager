@@ -19,7 +19,17 @@ G = 9.81
 CAR_MASS_KG = 768.0         # peso minimo regolamentare
 FUEL_MASS_KG = 100.0        # carico massimo di benzina
 POWER_W = 745_000.0         # ~1000 CV: 400 kW termico + 350 kW elettrico
-MU_LAT = 1.75               # coefficiente di aderenza laterale slick
+# Meta' di quella potenza e' elettrica, e la batteria non la puo' erogare
+# ovunque: il pacco ha un budget per giro, e in fondo a un rettilineo lungo e'
+# gia' finito. Da qui la spinta elettrica si spegne mano a mano - la stessa
+# cosa che il regolamento 2026 scrive nero su bianco, con la potenza che cala
+# oltre una certa andatura. Le due velocita' sono tarate sulle punte vere:
+# senza questo il modello arrivava a quattrocento all'ora a Monza, cinquanta
+# piu' del vero, e ci compensava rallentando nelle curve.
+QUOTA_ELETTRICA = 0.47
+V_TAGLIO_ERS = 320.0 / 3.6
+V_FINE_ERS = 380.0 / 3.6
+MU_LAT = 1.95               # coefficiente di aderenza laterale slick
 MU_BRAKE = 1.60             # aderenza longitudinale in frenata
 CLA_BASE = 3.10             # ClA di riferimento (downforce index 1.0)
 CDA_BASE = 1.85             # CdA di riferimento

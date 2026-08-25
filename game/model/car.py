@@ -140,7 +140,11 @@ class Car:
         aa = self.p("active_aero") / 100.0 if self.active_aero_allowed else 0.0
         wing = 0.62 + 0.74 * (self.setup.get("wing", 50.0) / 100.0)
         idx = self.reg_downforce_index / 0.70
-        return (0.620 + 0.800 * base) * wing * idx * (1.0 + 0.07 * aa)
+        # La forbice fra la macchina piu' carica e la meno carica della griglia
+        # e' di una decina di punti percentuali, non di venticinque: adesso che
+        # il carico paga quanto paga davvero nelle curve veloci, una forbice
+        # larga il doppio spalancava i distacchi a Spa e in Catalogna.
+        return (0.698 + 0.700 * base) * wing * idx * (1.0 + 0.07 * aa)
 
     @property
     def drag(self) -> float:
@@ -173,7 +177,11 @@ class Car:
     def mech_grip(self) -> float:
         base = (0.42 * self.p("suspension") + 0.36 * self.p("chassis")
                 + 0.22 * self.p("gearbox")) / 100.0
-        return (0.918 + 0.141 * base)
+        # L'aderenza meccanica separa le macchine molto meno dell'aerodinamica:
+        # sospensioni e telaio sono simili per tutti, il fondo no. Con la
+        # forbice larga di prima un punto di sospensione valeva tre di fondo,
+        # che e' il contrario di quello che succede.
+        return (0.981 + 0.060 * base)
 
     @property
     def braking(self) -> float:

@@ -31,6 +31,15 @@ DOMINI = ("lente", "medie", "veloci", "trazione", "frenata", "rettilinei")
 # Sotto questa frazione della velocita' massima una curva conta come curva.
 SOGLIA_CURVA = 0.93
 
+# Quanto cala l'aderenza quando la gomma viene schiacciata. Una gomma non
+# rende il doppio con il doppio del peso sopra: rende un po' meno del doppio,
+# e piu' la si carica meno rende. E' il motivo per cui il carico aerodinamico
+# ha un rendimento calante - in una curva veloce il decimo di carico in piu'
+# vale meno del decimo di prima - e senza questo una curva al limite del pieno
+# gas diventerebbe una scogliera: mezzo punto di ala in piu' e la si fa tutta
+# spalancata, mezzo in meno e si frena.
+SENSIBILITA_CARICO = 0.18
+
 # Fin dove arriva l'uscita di curva: sopra questa frazione della velocita'
 # massima non e' piu' trazione, e' un rettilineo.
 V_USCITA = 0.62
@@ -276,9 +285,30 @@ class Track:
         n = len(self.curvature)
         ds = self.ds
 
-        # velocita' massima assoluta (potenza contro resistenza)
+        def potenza(v: float) -> float:
+            """La potenza che c'e' davvero a quella velocita'.
+
+            Sopra una certa andatura il regolamento fa calare la parte
+            elettrica fino a spegnerla: e' li' che una monoposto smette di
+            accelerare, molto prima di dove la porterebbe la sola resistenza
+            dell'aria.
+            """
+            if v <= C.V_TAGLIO_ERS:
+                return power
+            quota = max(0.0, 1.0 - (v - C.V_TAGLIO_ERS) / (C.V_FINE_ERS - C.V_TAGLIO_ERS))
+            return power * (1.0 - C.QUOTA_ELETTRICA + C.QUOTA_ELETTRICA * quota)
+
+        # velocita' massima assoluta: dove la potenza che resta non basta piu'
+        # a vincere l'aria. Si trova a tentativi perche' la potenza dipende
+        # dalla velocita' e la velocita' dalla potenza
         vmax = (2.0 * power / (rho * cda)) ** (1.0 / 3.0)
+        for _ in range(6):
+            vmax = (2.0 * potenza(vmax) / (rho * cda)) ** (1.0 / 3.0)
         aero = (rho * cla) / (2.0 * mass)
+
+        def carico(v2: float) -> float:
+            """Quanti pesi della macchina sta portando la gomma a quella velocita'."""
+            return 1.0 + aero * v2 / C.G
 
         def lat_limit(k: float):
             """Velocita' massima in curva e che tipo di curva e'.
@@ -290,18 +320,33 @@ class Track:
             """
             if k <= 1e-9:
                 return vmax, ""
-            denom = k - aero
-            if denom <= 1e-6:
-                return vmax, ""
-            v0 = math.sqrt(mu * C.G / denom)
+
+            def velocita(m0: float) -> float:
+                # L'aderenza lavora su tutto il peso che la gomma sente, e il
+                # carico aerodinamico e' peso: e' la gomma a trasformarlo in
+                # tenuta, quindi anche quello va moltiplicato per l'aderenza.
+                # Senza, una curva veloce viene fuori molto piu' lenta di
+                # quello che e' - ed e' li' che le monoposto fanno il tempo.
+                # Il conto si morde la coda - piu' si va forte piu' si schiaccia
+                # la gomma, e piu' e' schiacciata meno rende - e si scioglie
+                # rigirandolo tre volte, che basta e avanza.
+                v2 = 0.0
+                for _ in range(3):
+                    m = m0 * carico(v2) ** -SENSIBILITA_CARICO
+                    d = k - m * aero
+                    if d <= 1e-6:
+                        return vmax
+                    v2 = min(m * C.G / d, vmax * vmax)
+                return math.sqrt(v2)
+
+            v0 = min(velocita(mu), vmax)
             # una curva e' una curva se rallenta davvero: la curvatura residua
             # di un rettilineo non lo e', per quanto il rilievo la misuri
             if v0 >= vmax * SOGLIA_CURVA:
                 return vmax, ""
             classe = ("lente" if v0 < V_LENTA else
                       "veloci" if v0 > V_VELOCE else "medie")
-            v = math.sqrt(mu * b.get(classe, 1.0) * C.G / denom)
-            return min(v, vmax), classe
+            return min(velocita(mu * b.get(classe, 1.0)), vmax), classe
 
         limiti = [lat_limit(k) for k in self.curvature]
         vlim = [x[0] for x in limiti]
@@ -316,8 +361,9 @@ class Track:
                 drag_a = 0.5 * rho * cda * vi * vi / mass
                 # anche in accelerazione il carico aerodinamico spinge a terra:
                 # a duecento all'ora la trazione non e' quella di un semaforo
-                a = min(power / (mass * vi),
-                        mu_t * (C.G + aero * vi * vi) * 0.85) - drag_a
+                mu_v = mu_t * carico(vi * vi) ** -SENSIBILITA_CARICO
+                a = min(potenza(vi) / (mass * vi),
+                        mu_v * (C.G + aero * vi * vi) * 0.85) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -326,7 +372,11 @@ class Track:
             for i in range(n - 1, -1, -1):
                 j = (i + 1) % n
                 vj = max(v[j], 5.0)
-                a_b = mu_b * C.G + 0.5 * rho * cla * vj * vj / mass
+                # in frenata rallentano le gomme, che schiacciate dal carico
+                # tengono di piu', e rallenta l'aria: a trecento all'ora vale
+                # quasi mezzo g da sola
+                mu_v = mu_b * carico(vj * vj) ** -SENSIBILITA_CARICO
+                a_b = mu_v * (C.G + aero * vj * vj) + 0.5 * rho * cda * vj * vj / mass
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
                 if cand < v[i]:
                     v[i] = cand
@@ -604,8 +654,17 @@ class Track:
             t, _, _ = self.lap_model(ref_car, grip=grip, rho=cond.rho)
             return t
 
-        best = min(range(0, 101, 10), key=giro)
-        fine = min(range(max(0, best - 8), min(100, best + 8) + 1, 4), key=giro)
+        # la curva del tempo contro l'ala ha un minimo solo: una passata larga
+        # e una stretta bastano, e sono la meta' dei giri simulati di prima
+        provati = {}
+
+        def costo(w):
+            if w not in provati:
+                provati[w] = giro(w)
+            return provati[w]
+
+        best = min(range(0, 101, 20), key=costo)
+        fine = min(range(max(0, best - 10), min(100, best + 10) + 1, 5), key=costo)
         ref_car.setup = saved
         return float(fine)
 

@@ -1007,6 +1007,11 @@ class WeekendScene(Scene):
                    T.ACCENT if e.status == "pitting" else T.BAD, bold=True)
         elif not stretto:
             T.text(surf, _ZONA.get(sim.zone_of(e), ""), (r.x + 210, r.y + 10), 12, T.DIM_2)
+        if e.damage > 6:
+            # i danni stanno in alto accanto al tachimetro: in fondo, su una
+            # finestra stretta, finivano sopra al giro migliore
+            T.text(surf, f"DANNI {e.damage:.0f}%", (r.right - 104, r.y + 10), 12, T.BAD,
+                   bold=True, align="right")
         v = sim.speed_of(e)
         T.text(surf, f"{v:.0f}", (r.right - 46, r.y + 4), 24, T.TEXT, bold=True,
                mono=True, align="right")
@@ -1050,9 +1055,7 @@ class WeekendScene(Scene):
                (r.x + 392, y), 13,
                VIOLA if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002 else T.TEXT,
                mono=True)
-        if e.damage > 6:
-            T.text(surf, f"DANNI {e.damage:.0f}%", (r.right - 14, y), 12, T.BAD,
-                   bold=True, align="right")
+
         # ---- riga quattro: la radio
         m = sim.radio_of(e.driver_id)
         if m:
