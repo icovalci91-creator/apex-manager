@@ -158,9 +158,14 @@ def scarica(nome: str) -> list:
 
 # --------------------------------------------------------------- geometria
 def punto_a(track: dict, quota: float) -> tuple:
-    """Le coordinate del punto del tracciato a quella quota di percorso."""
+    """Le coordinate del punto del tracciato a quella quota di percorso.
+
+    La quota si misura sui metri, non sui gradi: alle nostre latitudini un
+    grado di longitudine e' piu' corto di uno di latitudine, e contare in gradi
+    sposterebbe il punto di un centinaio di metri.
+    """
     geo = [(float(a), float(b)) for a, b in track["geo"]]
-    xy = [(p[1], p[0]) for p in geo]
+    xy = _project(geo)
     obiettivo = _path_length(xy) * (quota % 1.0)
     acc = 0.0
     for i in range(len(xy) - 1):

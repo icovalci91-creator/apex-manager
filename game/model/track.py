@@ -172,8 +172,8 @@ class Track:
         if len(self.start) == 2:
             # la linea sta in gradi: si porta nello stesso piano in metri del
             # tracciato, con la stessa origine e la stessa scala
-            tutti = _project(list(self.geo) + [list(self.start)])
-            bx, by = tutti[-1][0] * scala, tutti[-1][1] * scala
+            linea = _project([list(self.start)], origine=_centro(self.geo))[0]
+            bx, by = linea[0] * scala, linea[1] * scala
             i0 = min(range(len(pts)), key=lambda i: (pts[i][0] - bx) ** 2 + (pts[i][1] - by) ** 2)
             pts = pts[i0:] + pts[:i0]
         return pts
@@ -618,14 +618,24 @@ class Track:
 MIN_RADIUS = 12.0      # sotto questo raggio e' rumore di rilievo, non una curva
 
 
-def _project(geo) -> list:
-    """Da gradi a metri, piani, attorno al centro del circuito."""
+def _project(geo, origine: tuple | None = None) -> list:
+    """Da gradi a metri, piani, attorno al centro del circuito.
+
+    L'origine si puo' imporre: serve a portare nello stesso piano un punto che
+    del circuito non fa parte - la linea del traguardo - senza spostare tutto
+    il resto di qualche metro.
+    """
     lats = [float(p[0]) for p in geo]
     lons = [float(p[1]) for p in geo]
-    lat0 = sum(lats) / len(lats)
-    lon0 = sum(lons) / len(lons)
+    lat0, lon0 = origine or (sum(lats) / len(lats), sum(lons) / len(lons))
     mx = 111320.0 * math.cos(math.radians(lat0))
     return [((lon - lon0) * mx, (lat - lat0) * 110540.0) for lat, lon in zip(lats, lons)]
+
+
+def _centro(geo) -> tuple:
+    """Il centro attorno a cui si proietta un tracciato."""
+    return (sum(float(p[0]) for p in geo) / len(geo),
+            sum(float(p[1]) for p in geo) / len(geo))
 
 
 def _path_length(pts) -> float:
