@@ -338,6 +338,21 @@ i versi. Di quei dati non resta niente nel gioco: il risultato è un punto sul n
 tracciato. Gli altri — le cittadine soprattutto — hanno la coordinata scritta a mano nello
 strumento, che la aggancia al tracciato e dice di quanto l'ha dovuta spostare.
 
+**Quanto ci si puo' fidare di un circuito.** Ogni pista porta un fattore di taratura che
+allunga o accorcia il giro fino a farlo combaciare con la pole vera: comodo, e pericoloso,
+perché fa tornare i tempi e nasconde tutto il resto. `tools/track_report.py` lo spegne e
+guarda cosa esce dal modello da solo — errore sul giro, punta di velocità contro quella
+vera, curve trovate contro quelle in scheda, com'è stato trovato il traguardo:
+
+```bash
+python tools/track_report.py            # il calendario
+python tools/track_report.py --tutti    # anche i candidati
+```
+
+Sotto il 3% di errore il circuito è in ordine (una vettura di metà schieramento sta lì
+dietro alla pole). Sopra il 10% il tracciato o la scheda non descrivono quel circuito, e la
+riga viene segnata.
+
 **I settori.** La federazione mette le due linee degli intertempi in modo che i tre settori
 durino più o meno uguale: non un terzo di strada per uno — un terzo di Spa fatto di curvoni
 si percorre in molto meno tempo di un terzo fatto di tornanti — ma un terzo di cronometro.
@@ -1090,10 +1105,16 @@ il risultato del confronto.
 
 ## Limiti noti
 
+- Il modello di giro, senza taratura, sbaglia in media dell'1.8% con uno scarto tipo del
+  3.2%: è quello che resta da guadagnare in fedeltà, e le strade sono l'altimetria (che oggi
+  manca del tutto), l'aderenza combinata fra curva e frenata, e tracciati più fitti.
 - Il tracciato di Miami scaricato da OpenStreetMap non è quello vero: è un anello della
   lunghezza giusta ma sei chilometri più a sud del circuito. Va riscaricato
   (`tools/fetch_layouts.py --force --only miami`), e finché non lo si fa la sua linea del
   traguardo resta dove capita. Stesso problema per Tsukuba, fra i candidati.
+- Melbourne e Jeddah sbagliano il giro del 9% e del 16%: il tracciato scaricato non è quello
+  di adesso (Albert Park è stato rifatto nel 2021) o è troppo approssimativo. Vanno
+  riscaricati anche loro.
 - Madrid non ha riferimenti con cui allineare il traguardo — è un circuito nuovo: la linea
   è messa in fondo al rettilineo più lungo, che è dove sta quasi sempre, ma è una stima.
 - Le coordinate di OpenStreetMap sono rade: a Monza il tracciato ha un punto ogni
