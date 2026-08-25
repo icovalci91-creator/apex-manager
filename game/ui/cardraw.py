@@ -44,9 +44,16 @@ def ala_entrata(u: float) -> float:
 
 
 def ala_uscita(u: float) -> float:
-    """Dove passa il bordo d'uscita: quasi dritto, poi rientra sulla punta."""
+    """Dove passa il bordo d'uscita. Anche il retro dell'ala e' a freccia.
+
+    Fuori sta su un piano arretrato, verso la punta rientra un poco, e verso
+    il centro rientra parecchio: i flap si accorciano avvicinandosi al muso,
+    ed e' la linea su cui stanno i loghi tondi nelle livree vere.
+    """
     f = abs(u) / ALA_MEZZA
-    return 0.178 + 0.006 * f - 0.043 * max(0.0, (f - 0.62) / 0.38) ** 1.6
+    fuori = 0.196 - 0.036 * max(0.0, (f - 0.72) / 0.28) ** 1.5
+    dentro = 0.061 * min(1.0, max(0.0, (0.40 - f) / 0.25)) ** 1.3
+    return fuori - dentro
 
 
 def _ala_pianta(dentro: float = 1.0, da: float = 0.0, a: float = 1.0) -> list:
