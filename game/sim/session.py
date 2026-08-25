@@ -146,6 +146,8 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True) -> list:
     """
     from ..core import setup as SETUP
     track = ws.track
+    if ws.practice_done:
+        ws.weather = ws.weather.drift(track, gs.rng)
     cond = pace.of_weekend(ws, "prove")
     notes = []
     for team in gs.teams.values():
@@ -265,7 +267,9 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     Qualifying del venerdi' decide la griglia della sprint e basta, mentre le
     penalizzazioni in griglia si scontano nel gran premio.
     """
-    track, weather = ws.track, ws.weather
+    track = ws.track
+    ws.weather = ws.weather.drift(track, gs.rng)
+    weather = ws.weather
     cond = pace.of_weekend(ws, "quali")
     ents = build_entrants(gs, track, cond, quali=True)
     pool = {e.driver_id: e for e in ents}
@@ -407,7 +411,9 @@ def race_laps(gs, track, kind: str = "gp") -> int:
 
 
 def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
-    track, weather = ws.track, ws.weather
+    track = ws.track
+    ws.weather = ws.weather.drift(track, gs.rng)
+    weather = ws.weather
     laps = race_laps(gs, track, kind)
     cond = pace.of_weekend(ws, kind)
     ents = build_entrants(gs, track, cond)

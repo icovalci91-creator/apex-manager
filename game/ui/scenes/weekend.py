@@ -453,6 +453,12 @@ class WeekendScene(Scene):
         left = pygame.Rect(28, 92, w * 0.42, h - 190)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         trackdraw.draw_track(surf, tr, left.inflate(-24, -32), width=10)
+        # cosa dicono i radar per la domenica: e' l'informazione su cui si
+        # decide se rischiare o no
+        prev = ws.weather.forecast_label()
+        acqua = "pioggia" in prev or "acquazzone" in prev
+        T.text(surf, f"PREVISIONE: {prev}", (left.x + 20, left.bottom - 84), 11,
+               T.WARN if acqua else T.DIM_2, bold=True, maxw=left.w - 40)
         # quanta gomma c'e' sull'asfalto: e' il motivo per cui i tempi calano
         # turno dopo turno anche senza toccare niente
         gomma = (ws.rubber - PACE.PISTA_VERDE) / (PACE.PISTA_GOMMATA - PACE.PISTA_VERDE)
@@ -683,8 +689,12 @@ class WeekendScene(Scene):
         T.text(surf, f"{self.track.name.upper()}  -  GIRO {lap}/{sim.laps}", (24, 10), 20,
                T.TEXT, bold=True)
         sessione = "SPRINT" if sim.kind == "sprint" else "GRAN PREMIO"
-        T.text(surf, f"{sessione}  -  meteo {sim.weather.label}", (24, 38), 13,
+        T.text(surf, f"{sessione}  -  {sim.weather.label}", (24, 38), 13,
                T.GOLD if sim.kind == "sprint" else T.DIM)
+        if sim.meteo_prog:
+            giro, forza = sim.meteo_prog[0]
+            cosa = "pioggia" if forza > 0.05 else "asciutto"
+            T.text(surf, f"previsione: {cosa} dal giro {giro}", (260, 38), 13, T.WARN)
         if sim.safety_car > 0:
             lab = "VIRTUAL SAFETY CAR" if sim.vsc else "SAFETY CAR"
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)

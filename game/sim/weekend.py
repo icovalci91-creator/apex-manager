@@ -78,8 +78,86 @@ class Weather:
         sole = (0.30 if getattr(track, "night", False) else 1.0) * (1.0 - 0.75 * cloud)
         track_temp = air + 3.0 + 17.0 * sole - 6.0 * wet
         vento = max(0.0, rng.gauss(vento_base, vento_base * 0.45))
-        return cls(label=label, wet=wet, track_temp=round(track_temp, 1),
-                   air_temp=round(air, 1), wind=round(vento, 1), cloud=round(cloud, 2))
+        w = cls(label=label, wet=wet, track_temp=round(track_temp, 1),
+                air_temp=round(air, 1), wind=round(vento, 1), cloud=round(cloud, 2))
+        w.rain_forecast = w._forecast(track, rng)
+        return w
+
+    # ------------------------------------------------------------- evoluzione
+    def drift(self, track, rng: random.Random) -> "Weather":
+        """Il tempo del turno dopo: somiglia a questo, ma non e' questo.
+
+        Il venerdi' non e' il sabato e il sabato non e' la domenica. Le cose si
+        muovono con calma - la temperatura di qualche grado, le nuvole a
+        strappi - ma la pioggia arriva e se ne va, e chi ha preparato tutto il
+        fine settimana sull'asciutto la domenica si ritrova un'altra pista.
+        """
+        clima = getattr(track, "climate", None) or {}
+        pioggia = float(clima.get("rain", 0.20))
+        cloud = max(0.0, min(1.0, 0.62 * self.cloud + 0.38 * rng.betavariate(2.0, 3.5)))
+        wet = self.wet
+        if wet > 0.05:
+            if rng.random() < 0.45:
+                wet = 0.0                                  # ha smesso
+            else:
+                wet = max(0.05, min(1.0, wet * rng.uniform(0.55, 1.35)))
+        elif rng.random() < pioggia * 0.45:
+            wet = rng.uniform(0.20, 0.90)
+        if wet > 0.55:
+            label, cloud = "pioggia intensa", 1.0
+        elif wet > 0.05:
+            label, cloud = "pioggia leggera", max(cloud, 0.9)
+        elif cloud > 0.75:
+            label = "coperto"
+        elif cloud > 0.50:
+            label = "nuvoloso"
+        else:
+            label = "sereno"
+        media = float(clima.get("temp", 22.0))
+        air = 0.70 * self.air_temp + 0.30 * rng.gauss(media, 2.5) - 3.0 * wet
+        sole = (0.30 if getattr(track, "night", False) else 1.0) * (1.0 - 0.75 * cloud)
+        w = Weather(label=label, wet=round(wet, 3), air_temp=round(air, 1),
+                    track_temp=round(air + 3.0 + 17.0 * sole - 6.0 * wet, 1),
+                    wind=round(max(0.0, 0.6 * self.wind
+                                   + 0.4 * rng.gauss(float(clima.get("wind", 10.0)), 4.0)), 1),
+                    cloud=round(cloud, 2))
+        w.rain_forecast = w._forecast(track, rng)
+        return w
+
+    def _forecast(self, track, rng: random.Random) -> list:
+        """Cosa dicono i radar per la gara: a che punto e quanta acqua.
+
+        E' una previsione, non un fatto: dice che sta arrivando e quando, non
+        quanto durera' esattamente. Basta a decidere se rischiare le gomme da
+        asciutto o fermarsi subito.
+        """
+        clima = getattr(track, "climate", None) or {}
+        p = float(clima.get("rain", 0.20))
+        fuori = []
+        if self.wet > 0.05:
+            if rng.random() < 0.50:
+                fuori.append((round(rng.uniform(0.15, 0.70), 2), 0.0))
+        elif rng.random() < p * 0.75:
+            quando = round(rng.uniform(0.10, 0.75), 2)
+            fuori.append((quando, round(rng.uniform(0.25, 0.85), 2)))
+            if rng.random() < 0.35:
+                fuori.append((round(min(0.95, quando + rng.uniform(0.15, 0.40)), 2), 0.0))
+        return fuori
+
+    def forecast_label(self) -> str:
+        """La previsione detta a parole, per il muretto."""
+        if not self.rain_forecast:
+            return ("continua a piovere per tutta la gara" if self.wet > 0.05
+                    else "asciutto per tutta la gara")
+        quota, forza = self.rain_forecast[0]
+        quando = ("nei primi giri" if quota < 0.2 else
+                  "verso il primo terzo" if quota < 0.4 else
+                  "a meta' gara" if quota < 0.6 else
+                  "nell'ultimo terzo")
+        if forza <= 0.05:
+            return f"la pioggia dovrebbe smettere {quando}"
+        forte = "acquazzone" if forza > 0.55 else "pioggia leggera"
+        return f"{forte} in arrivo {quando}"
 
 
 # ------------------------------------------------------------------ concorrente
@@ -177,6 +255,10 @@ class RaceSim:
         # su un asfalto che scotta la gomma dura meno: e' la ragione per cui la
         # stessa mescola fa venti giri in Bahrain e trentacinque a Montreal
         self.temp_wear = max(0.72, min(1.55, 1.0 + 0.020 * (self.cond.track_temp - 35.0)))
+        # la previsione diventa un programma: a che giro l'acqua arriva e quanta
+        self.meteo_prog = [(max(1, int(q * laps)), forza)
+                           for q, forza in (getattr(weather, "rain_forecast", None) or [])]
+        self.meteo_target = weather.wet
         # degrado imposto dal regolamento in vigore: fisso per tutta la gara
         reg = getattr(gs, "regulations", None) or {}
         self.tyre_deg = float(reg.get("tyres", {}).get("deg_multiplier", 1.0))
@@ -245,6 +327,7 @@ class RaceSim:
         self.time += dt
         # la pista continua a gommarsi mentre si corre
         self.evo = max(0.9995, self.evo - dt * 0.0000030)
+        self._meteo(dt)
         if self.safety_car > 0:
             self.safety_car = max(0.0, self.safety_car - dt)
             if self.safety_car == 0.0:
@@ -284,6 +367,35 @@ class RaceSim:
         self._resolve_reviews(dt)
         self._update_positions()
         self._maybe_incident(dt)
+
+    def _meteo(self, dt: float) -> None:
+        """Il tempo cambia mentre si corre: l'acqua arriva, e poi se ne va.
+
+        Non e' un interruttore: la pista si bagna e si asciuga in qualche giro,
+        e in quei giri sta la gara - chi si ferma subito, chi resiste, chi
+        sbaglia il momento.
+        """
+        for giro, forza in list(self.meteo_prog):
+            if self.leader_lap >= giro:
+                self.meteo_target = forza
+                self.meteo_prog.remove((giro, forza))
+                if forza > 0.05:
+                    self.log("Arriva la pioggia: cominciano a cadere gocce", "warn")
+                else:
+                    self.log("Ha smesso di piovere: la pista si asciuga", "warn")
+        w = self.weather
+        if abs(w.wet - self.meteo_target) < 0.005:
+            return
+        passo = dt * 0.0016 * (1.0 if self.meteo_target > w.wet else 0.7)
+        prima = w.wet
+        w.wet = round(min(self.meteo_target, w.wet + passo) if self.meteo_target > w.wet
+                      else max(self.meteo_target, w.wet - passo), 3)
+        w.label = ("pioggia intensa" if w.wet > 0.55 else
+                   "pioggia leggera" if w.wet > 0.05 else "pista in asciugatura"
+                   if prima > 0.05 else w.label)
+        # sotto l'acqua la gomma stesa se ne va, e con lei l'aderenza
+        if w.wet > 0.2:
+            self.evo = min(1.02, self.evo + dt * 0.0000050)
 
     def _wear_rate(self, e: Entrant) -> float:
         comp = C.COMPOUNDS[e.tyre]
