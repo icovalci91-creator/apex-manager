@@ -732,7 +732,8 @@ class WeekendScene(Scene):
         if sim.meteo_prog:
             giro, forza = sim.meteo_prog[0]
             cosa = "pioggia" if forza > 0.05 else "asciutto"
-            T.text(surf, f"previsione: {cosa} dal giro {giro}", (260, 38), 13, T.WARN)
+            # i giri a schermo si contano da uno, come sul tabellone
+            T.text(surf, f"previsione: {cosa} dal giro {giro + 1}", (260, 38), 13, T.WARN)
         if sim.safety_car > 0:
             lab = "VIRTUAL SAFETY CAR" if sim.vsc else "SAFETY CAR"
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)
