@@ -921,13 +921,15 @@ class WeekendScene(Scene):
         y = tower.y + 34
         leader = order[0] if order else None
         rh = min(26.0, (tower.h - 46) / max(1, len(order)))
+        dim = 14 if rh >= 21 else (13 if rh >= 17 else 12)
+        pic = min(12, dim)
         for i, e in enumerate(order, 1):
             mio = (e.team_id == gs.player_team)
             if mio:
                 T.panel(surf, (tower.x + 8, y - 1, tower.w - 16, rh - 1), T.PANEL_3, radius=5)
-            T.text(surf, str(i), (tower.x + 32, y), 13, T.DIM, align="right")
+            T.text(surf, str(i), (tower.x + 32, y), dim, T.DIM, align="right")
             pygame.draw.rect(surf, e.colour, (tower.x + 42, y + 2, 3, max(9, int(rh) - 6)))
-            T.text(surf, e.code, (tower.x + 52, y), 14, T.TEXT if mio else T.DIM,
+            T.text(surf, e.code, (tower.x + 52, y), dim, T.TEXT if mio else T.DIM,
                    bold=mio, mono=True)
             # il posto accanto al codice: prima chi ha un conto aperto con i
             # commissari, poi - se ci sta - il nome per esteso
@@ -957,19 +959,20 @@ class WeekendScene(Scene):
                 giro = sum(e.sectors)
                 col = VIOLA if abs(giro - sim.best_lap) < 0.002 else (
                     T.OK if abs(giro - e.best_lap) < 0.002 else T.DIM)
-                T.text(surf, T.fmt_time(giro), (x_lap, y), 12, col, mono=True, align="right")
+                T.text(surf, T.fmt_time(giro), (x_lap, y), pic, col, mono=True,
+                       align="right")
             if e.status == "retired":
-                T.text(surf, "RIT", (x_gap, y), 12, T.BAD, align="right")
+                T.text(surf, "RIT", (x_gap, y), pic, T.BAD, align="right")
             elif e.status == "pitting":
-                T.text(surf, "BOX", (x_gap, y), 12, T.ACCENT, align="right", bold=True)
+                T.text(surf, "BOX", (x_gap, y), pic, T.ACCENT, align="right", bold=True)
             elif i == 1:
-                T.text(surf, "leader", (x_gap, y), 12, T.GOLD, align="right")
+                T.text(surf, "leader", (x_gap, y), pic, T.GOLD, align="right")
             elif leader:
                 gap_m = leader.dist - e.dist
                 gap_s = gap_m / max(20.0, sim.track_len / max(30.0, e.last_lap))
                 giri = int(gap_m // sim.track_len)
                 txt = f"+{giri} giri" if giri >= 1 else f"+{gap_s:.1f}"
-                T.text(surf, txt, (x_gap, y), 12, T.DIM, align="right", mono=True)
+                T.text(surf, txt, (x_gap, y), pic, T.DIM, align="right", mono=True)
             y += rh
 
     # ------------------------------------------------- la barra delle due auto
@@ -1190,7 +1193,12 @@ class WeekendScene(Scene):
             T.text(surf, "TAGLIO", (x_cut, tower.y + 12), 11, T.DIM_2, bold=True,
                    align="right")
         y = tower.y + 34
-        rh = min(26.0, (tower.h - 46) / max(1, len(righe)))
+        # le righe di stacco fra un turno e l'altro occupano posto come le
+        # altre: se non si contano, le ultime vetture finiscono fuori dal
+        # pannello
+        gruppi = len({p.fuori and p.fase_uscita for p in righe if p.fuori})
+        rh = min(26.0, (tower.h - 46 - 16 * gruppi) / max(1, len(righe)))
+        dim = 14 if rh >= 21 else (13 if rh >= 17 else 12)
         nomi = [f[0] for f in t.fasi]
         prima_fase = None
         for i, p in enumerate(righe, 1):
@@ -1209,12 +1217,12 @@ class WeekendScene(Scene):
                 T.panel(surf, (tower.x + 8, y - 1, tower.w - 16, rh - 1), T.PANEL_3, radius=5)
             if p.stato == "giro":
                 pygame.draw.rect(surf, VIOLA, (tower.x + 8, y - 1, 2, rh - 2))
-            T.text(surf, str(i), (tower.x + 32, y), 13, T.DIM, align="right")
+            T.text(surf, str(i), (tower.x + 32, y), dim, T.DIM, align="right")
             pygame.draw.rect(surf, e.colour, (tower.x + 42, y + 2, 3, max(9, int(rh) - 6)))
             # chi e' lanciato si vede a colpo d'occhio anche quando la colonna
             # dello stato non ci sta: sigla accesa e riga segnata a sinistra
             col_cod = T.ACCENT if p.stato == "giro" else (T.TEXT if mio else T.DIM)
-            T.text(surf, e.code, (tower.x + 52, y), 14, col_cod,
+            T.text(surf, e.code, (tower.x + 52, y), dim, col_cod,
                    bold=(mio or p.stato == "giro"), mono=True)
             stato = "" if p.fuori else _CORTO.get(p.stato, "")
             if stato and x_dot - (tower.x + 94) >= 76:
@@ -1230,21 +1238,22 @@ class WeekendScene(Scene):
                 col = t.sector_colour(p, k, val) if val > 0 else None
                 pygame.draw.rect(surf, _SETT.get(col, (46, 58, 78)),
                                  (x_pip + k * 10, int(y) + 5, 7, 7))
+            pic = min(12, dim)
             if p.tempo > 0:
                 col = VIOLA if abs(p.tempo - t.best_lap) < 0.002 else T.TEXT
-                T.text(surf, T.fmt_time(p.tempo), (x_lap, y), 12, col, mono=True,
+                T.text(surf, T.fmt_time(p.tempo), (x_lap, y), pic, col, mono=True,
                        align="right")
                 if t.best_lap > 0 and p.tempo > t.best_lap + 0.0005:
-                    T.text(surf, f"+{p.tempo - t.best_lap:.3f}", (x_gap, y), 12, T.DIM,
+                    T.text(surf, f"+{p.tempo - t.best_lap:.3f}", (x_gap, y), pic, T.DIM,
                            mono=True, align="right")
             else:
                 T.text(surf, "senza tempo", (x_lap, y), 11, T.DIM_2, align="right")
             if p.fuori:
-                T.text(surf, "OUT", (x_cut, y), 12, T.BAD, align="right", bold=True)
+                T.text(surf, "OUT", (x_cut, y), pic, T.BAD, align="right", bold=True)
             elif taglio and p.tempo > 0:
                 d = p.tempo - taglio
                 T.text(surf, f"{d:+.3f}" if abs(d) > 0.0005 else "limite",
-                       (x_cut, y), 12, T.BAD if d > 0 else T.OK, mono=True, align="right")
+                       (x_cut, y), pic, T.BAD if d > 0 else T.OK, mono=True, align="right")
             y += rh
 
     # ------------------------------------------------- le nostre due macchine

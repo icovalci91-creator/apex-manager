@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pygame
 
+from .. import config as C
+
 BG        = (10, 13, 20)
 PANEL     = (19, 25, 35)
 PANEL_2   = (26, 34, 48)
@@ -18,23 +20,66 @@ BAD       = (229, 72, 77)
 GOLD      = (226, 183, 78)
 WHITE     = (255, 255, 255)
 
+# I caratteri viaggiano col gioco invece di essere presi dal sistema: su
+# Windows si vedeva il font di Windows, su Linux un altro e nel browser un
+# altro ancora, e le stesse schermate venivano fuori diverse. Adesso sono tre
+# facce sole, tutte a licenza aperta e impacchettate qui dentro:
+#   Barlow            per il testo, stretto quel tanto che serve a far stare
+#                     una tabella di ventidue righe senza tagliare i nomi
+#   Barlow Condensed  per i titoli grandi, che e' il taglio dei tabelloni
+#   IBM Plex Mono     per i numeri, con le cifre tutte della stessa larghezza:
+#                     i tempi sul giro non ballano piu' mentre scorrono
 _FONTS: dict = {}
-_FAMILIES = "Segoe UI,Inter,DejaVu Sans,Arial"
-_MONO = "Consolas,DejaVu Sans Mono,Courier New"
+_DIR = C.ROOT / "assets" / "fonts"
+_FILE = {
+    ("sans", False): "Barlow-Medium.ttf",
+    ("sans", True): "Barlow-SemiBold.ttf",
+    ("mono", False): "IBMPlexMono-Regular.ttf",
+    ("mono", True): "IBMPlexMono-SemiBold.ttf",
+    ("titolo", True): "BarlowCondensed-Bold.ttf",
+}
+# Il corpo resta quello di prima: misurato sull'altezza della x e sulla
+# larghezza di una frase intera, Barlow allo stesso corpo si legge come il
+# carattere che c'era - e le pagine, che sono tarate al pixel, non si muovono.
+SCALA = 1.0
+# Da qui in su una scritta in grassetto e' un titolo, e i titoli vanno in
+# condensato: e' la stessa distinzione che fa una grafica televisiva.
+TITOLO_DA = 20
+
+# quando i file non ci sono - un sorgente incompleto - si torna al sistema
+_FALLBACK = {"sans": "Segoe UI,Inter,DejaVu Sans,Arial",
+             "mono": "Consolas,DejaVu Sans Mono,Courier New",
+             "titolo": "Segoe UI Semibold,Inter,DejaVu Sans,Arial"}
 
 
 def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
     key = (size, bold, mono)
-    if key not in _FONTS:
-        fam = _MONO if mono else _FAMILIES
-        try:
-            f = pygame.font.SysFont(fam, size, bold=bold)
-        except Exception:
-            # nel browser non ci sono font di sistema: si usa quello incluso
-            f = pygame.font.Font(None, size)
-            f.set_bold(bold)
+    f = _FONTS.get(key)
+    if f is None:
+        if mono:
+            faccia, corpo = "mono", size
+        elif bold and size >= TITOLO_DA:
+            faccia, corpo = "titolo", int(round(size * SCALA))
+        else:
+            faccia, corpo = "sans", int(round(size * SCALA))
+        f = _carica(faccia, bold, corpo)
         _FONTS[key] = f
-    return _FONTS[key]
+    return f
+
+
+def _carica(faccia: str, bold: bool, corpo: int) -> pygame.font.Font:
+    nome = _FILE.get((faccia, bold))
+    if nome:
+        strada = _DIR / nome
+        if strada.exists():
+            return pygame.font.Font(str(strada), corpo)
+    try:
+        return pygame.font.SysFont(_FALLBACK[faccia], corpo, bold=bold)
+    except Exception:
+        # nel browser senza font di sistema resta quello incluso in pygame
+        f = pygame.font.Font(None, corpo)
+        f.set_bold(bold)
+        return f
 
 
 # Le etichette sono quasi tutte identiche da un frame all'altro: rasterizzarle
@@ -172,9 +217,15 @@ def paragraph(surf, s: str, pos, size: int = 12, colour=DIM_2, maxw: int = 200,
     return y - pos[1]
 
 
+# L'interlinea non si chiede al carattere: cambiando faccia cambierebbe, e
+# tutte le pagine sono misurate su quella. Un quinto in piu' del corpo e' il
+# passo con cui sono state scritte, e con cui restano leggibili.
+INTERLINEA = 1.16
+
+
 def line_h(size: int, bold: bool = False) -> int:
     """Altezza di una riga di testo, interlinea compresa."""
-    return font(size, bold).get_linesize()
+    return int(round(size * INTERLINEA))
 
 
 def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1):
