@@ -24,7 +24,13 @@
       "v_fine_kmh": 355,
       "override_kmh": 337,
       "override_mj": 0.5,
-      "override_gap_s": 1.0
+      "override_gap_s": 1.0,
+      "mappe_motore": [
+        "conservativa",
+        "base",
+        "spinta"
+      ],
+      "_mappe_nota": "Le mappature del motore restano libere entro il limite di flusso di energia del carburante: quella lunga vale qualche decimo al giro e consuma di piu', quella magra fa il contrario. Il freno vero sono le unita' a disposizione nella stagione - quattro - e la penalita' in griglia per chi le finisce: tirare il motore tutta la gara si paga in affidabilita', non in un limite scritto."
     },
     "aero": {
       "active_aero": true,

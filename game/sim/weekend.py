@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from .. import config as C
 
 from ..core.penalties import INFRAZIONI as PENALTY_RULES
+from . import energia as EN
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
 
@@ -51,8 +52,8 @@ SOGLIA_SCARSA = 1.15
 FORZA_SORPASSO = 0.45
 # Quanto puo' arrivare a valere un tentativo, per quanto grosso sia il divario
 # di passo: dove non c'e' spazio non si passa nemmeno con due secondi al giro.
-TETTO_BASE = 0.02
-TETTO_PISTA = 0.17
+TETTO_BASE = 0.017
+TETTO_PISTA = 0.146
 
 
 def follow_gap(track) -> float:
@@ -258,6 +259,11 @@ class Entrant:
     energy_delta: float = 0.0     # cosa fa al giro, in secondi
     lift_coast: bool = False      # si alza il piede prima di frenare
     clipping: bool = False        # batteria a secco: niente spinta in fondo ai dritti
+    superclip: bool = False       # batteria a terra: il dritto lo fa il termico
+    mappa: str = "base"           # conservativa | base | spinta
+    mappa_manuale: bool = False   # la mappatura la decide il giocatore
+    mappa_delta: float = 0.0      # cosa costa o regala al giro, in secondi
+    motore_usura: float = 0.0     # quanto lo si e' tirato, da 0 a 1 e oltre
     override_usi: int = 0
     override_t: float = 0.0       # da quanto e' acceso, per il tabellone
     ers_skill: float = 85.0       # quanto bene questa power unit riempie la batteria
@@ -414,6 +420,7 @@ class RaceSim:
         # scarica la batteria va piu' forte, chi la ricarica piu' piano, chi
         # l'ha finita paga il clipping in fondo a ogni rettilineo
         t += e.energy_delta
+        t += e.mappa_delta
         if e.fuel <= 0.01:
             t += DRY_TANK_PENALTY
         clean = t
@@ -473,7 +480,10 @@ class RaceSim:
 
             wear_rate = self._wear_rate(e)
             e.tyre_age += wear_rate * dt / lt
-            burn = self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
+            burn = (self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
+                    * EN.BENZINA_MAPPA.get(e.mappa, 1.0))
+            if e.lift_coast:
+                burn *= EN.LIFT_BENZINA     # alzare il piede si sente anche qui
             e.fuel = max(0.0, e.fuel - burn * dt / lt)
 
             self._track_limits(e, dt)
@@ -632,6 +642,9 @@ class RaceSim:
 
         # rottura meccanica
         risk = (1.0 - e.reliability) * RISCHIO_ROTTURA * (1.0 + e.damage / 70.0)
+        # e quanto gli si e' chiesto col motore: le power unit dell'anno sono
+        # contate, e chi le tiene sempre in spinta le paga
+        risk *= EN.rischio_motore(e)
         if self.rng.random() < risk:
             e.status = "retired"
             e.dnf_reason = self.rng.choice([
@@ -686,13 +699,15 @@ class RaceSim:
     # ---------------------------------------------------------------- energia
     def _energia(self, e: Entrant) -> None:
         """I conti della batteria a fine giro: quanto e' entrato, quanto e' uscito."""
-        from . import energia
         avanti, dietro = self._chi_davanti(e), self._chi_dietro(e)
         metri_s = max(20.0, self.track_len / max(30.0, e.last_lap))
         ga = (avanti.dist - e.dist) / metri_s if avanti else 99.0
         gd = (e.dist - dietro.dist) / metri_s if dietro else 99.0
-        energia.scegli_modo(self, e, avanti, dietro, ga, gd)
-        e.energy_delta = energia.passo_giro(self, e)
+        EN.scegli_modo(self, e, avanti, dietro, ga, gd)
+        e.energy_delta = EN.passo_giro(self, e)
+        EN.scegli_mappa(self, e, ga, gd)
+        EN.logora_motore(self, e)
+        e.mappa_delta = EN.passo_mappa(self, e)
 
     # ------------------------------------------------------------------ radio
     def _parla(self, e: Entrant, giro: float, record: bool = False) -> None:
@@ -745,7 +760,9 @@ class RaceSim:
         if self.safety_car > 0:
             voci.append((7, "muretto", "Safety car in pista: tieni in temperatura le gomme."))
         # l'energia: e' meta' della macchina, e si sente
-        if e.clipping:
+        if e.superclip:
+            voci.append((9, "pilota", "Non ho piu' niente, il dritto lo sto facendo a motore."))
+        elif e.clipping:
             voci.append((8, "pilota", "Batteria a secco, in fondo al dritto non spingo piu'."))
         elif e.energy_mode == "ricarica":
             voci.append((4, "muretto", f"Due giri di ricarica: siamo a {e.carica:.1f} "
@@ -755,6 +772,15 @@ class RaceSim:
                                        f"da spendere adesso."))
         if e.override_usi and e.override_t > 0:
             voci.append((6, "muretto", "Override attivo: e' adesso o mai piu'."))
+        # e la mappatura: quando cambia, il pilota lo sente
+        if e.mappa == "conservativa" and e.lap > 2:
+            voci.append((5, "muretto", "Mappa conservativa: tienilo lungo, dobbiamo "
+                                       "arrivare in fondo."))
+        elif e.mappa == "spinta" and e.lap > 2:
+            voci.append((5, "muretto", "Mappa in spinta, hai tutto quello che c'e'."))
+        if e.motore_usura > 0.60:
+            voci.append((7, "muretto", "Il motore sta lavorando parecchio, "
+                                       "occhio alle temperature."))
         if 0 < resta <= 3:
             voci.append((6, "muretto", f"{resta} giri alla fine, porta a casa la macchina."))
         if record and self.best_lap_by == e.code and e.lap > 2:
@@ -926,11 +952,10 @@ class RaceSim:
             # trecentocinquanta kilowatt pieni fin quasi in fondo al dritto, e
             # costano mezzo megajoule. Se chi sta davanti e' a secco non ha
             # modo di rispondere, ed e' li' che si passa
-            from . import energia
             gap_s = gap_m / max(20.0, self.track_len / max(30.0, behind.last_lap))
             spinta = 0.0
-            if energia.puo_override(self, behind, gap_s):
-                spinta = energia.usa_override(self, behind)
+            if EN.puo_override(self, behind, gap_s):
+                spinta = EN.usa_override(self, behind)
                 behind.override_t = 4.0
                 if ahead.clipping:
                     spinta *= 1.5
@@ -946,6 +971,10 @@ class RaceSim:
             soglia = SOGLIA_ZONA + SOGLIA_SCARSA * (1.0 - posto)
             p = max(0.0, (vantaggio - 0.35 * soglia) / soglia) * FORZA_SORPASSO
             p *= 1.0 + spinta
+            # e se chi sta davanti ha la batteria a terra, sul dritto non c'e':
+            # quello e' il momento in cui i sorpassi si fanno quasi da soli
+            if ahead.superclip:
+                p *= 1.30
             # e poi ci vuole lo spazio per stare affiancati: e' quello che
             # separa Monte Carlo dal Red Bull Ring a parita' di staccata
             p *= 0.20 + 0.80 * ot_track

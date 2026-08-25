@@ -460,7 +460,7 @@ class CarPage(Page):
             gare = max(0, kits.build_time(team, kit.size) - (gs.round - kit.round_ready))
             quando = "alla prossima gara" if gare <= 1 else f"fra {gare} gare"
             if kit.gain <= 0:
-                T.text(surf, "e' andata peggio della vecchia: non conviene montarla",
+                T.text(surf, "peggio della vecchia: non conviene montarla",
                        (px, self.car_rect.y + 172), 12, T.BAD, maxw=pw)
             elif kit.spare <= 0 and len(kit.fitted) < 2:
                 T.text(surf, (f"il pezzo rifatto arriva {quando}" if danno

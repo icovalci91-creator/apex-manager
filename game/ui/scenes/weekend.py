@@ -201,18 +201,24 @@ class WeekendScene(Scene):
         # e' dove si guardano i megajoule: non in fondo insieme a tutto il resto
         from ...sim import energia as EN
         for e, r in self._pannelli_barra(w, h):
-            x = r.x + 320 if r.w >= 470 else r.x + 16
-            yy = r.y + 78
+            x, xm, yy = self._comandi_barra(r)
             for modo in EN.MODI:
                 b = Button((x, yy, 62, 20), EN.ETICHETTA[modo][:4], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=modo: self.set_energia(k, m))
                 b.active = (e.energy_mode == modo)
                 self.widgets.append(b)
-                x += 66
-            b = Button((x, yy, 52, 20), "L&C", style="tab")
+                x += 65
+            b = Button((x, yy, 46, 20), "L&C", style="tab")
             b.on_click = (lambda k=e.driver_id: self.set_energia(k, "lift"))
             b.active = e.lift_coast
             self.widgets.append(b)
+            # e le mappature del motore, che sono l'altra manopola
+            for mappa in EN.MAPPE:
+                b = Button((xm, yy, 62, 20), EN.CORTO_MAPPA[mappa], style="tab")
+                b.on_click = (lambda k=e.driver_id, m=mappa: self.set_mappa(k, m))
+                b.active = (e.mappa == mappa)
+                self.widgets.append(b)
+                xm += 65
 
         px = bx + 5 * 62 + 226
         for i, did in enumerate(self.gs.player.drivers):
@@ -229,6 +235,25 @@ class WeekendScene(Scene):
                 self.widgets.append(b)
                 px += 34
             px += 14
+
+    def _comandi_barra(self, r):
+        """Dove stanno i pulsanti dentro al pannello: energia, mappature, riga."""
+        return r.x + 16, r.right - 16 - 192, r.y + 104
+
+    def set_mappa(self, driver_id: str, mappa: str) -> None:
+        """La mappatura del motore la sceglie il muretto, e da qui in poi resta."""
+        if not self.sim:
+            return
+        from ...sim import energia
+        for e in self.sim.entrants:
+            if e.driver_id != driver_id:
+                continue
+            e.mappa = mappa
+            e.mappa_manuale = True
+            e.mappa_delta = energia.passo_mappa(self.sim, e)
+            self.sim.radio_say(e, f"Mappa {energia.ETICHETTA_MAPPA[mappa].lower()}.",
+                               "muretto")
+        self.build()
 
     def set_energia(self, driver_id: str, modo: str) -> None:
         """Il muretto prende in mano la batteria: da qui non decide piu' da solo."""
@@ -827,6 +852,9 @@ class WeekendScene(Scene):
     # Quanto spazio si prende la barra in basso con le due macchine, e quanto
     # ne resta alla cronaca sopra di lei.
     BARRA_H = 134
+    # in gara la barra ha una riga in piu' delle prove: quella della power
+    # unit, con i modi della batteria e le mappature del motore
+    BARRA_GARA_H = 158
     CRONACA_H = 62
 
     def _draw_race(self, surf) -> None:
@@ -834,13 +862,13 @@ class WeekendScene(Scene):
         sim = self.sim
         tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
-        barra_y = h - 84 - self.BARRA_H
+        barra_y = h - 84 - self.BARRA_GARA_H
         cronaca_y = barra_y - self.CRONACA_H - 8
         vista = pygame.Rect(20, 68, w - tower_w - 48, cronaca_y - 76)
         self._race_map(surf, vista)
         self._race_events(surf, pygame.Rect(20, cronaca_y, vista.w, self.CRONACA_H))
         self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
-        self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_H))
+        self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_GARA_H))
 
     def _race_header(self, surf, w: int) -> None:
         sim = self.sim
@@ -994,8 +1022,10 @@ class WeekendScene(Scene):
                        (255, 120, 90), bold=True)
             elif e.override_t > 0:
                 T.text(surf, "OVR", (x_nome, y + 1), 11, VIOLA, bold=True)
-            elif e.clipping:
+            elif e.superclip:
                 T.text(surf, "0 MJ", (x_nome, y + 1), 11, T.BAD, bold=True)
+            elif e.clipping:
+                T.text(surf, "CLIP", (x_nome, y + 1), 11, T.WARN, bold=True)
             elif largo_nome >= 70:
                 T.text(surf, e.name, (x_nome, y), 13, T.TEXT if mio else T.DIM,
                        maxw=largo_nome)
@@ -1041,7 +1071,7 @@ class WeekendScene(Scene):
                   if e.team_id == gs.player_team]
         if not nostre:
             return []
-        barra = pygame.Rect(20, h - 84 - self.BARRA_H, w - 40, self.BARRA_H)
+        barra = pygame.Rect(20, h - 84 - self.BARRA_GARA_H, w - 40, self.BARRA_GARA_H)
         larga = (barra.w - 12 * (len(nostre) - 1)) / len(nostre)
         return [(e, pygame.Rect(barra.x + i * (larga + 12), barra.y, larga, barra.h))
                 for i, e in enumerate(nostre)]
@@ -1127,12 +1157,22 @@ class WeekendScene(Scene):
         T.text(surf, "BATTERIA", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
         T.bar(surf, (r.x + 78, y + 4, 86, 9), quota * 100, 100, col)
         T.text(surf, f"{e.carica:.1f} MJ", (r.x + 172, y), 12, col, mono=True)
-        if e.clipping:
+        if e.superclip:
+            T.text(surf, "SUPERCLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
+        elif e.clipping:
             T.text(surf, "CLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
         elif e.override_t > 0:
             T.text(surf, "OVERRIDE", (r.x + 232, y + 1), 11, VIOLA, bold=True)
         elif e.lift_coast:
             T.text(surf, "LIFT & COAST", (r.x + 232, y + 1), 11, T.ACCENT)
+        # e in fondo alla stessa riga quanto si sta tirando il motore: sotto
+        # c'e' la riga dei comandi, la mappatura la si sceglie guardando qui
+        usura = min(1.0, e.motore_usura)
+        cu = T.OK if usura < 0.35 else (T.WARN if usura < 0.65 else T.BAD)
+        T.text(surf, "MOTORE", (r.right - 152, y + 2), 11, T.DIM_2, bold=True)
+        T.bar(surf, (r.right - 100, y + 4, 44, 9), usura * 100, 100, cu)
+        T.text(surf, f"{usura * 100:.0f}%", (r.right - 14, y), 12, cu, mono=True,
+               align="right")
         # ---- riga cinque: la radio
         m = sim.radio_of(e.driver_id)
         if m:

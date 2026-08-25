@@ -289,6 +289,18 @@ gioca la qualifica.
 - `BOX <pilota>`: chiama ai box al passaggio successivo.
 - `-` `=` `+`: modalità di guida (conserva / normale / attacca): più passo ma più consumo
   gomme e più rischio di errore.
+- **Batteria** (`RICA` `NORM` `ATTA` `L&C`, nel pannello di ogni vettura): quanta energia
+  si spende al giro rispetto a quella che si recupera. `RICA` mette via, `ATTA` scarica,
+  `L&C` alza il piede prima di staccare - restituisce energia e benzina e costa qualche
+  decimo. Sotto 0,9 MJ arriva il **clipping** (in fondo ai rettilinei la spinta finisce);
+  sotto 0,3 MJ il **superclipping**, che costa il triplo e non passa in un giro: per
+  uscirne bisogna risalire oltre 1,25 MJ. Chi insegue entro un secondo può chiedere
+  l'**override**: 0,5 MJ per avere tutta la potenza fino quasi a fondo dritto.
+- **Mappature del motore** (`CONS` `BASE` `SPIN`): l'altra manopola della power unit.
+  `SPIN` vale fino a tre decimi al giro sui circuiti di potenza, beve il 6% di benzina in
+  più e stressa il motore; `CONS` fa il contrario. Quanto lo si è tirato si legge nella
+  barra `MOTORE`: un motore tenuto sempre in spinta arriva a fine gara con quasi il doppio
+  delle probabilità di rompersi, uno tenuto lungo con meno del normale.
 
 ## Come funziona sotto il cofano
 
