@@ -100,6 +100,14 @@ class Car:
     active_aero_allowed: bool = True
     mass_base: float = C.CAR_MASS_KG              # peso minimo regolamentare
     pu_integration: float = 0.25                  # 0 cliente .. 1 costruttore
+    # come il regolamento in vigore ripartisce e limita la potenza: sono i
+    # numeri che una modifica al regolamento sposta, e da qui arrivano al
+    # modello di giro senza passare da variabili globali
+    quota_elettrica: float = C.QUOTA_ELETTRICA
+    v_taglio: float = C.V_TAGLIO_ERS              # m/s, dove la spinta cala
+    v_fine: float = C.V_FINE_ERS                  # m/s, dove finisce
+    recupero_max_mj: float = C.RECUPERO_MAX_MJ    # tetto al recupero di un giro
+    reg_grip: float = 1.0                         # quanta aderenza concede la gomma
     balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
@@ -117,6 +125,12 @@ class Car:
             active_aero_allowed=aero.get("active_aero", True),
             mass_base=float(reg.get("min_weight_kg", C.CAR_MASS_KG)),
         )
+        mod = (reg.get("power_unit", {}) or {}).get("modello", {}) or {}
+        c.quota_elettrica = float(mod.get("quota_elettrica", C.QUOTA_ELETTRICA))
+        c.v_taglio = float(mod.get("v_taglio_kmh", C.V_TAGLIO_ERS * 3.6)) / 3.6
+        c.v_fine = float(mod.get("v_fine_kmh", C.V_FINE_ERS * 3.6)) / 3.6
+        c.recupero_max_mj = float(mod.get("recupero_max_mj", C.RECUPERO_MAX_MJ))
+        c.reg_grip = float(reg.get("grip_multiplier", 1.0))
         return c
 
     def p(self, key: str) -> float:
@@ -181,7 +195,7 @@ class Car:
         # sospensioni e telaio sono simili per tutti, il fondo no. Con la
         # forbice larga di prima un punto di sospensione valeva tre di fondo,
         # che e' il contrario di quello che succede.
-        return (0.981 + 0.060 * base)
+        return (0.981 + 0.060 * base) * self.reg_grip
 
     @property
     def braking(self) -> float:

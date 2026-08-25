@@ -259,7 +259,8 @@ class Entrant:
     energy_delta: float = 0.0     # cosa fa al giro, in secondi
     lift_coast: bool = False      # si alza il piede prima di frenare
     clipping: bool = False        # batteria a secco: niente spinta in fondo ai dritti
-    superclip: bool = False       # batteria a terra: il dritto lo fa il termico
+    scarica: bool = False         # batteria a terra: il dritto lo fa il termico
+    superclip: bool = False       # ricarica a gas spalancato: si perde sul dritto
     mappa: str = "base"           # conservativa | base | spinta
     mappa_manuale: bool = False   # la mappatura la decide il giocatore
     mappa_delta: float = 0.0      # cosa costa o regala al giro, in secondi
@@ -348,6 +349,8 @@ class RaceSim:
         # la batteria che il regolamento concede, e quanto vale spenderla qui
         pu = (getattr(gs, "regulations", None) or {}).get("power_unit", {})
         self.batteria_max = float(pu.get("batteria_mj", C.BATTERIA_MJ))
+        self.senza_coperte = gs.regulations.get("tyre_warmers") is False
+        self.superclip_kw = float(pu.get("superclip_kw", 250.0))
         self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
@@ -421,6 +424,9 @@ class RaceSim:
         # l'ha finita paga il clipping in fondo a ogni rettilineo
         t += e.energy_delta
         t += e.mappa_delta
+        if self.senza_coperte and e.tyre_age < 1.6 and e.stops:
+            # gomme fredde: il giro dopo la sosta non e' un giro come gli altri
+            t += 2.4 * (1.6 - e.tyre_age) / 1.6
         if e.fuel <= 0.01:
             t += DRY_TANK_PENALTY
         clean = t
@@ -642,6 +648,9 @@ class RaceSim:
 
         # rottura meccanica
         risk = (1.0 - e.reliability) * RISCHIO_ROTTURA * (1.0 + e.damage / 70.0)
+        # e quanto il regolamento in vigore mette sotto sforzo la meccanica:
+        # una stagione di componenti contati non e' una con i ricambi liberi
+        risk *= 1.0 + float(self.gs.regulations.get("reliability_risk", 0.0) or 0.0)
         # e quanto gli si e' chiesto col motore: le power unit dell'anno sono
         # contate, e chi le tiene sempre in spinta le paga
         risk *= EN.rischio_motore(e)
@@ -658,6 +667,8 @@ class RaceSim:
 
         # errore del pilota
         err = (100.0 - e.consistency) * 0.00013 * (0.6 + 0.8 * e.push_mode)
+        if self.gs.regulations.get("traction_control"):
+            err *= 0.68        # con l'elettronica che tiene, gli errori calano
         err *= 1.0 + 2.2 * self.weather.wet
         err *= 1.0 + (1.0 - e.compound_state()) * 1.2
         # chi non si fida di quello che ha sotto sbaglia di piu': non e' che
@@ -760,8 +771,11 @@ class RaceSim:
         if self.safety_car > 0:
             voci.append((7, "muretto", "Safety car in pista: tieni in temperatura le gomme."))
         # l'energia: e' meta' della macchina, e si sente
-        if e.superclip:
+        if e.scarica:
             voci.append((9, "pilota", "Non ho piu' niente, il dritto lo sto facendo a motore."))
+        elif e.superclip:
+            voci.append((6, "muretto", "Ricarica a gas spalancato: sul dritto sei corto, "
+                                       "ma in curva no."))
         elif e.clipping:
             voci.append((8, "pilota", "Batteria a secco, in fondo al dritto non spingo piu'."))
         elif e.energy_mode == "ricarica":
@@ -971,9 +985,12 @@ class RaceSim:
             soglia = SOGLIA_ZONA + SOGLIA_SCARSA * (1.0 - posto)
             p = max(0.0, (vantaggio - 0.35 * soglia) / soglia) * FORZA_SORPASSO
             p *= 1.0 + spinta
-            # e se chi sta davanti ha la batteria a terra, sul dritto non c'e':
-            # quello e' il momento in cui i sorpassi si fanno quasi da soli
-            if ahead.superclip:
+            # e se chi sta davanti ha la batteria a terra, sul dritto non c'e'
+            # proprio: quello e' il momento in cui i sorpassi si fanno da soli.
+            # Chi sta ricaricando a gas spalancato invece non prende nessun
+            # bonus qui: quello che perde lo perde gia' sul passo, e contarlo
+            # due volte riempiva le gare di sorpassi che non esistono
+            if ahead.scarica:
                 p *= 1.30
             # e poi ci vuole lo spazio per stare affiancati: e' quello che
             # separa Monte Carlo dal Red Bull Ring a parita' di staccata

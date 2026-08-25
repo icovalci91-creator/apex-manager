@@ -185,7 +185,7 @@ def apply_effects(gs, proposal: dict) -> list:
             for t in gs.teams.values():
                 t.budget_base = max(60.0, t.budget_base + v)
         elif k == "reliability_risk":
-            reg["reliability_risk"] = v
+            reg["reliability_risk"] = round(reg.get("reliability_risk", 0.0) + v, 3)
         elif k == "reset_strength":
             reg["pending_reset"] = v
         elif k == "electric_share":
@@ -194,7 +194,28 @@ def apply_effects(gs, proposal: dict) -> list:
             quota = min(0.75, max(0.25, pu["electric_kw"] / tot + v))
             pu["electric_kw"] = round(tot * quota)
             pu["ice_kw"] = round(tot * (1 - quota))
+            # e la stessa ripartizione la vede il modello di giro: se non si
+            # muove anche li', cambiare il regolamento non cambia i tempi
+            mod = pu.setdefault("modello", {})
+            mod["quota_elettrica"] = round(quota, 3)
             notes.append(f"Ripartizione: {pu['ice_kw']} kW termico / {pu['electric_kw']} kW elettrico")
+        elif k == "recupero_mj":
+            pu = reg["power_unit"]
+            tetto = max(2.0, min(12.0, float(pu.get("harvest_max_mj_lap", 8.5)) + v))
+            pu["harvest_max_mj_lap"] = round(tetto, 2)
+            pu.setdefault("modello", {})["recupero_max_mj"] = round(tetto, 2)
+            notes.append(f"Recupero massimo: {tetto:.1f} MJ a giro")
+        elif k == "superclip_kw":
+            pu = reg["power_unit"]
+            kw = max(0.0, min(350.0, float(pu.get("superclip_kw", 250.0)) + v))
+            pu["superclip_kw"] = round(kw)
+            notes.append(f"Ricarica a gas spalancato: fino a {kw:.0f} kW")
+        elif k == "batteria_mj":
+            pu = reg["power_unit"]
+            cassa = max(1.0, min(10.0, float(pu.get("batteria_mj", 4.0)) + v))
+            pu["batteria_mj"] = round(cassa, 2)
+            pu["es_usable_mj"] = round(cassa, 2)
+            notes.append(f"Batteria: {cassa:.1f} MJ utili")
         elif k == "ground_effect":
             reg["aero"]["ground_effect"] = v
             if not v:
@@ -207,6 +228,8 @@ def apply_effects(gs, proposal: dict) -> list:
             notes.append("Gomme scanalate: meno aderenza meccanica" if v else "Ritorno alle slick")
         elif k == "tyre_war":
             reg["tyre_war"] = v
+            # due fornitori che si fanno la guerra portano gomme piu' veloci
+            reg["grip_multiplier"] = round(reg.get("grip_multiplier", 1.0) * (1.02 if v else 1.0), 3)
             notes.append("Piu' fornitori di gomme in gara")
         elif k == "tyre_warmers":
             reg["tyre_warmers"] = v
@@ -219,6 +242,9 @@ def apply_effects(gs, proposal: dict) -> list:
             notes.append("Controllo di trazione " + ("consentito" if v else "vietato"))
         elif k == "active_suspension":
             reg["active_suspension"] = v
+            # l'assetto smette di essere un compromesso: la macchina sta giu'
+            # dove serve e alta dove serve
+            reg["grip_multiplier"] = round(reg.get("grip_multiplier", 1.0) * (1.03 if v else 1.0), 3)
             notes.append("Sospensioni attive " + ("consentite" if v else "vietate"))
         elif k == "pu_reset":
             _rimescola_motori(gs)
@@ -227,7 +253,73 @@ def apply_effects(gs, proposal: dict) -> list:
                    "aggregate_quali", "supply_obligation"):
             reg[k] = v
     reg.setdefault("applied", []).append(proposal["id"])
+    if any(k in FISICHE for k in eff):
+        # quello che cambia la macchina cambia anche il giro: le mappe del
+        # circuito - dove si frena, quanta energia si riprende, dove si apre
+        # l'ala - vanno rifatte, ma la taratura sui tempi veri resta quella
+        gs.refresh_tracks()
     return notes
+
+
+# Dove va a finire quello che si vota. A sinistra la voce di una proposta, a
+# destra chi la legge davvero: serve a non illudersi che una modifica votata
+# stia cambiando qualcosa. Un None vuol dire che il regolamento la registra e
+# basta - la si vede nella pagina del regolamento, ma in pista non succede
+# niente, e finche' resta cosi' una proposta che tocca solo quella e' aria.
+DESTINAZIONE = {
+    "cost_cap_musd": "economia: il tetto di spesa della stagione",
+    "cost_cap_excludes_driver_salaries": "economia: gli ingaggi dentro o fuori dal cap",
+    "driver_salary_cap_musd": None,
+    "cap_carryover_musd": None,
+    "income_bonus_musd": "budget delle squadre, subito",
+    "min_weight_kg": "car.mass_base: peso della vettura nel modello di giro",
+    "downforce_index": "car.reg_downforce_index: carico aerodinamico",
+    "ground_effect": "carico aerodinamico (toglierlo vale -0.12 di indice)",
+    "active_aero": "car.active_aero_allowed e le zone dell'ala",
+    "drs": "regolamento aero: la voce dell'ala mobile",
+    "electric_share": "modello: quota elettrica, punta e valore dell'energia",
+    "recupero_mj": "modello: tetto al recupero di un giro",
+    "batteria_mj": "gara: capienza della batteria",
+    "superclip_kw": "gara: quanta energia si prende a gas spalancato",
+    "grooved_tyres": "car.reg_grip: aderenza meccanica",
+    "tyre_war": "car.reg_grip: aderenza meccanica",
+    "active_suspension": "car.reg_grip: aderenza meccanica",
+    "tyre_warmers": "gara: il giro dopo la sosta con gomme fredde",
+    "tyre_deg_multiplier": "gara: degrado delle gomme",
+    "traction_control": "gara: quanti errori fanno i piloti",
+    "reliability_risk": "gara: rischio di rottura",
+    "mandatory_stops": "strategia: soste minime in gara",
+    "mandatory_compounds": "gomme: mescole diverse obbligatorie",
+    "points": "campionato: punteggio",
+    "fastest_lap_point": "campionato: punto del giro veloce",
+    "sprint_events": "calendario: quante sprint",
+    "pit_lane_penalty_s": "gara: tempo perso ai box",
+    "units_per_season": "power unit: componenti a stagione",
+    "pu_development_locked": "power unit: sviluppo congelato",
+    "pu_equalisation": "power unit: riavvicinamento fra motoristi",
+    "pu_reset": "power unit: i motoristi ripartono da zero",
+    "atr_slope": "galleria del vento: la scala delle ore",
+    "testing_days": "test collettivi",
+    "rookie_fp1_sessions": None,
+    "prize_flatten": "premi: ripartizione piu' piatta",
+    "standard_parts": None,
+    "customer_cars_allowed": None,
+    "third_car": None,
+    "refuelling": None,
+    "reverse_grid": None,
+    "aggregate_quali": None,
+    "supply_obligation": None,
+    "standard_hybrid": None,
+    "pu_bench_limit": None,
+    "reset_strength": "ciclo tecnico: quanto rimescola le carte",
+}
+
+
+# Le voci che toccano la fisica della vettura: quando ne passa una, i circuiti
+# vanno rimisurati.
+FISICHE = ("min_weight_kg", "downforce_index", "active_aero", "ground_effect",
+           "electric_share", "recupero_mj", "grooved_tyres", "tyre_war",
+           "active_suspension")
 
 
 def _rimescola_motori(gs) -> None:

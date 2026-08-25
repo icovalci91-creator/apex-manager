@@ -545,7 +545,7 @@ def _scheda_circuito(surf, r, gs, t) -> None:
     if zone:
         m = zone[0]
         T.text(surf, f"{len(zone)} punti dove si passa, il migliore {m['lung']} m "
-                     f"e -{m['salto']} km/h in staccata",
+                     f"in {m.get('durata', 0):.0f} s e -{m['salto']} km/h in staccata",
                (cx.x + 16, y + 38), 11, T.DIM_2, maxw=cx.w - 32)
     else:
         T.text(surf, "nessun punto vero dove passare: si vince il sabato",

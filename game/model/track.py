@@ -300,6 +300,9 @@ class Track:
 
         n = len(self.curvature)
         ds = self.ds
+        quota_e = getattr(car, "quota_elettrica", C.QUOTA_ELETTRICA)
+        v_taglio = getattr(car, "v_taglio", C.V_TAGLIO_ERS)
+        v_fine = getattr(car, "v_fine", C.V_FINE_ERS)
 
         def potenza(v: float) -> float:
             """La potenza che c'e' davvero a quella velocita'.
@@ -310,11 +313,9 @@ class Track:
             dell'aria.
             """
             quota = 1.0
-            if v > C.V_TAGLIO_ERS:
-                quota = max(0.0, 1.0 - (v - C.V_TAGLIO_ERS)
-                            / (C.V_FINE_ERS - C.V_TAGLIO_ERS))
-            return power * (1.0 - C.QUOTA_ELETTRICA
-                            + C.QUOTA_ELETTRICA * quota * elettrico)
+            if v > v_taglio:
+                quota = max(0.0, 1.0 - (v - v_taglio) / max(1.0, v_fine - v_taglio))
+            return power * (1.0 - quota_e + quota_e * quota * elettrico)
 
         # velocita' massima assoluta: dove la potenza che resta non basta piu'
         # a vincere l'aria. Si trova a tentativi perche' la potenza dipende
@@ -487,7 +488,7 @@ class Track:
         mass = ref_car.mass_base + ref_car.mass_extra
         rho = cond.rho
         cda = C.CDA_BASE * ref_car.drag
-        potenza_e = C.POWER_W * C.QUOTA_ELETTRICA
+        potenza_e = C.POWER_W * getattr(ref_car, "quota_elettrica", C.QUOTA_ELETTRICA)
         preso = 0.0
         for i in range(n):
             j = (i + 1) % n
@@ -500,7 +501,8 @@ class Track:
             # piu' di cosi' il motore non riesce a riprendere, per quanto forte
             # si freni: e' un motore, non un pozzo
             preso += max(0.0, min(cinetica - aria, potenza_e * dt))
-        self.energia_giro = round(min(preso / 1e6, C.RECUPERO_MAX_MJ), 2)
+        tetto = getattr(ref_car, "recupero_max_mj", C.RECUPERO_MAX_MJ)
+        self.energia_giro = round(min(preso / 1e6, tetto), 2)
         # e quanto vale averla: il giro con la spinta contro il giro senza. Il
         # primo e' gia' stato fatto qui sopra, si rifa' solo quello senza
         from ..sim import pace
@@ -514,8 +516,15 @@ class Track:
     # questi, e sono anche i soli posti in cui un sorpasso e' pensabile: un
     # pezzo di pista abbastanza lungo da prendere la scia, con in fondo una
     # staccata vera in cui infilarsi. Uno dei due da solo non basta.
-    ALA_MIN_M = 300.0        # sotto questa lunghezza non si prende la scia
-    ALA_MIN_SALTO = 40.0     # e sotto questa frenata non c'e' dove infilarsi
+    # Il regolamento chiede che una zona di straight mode duri almeno tre
+    # secondi: e' la sola soglia scritta, e misurandola sui circuiti veri non
+    # e' mai lei a decidere - il tratto piu' corto che passa gli altri filtri
+    # dura gia' quattro secondi e mezzo. A dire quali tratti contano sono le
+    # altre due: un pezzo di pista abbastanza lungo da prendere la scia, e una
+    # staccata vera in fondo in cui infilarsi.
+    ALA_MIN_S = 3.0          # la soglia del regolamento
+    ALA_MIN_M = 300.0        # e un tratto piu' corto di cosi' non e' un dritto
+    ALA_MIN_SALTO = 40.0     # sotto questa frenata non c'e' dove infilarsi
     ALA_ATTACCO = 0.30       # l'attacco si gioca nell'ultimo pezzo del dritto
     ALA_CASELLE = 360        # in quante caselle si spezza il giro per cercarle
 
@@ -532,6 +541,9 @@ class Track:
             lung = passi * ds
             if lung < self.ALA_MIN_M:
                 continue
+            durata = sum(ds / max(3.0, v[(a + j) % n]) for j in range(passi))
+            if durata < self.ALA_MIN_S:
+                continue
             picco = max(v[(a + j) % n] for j in range(passi))
             salto = (picco - v[b]) * 3.6
             if salto < self.ALA_MIN_SALTO:
@@ -540,6 +552,7 @@ class Track:
             # quanto si stacca in fondo
             qualita = max(0.15, min(1.0, (lung / 1400.0) * (salto / 250.0)))
             zone.append({"fine": b / n, "inizio": a / n, "lung": round(lung),
+                         "durata": round(durata, 1),
                          "salto": round(salto), "qualita": round(qualita, 3),
                          "attacco": (b / n - self.ALA_ATTACCO * passi / n) % 1.0})
         zone.sort(key=lambda z: -z["qualita"])
@@ -803,6 +816,15 @@ class Track:
         # e con l'ala giusta si segna, metro per metro, che cosa e' questo
         # circuito: dove si frena, dove si curva piano, dove si tira
         ref_car.setup = ref_car.optimal_setup(self, cond=cond)
+        self._map_domains(ref_car, cond)
+
+    def rimisura(self, ref_car) -> None:
+        """Rifa' le mappe del giro con la vettura di adesso, senza ritarare."""
+        from ..sim import pace
+        cond = pace.nominal(self)
+        ref_car.setup = ref_car.optimal_setup(self, cond=cond)
+        ref_car.evaluate_setup(self)
+        ref_car.fuel_kg = 0.0
         self._map_domains(ref_car, cond)
 
     def _best_wing(self, ref_car, cond) -> float:

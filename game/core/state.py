@@ -252,13 +252,30 @@ class GameState:
                 t.fee = voce.get("fee", t.fee)
         self.candidates = rimasti
 
-    def _calibrate_tracks(self) -> None:
-        """Allinea il modello di giro ai tempi reali usando una vettura di riferimento."""
+    def _ref_car(self):
+        """La vettura campione con cui si misurano i circuiti."""
         ref_spec = {k: 85.0 for k in C.CAR_PARTS}
         ref_engine = {"power": 90, "ers": 88, "reliability": 86, "efficiency": 87}
-        ref = Car.build(ref_spec, ref_engine, self.regulations)
+        return Car.build(ref_spec, ref_engine, self.regulations)
+
+    def _calibrate_tracks(self) -> None:
+        """Allinea il modello di giro ai tempi reali usando una vettura di riferimento."""
+        ref = self._ref_car()
         for tr in list(self.tracks) + list(self.candidates):
             tr.calibrate(ref)
+
+    def refresh_tracks(self) -> None:
+        """Rimisura i circuiti dopo un cambio di regolamento, senza ritararli.
+
+        La taratura allinea il modello a pole vere del passato: quella non si
+        tocca, se no una regola che rende le macchine piu' lente si cancella da
+        sola. Quello che si rifa' e' il resto - dove si frena, quanta energia
+        si riprende, dove si apre l'ala - perche' con una macchina diversa quei
+        posti si spostano davvero.
+        """
+        ref = self._ref_car()
+        for tr in list(self.tracks) + list(self.candidates):
+            tr.rimisura(ref)
 
     def _build_staff(self) -> None:
         sdata = _load("staff.json")

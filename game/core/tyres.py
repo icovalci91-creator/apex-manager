@@ -15,8 +15,9 @@ in gara, chi ha caricato dure vive il venerdi' peggio e la domenica meglio.
 """
 from __future__ import annotations
 
-# La gamma del fornitore: C1 e' la piu' dura, C6 la piu' morbida.
-GAMMA = ("C1", "C2", "C3", "C4", "C5", "C6")
+# La gamma del fornitore: C1 e' la piu' dura, C5 la piu' morbida. Nel 2026 le
+# mescole tornano a essere cinque: la C6 provata nel 2025 non c'e' piu'.
+GAMMA = ("C1", "C2", "C3", "C4", "C5")
 MESCOLE = ("soft", "medium", "hard")
 LABEL = {"soft": "Morbida", "medium": "Media", "hard": "Dura"}
 
@@ -27,7 +28,7 @@ SETS_SPRINT = 12          # nel weekend con la sprint se ne portano meno
 OBBLIGATORI = {"hard": 1, "medium": 1, "soft": 1}
 
 # Quanto una mescola della gamma dura rispetto a un'altra: la C1 e' un
-# macigno che non finisce mai, la C6 si consuma guardandola.
+# macigno che non finisce mai, la C5 si consuma guardandola.
 def life_scale(c: int) -> float:
     return round(1.16 - 0.06 * c, 3)
 
@@ -41,7 +42,7 @@ def nomination(track) -> dict:
     Silverstone durerebbero mezzo giro.
     """
     wear = float(track.traits.get("tyre_wear", 0.6))
-    dura = max(1, min(4, int(round(1 + 3.4 * (1.0 - wear)))))
+    dura = max(1, min(len(GAMMA) - 2, int(round(1 + 3.4 * (1.0 - wear)))))
     return {"hard": dura, "medium": dura + 1, "soft": dura + 2}
 
 

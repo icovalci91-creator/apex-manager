@@ -12,8 +12,12 @@ e' "quanto vai forte" ma "quando la spendi":
     ma per pochi giri, e poi bisogna ridarli indietro;
   * chi resta a secco arriva in fondo al rettilineo senza spinta - e' il
     clipping - e lo si vede sul cronometro prima ancora che sullo specchietto;
-    se la batteria e' proprio vuota il dritto lo si fa quasi tutto col solo
-    termico - il superclipping - e da li' non si esce in un giro;
+    con la batteria proprio vuota il dritto lo si fa quasi tutto col solo
+    termico, e da li' non si esce in un giro;
+  * e c'e' il modo di ricaricare senza alzare il piede: si tiene il gas
+    spalancato e una parte di quello che fa il termico va nella batteria
+    invece che a terra - e' il superclipping, tappato a duecentocinquanta
+    kilowatt - si perde sul dritto ma non si perde in curva;
   * la mappatura del motore e' l'altra manopola: si puo' tenerlo lungo e
     tirato, oppure smagrirlo per risparmiare benzina e non cuocerlo, e la
     differenza fra le due si vede sul cronometro e sul finale di gara;
@@ -80,26 +84,53 @@ def recupero_giro(sim, e) -> float:
 SOGLIA_CLIP = 0.9
 CLIPPING = 0.09
 
-# Piu' sotto ancora c'e' il superclipping: non e' che manchi la spinta negli
+# Piu' sotto ancora la batteria e' proprio a terra: non manca la spinta negli
 # ultimi metri, e' che non ce n'e' quasi per niente e il rettilineo lo si fa
 # col solo termico. Non ci si casca per sbaglio e non se ne esce in un giro:
 # per tornare a spingere bisogna rimetterne dentro parecchia, per questo la
 # soglia di uscita sta molto piu' in alto di quella di entrata.
-SOGLIA_SUPER = 0.30
-SUPER_USCITA = 1.25
-SUPER_CLIP = 0.14
+SOGLIA_SCARICA = 0.30
+USCITA_SCARICA = 1.25
+PENA_SCARICA = 0.14
 
 
 def aggiorna_clip(sim, e) -> None:
     """Decide in che stato e' la batteria: piena, in clipping, o a terra."""
     e.clipping = e.carica < SOGLIA_CLIP
-    if e.superclip:
+    if e.scarica:
         # se ne esce solo quando la cassa e' tornata decente
-        e.superclip = e.carica < SUPER_USCITA
+        e.scarica = e.carica < USCITA_SCARICA
     else:
-        e.superclip = e.carica < SOGLIA_SUPER
-    if e.superclip:
+        e.scarica = e.carica < SOGLIA_SCARICA
+    if e.scarica:
         e.clipping = True
+
+
+# --------------------------------------------------------- il superclipping
+# L'altro modo di riempire la batteria, e quello che nel 2026 le squadre si
+# sono messe a cercare per primo: invece di alzare il piede prima della curva
+# si tiene il gas spalancato e si manda una parte di quello che fa il termico
+# nel motore elettrico invece che a terra. Il regolamento lo tappa a
+# duecentocinquanta kilowatt. Si perde sul rettilineo - quei kilowatt non
+# spingono - ma non si perde in curva, e non si consuma meno benzina: e'
+# esattamente il baratto opposto a quello del lift and coast.
+SUPER_KW = 250.0
+SUPER_MJ = 0.35           # quanto rimette in cassa in un giro, su pista media
+SUPER_PREZZO = 0.38       # e quanto costa in piu' ogni megajoule preso cosi'
+
+
+def superclip_mj(sim, e) -> float:
+    """Quanti megajoule si riescono a prendere a gas spalancato, su questa pista.
+
+    Conta quanto tempo al giro si passa col piede a tavoletta: dove ci sono
+    tre chilometri di dritto ce n'e' parecchio, a Monte Carlo quasi niente.
+    """
+    traits = getattr(sim.track, "traits", None) or {}
+    pieno = 0.25 + 1.35 * float(traits.get("power", 0.55))
+    # e quanto ne concede il regolamento: duecentocinquanta kilowatt oggi, ma
+    # e' uno dei numeri che in Commissione si spostano
+    tetto = float(getattr(sim, "superclip_kw", SUPER_KW)) / SUPER_KW
+    return SUPER_MJ * pieno * tetto * recupero_giro(sim, e)
 
 
 # --------------------------------------------------------------- mappature
@@ -196,6 +227,9 @@ def passo_giro(sim, e) -> float:
         voluta *= resa                  # si ricarica quanto la pista concede
     if e.lift_coast:
         voluta -= LIFT_MJ * resa
+    super_mj = superclip_mj(sim, e) if e.superclip else 0.0
+    voluta -= super_mj
+    chiesta = -voluta
     if voluta < 0:
         # e solo fin dove ci sta: quello che non entra in batteria non lo si
         # recupera nemmeno, e non costa niente non averlo recuperato
@@ -206,6 +240,10 @@ def passo_giro(sim, e) -> float:
     guadagno = -voluta * valore_mj(sim.track)
     if e.lift_coast:
         guadagno += LIFT_SECONDI
+    if super_mj > 0.0 and chiesta > 1e-9:
+        # i kilowatt che finiscono in batteria non spingono: si paga solo
+        # quello che si e' davvero riusciti a mettere via
+        guadagno += SUPER_PREZZO * super_mj * min(1.0, -voluta / chiesta)
     # clipping: con la batteria quasi vuota l'ultima parte di ogni rettilineo
     # si fa senza spinta. Con la batteria a terra non e' l'ultima parte: e'
     # quasi tutto il rettilineo, e sono secondi, non decimi.
@@ -214,9 +252,9 @@ def passo_giro(sim, e) -> float:
     if e.clipping:
         manca = 1.0 - min(1.0, e.carica / SOGLIA_CLIP)
         guadagno += CLIPPING * manca * valore
-    if e.superclip:
-        vuota = 1.0 - min(1.0, e.carica / SUPER_USCITA)
-        guadagno += SUPER_CLIP * vuota * valore
+    if e.scarica:
+        vuota = 1.0 - min(1.0, e.carica / USCITA_SCARICA)
+        guadagno += PENA_SCARICA * vuota * valore
     return guadagno
 
 
@@ -228,10 +266,12 @@ def carica_iniziale(sim) -> float:
 def puo_override(sim, e, gap_s: float) -> bool:
     """Si puo' chiedere l'override: entro un secondo e con energia in cassa.
 
-    Chi e' in superclipping non lo chiede nemmeno: quei mezzi megajoule, se
-    anche ce li ha, gli servono per non fare il resto del giro a spinta.
+    Chi ha la batteria a terra non lo chiede nemmeno, e nemmeno chi sta
+    ricaricando a gas spalancato: sono le due situazioni in cui sul dritto non
+    hai niente da dare.
     """
-    return (gap_s <= OVERRIDE_GAP and e.carica >= OVERRIDE_MJ and not e.superclip
+    return (gap_s <= OVERRIDE_GAP and e.carica >= OVERRIDE_MJ
+            and not e.scarica and not e.superclip
             and e.status == "running" and sim.safety_car <= 0)
 
 
@@ -254,16 +294,22 @@ def scegli_modo(sim, e, avanti, dietro, gap_avanti: float, gap_dietro: float) ->
     if e.is_player and e.energy_manual:
         return
     resta = sim.laps - e.lap
-    if e.superclip or e.carica < sim.batteria_max * 0.22:
-        e.energy_mode = "ricarica"          # prima si rimette qualcosa dentro
-        e.lift_coast = True
-        return
-    e.lift_coast = False
     vicino_avanti = avanti is not None and gap_avanti < 1.6
     vicino_dietro = dietro is not None and gap_dietro < 1.2
+    # ricaricare a gas spalancato costa sul dritto: lo si fa quando intorno non
+    # c'e' nessuno, e su una pista che ha rettilinei abbastanza da renderlo
+    # conveniente. In mezzo a un duello e' il modo migliore per farsi passare
+    e.superclip = (not vicino_avanti and not vicino_dietro
+                   and e.carica < sim.batteria_max * 0.40
+                   and float((getattr(sim.track, "traits", None) or {}).get("power", 0.55)) > 0.55)
+    if e.scarica or e.carica < sim.batteria_max * 0.22:
+        e.energy_mode = "ricarica"          # prima si rimette qualcosa dentro
+        e.lift_coast = not vicino_dietro
+        return
+    e.lift_coast = False
     if vicino_avanti:
         # se chi sta davanti e' a secco vale la pena spingere: non puo' rispondere
-        scarico = avanti.superclip or avanti.carica < sim.batteria_max * 0.30
+        scarico = avanti.scarica or avanti.carica < sim.batteria_max * 0.30
         e.energy_mode = "attacco" if (scarico or e.carica > sim.batteria_max * 0.55) else "normale"
     elif vicino_dietro:
         e.energy_mode = "attacco" if e.carica > sim.batteria_max * 0.45 else "normale"

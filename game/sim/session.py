@@ -379,6 +379,9 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
         stops = 1
     if wear_t > 0.88:
         stops = 2
+    # e se il regolamento ne impone un numero minimo, quello viene prima di
+    # qualunque conto sul degrado
+    stops = max(stops, int(gs.regulations["sporting"].get("mandatory_stops") or 0))
     noise = (100.0 - e.strategy_skill) / 100.0
     plan = []
     # i set si prenotano mano a mano: quello montato alla partenza non e' piu'

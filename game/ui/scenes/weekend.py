@@ -203,22 +203,27 @@ class WeekendScene(Scene):
         for e, r in self._pannelli_barra(w, h):
             x, xm, yy = self._comandi_barra(r)
             for modo in EN.MODI:
-                b = Button((x, yy, 62, 20), EN.ETICHETTA[modo][:4], style="tab")
+                b = Button((x, yy, 46, 20), EN.ETICHETTA[modo][:3], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=modo: self.set_energia(k, m))
                 b.active = (e.energy_mode == modo)
                 self.widgets.append(b)
-                x += 65
-            b = Button((x, yy, 46, 20), "L&C", style="tab")
-            b.on_click = (lambda k=e.driver_id: self.set_energia(k, "lift"))
-            b.active = e.lift_coast
-            self.widgets.append(b)
+                x += 49
+            # i due modi di rimettere energia in cassa: alzando il piede o
+            # tenendo il gas spalancato
+            for chiave, lab, acceso in (("lift", "L&C", e.lift_coast),
+                                        ("super", "SUP", e.superclip)):
+                b = Button((x, yy, 46, 20), lab, style="tab")
+                b.on_click = (lambda k=e.driver_id, c=chiave: self.set_energia(k, c))
+                b.active = acceso
+                self.widgets.append(b)
+                x += 49
             # e le mappature del motore, che sono l'altra manopola
             for mappa in EN.MAPPE:
-                b = Button((xm, yy, 62, 20), EN.CORTO_MAPPA[mappa], style="tab")
+                b = Button((xm, yy, 54, 20), EN.CORTO_MAPPA[mappa], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=mappa: self.set_mappa(k, m))
                 b.active = (e.mappa == mappa)
                 self.widgets.append(b)
-                xm += 65
+                xm += 57
 
         px = bx + 5 * 62 + 226
         for i, did in enumerate(self.gs.player.drivers):
@@ -238,7 +243,7 @@ class WeekendScene(Scene):
 
     def _comandi_barra(self, r):
         """Dove stanno i pulsanti dentro al pannello: energia, mappature, riga."""
-        return r.x + 16, r.right - 16 - 192, r.y + 104
+        return r.x + 16, r.right - 16 - 168, r.y + 104
 
     def set_mappa(self, driver_id: str, mappa: str) -> None:
         """La mappatura del motore la sceglie il muretto, e da qui in poi resta."""
@@ -265,11 +270,17 @@ class WeekendScene(Scene):
                 continue
             if modo == "lift":
                 e.lift_coast = not e.lift_coast
+            elif modo == "super":
+                e.superclip = not e.superclip
             else:
                 e.energy_mode = modo
             e.energy_manual = True
-            nome = ("lift and coast " + ("acceso" if e.lift_coast else "spento")
-                    if modo == "lift" else energia.ETICHETTA[modo].lower())
+            if modo == "lift":
+                nome = "lift and coast " + ("acceso" if e.lift_coast else "spento")
+            elif modo == "super":
+                nome = "ricarica a gas spalancato " + ("accesa" if e.superclip else "spenta")
+            else:
+                nome = energia.ETICHETTA[modo].lower()
             self.sim.radio_say(e, f"Passiamo a {nome}.", "muretto")
         self.build()
 
@@ -1022,8 +1033,10 @@ class WeekendScene(Scene):
                        (255, 120, 90), bold=True)
             elif e.override_t > 0:
                 T.text(surf, "OVR", (x_nome, y + 1), 11, VIOLA, bold=True)
-            elif e.superclip:
+            elif e.scarica:
                 T.text(surf, "0 MJ", (x_nome, y + 1), 11, T.BAD, bold=True)
+            elif e.superclip:
+                T.text(surf, "SUP", (x_nome, y + 1), 11, T.ACCENT, bold=True)
             elif e.clipping:
                 T.text(surf, "CLIP", (x_nome, y + 1), 11, T.WARN, bold=True)
             elif largo_nome >= 70:
@@ -1157,12 +1170,14 @@ class WeekendScene(Scene):
         T.text(surf, "BATTERIA", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
         T.bar(surf, (r.x + 78, y + 4, 86, 9), quota * 100, 100, col)
         T.text(surf, f"{e.carica:.1f} MJ", (r.x + 172, y), 12, col, mono=True)
-        if e.superclip:
-            T.text(surf, "SUPERCLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
+        if e.scarica:
+            T.text(surf, "BATTERIA A TERRA", (r.x + 232, y + 1), 11, T.BAD, bold=True)
         elif e.clipping:
             T.text(surf, "CLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
         elif e.override_t > 0:
             T.text(surf, "OVERRIDE", (r.x + 232, y + 1), 11, VIOLA, bold=True)
+        elif e.superclip:
+            T.text(surf, "SUPERCLIPPING", (r.x + 232, y + 1), 11, T.ACCENT)
         elif e.lift_coast:
             T.text(surf, "LIFT & COAST", (r.x + 232, y + 1), 11, T.ACCENT)
         # e in fondo alla stessa riga quanto si sta tirando il motore: sotto

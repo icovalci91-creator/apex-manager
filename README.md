@@ -255,9 +255,9 @@ scritto nel salvataggio.
 ### Le gomme del weekend
 
 Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
-gamma - da C1, la piu' dura, a C6 - scelte in base a quanta energia il tracciato mette
-nelle gomme: **C1-C2-C3 a Losail**, **C2-C3-C4 a Bahrain e Silverstone**, **C4-C5-C6 a
-Monaco**. E non e' solo un'etichetta: la stessa "morbida" a Monaco e a Silverstone e' una
+gamma - da C1, la più dura, a C5 - scelte in base a quanta energia il tracciato mette
+nelle gomme: **C1-C2-C3 a Losail**, **C2-C3-C4 a Bahrain e Silverstone**, **C3-C4-C5 a
+Monaco**. Nel 2026 le mescole sono tornate cinque: la C6 provata nel 2025 non c'è più. E non e' solo un'etichetta: la stessa "morbida" a Monaco e a Silverstone e' una
 gomma diversa, e dura di conseguenza.
 
 Poi si scelgono i set. Tredici per pilota (dodici nei weekend con la sprint), di cui tre
@@ -289,13 +289,18 @@ gioca la qualifica.
 - `BOX <pilota>`: chiama ai box al passaggio successivo.
 - `-` `=` `+`: modalità di guida (conserva / normale / attacca): più passo ma più consumo
   gomme e più rischio di errore.
-- **Batteria** (`RICA` `NORM` `ATTA` `L&C`, nel pannello di ogni vettura): quanta energia
-  si spende al giro rispetto a quella che si recupera. `RICA` mette via, `ATTA` scarica,
-  `L&C` alza il piede prima di staccare - restituisce energia e benzina e costa qualche
-  decimo. Sotto 0,9 MJ arriva il **clipping** (in fondo ai rettilinei la spinta finisce);
-  sotto 0,3 MJ il **superclipping**, che costa il triplo e non passa in un giro: per
-  uscirne bisogna risalire oltre 1,25 MJ. Chi insegue entro un secondo può chiedere
+- **Batteria** (`RIC` `NOR` `ATT`, nel pannello di ogni vettura): quanta energia si spende
+  al giro rispetto a quella che si recupera. `RIC` mette via, `ATT` scarica. Sotto 0,9 MJ
+  arriva il **clipping** - in fondo ai rettilinei la spinta finisce - e sotto 0,3 MJ la
+  batteria è **a terra**: costa il triplo e non se ne esce in un giro, per tornare a
+  spingere bisogna risalire oltre 1,25 MJ. Chi insegue entro un secondo può chiedere
   l'**override**: 0,5 MJ per avere tutta la potenza fino quasi a fondo dritto.
+- **I due modi di ricaricare** (`L&C` e `SUP`): il *lift and coast* alza il piede prima di
+  staccare - riprende energia, risparmia benzina e costa qualche decimo in ingresso curva.
+  Il **superclipping** fa il contrario: gas spalancato e una parte di quello che fa il
+  termico va in batteria invece che a terra (il regolamento lo tappa a 250 kW). Rimette
+  dentro molta più energia e non tocca la curva, ma sul rettilineo sei corto - quindi non
+  lo si fa mentre si difende o si attacca, e chi ti segue lo sfrutta.
 - **Mappature del motore** (`CONS` `BASE` `SPIN`): l'altra manopola della power unit.
   `SPIN` vale fino a tre decimi al giro sui circuiti di potenza, beve il 6% di benzina in
   più e stressa il motore; `CONS` fa il contrario. Quanto lo si è tirato si legge nella
@@ -1063,7 +1068,62 @@ Tutto il contenuto sta in `data/` ed è JSON leggibile:
 - `teams.json` — 11 scuderie, motoristi, strutture, componenti di partenza e posizione nel costruttori 2025 (da cui escono ore di galleria, premi e valore per gli sponsor)
 - `drivers.json` — 22 titolari + svincolati, con attributi e contratti
 - `staff.json` — figure chiave nominate, staff libero, template dei ruoli
-- `regulations.json` — regolamento 2026, cicli storici, catalogo delle proposte votabili
+- `regulations.json` — regolamento 2026 con i numeri ufficiali, cicli storici, catalogo delle proposte votabili
+
+### Il regolamento 2026, e cosa ne fa il gioco
+
+`regulations.json` non è un elenco di etichette: dentro `current` ci sono i numeri del
+regolamento tecnico, sportivo e finanziario FIA 2026, con la nota che dice da dove vengono.
+I principali:
+
+| | |
+|---|---|
+| Vettura | 768 kg minimo (pilota 82), passo 3400 mm, larghezza 1900, fondo −150 mm, 8 marce |
+| Aero | carico −30% e resistenza −55% rispetto al 2022, ala anteriore a 2 elementi, posteriore a 3, niente beam wing |
+| Straight mode | zone segnate, ognuna di almeno **3 secondi**, aperte a tutti; niente DRS |
+| Overtake mode | entro **1 s** al punto di rilevamento: 350 kW fino a 337 km/h, 0,5 MJ a botta |
+| Termico | 1600 cc V6 turbo, 15.000 giri, 400 kW, energia del carburante ≤ **3000 MJ/h** (sotto i 10.500 giri: 0,27·N + 165), ~70 kg di benzina a gara |
+| Elettrico | 350 kW, recupero ≤ **8,5 MJ** al giro (il tetto scritto è 9), batteria **4 MJ** utili, niente MGU-H |
+| Superclipping | ricarica a gas spalancato, tappata a **250 kW** |
+| Componenti | 4 termici, 4 turbo, 3 MGU-K, 3 batterie, 3 centraline, 4 scarichi: poi 10 posizioni, poi 5 |
+| Gomme | Pirelli C1-C5, 25 mm più strette davanti e 30 dietro, 13 set (12 nei weekend sprint) |
+| Soldi | cost cap 215 M$ fino a 24 gare (+1,8 per gara in più), tetto motoristi 190 M$ |
+| Galleria | scala dal 70% del primo al 115% del decimo, riferimento 320 run e 2000 CFD ogni due mesi |
+
+Dove il modello si discosta dal regolamento c'è scritto perché. Il caso principale è la
+discesa della spinta elettrica: il regolamento la fa calare fra 290 e 355 km/h, il modello
+di giro fra 320 e 380, perché lì la batteria non esiste e quei numeri rappresentano
+l'erogazione media di un giro. Quei valori stanno in `power_unit.modello` e sono gli stessi
+che una modifica votata in Commissione va a spostare.
+
+### Quanto vale cambiare una regola
+
+```
+python tools/sensibilita.py
+```
+
+Muove una leva alla volta e misura sul calendario vero cosa cambia. Serve a scrivere
+proposte nuove con effetti della grandezza giusta invece di tirare a indovinare:
+
+| leva | giro medio | punta | energia |
+|---|---|---|---|
+| peso −10 kg | −0,20 s | — | — |
+| carico +0,05 | −0,69 s | — | — |
+| elettrico +5% | +0,01 s | +1,5 km/h | +0,44 MJ, +1,6 s di valore |
+| effetto suolo abolito | +1,79 s | — | — |
+| gomme scanalate | +2,16 s | — | — |
+
+Due cose che si leggono solo così. Spostare la ripartizione fra termico ed elettrico **non**
+cambia il tempo sul giro (la potenza totale resta quella): cambia la punta e cambia tutto il
+gioco dell'energia, e va votata sapendolo. E il tetto al recupero di 8,5 MJ oggi non morde
+mai: il circuito più generoso del calendario ne rimette dentro 8,2, quindi abbassarlo si
+sente e alzarlo no.
+
+Lo stesso strumento stampa anche le voci che una proposta può cambiare e che **non legge
+nessuno**: dodici, oggi, elencate in `rules.DESTINAZIONE` con un `None` accanto. Sono
+proposte che passano in Commissione e in pista non cambiano niente - `refuelling`,
+`third_car`, `reverse_grid`, `standard_parts` e le altre - ed è la lista di lavoro per
+chi vuole renderle vere.
 
 I valori di piloti e scuderie sono ancorati alla forza espressa nella stagione 2025, che e'
 l'ultima cosa verificabile prima di un reset regolamentare: nel 2026 nessuno sa davvero
