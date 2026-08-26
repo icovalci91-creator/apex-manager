@@ -4,11 +4,12 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
-from ...core import calendar as CAL, economy, engineering, facilities, rules
+from ...core import (architetture, calendar as CAL, economy, engineering,
+                     facilities, powertrain, rules)
 from .. import theme as T
 from .. import trackdraw
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, card
+from ..widgets import Button, ScrollList, Tabs, card
 
 
 facility_cost = facilities.cost
@@ -166,9 +167,34 @@ def _infra_rank(gs, team) -> str:
 
 
 class RulesPage(Page):
-    def build(self) -> None:
-        self.widgets = []
+    """Il regolamento: quello in vigore, quello che verra', e cosa si vota.
+
+    Tre schede perche' sono tre cose diverse. La prima e' il libro delle
+    regole di adesso, con i numeri veri. La seconda e' il ciclo tecnico: che
+    motore sta uscendo dal tavolo, quanto e' avanti la federazione con la
+    testa, e su cosa stiamo lavorando noi. La terza e' la Commissione.
+    """
+
+    SCHEDE = ("In vigore", "Il ciclo che verra'", "Commissione")
+
+    def __init__(self, shell):
+        super().__init__(shell)
+        self.tab = 0
         self.proposals = []
+
+    def build(self) -> None:
+        r = self.rect
+        self.widgets = []
+        self.tabs = Tabs((r.x, r.y, r.w, 32), list(self.SCHEDE),
+                         on_change=self._switch, w=190)
+        self.tabs.index = self.tab
+        for i, b in enumerate(self.tabs.buttons):
+            b.active = (i == self.tab)
+        self.widgets.append(self.tabs)
+
+    def _switch(self, i: int) -> None:
+        self.tab = i
+        self.build()
 
     def refresh(self) -> None:
         self.build()
@@ -195,69 +221,312 @@ class RulesPage(Page):
             })
 
     def draw(self, surf) -> None:
+        if self.tab == 0:
+            self._draw_vigore(surf)
+        elif self.tab == 1:
+            self._draw_ciclo(surf)
+        else:
+            self._draw_commissione(surf)
+        super().draw(surf)
+
+    # ------------------------------------------------------- quello in vigore
+    def _draw_vigore(self, surf) -> None:
         r, gs = self.rect, self.gs
         reg = gs.regulations
-        left = pygame.Rect(r.x, r.y, r.w * 0.46, r.h)
+        pu = reg.get("power_unit", {})
+        aero = reg.get("aero", {})
+        sp = reg.get("sporting", {})
+        ch = reg.get("chassis", {})
+        tyres = reg.get("tyres", {})
+        y0 = r.y + 44
+        left = pygame.Rect(r.x, y0, r.w * 0.46, r.h - 44)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "REGOLAMENTO IN VIGORE", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        T.text(surf, reg.get("label", ""), (left.x + 16, left.y + 32), 17, T.TEXT, bold=True,
-               maxw=left.w - 32)
-        pu, aero, sp = reg["power_unit"], reg["aero"], reg["sporting"]
-        rows = [
-            ("Budget cap", f"{reg['cost_cap_musd']:.0f} M$"),
-            ("Stipendi piloti nel cap", "no" if reg.get("cost_cap_excludes_driver_salaries") else "si"),
-            ("Peso minimo", f"{reg['min_weight_kg']} kg"),
-            ("Power unit", f"{pu['ice_kw']} kW termico + {pu['electric_kw']} kW elettrico"),
-            ("Unita' per stagione", str(pu["units_per_season"])),
-            ("Aero attiva", "si" if aero["active_aero"] else "no"),
-            ("Indice di carico", f"{aero['downforce_index']:.2f}"),
-            ("Punti", " - ".join(str(int(p)) for p in sp["points"])),
-            ("Punto giro veloce", "si" if sp.get("fastest_lap_point") else "no"),
-            ("Sprint", str(sp.get("sprint_events", 0))),
-            ("Mescole obbligatorie", str(sp.get("mandatory_compounds", 2))),
-            ("Giornate di test", str(sp.get("testing_days", 3))),
-            ("Fornitore gomme", reg["tyres"]["supplier"]),
+        T.text(surf, "POWER UNIT E VETTURA", (left.x + 16, left.y + 12), 12, T.DIM_2,
+               bold=True)
+        aid = architetture.corrente(gs)
+        T.text(surf, architetture.scheda(gs, aid).get("nome", reg.get("label", "")),
+               (left.x + 16, left.y + 30), 16, T.TEXT, bold=True, maxw=left.w - 32)
+        comp = pu.get("components_per_season", {})
+        stretto = left.w < 400
+        if comp and not stretto:
+            conta = ("{ice} termici, {turbo} turbo, {k} MGU-K, {es} batterie".format(
+                ice=comp.get("ice", 4), turbo=comp.get("turbo", 4),
+                k=comp.get("mgu_k", 3), es=comp.get("energy_store", 3)))
+        elif comp:
+            conta = "{ice} / {turbo} / {k} / {es}".format(
+                ice=comp.get("ice", 4), turbo=comp.get("turbo", 4),
+                k=comp.get("mgu_k", 3), es=comp.get("energy_store", 3))
+        else:
+            conta = str(pu.get("units_per_season", 4))
+        righe = [
+            ("Motore", f"{pu.get('capacity_cc', 1600)} cc, "
+                       f"{pu.get('max_rpm', 15000):,} giri".replace(",", ".")),
+            ("Potenza", f"{pu.get('ice_kw', 400)} kW termici + "
+                        f"{pu.get('electric_kw', 350)} elettrici"),
+            ("Energia del carburante", f"{pu.get('fuel_energy_flow_max_mjh', 3000)} MJ/h"),
+            ("Benzina a gara", f"{pu.get('fuel_race_target_kg', 70)} kg"),
+            ("Batteria", f"{pu.get('batteria_mj', 4.0):.1f} MJ utili"),
+            ("Recupero", f"{pu.get('harvest_max_mj_lap', 8.5):.1f} MJ a giro"),
+            ("Superclipping", f"fino a {pu.get('superclip_kw', 250):.0f} kW"),
+            ("Componenti a stagione", conta),
+            ("Penalita' in griglia", f"{pu.get('penalty_grid_first', 10)} posizioni, "
+                                     f"poi {pu.get('penalty_grid_next', 5)}"),
+            ("Peso minimo", f"{reg.get('min_weight_kg', 768):.0f} kg "
+                            f"(pilota {ch.get('driver_min_kg', 82)})"),
+            ("Passo e larghezza", f"{ch.get('wheelbase_max_mm', 3400)} / "
+                                  f"{ch.get('width_max_mm', 1900)} mm"),
+            ("Cambio", f"{ch.get('gearbox_forward_gears_min', 8)} marce"),
         ]
-        y = left.y + 64
-        for k, v in rows:
+        y = left.y + 58
+        for k, v in righe:
             T.text(surf, k, (left.x + 16, y), 13, T.DIM)
             T.text(surf, v, (left.right - 16, y), 13, T.TEXT, bold=True, align="right",
-                   maxw=left.w * 0.55)
-            y += 22
-        y += 10
+                   maxw=left.w * 0.58)
+            y += 21
+        y += 8
         T.text(surf, "ORE DI SVILUPPO AERO (ATR)", (left.x + 16, y), 12, T.DIM_2, bold=True)
-        y += 22
+        base = reg.get("sporting", {}).get("atr_baseline_wind_tunnel_runs")
+        if base and not stretto:
+            T.text(surf, f"riferimento {base} run e "
+                         f"{sp.get('atr_baseline_cfd_items', 2000)} CFD ogni due mesi",
+                   (left.right - 16, y), 11, T.DIM_2, align="right", maxw=left.w * 0.6)
+        y += 20
         scale = reg["aero_testing_restriction"]["scale"]
-        for i, v in enumerate(scale[:len(gs.teams)], 1):
+        spazio = max(0, int((left.bottom - 16 - y) / 18))
+        for i, v in enumerate(scale[:min(len(gs.teams), spazio)], 1):
             T.text(surf, f"{i}o costruttori", (left.x + 16, y), 12, T.DIM)
             T.bar(surf, (left.x + 130, y + 4, left.w - 200, 7), v, 120)
             T.text(surf, f"{v}%", (left.right - 16, y), 12, T.TEXT, align="right")
             y += 18
 
-        right = pygame.Rect(r.x + r.w * 0.48, r.y, r.w * 0.52 - 4, r.h)
+        right = pygame.Rect(r.x + r.w * 0.48, y0, r.w * 0.52 - 4, r.h - 44)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "PROPOSTE IN COMMISSIONE", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, "AERODINAMICA, GOMME, SPORTIVO, SOLDI", (right.x + 16, right.y + 12),
+               12, T.DIM_2, bold=True)
+        gamma = tyres.get("compounds", ["C1", "C5"])
+        righe2 = [
+            ("Aero attiva", "si, con zone segnate" if aero.get("active_aero") else "no"),
+            ("Zona di straight mode", f"almeno {aero.get('straight_mode_min_seconds', 3):.0f} secondi"),
+            ("Overtake mode", f"entro {aero.get('overtake_gap_s', 1.0):.0f} s al rilevamento"),
+            ("Ala mobile (DRS)", "si" if aero.get("drs") else "no"),
+            ("Carico e resistenza", f"{aero.get('downforce_vs_2022_pct', -30)}% e "
+                                    f"{aero.get('drag_vs_2022_pct', -55)}% sul 2022"),
+            ("Indice di carico", f"{aero.get('downforce_index', 0.7):.2f}"),
+            ("Gomme", f"{tyres.get('supplier', 'Pirelli')} "
+                      f"{gamma[0]}-{gamma[-1]}, {tyres.get('sets_per_weekend', 13)} set"),
+            ("Degrado", f"x{tyres.get('deg_multiplier', 1.0):.2f}"),
+            ("Punti", " ".join(str(int(p)) for p in sp.get("points", []))),
+            ("Punto giro veloce", "si" if sp.get("fastest_lap_point") else "no"),
+            ("Sprint in calendario", str(sp.get("sprint_events", 0))),
+            ("Mescole obbligatorie", str(sp.get("mandatory_compounds", 2))),
+            ("Soste obbligatorie", str(sp.get("mandatory_stops", 0) or "nessuna")),
+            ("Giornate di test", str(sp.get("testing_days", 3))),
+            ("FP1 ai debuttanti", f"{sp.get('rookie_fp1_sessions', 0)} a squadra"),
+            ("Budget cap", f"{reg.get('cost_cap_musd', 215):.0f} M$"
+                           + (f" (+{reg['cost_cap_extra_race_musd']:.1f} a gara oltre 24)"
+                              if reg.get("cost_cap_extra_race_musd") else "")),
+            ("Stipendi piloti nel cap",
+             "no" if reg.get("cost_cap_excludes_driver_salaries") else "si"),
+            ("Tetto motoristi", f"{reg.get('pu_manufacturer_cap_musd', 190):.0f} M$"),
+        ]
+        y = right.y + 40
+        for k, v in righe2:
+            T.text(surf, k, (right.x + 16, y), 13, T.DIM)
+            T.text(surf, v, (right.right - 16, y), 13, T.TEXT, bold=True, align="right",
+                   maxw=right.w * 0.62)
+            y += 21
+        y += 8
+        # le norme fuori dall'ordinario, quelle che una Commissione ha votato
+        extra = [(k, e) for k, e in (
+            ("Rifornimento in gara", reg.get("refuelling")),
+            ("Terza vettura", reg.get("third_car")),
+            ("Vetture cliente", reg.get("customer_cars_allowed")),
+            ("Componenti standard", reg.get("standard_parts")),
+            ("Ibrido di fornitura unica", reg.get("standard_hybrid")),
+            ("Ore di banco contate", reg.get("pu_bench_limit")),
+            ("Obbligo di fornitura", reg.get("supply_obligation")),
+            ("Griglia invertita nelle sprint", reg.get("reverse_grid")),
+            ("Qualifica aggregata", reg.get("aggregate_quali")),
+            ("Controllo di trazione", reg.get("traction_control")),
+            ("Sospensioni attive", reg.get("active_suspension")),
+            ("Termocoperte vietate", reg.get("tyre_warmers") is False),
+            ("Massimale ingaggi", bool(reg.get("driver_salary_cap_musd"))),
+            ("Riporto del budget", bool(reg.get("cap_carryover_musd"))),
+        ) if e]
+        if extra and y < right.bottom - 40:
+            T.text(surf, "IN VIGORE OLTRE L'ORDINARIO", (right.x + 16, y), 12, T.GOLD,
+                   bold=True)
+            y += 20
+            T.paragraph(surf, ", ".join(k for k, _ in extra) + ".",
+                        (right.x + 16, y), 12, T.DIM, right.w - 32)
+
+    # ------------------------------------------------------ il ciclo che verra'
+    def _draw_ciclo(self, surf) -> None:
+        r, gs = self.rect, self.gs
+        st = rules.talks(gs)
+        ciclo = gs.regulations.get("pending_cycle") or {}
+        y0 = r.y + 44
+        alto = pygame.Rect(r.x, y0, r.w, 132)
+        T.panel(surf, alto, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "A CHE PUNTO SIAMO", (alto.x + 16, alto.y + 12), 12, T.DIM_2, bold=True)
+        if st:
+            testa = max(st.get("motori") or {"": 0}, key=(st.get("motori") or {"": 0}).get)
+            T.text(surf, f"Tavolo tecnico aperto: riunione {st['riunioni']} di "
+                         f"{st['servono']}", (alto.x + 16, alto.y + 32), 16, T.GOLD,
+                   bold=True)
+            if testa:
+                T.text(surf, f"la bozza sul motore dice {architetture.etichetta(gs, testa)} "
+                             f"({st['motori'][testa] * 100:.0f}%), e fino alla firma puo' "
+                             f"ancora cambiare", (alto.x + 16, alto.y + 56), 13, T.DIM,
+                       maxw=alto.w - 330)
+        elif ciclo.get("season"):
+            arch = ciclo.get("arch") or ""
+            T.text(surf, f"Ciclo nuovo fissato per il {ciclo['season']}",
+                   (alto.x + 16, alto.y + 32), 16, T.GOLD, bold=True)
+            if arch:
+                T.text(surf, f"si correra' con il {architetture.scheda(gs, arch).get('nome', arch)}: "
+                             f"{architetture.descrizione(gs, arch)}",
+                       (alto.x + 16, alto.y + 56), 13, T.DIM, maxw=alto.w - 330)
+        else:
+            soglia = float(gs.commission.get("cycle_reset_threshold", 1.2))
+            spinta = float(ciclo.get("pressure", 0.0))
+            T.text(surf, "Nessun tavolo aperto: si corre con quello che c'e'",
+                   (alto.x + 16, alto.y + 32), 16, T.TEXT, bold=True, maxw=alto.w - 330)
+            T.text(surf, f"spinta verso un ciclo nuovo {spinta:.2f} su {soglia:.2f} - "
+                         f"ogni norma tecnica che passa la fa salire",
+                   (alto.x + 16, alto.y + 56), 13, T.DIM, maxw=alto.w - 330)
+            T.bar(surf, (alto.x + 16, alto.y + 78, 260, 8), spinta, soglia, T.GOLD)
+        # dove ha la testa la federazione, che e' quello che rende possibile
+        # domani una cosa che oggi non lo e'
+        trend = architetture.trend_elettrico(gs)
+        T.text(surf, "SPINTA VERSO L'ELETTRICO", (alto.right - 296, alto.y + 12), 12,
+               T.DIM_2, bold=True)
+        T.bar(surf, (alto.right - 296, alto.y + 34, 280, 9), trend * 100, 100,
+              T.ACCENT if trend > 0.4 else T.PANEL_3)
+        T.paragraph(surf, "cresce a ogni ciclo firmato: sopra la meta' anche una "
+                          "macchina senza motore termico diventa discutibile",
+                    (alto.right - 296, alto.y + 50), 11, T.DIM_2, 280)
+        prog = powertrain.programma_arch(gs.player)
+        if prog.get("arch"):
+            att = architetture.attrezzatura(gs, gs.player, prog["arch"])
+            col = T.OK if att >= 1.05 else (T.WARN if att >= 0.85 else T.BAD)
+            T.text(surf, f"Noi: {architetture.etichetta(gs, prog['arch'])} dal "
+                         f"{prog.get('da', gs.season)}, "
+                         f"{float(prog.get('investito', 0.0)):.0f} M$ spesi, "
+                         f"{float(prog.get('budget', 0.0)):.0f} a stagione, x{att:.2f} "
+                         f"di attrezzatura",
+                   (alto.x + 16, alto.bottom - 30), 13, col, maxw=alto.w - 330)
+        else:
+            T.text(surf, "Nessun programma aperto: si apre dalla pagina Power unit",
+                   (alto.x + 16, alto.bottom - 30), 13, T.DIM_2, maxw=alto.w - 330)
+
+        # ---- il catalogo: cosa cambierebbe con ognuna
+        basso = pygame.Rect(r.x, y0 + 140, r.w, r.h - 184)
+        T.panel(surf, basso, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "LE ARCHITETTURE SUL TAVOLO", (basso.x + 16, basso.y + 12), 12,
+               T.DIM_2, bold=True)
+        largo = basso.w > 900
+        x_conf = basso.x + 130
+        x_pot = basso.x + 300 if largo else basso.x + 270
+        x_peso = basso.x + (470 if largo else 420)
+        x_benz = basso.x + (560 if largo else 490)
+        x_bat = basso.x + (650 if largo else 560)
+        x_bozza = basso.x + (730 if largo else 630)
+        x_noi = basso.right - 16
+        y = basso.y + 36
+        for lab, x, al in (("architettura", basso.x + 16, "left"),
+                           ("configurazione", x_conf, "left"),
+                           ("potenza", x_pot, "left"), ("peso", x_peso, "right"),
+                           ("benzina", x_benz, "right"), ("batteria", x_bat, "right"),
+                           ("bozza", x_bozza, "right"), ("noi", x_noi, "right")):
+            T.text(surf, lab.upper(), (x, y), 10, T.DIM_2, bold=True, align=al)
+        y += 20
+        motori = (st or {}).get("motori") or {}
+        attuale = architetture.corrente(gs)
+        for aid, a in architetture.catalogo(gs).items():
+            if y > basso.bottom - 26:
+                break
+            mio = (aid == attuale)
+            scelto = (prog.get("arch") == aid)
+            col = T.GOLD if mio else (T.ACCENT if scelto else T.TEXT)
+            T.text(surf, a.get("breve", aid), (basso.x + 16, y), 13, col, bold=(mio or scelto))
+            cil = a.get("cilindri", 0)
+            conf = (f"{cil} cilindri {a.get('cilindrata_cc', 0) / 1000:.1f} l "
+                    f"{a.get('aspirazione', '')}" if cil else "batteria e motori")
+            T.text(surf, conf, (x_conf, y), 12, T.DIM, maxw=x_pot - x_conf - 8)
+            T.text(surf, f"{a.get('ice_kw', 0)} + {a.get('elettrico_kw', 0)} kW",
+                   (x_pot, y), 12, T.DIM, maxw=x_peso - x_pot - 60)
+            T.text(surf, f"{a.get('peso_pu_kg', 185)} kg", (x_peso, y), 12, T.DIM,
+                   align="right")
+            T.text(surf, f"{a.get('benzina_kg', 70)} kg", (x_benz, y), 12, T.DIM,
+                   align="right")
+            T.text(surf, f"{a.get('batteria_mj', 0.0):.1f} MJ", (x_bat, y), 12, T.DIM,
+                   align="right")
+            quota = motori.get(aid)
+            if quota is not None:
+                T.text(surf, f"{quota * 100:.0f}%", (x_bozza, y), 12,
+                       T.GOLD if quota >= max(motori.values()) - 1e-9 else T.DIM_2,
+                       bold=True, align="right")
+            elif mio:
+                T.text(surf, "in vigore", (x_bozza, y), 11, T.GOLD, align="right")
+            att = architetture.attrezzatura(gs, gs.player, aid)
+            cn = T.OK if att >= 1.05 else (T.WARN if att >= 0.85 else T.BAD)
+            T.text(surf, f"x{att:.2f}", (x_noi, y), 12, cn, bold=True, align="right")
+            y += 24
+        if y < basso.bottom - 34:
+            T.paragraph(surf, "\"noi\" e' quanto siamo attrezzati per costruirla: "
+                              "ingegneri, fabbrica e mestiere gia' in casa. Sotto lo "
+                              "0.85 la scommessa rende molto meno, per quanti soldi ci "
+                              "si metta.",
+                        (basso.x + 16, y + 6), 12, T.DIM_2, basso.w - 32)
+
+    # ------------------------------------------------------------- commissione
+    def _draw_commissione(self, surf) -> None:
+        r, gs = self.rect, self.gs
+        y0 = r.y + 44
+        left = pygame.Rect(r.x, y0, r.w * 0.46, r.h - 44)
+        T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "COME SI VOTA", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         com = gs.commission
-        T.text(surf, f"{len(gs.teams)} scuderie ({com['team_votes']} voto ciascuna) + "
-                     f"FIA {com['fia_votes']} + FOM {com['fom_votes']}",
-               (right.x + 16, right.y + 32), 12, T.DIM)
+        T.paragraph(surf, f"{len(gs.teams)} scuderie con {com['team_votes']} voto ciascuna, "
+                          f"la FIA con {com['fia_votes']} e la FOM con {com['fom_votes']}. "
+                          f"Serve il "
+                          f"{float(com.get('threshold_next_season_pct', 0.6)) * 100:.0f}% "
+                          f"dei voti.",
+                    (left.x + 16, left.y + 34), 13, T.DIM, left.w - 32)
+        y = left.y + 90
+        in_arrivo = rules.pending(gs)
+        T.text(surf, "GIA' APPROVATE, IN VIGORE PIU' AVANTI", (left.x + 16, y), 12,
+               T.GOLD, bold=True)
+        y += 22
+        if in_arrivo:
+            for voce in in_arrivo[:8]:
+                T.text(surf, f"dal {voce['season']}", (left.x + 16, y), 12, T.GOLD)
+                T.text(surf, voce["title"], (left.x + 84, y), 13, T.TEXT,
+                       maxw=left.w - 108)
+                y += 20
+        else:
+            T.text(surf, "niente in coda: si corre con quello che c'e'",
+                   (left.x + 16, y), 13, T.DIM_2, maxw=left.w - 32)
+            y += 20
+        y += 14
+        for riga in ("Quello che passa entra in vigore dalla stagione successiva: a",
+                     "campionato in corso non si cambiano le carte. Fanno eccezione la",
+                     "sicurezza e le direttive tecniche dopo una violazione accertata,",
+                     "che valgono dal gran premio dopo."):
+            T.text(surf, riga, (left.x + 16, y), 12, T.DIM_2, maxw=left.w - 32)
+            y += 17
+
+        right = pygame.Rect(r.x + r.w * 0.48, y0, r.w * 0.52 - 4, r.h - 44)
+        T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "PROPOSTE IN COMMISSIONE", (right.x + 16, right.y + 12), 12,
+               T.DIM_2, bold=True)
         if not self.proposals:
             self._read_proposals()
-        y = right.y + 60
-        # quello che e' gia' passato ma non e' ancora in vigore: si sa in
-        # anticipo, ed e' con quello che si progetta la macchina dell'anno dopo
-        in_arrivo = rules.pending(gs)
-        if in_arrivo:
-            T.text(surf, "GIA' APPROVATE, IN VIGORE PIU' AVANTI",
-                   (right.x + 16, y), 12, T.GOLD, bold=True)
-            y += 20
-            for voce in in_arrivo[:3]:
-                T.text(surf, f"dal {voce['season']}", (right.x + 24, y), 12, T.GOLD)
-                T.text(surf, voce["title"], (right.x + 92, y), 13, T.TEXT,
-                       maxw=right.w - 120)
-                y += 19
-            y += 10
+        y = right.y + 40
         for item in self.proposals:
+            if y > right.bottom - 100:
+                break
             p = item["p"]
             T.panel(surf, (right.x + 12, y, right.w - 24, 96), T.PANEL_2, radius=8)
             T.text(surf, p["title"], (right.x + 24, y + 10), 15, T.TEXT, bold=True,
@@ -277,14 +546,6 @@ class RulesPage(Page):
             T.text(surf, f"scuderie favorevoli stimate: {item['yes']}/{len(gs.teams)}",
                    (right.right - 24, y + 68), 12, T.DIM, align="right")
             y += 104
-        for i, riga in enumerate((
-                "Quello che passa entra in vigore dalla stagione successiva: a",
-                "campionato in corso non si cambiano le carte. Fanno eccezione la",
-                "sicurezza e le direttive tecniche dopo una violazione accertata,",
-                "che valgono dal gran premio dopo.")):
-            T.text(surf, riga, (right.x + 16, right.bottom - 84 + i * 17), 12, T.DIM_2,
-                   maxw=right.w - 32)
-        super().draw(surf)
 
 
 class StandingsPage(Page):

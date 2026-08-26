@@ -289,9 +289,12 @@ class GameShell(Scene):
         else:
             _kv(surf, 780, "STAGIONE", "conclusa", T.WARN)
         drs = gs.drivers_of(team.id)
-        if drs:
+        # i piloti stanno in fondo alla barra, e in fondo vuol dire in fondo a
+        # questa finestra: su uno schermo stretto a 1090 fissi finivano fuori
+        if drs and w >= 1120:
             names = "  |  ".join(f"{d.last} {d.points:.0f}" for d in drs)
-            _kv(surf, 1090, "PILOTI", names, T.TEXT, maxw=330)
+            largo = min(330, w - 1106)
+            _kv(surf, w - largo - 16, "PILOTI", names, T.TEXT, maxw=largo)
         pygame.draw.line(surf, T.LINE, (0, TOPBAR_H), (w, TOPBAR_H))
 
         # la pagina si disegna dentro la sua finestra: se e' piu' alta, quello

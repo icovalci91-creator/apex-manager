@@ -202,7 +202,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
-| Regolamento | Norme in vigore, scala ATR, proposte in discussione e tavolo tecnico per il ciclo che verra' |
+| Regolamento | Tre schede: **In vigore** (il libro delle regole con i numeri veri: motore, energia, componenti, telaio, aero, gomme, punti, soldi, scala ATR e le norme straordinarie che una Commissione ha votato), **Il ciclo che verrà** (a che punto è il tavolo, la bozza sul motore, la spinta verso l'elettrico, il nostro programma e le otto architetture a confronto con quanto siamo attrezzati per ognuna), **Commissione** (chi vota, cosa è già passato, cosa si vota adesso) |
 | Classifiche / Calendario / Storico | Mondiali, i tracciati con la scheda di ogni gran premio, cicli tecnici e albo d'oro |
 
 ### La scheda di un gran premio

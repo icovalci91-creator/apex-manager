@@ -140,9 +140,9 @@ def competenze(gs, team) -> dict:
 # dieci anni ha in casa gente che sa di batterie; chi ha passato l'ultimo ciclo
 # a scommettere su un dieci cilindri ha imparato un altro mestiere. L'esperienza
 # non si compra in un anno, e conta quanto la fabbrica.
-ESPERIENZA_CORRENTE = 0.55     # quanto insegna correre con l'architettura di adesso
+ESPERIENZA_CORRENTE = 0.70     # quanto insegna correre con l'architettura di adesso
 ESPERIENZA_CLIENTE = 0.22      # a chi il motore lo compra insegna molto meno
-ESPERIENZA_PESO = 0.40         # e quanto sposta, alla fine, sull'attrezzatura
+ESPERIENZA_PESO = 0.75         # e quanto sposta, alla fine, sull'attrezzatura
 ESPERIENZA_MJ = 0.010          # quanta se ne accumula per milione speso in programma
 
 
@@ -188,7 +188,7 @@ def attrezzatura(gs, team, aid: str) -> float:
     esp = esperienza(gs, team)
     mio = t * esp["termico"] + e * esp["elettrico"]
     base *= 1.0 + ESPERIENZA_PESO * (mio - 0.30)
-    return round(max(0.45, min(1.65, base)), 3)
+    return round(max(0.30, min(1.65, base)), 3)
 
 
 def impara(team, gs, aid: str, milioni: float) -> None:
