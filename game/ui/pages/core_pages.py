@@ -570,6 +570,9 @@ class CarPage(Page):
 # ================================================================= SVILUPPO
 class DevPage(Page):
     SIZES = ["piccolo", "medio", "grande"]
+    # Sotto le schede c'e' la striscia con le ore di galleria e i vincoli: da
+    # li' in giu' comincia tutto il resto.
+    STRISCIA_H = 118
 
     def __init__(self, shell):
         super().__init__(shell)
@@ -581,7 +584,8 @@ class DevPage(Page):
         r = self.rect
         self.widgets = []
         self.alloc_sliders = {}
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        alto = r.y + 96 + self.STRISCIA_H
+        left = pygame.Rect(r.x, alto, r.w * 0.46, r.h - 96 - self.STRISCIA_H)
         y = left.y + 40
         for k, meta in C.CAR_PARTS.items():
             s = Slider((left.x + 16, y, left.w - 32, 28), meta["label"],
@@ -617,9 +621,10 @@ class DevPage(Page):
         # recupera lo scorrimento della pagina
         self.log_y = int(ty + 10)
         ty = self.log_y + self._alt_registro()
-        self.left_h = max(r.h - 96, ty + 16 - (r.y + 96))
+        self.left_h = max(r.h - 96 - self.STRISCIA_H, ty + 16 - alto)
 
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.48, alto, r.w * 0.52 - 4,
+                            r.h - 96 - self.STRISCIA_H)
         bx, by = right.x + 16, right.y + 200
         self.part_buttons = []
         for i, (k, meta) in enumerate(C.CAR_PARTS.items()):
@@ -663,6 +668,83 @@ class DevPage(Page):
         # la quota sull'anno prossimo si decide con i propri uomini, nella
         # pagina Ingegneri: qui si lavora sulla macchina di adesso
         self.reg_slider = None
+
+    def _striscia_vincoli(self, surf, r) -> None:
+        """Le ore di galleria e tutto quello che tiene fermo il reparto.
+
+        Sviluppare non e' solo una questione di soldi: c'e' una scala che da'
+        piu' ore a chi e' arrivato dietro, ci sono le persone che non si
+        sdoppiano, i banchi occupati, il tetto di spesa e, ogni tanto, un pezzo
+        che il regolamento ha reso di fornitura unica e che non si tocca piu'.
+        Sono i vincoli veri, e stanno tutti qui.
+        """
+        gs, team = self.gs, self.team
+        reg = gs.regulations
+        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "ORE DI GALLERIA (ATR)", (r.x + 16, r.y + 10), 12, T.DIM_2, bold=True)
+        scala = reg["aero_testing_restriction"]["scale"]
+        n = min(len(gs.teams), len(scala))
+        larga = min(30, int((r.w * 0.52 - 40) / max(1, n)))
+        mio = max(1, min(n, team.last_position))
+        base = r.x + 16
+        alt = 34
+        for i in range(n):
+            v = scala[i]
+            h = int(alt * v / 120.0)
+            col = T.GOLD if (i + 1) == mio else T.mix(T.ACCENT, T.PANEL, 0.62)
+            pygame.draw.rect(surf, col, (base + i * larga, r.y + 34 + (alt - h),
+                                         larga - 4, h))
+            T.text(surf, str(i + 1), (base + i * larga, r.y + 72), 10,
+                   T.GOLD if (i + 1) == mio else T.DIM_2, bold=((i + 1) == mio))
+        atr = development.atr_factor(gs, team)
+        sp = reg.get("sporting", {})
+        run = sp.get("atr_baseline_wind_tunnel_runs")
+        x2 = base + n * larga + 16
+        stretto = r.w < 1060
+        vx = max(r.x + int(r.w * 0.54), x2 + (150 if stretto else 300))
+        spazio = vx - x2 - 12
+        T.text(surf, f"noi {mio}i: {scala[mio - 1]}%", (x2, r.y + 34), 14,
+               T.GOLD, bold=True)
+        if run and not stretto:
+            T.text(surf, f"{run * atr:.0f} run e "
+                         f"{sp.get('atr_baseline_cfd_items', 2000) * atr:.0f} "
+                         f"calcoli CFD ogni due mesi", (x2, r.y + 54), 12, T.DIM,
+                   maxw=spazio)
+            T.text(surf, "chi arriva dietro ne ha di piu'", (x2, r.y + 72), 11,
+                   T.DIM_2, maxw=spazio)
+        elif run:
+            T.text(surf, f"{run * atr:.0f} run, "
+                         f"{sp.get('atr_baseline_cfd_items', 2000) * atr:.0f} CFD",
+                   (x2, r.y + 54), 11, T.DIM_2, maxw=spazio)
+
+        # ---- i vincoli, nella meta' destra
+        T.text(surf, "VINCOLI DI OGGI", (vx, r.y + 10), 12, T.DIM_2, bold=True)
+        liberi = development.free_people(team, self.sel_part)
+        totali = development.dept_people(team, self.sel_part)
+        aperti = len(team.dev_projects) + sum(1 for t in team.spec_trials
+                                              if t.state == "affinamento")
+        resta = economy.room_left(gs, team)
+        voci = [
+            (f"{aperti} banchi occupati su 3", aperti >= 3),
+            (f"{liberi} persone libere su {totali} nel reparto", liberi <= 0),
+            (f"{resta:.0f} M$ nel tetto di spesa", resta < 12),
+            (f"{sp.get('testing_days', 3)} giornate di test collettivi, "
+             f"{max(0, int(sp.get('private_test_days', 8)) - int(team.test_days_used))} "
+             f"private che restano", False),
+        ]
+        std = [C.CAR_PARTS[k]["label"].lower() for k in development.PEZZI_STANDARD
+               if development.standard(gs, k)]
+        if std:
+            voci.append(("di fornitura unica: " + ", ".join(std), True))
+        if reg.get("pu_development_locked"):
+            voci.append(("sviluppo power unit congelato", True))
+        if reg.get("pu_bench_limit"):
+            voci.append(("ore di banco contate sui motori", True))
+        y = r.y + 32
+        for testo, stretta in voci[:4 if r.w < 1100 else 6]:
+            T.text(surf, testo, (vx, y), 12, T.WARN if stretta else T.DIM,
+                   maxw=r.w - (vx - r.x) - 16)
+            y += 18
 
     # Quante righe di registro si mostrano: le altre restano nel salvataggio,
     # ma una pagina che scorre per sempre non la legge nessuno.
@@ -817,12 +899,17 @@ class DevPage(Page):
              f"{len(team.dev_projects)} / 3",
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
 
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, getattr(self, "left_h", r.h - 96))
+        self._striscia_vincoli(surf, pygame.Rect(r.x, r.y + 96, r.w, self.STRISCIA_H - 12))
+
+        alto = r.y + 96 + self.STRISCIA_H
+        left = pygame.Rect(r.x, alto, r.w * 0.46,
+                           getattr(self, "left_h", r.h - 96 - self.STRISCIA_H))
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "LAVORO DI REPARTO: DOVE LIMARE", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
-        T.text(surf, "affinamenti, non aggiornamenti", (left.right - 16, left.y + 12), 11,
-               T.DIM_2, align="right")
+        if left.w >= 400:
+            T.text(surf, "affinamenti, non aggiornamenti", (left.right - 16, left.y + 12),
+                   11, T.DIM_2, align="right")
 
         ty = getattr(self, "trial_y", left.y + 460)
         if team.spec_trials:
@@ -863,7 +950,8 @@ class DevPage(Page):
                    maxw=left.w - 32)
         self._disegna_registro(surf, left)
 
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.48, alto, r.w * 0.52 - 4,
+                            r.h - 96 - self.STRISCIA_H)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "PROGETTI DI AGGIORNAMENTO", (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)

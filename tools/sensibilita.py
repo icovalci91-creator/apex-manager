@@ -54,7 +54,7 @@ LEVE = [
 # motore. E' il conto che serve quando in Commissione si discute se tornare
 # agli otto o ai dieci cilindri.
 ARCHITETTURE = ("v8_turbo_leggero", "v6_ibrido_spinto", "i4_turbo_ibrido",
-                "v10_aspirato", "v8_aspirato_kers", "v12_aspirato", "elettrico_puro")
+                "v10_aspirato", "v8_aspirato_kers", "v12_aspirato")
 
 
 def misura(gs) -> dict:

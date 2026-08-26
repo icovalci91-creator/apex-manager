@@ -403,8 +403,8 @@ class RulesPage(Page):
                T.DIM_2, bold=True)
         T.bar(surf, (alto.right - 296, alto.y + 34, 280, 9), trend * 100, 100,
               T.ACCENT if trend > 0.4 else T.PANEL_3)
-        T.paragraph(surf, "cresce a ogni ciclo firmato: sopra la meta' anche una "
-                          "macchina senza motore termico diventa discutibile",
+        T.paragraph(surf, "cresce a ogni ciclo firmato, e sposta il tavolo verso le "
+                          "architetture in cui l'elettrico conta di piu'",
                     (alto.right - 296, alto.y + 50), 11, T.DIM_2, 280)
         prog = powertrain.programma_arch(gs.player)
         if prog.get("arch"):

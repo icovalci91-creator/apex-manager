@@ -1433,33 +1433,6 @@
       },
       "nota": "Il motore che somiglia a quello delle auto di serie: quattro cilindri, poco carburante, costi bassi. La federazione lo adora e il pubblico no."
     },
-    "elettrico_puro": {
-      "nome": "Trazione interamente elettrica",
-      "breve": "Elettrico",
-      "cilindri": 0,
-      "cilindrata_cc": 0,
-      "aspirazione": "elettrico",
-      "giri_max": 24000,
-      "ice_kw": 0,
-      "elettrico_kw": 800,
-      "potenza_rel": 1.07,
-      "quota_elettrica": 0.9,
-      "batteria_mj": 30.0,
-      "recupero_max_mj": 25.0,
-      "v_taglio_kmh": 330,
-      "v_fine_kmh": 395,
-      "benzina_kg": 0,
-      "peso_pu_kg": 320,
-      "spettacolo": 0.2,
-      "costo": 1.3,
-      "rarita": 0.35,
-      "competenze": {
-        "termico": 0.0,
-        "elettrico": 0.8,
-        "integrazione": 0.2
-      },
-      "nota": "L'ipotesi remota: niente motore termico, ottocento kilowatt e una batteria che pesa quanto mezza macchina. Sulla carta e' potentissima, in pista se la porta appresso - e nessuno sa che rumore farebbe una gara senza rumore."
-    },
     "v12_aspirato": {
       "nome": "V12 aspirato 3.0",
       "breve": "V12",

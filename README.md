@@ -192,7 +192,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
-| Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
+| Sviluppo | La scala delle ore di galleria con la nostra posizione e quanti run e calcoli CFD ci restano, i vincoli che tengono fermo il reparto (banchi occupati, persone libere, tetto di spesa, giornate di test, pezzi di fornitura unica, sviluppo power unit congelato), lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
 | Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
@@ -202,7 +202,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
 | Finanze e sponsor | Bilancio per mese e per anno, trattative con gli sponsor |
-| Regolamento | Tre schede: **In vigore** (il libro delle regole con i numeri veri: motore, energia, componenti, telaio, aero, gomme, punti, soldi, scala ATR e le norme straordinarie che una Commissione ha votato), **Il ciclo che verrà** (a che punto è il tavolo, la bozza sul motore, la spinta verso l'elettrico, il nostro programma e le otto architetture a confronto con quanto siamo attrezzati per ognuna), **Commissione** (chi vota, cosa è già passato, cosa si vota adesso) |
+| Regolamento | Tre schede: **In vigore** (il libro delle regole con i numeri veri: motore, energia, componenti, telaio, aero, gomme, punti, soldi, scala ATR e le norme straordinarie che una Commissione ha votato), **Il ciclo che verrà** (a che punto è il tavolo, la bozza sul motore, la spinta verso l'elettrico, il nostro programma e le architetture a confronto con quanto siamo attrezzati per ognuna), **Commissione** (chi vota, cosa è già passato, cosa si vota adesso) |
 | Classifiche / Calendario / Storico | Mondiali, i tracciati con la scheda di ogni gran premio, cicli tecnici e albo d'oro |
 
 ### La scheda di un gran premio
@@ -1099,7 +1099,7 @@ che una modifica votata in Commissione va a spostare.
 ### Il motore del ciclo che verrà, e come arrivarci pronti
 
 Un ciclo tecnico non è una percentuale: è una decisione su **come sarà fatto il motore**.
-`data/regulations.json` porta un catalogo di otto architetture con i numeri veri (o
+`data/regulations.json` porta un catalogo di sette architetture con i numeri veri (o
 plausibili, dove il regolamento non esiste ancora), e quando il tavolo tecnico si apre la
 bozza dice a ogni riunione quale sta vincendo.
 
@@ -1112,20 +1112,18 @@ bozza dice a ogni riunione quale sta vincendo.
 | V10 aspirato 3.0 | quello di cui si è parlato nel 2025: 19.000 giri, niente ibrido | −1,03 s | −7 km/h | 678 kg | 110 kg | 0 |
 | V8 aspirato 2.4 + KERS | quello che ha corso dal 2009 al 2013 | +0,81 s | −22 km/h | 678 kg | 100 kg | 0,4 MJ |
 | V12 aspirato 3.0 | quello che nessuno propone e tutti vorrebbero sentire | **−1,34 s** | −3 km/h | 688 kg | 115 kg | 0 |
-| Trazione elettrica | l'ipotesi remota: 800 kW e una batteria che pesa quanto mezza macchina | +1,68 s | +9 km/h | 903 kg | 0 | 11,4 MJ |
 
 I secondi sono misurati con `tools/sensibilita.py` sul calendario vero. E non cambia solo il
 cronometro: con un V10 l'energia recuperata a giro è **zero**, quindi batteria, clipping,
-override e superclipping spariscono; con un ibrido spinto o con l'elettrico la gara diventa
-quasi solo gestione dell'energia. Le soglie del gioco dell'energia si scalano da sole sulla
+override e superclipping spariscono; con un ibrido spinto la gara diventa quasi solo
+gestione dell'energia. Le soglie del gioco dell'energia si scalano da sole sulla
 batteria e su quanta energia gira in un giro, così un modo che oggi vale mezzo secondo lo
 vale anche in un regolamento con una cassa da trenta megajoule.
 
-**Quanto è remota l'elettrica.** Non basta volerla: la federazione ci arriva un ciclo per
-volta. Ogni ciclo firmato sposta di un po' la direzione (`trend_elettrico`), e serve
-attraversarne tre o quattro prima che una monoposto senza motore termico sia anche solo
-discutibile. Misurato sul tavolo: a zero cicli non prende voti, dopo tre una squadra che la
-spinge la porta a casa, dopo quattro passa da sola.
+**Dove ha la testa la federazione.** Ogni ciclo firmato sposta di un po' la direzione
+(`trend_elettrico`), e il tavolo si sposta con lei verso le architetture in cui l'elettrico
+conta di più: a zero cicli un ibrido spinto non prende voti, dopo tre o quattro diventa la
+strada che tutti chiedono.
 
 **La scommessa.** Dalla pagina Power unit si apre un *programma sull'architettura che verrà*
 — quella che si pensa arriverà, anche prima che il tavolo decida, anche una che nella bozza

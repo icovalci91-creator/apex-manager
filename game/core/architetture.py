@@ -81,9 +81,8 @@ def applica(gs, aid: str) -> list:
     pu["pu_min_weight_kg"] = a.get("peso_pu_kg", 185)
     mod = pu.setdefault("modello", {})
     # il modello di giro sa fare i conti su quanta potenza e' elettrica, ma non
-    # sa cosa vuol dire "tutta": il giro senza spinta elettrica, che serve a
-    # misurare quanto vale l'energia, con quota 1.0 non esisterebbe. Si ferma a
-    # nove decimi e la differenza la si legge in quel numero enorme
+    # saprebbe cosa farsene di "tutta": il giro senza spinta elettrica, quello
+    # con cui si misura quanto vale l'energia, con quota 1.0 non esisterebbe
     mod["quota_elettrica"] = min(0.90, a.get("quota_elettrica", 0.47))
     mod["v_taglio_kmh"] = a.get("v_taglio_kmh", 320)
     mod["v_fine_kmh"] = a.get("v_fine_kmh", 380)
@@ -255,10 +254,9 @@ def preferenza_squadra(gs, team) -> dict:
 
 
 # Quanto la federazione spinge verso l'elettrico. Non e' una posizione fissa:
-# cresce di ciclo in ciclo, come nel mondo vero, e a un certo punto rende
-# discutibile quello che oggi e' impensabile. E' la sola strada per cui una
-# monoposto senza motore termico puo' arrivare davvero in pista: non la
-# scommessa di una squadra, ma vent'anni di direzione.
+# cresce di ciclo in ciclo, come nel mondo vero, e sposta il tavolo verso le
+# architetture in cui l'elettrico conta di piu'. Non e' la scommessa di una
+# squadra: e' vent'anni di direzione, e si vede solo su quella scala.
 TREND_PASSO = 0.15      # quanto cresce a ogni ciclo firmato
 TREND_PESO = 1.9        # quanto pesa sulla federazione
 TREND_SQUADRA = 0.62    # e quanto sulle squadre
@@ -273,7 +271,7 @@ def spinta_elettrica(a: dict) -> float:
 
     Non conta la quota in se': conta di quanto si sposta in avanti. Un V6 come
     quello del 2026 non e' un passo verso l'elettrico, e' l'elettrico che c'e'
-    gia'; una batteria e basta lo e' del tutto.
+    gia'; un ibrido spinto con seicento kilowatt di motore lo e'.
     """
     quota = float(a.get("quota_elettrica", 0.0))
     return max(0.0, min(1.0, (quota - 0.45) / 0.45))
