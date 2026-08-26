@@ -509,7 +509,10 @@ class Track:
         from ..sim import pace
         t_senza, _, _ = self.lap_model(ref_car, grip=pace.surface_grip(cond),
                                        rho=cond.rho, elettrico=0.0)
-        self.ers_secondi = round(max(0.0, t_senza - t_con), 3)
+        # oltre una certa soglia il confronto perde senso: un giro fatto con la
+        # sola parte termica di una power unit quasi tutta elettrica non e' un
+        # giro lento, e' un'altra cosa. Si tiene il numero dove resta leggibile
+        self.ers_secondi = round(max(0.0, min(18.0, t_senza - t_con)), 3)
 
     # -------------------------------------------------- dove si apre l'ala
     # L'ala mobile del 2026 non e' il vecchio DRS: si apre in X-mode nei tratti

@@ -1134,14 +1134,20 @@ class WeekendScene(Scene):
               T.OK if stato_g > 0.9 else (T.WARN if stato_g > 0.78 else T.BAD))
         giri_b = e.fuel / max(0.01, sim.burn_per_lap)
         restano = sim.laps - e.lap
-        T.text(surf, "BENZINA", (r.x + 240, y + 1), 11, T.DIM_2, bold=True)
-        T.bar(surf, (r.x + 300, y + 4, 70, 7), min(100.0, giri_b / max(1, restano) * 100), 100,
-              T.OK if giri_b >= restano else T.BAD)
-        T.text(surf, f"{e.fuel:.0f} kg", (r.x + 380, y), 12,
-               T.DIM if giri_b >= restano else T.BAD)
-        if r.w >= 520:
-            T.text(surf, f"{giri_b:.0f} giri su {max(0, restano)}", (r.right - 14, y), 12,
-                   T.DIM_2, align="right")
+        if getattr(sim, "senza_benzina", False):
+            T.text(surf, "SENZA BENZINA: tutto quello che c'e' e' in batteria",
+                   (r.x + 240, y), 12, T.DIM_2, maxw=r.w - 260)
+            giri_b = restano + 1     # cosi' nessuna spia si accende per niente
+        else:
+            T.text(surf, "BENZINA", (r.x + 240, y + 1), 11, T.DIM_2, bold=True)
+            T.bar(surf, (r.x + 300, y + 4, 70, 7),
+                  min(100.0, giri_b / max(1, restano) * 100), 100,
+                  T.OK if giri_b >= restano else T.BAD)
+            T.text(surf, f"{e.fuel:.0f} kg", (r.x + 380, y), 12,
+                   T.DIM if giri_b >= restano else T.BAD)
+            if r.w >= 520:
+                T.text(surf, f"{giri_b:.0f} giri su {max(0, restano)}",
+                       (r.right - 14, y), 12, T.DIM_2, align="right")
         # ---- riga tre: tempi e distacchi
         y = r.y + 56
         giro = sum(e.sectors) if e.sectors[2] > 0 else 0.0

@@ -1269,7 +1269,7 @@
       "reset": 0.15
     }
   ],
-  "_architetture_nota": "Le architetture di power unit fra cui il tavolo tecnico puo' scegliere quando si apre un ciclo nuovo. I numeri sono quelli veri: il V6 turbo ibrido e' il regolamento 2026, il V8 turbo con ibrido minimo e' la proposta che la federazione sta discutendo per il 2031, il V10 aspirato e' il ritorno di cui si e' parlato nel 2025 e mai deciso, il V8 aspirato con KERS e' quello che ha corso dal 2009 al 2013. potenza_rel dice quanta potenza totale concede l'architettura rispetto ai 750 kW del 2026: e' il numero che il modello di giro usa davvero.",
+  "_architetture_nota": "Le architetture di power unit fra cui il tavolo tecnico puo' scegliere quando si apre un ciclo nuovo. I numeri sono quelli veri: il V6 turbo ibrido e' il regolamento 2026, il V8 turbo con ibrido minimo e' la proposta che la federazione sta discutendo per il 2031, il V10 aspirato e' il ritorno di cui si e' parlato nel 2025 e mai deciso, il V8 aspirato con KERS e' quello che ha corso dal 2009 al 2013. potenza_rel dice quanta potenza totale concede l'architettura rispetto ai 750 kW del 2026: e' il numero che il modello di giro usa davvero. Le competenze dicono che mestiere serve per costruirla - termico, elettrico, integrazione nella vettura - ed e' li' che contano gli ingegneri e la fabbrica. La rarita' e' quanto e' plausibile che il tavolo la scelga davvero.",
   "architetture": {
     "v6_turbo_ibrido": {
       "nome": "V6 turbo ibrido 1.6",
@@ -1290,7 +1290,13 @@
       "peso_pu_kg": 185,
       "spettacolo": 0.35,
       "costo": 1.0,
-      "nota": "Meta' della potenza e' elettrica e la gara si gioca su come la si spende. Costa quanto nessun'altra e non fa rumore."
+      "nota": "Meta' della potenza e' elettrica e la gara si gioca su come la si spende. Costa quanto nessun'altra e non fa rumore.",
+      "competenze": {
+        "termico": 0.3,
+        "elettrico": 0.5,
+        "integrazione": 0.2
+      },
+      "rarita": 1.0
     },
     "v8_turbo_leggero": {
       "nome": "V8 turbo 2.4 con ibrido minimo",
@@ -1311,7 +1317,13 @@
       "peso_pu_kg": 150,
       "spettacolo": 0.75,
       "costo": 0.6,
-      "nota": "La strada che la federazione sta guardando per il 2031: si torna a otto cilindri e l'ibrido resta solo dove serve. Costa molto meno e l'energia smette di decidere la gara."
+      "nota": "La strada che la federazione sta guardando per il 2031: si torna a otto cilindri e l'ibrido resta solo dove serve. Costa molto meno e l'energia smette di decidere la gara.",
+      "competenze": {
+        "termico": 0.7,
+        "elettrico": 0.1,
+        "integrazione": 0.2
+      },
+      "rarita": 1.0
     },
     "v10_aspirato": {
       "nome": "V10 aspirato 3.0",
@@ -1332,11 +1344,17 @@
       "peso_pu_kg": 95,
       "spettacolo": 1.0,
       "costo": 0.75,
-      "nota": "Quello di cui si e' parlato nel 2025 e non si e' fatto: niente ibrido, benzina sostenibile e diciannovemila giri. Le tribune lo vogliono, i costruttori che hanno speso in elettrico molto meno."
+      "nota": "Quello di cui si e' parlato nel 2025 e non si e' fatto: niente ibrido, benzina sostenibile e diciannovemila giri. Le tribune lo vogliono, i costruttori che hanno speso in elettrico molto meno.",
+      "competenze": {
+        "termico": 0.8,
+        "elettrico": 0.0,
+        "integrazione": 0.2
+      },
+      "rarita": 0.8
     },
     "v8_aspirato_kers": {
       "nome": "V8 aspirato 2.4 con KERS",
-      "breve": "V8 aspirato",
+      "breve": "V8 asp.",
       "cilindri": 8,
       "cilindrata_cc": 2400,
       "aspirazione": "aspirato",
@@ -1353,7 +1371,121 @@
       "peso_pu_kg": 95,
       "spettacolo": 0.9,
       "costo": 0.7,
-      "nota": "L'architettura che ha corso dal 2009 al 2013: otto cilindri aspirati a diciottomila giri e sessanta kilowatt di KERS da spendere in sei secondi al giro."
+      "nota": "L'architettura che ha corso dal 2009 al 2013: otto cilindri aspirati a diciottomila giri e sessanta kilowatt di KERS da spendere in sei secondi al giro.",
+      "competenze": {
+        "termico": 0.72,
+        "elettrico": 0.08,
+        "integrazione": 0.2
+      },
+      "rarita": 0.8
+    },
+    "v6_ibrido_spinto": {
+      "nome": "V6 turbo a ibrido spinto",
+      "breve": "V6 ibr.+",
+      "cilindri": 6,
+      "cilindrata_cc": 1600,
+      "aspirazione": "turbo",
+      "giri_max": 13500,
+      "ice_kw": 300,
+      "elettrico_kw": 450,
+      "potenza_rel": 1.0,
+      "quota_elettrica": 0.6,
+      "batteria_mj": 6.0,
+      "recupero_max_mj": 12.0,
+      "v_taglio_kmh": 305,
+      "v_fine_kmh": 370,
+      "benzina_kg": 55,
+      "peso_pu_kg": 200,
+      "spettacolo": 0.3,
+      "costo": 1.15,
+      "rarita": 0.9,
+      "competenze": {
+        "termico": 0.18,
+        "elettrico": 0.65,
+        "integrazione": 0.17
+      },
+      "nota": "La strada opposta a quella degli otto cilindri: si va ancora piu' avanti sull'elettrico, seicento kilowatt su settecentocinquanta, e la gara diventa quasi solo gestione dell'energia. La vogliono i costruttori che in batteria hanno gia' investito tutto."
+    },
+    "i4_turbo_ibrido": {
+      "nome": "4 cilindri turbo ibrido 1.5",
+      "breve": "4 cilindri",
+      "cilindri": 4,
+      "cilindrata_cc": 1500,
+      "aspirazione": "turbo",
+      "giri_max": 14000,
+      "ice_kw": 350,
+      "elettrico_kw": 350,
+      "potenza_rel": 0.93,
+      "quota_elettrica": 0.5,
+      "batteria_mj": 4.0,
+      "recupero_max_mj": 9.0,
+      "v_taglio_kmh": 300,
+      "v_fine_kmh": 360,
+      "benzina_kg": 60,
+      "peso_pu_kg": 165,
+      "spettacolo": 0.2,
+      "costo": 0.7,
+      "rarita": 0.85,
+      "competenze": {
+        "termico": 0.3,
+        "elettrico": 0.5,
+        "integrazione": 0.2
+      },
+      "nota": "Il motore che somiglia a quello delle auto di serie: quattro cilindri, poco carburante, costi bassi. La federazione lo adora e il pubblico no."
+    },
+    "elettrico_puro": {
+      "nome": "Trazione interamente elettrica",
+      "breve": "Elettrico",
+      "cilindri": 0,
+      "cilindrata_cc": 0,
+      "aspirazione": "elettrico",
+      "giri_max": 24000,
+      "ice_kw": 0,
+      "elettrico_kw": 800,
+      "potenza_rel": 1.07,
+      "quota_elettrica": 0.9,
+      "batteria_mj": 30.0,
+      "recupero_max_mj": 25.0,
+      "v_taglio_kmh": 330,
+      "v_fine_kmh": 395,
+      "benzina_kg": 0,
+      "peso_pu_kg": 320,
+      "spettacolo": 0.2,
+      "costo": 1.3,
+      "rarita": 0.35,
+      "competenze": {
+        "termico": 0.0,
+        "elettrico": 0.8,
+        "integrazione": 0.2
+      },
+      "nota": "L'ipotesi remota: niente motore termico, ottocento kilowatt e una batteria che pesa quanto mezza macchina. Sulla carta e' potentissima, in pista se la porta appresso - e nessuno sa che rumore farebbe una gara senza rumore."
+    },
+    "v12_aspirato": {
+      "nome": "V12 aspirato 3.0",
+      "breve": "V12",
+      "cilindri": 12,
+      "cilindrata_cc": 3000,
+      "aspirazione": "aspirato",
+      "giri_max": 20000,
+      "ice_kw": 720,
+      "elettrico_kw": 0,
+      "potenza_rel": 0.96,
+      "quota_elettrica": 0.02,
+      "batteria_mj": 0.0,
+      "recupero_max_mj": 0.0,
+      "v_taglio_kmh": 345,
+      "v_fine_kmh": 405,
+      "benzina_kg": 115,
+      "peso_pu_kg": 105,
+      "spettacolo": 1.0,
+      "costo": 0.95,
+      "rarita": 0.45,
+      "competenze": {
+        "termico": 0.8,
+        "elettrico": 0.0,
+        "integrazione": 0.2
+      },
+      "nota": "Quello che nessuno propone sul serio e che tutti vorrebbero sentire una volta ancora. Dodici cilindri, ventimila giri, e centoquindici chili di benzina da portarsi dietro."
     }
   }
 }

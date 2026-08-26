@@ -53,7 +53,8 @@ LEVE = [
 # E le architetture di power unit: qui non si muove una tacca, si cambia il
 # motore. E' il conto che serve quando in Commissione si discute se tornare
 # agli otto o ai dieci cilindri.
-ARCHITETTURE = ("v8_turbo_leggero", "v10_aspirato", "v8_aspirato_kers")
+ARCHITETTURE = ("v8_turbo_leggero", "v6_ibrido_spinto", "i4_turbo_ibrido",
+                "v10_aspirato", "v8_aspirato_kers", "v12_aspirato", "elettrico_puro")
 
 
 def misura(gs) -> dict:

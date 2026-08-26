@@ -35,9 +35,37 @@ spinta elettrica invece di non averla.
 from __future__ import annotations
 
 # I modi con cui si gestisce la batteria, e quanti megajoule al giro spendono
-# in piu' o in meno rispetto al pareggio fra recupero e scarica.
+# in piu' o in meno rispetto al pareggio fra recupero e scarica. I numeri sono
+# tarati sui quattro megajoule del 2026: se un ciclo nuovo porta una batteria
+# diversa - sei megajoule, o i trenta di una macchina senza motore termico -
+# si scalano tutti insieme, se no un modo che oggi vale mezzo giro domani non
+# si sentirebbe nemmeno.
 MODI = ("ricarica", "normale", "attacco")
 SPESA = {"ricarica": -0.55, "normale": 0.0, "attacco": 0.60}
+BATTERIA_RIF = 4.0
+ENERGIA_RIF = 5.5
+
+
+def scala(sim) -> float:
+    """Quanto e' grande la cassa di questo regolamento, in quote di 2026.
+
+    Serve per le soglie: quando il clipping comincia, quanto costa un override,
+    quando la batteria si puo' dire a terra.
+    """
+    return max(0.05, float(getattr(sim, "batteria_max", BATTERIA_RIF)) / BATTERIA_RIF)
+
+
+def scala_giro(sim) -> float:
+    """E quanta energia gira in un giro, sempre in quote di 2026.
+
+    Serve per i modi: quello che si sposta in un giro non dipende da quanto e'
+    grande la batteria ma da quanta energia passa di li' - con un dieci
+    cilindri non passa niente e i modi non esistono.
+    """
+    quota = float(getattr(sim.track, "energia_giro", ENERGIA_RIF)) / ENERGIA_RIF
+    # nessun circuito e' cosi' avaro da azzerare la gestione, e nessuno cosi'
+    # generoso da renderla l'unica cosa che conta
+    return max(0.55, min(1.6, quota)) if quota > 0.05 else 0.0
 ETICHETTA = {"ricarica": "RICARICA", "normale": "NORMALE", "attacco": "ATTACCO"}
 
 # Quanto vale un megajoule speso in piu': una quota del valore che l'elettrico
@@ -96,12 +124,17 @@ PENA_SCARICA = 0.14
 
 def aggiorna_clip(sim, e) -> None:
     """Decide in che stato e' la batteria: piena, in clipping, o a terra."""
-    e.clipping = e.carica < SOGLIA_CLIP
+    if float(getattr(sim, "batteria_max", BATTERIA_RIF)) < 0.2:
+        # non c'e' proprio niente da gestire: nessuna spia si accende
+        e.clipping = e.scarica = False
+        return
+    k = scala(sim)
+    e.clipping = e.carica < SOGLIA_CLIP * k
     if e.scarica:
         # se ne esce solo quando la cassa e' tornata decente
-        e.scarica = e.carica < USCITA_SCARICA
+        e.scarica = e.carica < USCITA_SCARICA * k
     else:
-        e.scarica = e.carica < SOGLIA_SCARICA
+        e.scarica = e.carica < SOGLIA_SCARICA * k
     if e.scarica:
         e.clipping = True
 
@@ -130,7 +163,7 @@ def superclip_mj(sim, e) -> float:
     # e quanto ne concede il regolamento: duecentocinquanta kilowatt oggi, ma
     # e' uno dei numeri che in Commissione si spostano
     tetto = float(getattr(sim, "superclip_kw", SUPER_KW)) / SUPER_KW
-    return SUPER_MJ * pieno * tetto * recupero_giro(sim, e)
+    return SUPER_MJ * pieno * tetto * recupero_giro(sim, e) * scala_giro(sim)
 
 
 # --------------------------------------------------------------- mappature
@@ -191,7 +224,8 @@ def scegli_mappa(sim, e, gap_avanti: float, gap_dietro: float) -> None:
     if e.is_player and e.mappa_manuale:
         return
     resta = sim.laps - e.lap
-    giri_benzina = e.fuel / max(0.01, sim.burn_per_lap)
+    senza = getattr(sim, "senza_benzina", False)
+    giri_benzina = 1e6 if senza else e.fuel / max(0.01, sim.burn_per_lap)
     if giri_benzina < resta * 1.02:
         e.mappa = "conservativa"            # prima di tutto si arriva in fondo
         return
@@ -222,11 +256,13 @@ def passo_giro(sim, e) -> float:
     Chi la lascia scendere troppo arriva in fondo ai rettilinei senza spinta.
     """
     resa = recupero_giro(sim, e)
-    voluta = SPESA.get(e.energy_mode, 0.0)
+    k = scala(sim)
+    kg = scala_giro(sim)
+    voluta = SPESA.get(e.energy_mode, 0.0) * kg
     if voluta < 0:
         voluta *= resa                  # si ricarica quanto la pista concede
     if e.lift_coast:
-        voluta -= LIFT_MJ * resa
+        voluta -= LIFT_MJ * resa * kg
     super_mj = superclip_mj(sim, e) if e.superclip else 0.0
     voluta -= super_mj
     chiesta = -voluta
@@ -250,10 +286,10 @@ def passo_giro(sim, e) -> float:
     valore = float(getattr(sim.track, "ers_secondi", 8.0))
     aggiorna_clip(sim, e)
     if e.clipping:
-        manca = 1.0 - min(1.0, e.carica / SOGLIA_CLIP)
+        manca = 1.0 - min(1.0, e.carica / (SOGLIA_CLIP * k))
         guadagno += CLIPPING * manca * valore
     if e.scarica:
-        vuota = 1.0 - min(1.0, e.carica / USCITA_SCARICA)
+        vuota = 1.0 - min(1.0, e.carica / (USCITA_SCARICA * k))
         guadagno += PENA_SCARICA * vuota * valore
     return guadagno
 
@@ -270,14 +306,14 @@ def puo_override(sim, e, gap_s: float) -> bool:
     ricaricando a gas spalancato: sono le due situazioni in cui sul dritto non
     hai niente da dare.
     """
-    return (gap_s <= OVERRIDE_GAP and e.carica >= OVERRIDE_MJ
+    return (gap_s <= OVERRIDE_GAP and e.carica >= OVERRIDE_MJ * scala(sim)
             and not e.scarica and not e.superclip
             and e.status == "running" and sim.safety_car <= 0)
 
 
 def usa_override(sim, e) -> float:
     """Spende il mezzo megajoule dell'override. Ritorna quanta spinta da'."""
-    e.carica = max(0.0, e.carica - OVERRIDE_MJ)
+    e.carica = max(0.0, e.carica - OVERRIDE_MJ * scala(sim))
     e.override_usi += 1
     return OVERRIDE_SPINTA
 

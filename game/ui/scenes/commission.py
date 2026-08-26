@@ -71,8 +71,8 @@ class CommissionScene(Scene):
             from ...core import architetture as AR
             for i, aid in enumerate(AR.catalogo()):
                 bx = g["dx"] + (i % 2) * (g["larga_m"] + 12)
-                by = g["y_motori"] + (i // 2) * 66
-                b = Button((bx, by, g["larga_m"], 34), AR.etichetta(self.gs, aid),
+                by = g["y_motori"] + (i // 2) * g["passo_m"]
+                b = Button((bx, by, g["larga_m"], 30), AR.etichetta(self.gs, aid),
                            style="tab")
                 b.on_click = (lambda k=aid: self.set_motore(k))
                 b.active = (self.motore == aid)
@@ -95,8 +95,9 @@ class CommissionScene(Scene):
         larga = int((w // 2 - 48 - 20) / 3)
         return {"sx": sx, "dx": dx, "larga": larga,
                 "larga_m": int((w - dx - 32 - 12) / 2),
+                "passo_m": 46,
                 "y_aree": 190, "y_linea": 318, "y_radicale": 400,
-                "y_motori": 190, "y_altri": 452}
+                "y_motori": 186, "y_altri": 494}
 
     def on_resize(self) -> None:
         self.build()
@@ -253,13 +254,13 @@ class CommissionScene(Scene):
             testa = ordinati[0][0]
             for i, aid in enumerate(AR.catalogo()):
                 bx = dx + (i % 2) * (g["larga_m"] + 12)
-                by = g["y_motori"] + (i // 2) * 66 + 38
+                by = g["y_motori"] + (i // 2) * g["passo_m"] + 32
                 quota = motori.get(aid, 0.0)
-                T.bar(surf, (bx, by, g["larga_m"] - 46, 8), quota * 100, 100,
+                T.bar(surf, (bx, by, g["larga_m"] - 46, 7), quota * 100, 100,
                       T.GOLD if aid == testa else T.PANEL_3)
-                T.text(surf, f"{quota*100:.0f}%", (bx + g["larga_m"], by - 4), 12,
+                T.text(surf, f"{quota*100:.0f}%", (bx + g["larga_m"], by - 5), 11,
                        T.GOLD if aid == testa else T.DIM_2, bold=True, align="right")
-            y = g["y_motori"] + 148
+            y = g["y_motori"] + g["passo_m"] * 4 + 12
             T.text(surf, f"La bozza dice {AR.etichetta(gs, testa)}: "
                          f"{AR.descrizione(gs, testa)}.", (dx, y), 13, T.DIM,
                    maxw=w - dx - 32)

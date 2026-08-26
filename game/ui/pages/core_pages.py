@@ -1313,26 +1313,25 @@ class PowerUnitPage(Page):
             from ...core import architetture as AR
             prog = powertrain.programma_arch(team)
             larga = (right.w - 32 - 9) / 4.0
-            x = right.x + 16
-            for aid in AR.catalogo():
-                b = Button((int(x), y + 30, int(larga), 30), AR.etichetta(gs, aid),
+            for i, aid in enumerate(AR.catalogo()):
+                bx = right.x + 16 + (i % 4) * (larga + 3)
+                by = y + 30 + (i // 4) * 34
+                b = Button((int(bx), int(by), int(larga), 30), AR.etichetta(gs, aid),
                            style="tab")
                 b.on_click = (lambda k=aid: self.set_arch(k))
                 b.active = (prog.get("arch") == aid)
                 self.widgets.append(b)
-                x += larga + 3
             if prog.get("arch"):
-                bud = float(prog.get("budget", 0.0))
-                b = Button((right.x + 16, y + 92, 40, 28), "-", style="tab")
+                b = Button((right.x + 16, y + 130, 40, 28), "-", style="tab")
                 b.on_click = (lambda: self.set_budget(-2.0))
                 self.widgets.append(b)
-                b = Button((right.x + 60, y + 92, 40, 28), "+", style="tab")
+                b = Button((right.x + 60, y + 130, 40, 28), "+", style="tab")
                 b.on_click = (lambda: self.set_budget(2.0))
                 self.widgets.append(b)
-                b = Button((right.right - 156, y + 92, 140, 28), "Sospendi", style="ghost")
+                b = Button((right.right - 156, y + 130, 140, 28), "Sospendi", style="ghost")
                 b.on_click = self.stop_arch
                 self.widgets.append(b)
-            y += 132
+            y += 170
         if powertrain.ready_to_debut(gs):
             self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
                                        "Porta in pista la nostra power unit",
@@ -1543,7 +1542,7 @@ class PowerUnitPage(Page):
 
         y += 10
         if getattr(self, "arch_y", 0):
-            y = max(y, self.arch_y + 132)
+            y = max(y, self.arch_y + 170)
         if powertrain.locked(gs):
             T.text(surf, "Sviluppo power unit congelato dal regolamento.",
                    (right.x + 16, y), 13, T.WARN, bold=True, maxw=right.w - 32)
@@ -1573,17 +1572,23 @@ class PowerUnitPage(Page):
             if prog.get("arch"):
                 inv = float(prog.get("investito", 0.0))
                 da = int(prog.get("da", gs.season))
+                att = AR.attrezzatura(gs, team, prog["arch"])
                 T.text(surf, f"{AR.descrizione(gs, prog['arch'])}",
-                       (right.x + 16, ay + 62), 12, T.DIM, maxw=right.w - 32)
-                T.text(surf, f"investiti {inv:.0f} M$ dal {da}",
-                       (right.x + 16, ay + 80), 12, T.DIM)
+                       (right.x + 16, ay + 100), 12, T.DIM, maxw=right.w - 32)
+                col = T.OK if att >= 1.05 else (T.WARN if att >= 0.85 else T.BAD)
+                T.text(surf, f"Chiede {AR.mestiere_forte(gs, prog['arch'])}: "
+                             f"noi valiamo x{att:.2f}",
+                       (right.x + 16, ay + 118), 12, col, maxw=268)
+                T.text(surf, f"{inv:.0f} M$ dal {da}",
+                       (right.x + 292, ay + 118), 12, T.DIM, maxw=right.w - 308)
                 T.text(surf, f"{float(prog.get('budget', 0.0)):.0f} M$ a stagione",
-                       (right.x + 108, ay + 96), 13, T.TEXT, bold=True)
+                       (right.x + 108, ay + 134), 13, T.TEXT, bold=True)
             else:
                 T.text(surf, "Si puo' cominciare a lavorare sull'architettura che si "
                              "pensa arrivera', anche prima che il tavolo decida. Se e' "
-                             "quella giusta si arriva pronti, se no resta il mestiere.",
-                       (right.x + 16, ay + 64), 12, T.DIM, maxw=right.w - 32)
+                             "quella giusta si arriva pronti, se no resta il mestiere - "
+                             "e quanto rende lo dicono gli ingegneri e la fabbrica.",
+                       (right.x + 16, ay + 100), 12, T.DIM, maxw=right.w - 32)
 
         p = powertrain.program(gs)
         if powertrain.has_program(gs):

@@ -554,6 +554,8 @@ def investi_arch(gs) -> None:
         team.add_expense("Programma architettura futura", rata, in_cap=True,
                          category="powertrain")
         prog["investito"] = round(float(prog.get("investito", 0.0)) + rata, 3)
+        from . import architetture
+        architetture.impara(team, gs, prog["arch"], rata)
 
 
 def resa_arch(gs, team, arch_finale: str) -> tuple:
@@ -570,14 +572,22 @@ def resa_arch(gs, team, arch_finale: str) -> tuple:
     from . import architetture
     scelta = prog.get("arch", "")
     stagioni = max(1, gs.season - int(prog.get("da", gs.season)) + 1)
+    # i soldi non bastano: quel lavoro lo devono fare degli ingegneri, in una
+    # fabbrica, con il mestiere giusto in casa. Chi non ce l'ha spende uguale e
+    # porta a casa meno
+    attrezzi = architetture.attrezzatura(gs, team, scelta)
     if scelta == arch_finale:
         anticipo = min(ANTICIPO_MAX, 1.0 + ANTICIPO_PASSO * (stagioni - 1))
-        punti = investito * RESA_ARCH * anticipo * (0.75 + 0.5 * team.dev_rate)
+        punti = (investito * RESA_ARCH * anticipo
+                 * (0.75 + 0.5 * team.dev_rate) * attrezzi)
+        come = ("con gli strumenti giusti" if attrezzi >= 1.05 else
+                "pur senza gli strumenti di chi sta davanti" if attrezzi < 0.85 else
+                "con quello che avevamo")
         nota = (f"{team.short}: il programma {architetture.etichetta(gs, scelta)} era "
-                f"quello giusto - {investito:.0f} M$ spesi in {stagioni} stagioni "
-                f"arrivano tutti sulla macchina nuova.")
+                f"quello giusto - {investito:.0f} M$ spesi in {stagioni} stagioni, "
+                f"{come}, arrivano sulla macchina nuova.")
     else:
-        punti = investito * RESA_SBAGLIATA
+        punti = investito * RESA_SBAGLIATA * (0.6 + 0.4 * attrezzi)
         nota = (f"{team.short}: il programma {architetture.etichetta(gs, scelta)} non "
                 f"serve piu' - il tavolo ha scelto un'altra strada e di "
                 f"{investito:.0f} M$ resta quello che si e' imparato.")

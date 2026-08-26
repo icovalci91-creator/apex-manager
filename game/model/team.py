@@ -85,6 +85,7 @@ class Team:
     next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
     arch_prog: dict = None        # programma sull'architettura di power unit futura
+    arch_exp: dict = None         # mestiere accumulato: termico ed elettrico
     next_car_brief: dict = None   # la linea data al reparto per la vettura nuova
     next_car_work: dict = None    # lavoro gia' fatto sul progetto dell'anno prossimo
 

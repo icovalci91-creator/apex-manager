@@ -358,6 +358,9 @@ class RaceSim:
         self.superclip_kw = float(pu.get("superclip_kw", 250.0))
         self.rifornimento = bool(gs.regulations.get("refuelling"))
         self.serbatoio = float(pu.get("fuel_race_target_kg", C.FUEL_MASS_KG))
+        # una macchina senza motore termico non ha benzina da gestire: il
+        # serbatoio, il consumo e tutto quello che ci gira attorno spariscono
+        self.senza_benzina = self.serbatoio <= 0.1
         self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
@@ -434,7 +437,7 @@ class RaceSim:
         if self.senza_coperte and e.tyre_age < 1.6 and e.stops:
             # gomme fredde: il giro dopo la sosta non e' un giro come gli altri
             t += 2.4 * (1.6 - e.tyre_age) / 1.6
-        if e.fuel <= 0.01:
+        if e.fuel <= 0.01 and not self.senza_benzina:
             t += DRY_TANK_PENALTY
         clean = t
         t += e.dirty_air * 0.42
@@ -828,6 +831,8 @@ class RaceSim:
         Non impone niente: attaccare puo' voler dire restare a secco, ma il
         muretto lo dice prima, non dopo.
         """
+        if self.senza_benzina:
+            return
         left = self.laps - e.lap
         if self.rifornimento and e.plan:
             # col rifornimento non si deve arrivare in fondo alla gara: si

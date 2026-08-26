@@ -1099,36 +1099,57 @@ che una modifica votata in Commissione va a spostare.
 ### Il motore del ciclo che verrà, e come arrivarci pronti
 
 Un ciclo tecnico non è una percentuale: è una decisione su **come sarà fatto il motore**.
-`data/regulations.json` porta un catalogo di architetture con i numeri veri, e quando il
-tavolo tecnico si apre la bozza dice anche quale sta vincendo.
+`data/regulations.json` porta un catalogo di otto architetture con i numeri veri (o
+plausibili, dove il regolamento non esiste ancora), e quando il tavolo tecnico si apre la
+bozza dice a ogni riunione quale sta vincendo.
 
 | architettura | cosa è | giro | punta | peso | benzina | energia |
 |---|---|---|---|---|---|---|
 | V6 turbo 1.6 ibrido | il regolamento 2026: 15.000 giri, 400 kW + 350 elettrici | — | — | 768 kg | 70 kg | 5,7 MJ |
 | V8 turbo 2.4, ibrido minimo | la strada che la FIA guarda per il 2031 | +0,99 s | −17 km/h | 733 kg | 90 kg | 1,6 MJ |
-| V10 aspirato 3.0 | il ritorno di cui si è parlato nel 2025 e mai deciso: 19.000 giri, niente ibrido | **−1,03 s** | −7 km/h | 678 kg | 110 kg | 0 |
-| V8 aspirato 2.4 con KERS | quello che ha corso dal 2009 al 2013 | +0,81 s | −22 km/h | 678 kg | 100 kg | 0,4 MJ |
+| V6 turbo a ibrido spinto | l'altra direzione: 300 kW termici e 450 elettrici | +0,51 s | +2 km/h | 783 kg | 55 kg | **7,0 MJ** |
+| 4 cilindri turbo 1.5 | il motore che somiglia a quello delle auto di serie | +0,66 s | −8 km/h | 748 kg | 60 kg | 5,4 MJ |
+| V10 aspirato 3.0 | quello di cui si è parlato nel 2025: 19.000 giri, niente ibrido | −1,03 s | −7 km/h | 678 kg | 110 kg | 0 |
+| V8 aspirato 2.4 + KERS | quello che ha corso dal 2009 al 2013 | +0,81 s | −22 km/h | 678 kg | 100 kg | 0,4 MJ |
+| V12 aspirato 3.0 | quello che nessuno propone e tutti vorrebbero sentire | **−1,34 s** | −3 km/h | 688 kg | 115 kg | 0 |
+| Trazione elettrica | l'ipotesi remota: 800 kW e una batteria che pesa quanto mezza macchina | +1,68 s | +9 km/h | 903 kg | 0 | 11,4 MJ |
 
-I secondi sono misurati con `tools/sensibilita.py` sul calendario vero: un V10 senza ibrido
-è più leggero di 90 kg e va più forte di un secondo al giro, un V8 turbo con l'ibrido
-tagliato ne perde uno. E cambia anche il mestiere: con 0 MJ a giro sparisce tutto il gioco
-di batteria, clipping e override.
+I secondi sono misurati con `tools/sensibilita.py` sul calendario vero. E non cambia solo il
+cronometro: con un V10 l'energia recuperata a giro è **zero**, quindi batteria, clipping,
+override e superclipping spariscono; con un ibrido spinto o con l'elettrico la gara diventa
+quasi solo gestione dell'energia. Le soglie del gioco dell'energia si scalano da sole sulla
+batteria e su quanta energia gira in un giro, così un modo che oggi vale mezzo secondo lo
+vale anche in un regolamento con una cassa da trenta megajoule.
 
-**La scommessa.** Dalla pagina Power unit si può aprire un *programma sull'architettura che
-verrà* - scegliendo quella che si pensa arriverà, anche prima che il tavolo decida, e anche
-una che nella bozza sta ultima. Costa un budget annuale che sta dentro il cost cap, quindi
-sono soldi tolti alla macchina di adesso. Quando il ciclo entra in vigore:
+**Quanto è remota l'elettrica.** Non basta volerla: la federazione ci arriva un ciclo per
+volta. Ogni ciclo firmato sposta di un po' la direzione (`trend_elettrico`), e serve
+attraversarne tre o quattro prima che una monoposto senza motore termico sia anche solo
+discutibile. Misurato sul tavolo: a zero cicli non prende voti, dopo tre una squadra che la
+spinge la porta a casa, dopo quattro passa da sola.
 
-- se l'architettura è quella su cui si è lavorato, tutto il programma diventa vantaggio, e
-  vale di più quanto prima si è cominciato (fino a +70% per chi parte cinque stagioni prima);
-- se il tavolo ha deciso diversamente resta il 10%: materiali, combustione, banchi. Non è
-  niente, non è tutto.
+**La scommessa.** Dalla pagina Power unit si apre un *programma sull'architettura che verrà*
+— quella che si pensa arriverà, anche prima che il tavolo decida, anche una che nella bozza
+sta ultima. Costa un budget annuale dentro il cost cap, cioè soldi tolti alla macchina di
+adesso. Quando il ciclo entra in vigore:
 
-In una prova su un ciclo intero - scommessa sul V10 dal 2028, accordo nel 2033, motore nuovo
-nel 2034 - chi aveva speso 60 M$ sull'architettura giusta è uscito dal reset con **+12,5** di
+- se l'architettura è quella su cui si è lavorato, il programma diventa vantaggio, e vale di
+  più quanto prima si è cominciato (fino a +70% partendo cinque stagioni prima);
+- se il tavolo ha deciso diversamente resta il 10%: materiali, combustione, banchi.
+
+**Ma i soldi non bastano: contano gli ingegneri e la fabbrica.** Ogni architettura chiede un
+mestiere diverso — termico (reparto motori e fabbrica), elettrico (elettronica, batterie,
+simulatore), integrazione (telaio) — e il programma rende in proporzione a quanto si è
+attrezzati per *quel* mestiere. Il numero si legge nella pagina Power unit (`noi valiamo
+x1,28`): una squadra di testa sta sopra 1,2, una di coda sotto 0,6, e chi il motore lo
+compra invece di costruirlo parte con meno della metà, perché può preparare la vettura
+attorno alla power unit nuova ma non la power unit. Il mestiere si accumula anche: ogni
+milione speso in un programma insegna qualcosa in quella famiglia, e chi ha passato un ciclo
+sull'ibrido comincia il successivo avanti sull'elettrico e indietro sul termico.
+
+In una prova su un ciclo intero — scommessa sul V10 dal 2028, accordo nel 2033, motore nuovo
+nel 2034 — chi aveva speso 60 M$ sull'architettura giusta è uscito dal reset con **+12,5** di
 media sulla vettura, chi ne aveva spesi 47 sull'architettura sbagliata con +2,8, cioè meno di
-chi ne aveva spesi 22 azzeccandola. Al tavolo si può anche spingere per l'architettura che
-conviene a noi: nella stessa prova il V10 è passato dal 29% al 35% e ha vinto.
+chi ne aveva spesi 22 azzeccandola.
 
 ### Quanto vale cambiare una regola
 

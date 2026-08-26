@@ -607,10 +607,12 @@ def _posizioni_motore(gs, motore: str | None = None) -> list:
         pref = architetture.preferenza_squadra(gs, t)
         if not pref:
             continue
-        if t.is_player and motore in pref:
-            # la nostra squadra al tavolo chiede una cosa sola
-            pref = {k: (0.95 if k == motore else 0.10) for k in pref}
         peso = 0.60 + 0.80 * (t.reputation / 100.0)
+        if t.is_player and motore in pref:
+            # la nostra squadra al tavolo chiede una cosa sola, e chi al tavolo
+            # ci va con una posizione netta pesa piu' di chi ascolta
+            pref = {k: (0.95 if k == motore else 0.10) for k in pref}
+            peso *= 1.5
         voci.append((_normalizza(pref), peso, t.short))
     voci += [(_normalizza(p), w, nome)
              for p, w, nome in architetture.preferenza_istituzioni(gs)]
@@ -629,8 +631,11 @@ def _media_motore(voci: list) -> dict:
     for p, _, _ in voci:
         chiavi.update(p)
     grezza = {k: sum(p.get(k, 0.0) * w for p, w, _ in voci) / tot for k in chiavi}
-    # come per le aree: chi raccoglie piu' sostegno detta, gli altri si accodano
-    return _polarizza(grezza, 3.4)
+    # come per le aree chi raccoglie piu' sostegno detta, ma qui si polarizza
+    # meno: un'architettura di nicchia deve restare sul tavolo con la sua
+    # percentuale piccola, non sparire - se no non e' una possibilita' remota,
+    # e' una possibilita' che non c'e'
+    return _polarizza(grezza, 2.4)
 
 
 def _posizioni(gs, spinta: str | None = None, radicale: float | None = None) -> list:
@@ -789,6 +794,7 @@ def _accordo(gs, st: dict) -> dict:
     if arch:
         ciclo["arch"] = arch
         ciclo["arch_quota"] = round(st["motori"][arch], 3)
+    architetture.avanza_trend(gs)
     gs.regulations.pop("cycle_talks", None)
     msg = (f"Accordo raggiunto: il nuovo regolamento entra in vigore nel {stagione} e a "
            f"decidere sara' soprattutto {ETICHETTA_AREA[dom]} ({st['aree'][dom]*100:.0f}%). "

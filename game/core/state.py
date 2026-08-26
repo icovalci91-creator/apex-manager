@@ -468,7 +468,7 @@ class GameState:
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
                     "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
-                    "arch_prog": t.arch_prog or {},
+                    "arch_prog": t.arch_prog or {}, "arch_exp": t.arch_exp or {},
                     "next_car_brief": t.next_car_brief or {},
                     "next_car_work": t.next_car_work or {},
                     "ledger": t.ledger[-1500:],
@@ -562,6 +562,7 @@ class GameState:
             t.cur_round = td.get("cur_round", 0)
             t.reg_prep = td.get("reg_prep", 0.0)
             t.arch_prog = dict(td.get("arch_prog") or {})
+            t.arch_exp = dict(td.get("arch_exp") or {})
             t.next_car_brief = dict(td.get("next_car_brief") or {})
             t.next_car_work = dict(td.get("next_car_work") or {})
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
