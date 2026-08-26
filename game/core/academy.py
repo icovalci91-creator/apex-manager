@@ -102,8 +102,13 @@ def _giovane(gs, team, livello: float) -> Driver:
         contract_until=gs.season + gs.rng.randint(2, 4),
         seat="academy",
     )
+    # da che gradino arriva: un diciottenne non ha cominciato ieri, e senza
+    # questo lo si schiererebbe in Formula 2 al primo anno
+    from . import serie
+    d.ultima_serie = serie.seme_scala(gs, d)
     gs.drivers[d.id] = d
     team.academy.append(d.id)
+    d.serie_scelta = serie.delega(gs, team, d)
     return d
 
 
@@ -187,12 +192,20 @@ def release(gs, team, driver) -> tuple:
 
 # -------------------------------------------------------------- fine stagione
 def end_season(gs) -> list:
-    """Le categorie minori corrono, poi si tirano le somme del vivaio."""
+    """Le categorie minori corrono, poi si tirano le somme del vivaio.
+
+    L'ordine conta: prima si corre - con l'eta' che avevano quest'anno - poi
+    si compie un anno, e solo alla fine si decide dove si correra' la
+    prossima stagione. Al contrario si finirebbe per iscrivere un ragazzo a
+    un campionato che nel frattempo ha smesso di poter fare.
+    """
     from . import serie
     msgs = list(serie.stagione(gs))
     for team in gs.teams.values():
         if not has(team):
             continue
+        for d in roster(gs, team):
+            d.age += 1
         for d in list(roster(gs, team)):
             if d.age >= LEAVE_AGE:
                 team.academy.remove(d.id)
@@ -207,6 +220,9 @@ def end_season(gs) -> list:
         if nuovi and team.is_player:
             msgs.append("Vivaio: entrano " + ", ".join(d.short for d in nuovi) + ".")
     msgs += _poach(gs)
+    # e adesso si decide dove correranno l'anno prossimo: chi ha lasciato la
+    # mano al responsabile se lo ritrova gia' iscritto
+    msgs += serie.pianifica(gs)
     return msgs
 
 

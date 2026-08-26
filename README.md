@@ -195,7 +195,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sviluppo | La scala delle ore di galleria con la nostra posizione e quanti run e calcoli CFD ci restano, i vincoli che tengono fermo il reparto (banchi occupati, persone libere, tetto di spesa, giornate di test, pezzi di fornitura unica, sviluppo power unit congelato), lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
-| Vivaio | I ragazzi che crescono in casa: in che categoria corrono, quanto costa quel posto, come è finito il loro campionato e a che punto sono con la superlicenza. Quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha può aprirlo, se se lo può permettere |
+| Vivaio | I ragazzi che crescono in casa: due schede, una per il ragazzo e una per decidere **in che categoria corre** — con il costo del posto, cosa insegna e perché una categoria è preclusa — oppure per lasciare la scelta al responsabile del vivaio. Come è finito il loro campionato e a che punto sono con la superlicenza. Quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha può aprirlo, se se lo può permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
 | Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
 | Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
@@ -276,6 +276,25 @@ si scopre correndo. Vincere alza la notorietà, e quindi quello che chiede sul m
 Il conto lo si sente: tre ragazzi in Formula 2 costano 7,8 M$ di soli posti in pista, sette
 volte quanto ne costerebbero in Formula 4. È il motivo per cui un vivaio serio si tiene
 largo in basso e stretto in alto.
+
+**La categoria la scegli tu**, ragazzo per ragazzo, nella scheda *Dove corre* della pagina
+Vivaio: ogni categoria mostra quanto costa il posto, se è possibile e perché no — età fuori
+finestra, un gradino di troppo, un campionato già vinto che non si rifà. Chi non vuole
+occuparsene lascia la mano al **responsabile del vivaio**, che sceglie come sceglierebbe uno
+bravo quanto lui: un responsabile forte azzecca la categoria quasi sempre, uno mediocre
+sbaglia una volta su cinque e ogni tanto brucia un ragazzo in Formula 2 o lo lascia un anno
+di troppo in Formula 4.
+
+La scelta pesa perché **una categoria insegna solo se è della misura giusta**. Chi vale più
+del livello di promozione di quella serie si porta a casa una frazione della crescita — fino
+a un quarto — e chi non arriva nemmeno al valore d'ingresso impara di meno di quanto
+imparerebbe un gradino più in basso: dominare una Formula 4 a vent'anni è un anno buttato,
+non una scorciatoia. Anche la notorietà segue la vetrina: vincere in Formula 2 vale sul
+mercato molto più che vincere in Formula 4.
+
+Da qui in avanti i ragazzi del vivaio **crescono solo correndo**: non ricevono più la
+progressione generica di fine stagione, e l'anno in più se lo prendono dopo aver corso, così
+che la categoria decisa a ottobre sia ancora quella giusta quando si va in pista.
 
 ### Le gomme del weekend
 

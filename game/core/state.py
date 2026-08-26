@@ -192,6 +192,9 @@ class GameState:
                 drv = gs.drivers.get(did)
                 if drv is not None and not getattr(drv, "ultima_serie", ""):
                     drv.ultima_serie = _serie.seme_scala(gs, drv)
+        # e dove correranno quest'anno: al primo giorno decide il responsabile,
+        # poi il giocatore fa quello che vuole
+        _serie.pianifica(gs)
 
         # e i due che accettano di salirci sopra: vanno presi fra gli svincolati
         # prima che il mercato e gli sponsor guardino chi c'e' in griglia
@@ -444,10 +447,13 @@ class GameState:
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
                            for t in self.candidates],
             "engine_makers": self.engine_makers,
+            # la classifica intera, non solo la testa: un nostro ragazzo che ha
+            # chiuso ventesimo va ritrovato al ventesimo posto anche domani
             "campionati": {sid: {"stagione": c.stagione,
-                                 "ordine": [[p.nome, p.forza, p.squadra, p.driver_id,
-                                             p.punti, p.vittorie, p.podi, p.superlicenza]
-                                            for p in c.ordine[:16]]}
+                                 "ordine": [[p.nome, round(p.forza, 2), p.squadra,
+                                             p.driver_id, round(p.punti, 1), p.vittorie,
+                                             p.podi, p.superlicenza]
+                                            for p in c.ordine]}
                            for sid, c in (getattr(self, "campionati", None) or {}).items()},
             "inbox": self.inbox, "season_history": self.season_history,
             "results": [
@@ -501,6 +507,7 @@ class GameState:
                                   for k, p in t.car.parts.items()},
                     "setup": t.car.setup, "setups": t.setups or {},
                     "auto_dev": t.auto_dev, "auto_setup": t.auto_setup,
+                    "vivaio_auto": t.vivaio_auto,
                     "part_delta": t.part_delta or {},
                     "last_spec": t.last_spec or {},
                     "kits": [asdict(k) for k in (t.kits or [])],
@@ -616,6 +623,7 @@ class GameState:
                       for x in (td.get("kits") or [])]
             t.auto_dev = bool(td.get("auto_dev", False))
             t.auto_setup = bool(td.get("auto_setup", True))
+            t.vivaio_auto = bool(td.get("vivaio_auto", True))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()

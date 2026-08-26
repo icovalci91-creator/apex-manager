@@ -63,37 +63,157 @@ def costo_posto(sid: str) -> float:
 
 
 # ------------------------------------------------------- dove si mette un ragazzo
-def serie_adatta(gs, d) -> str:
-    """In che categoria ha senso schierare questo ragazzo.
+# Quanto sbaglia il responsabile del vivaio a cui si lascia la mano. Non e' un
+# dado puro: uno che sa guardare i ragazzi mette ognuno dove deve stare, uno
+# che vale poco ogni tanto brucia un diciassettenne in Formula 2 o tiene un
+# anno di troppo in Formula 4 uno che era pronto.
+DELEGA_ERRORE = 0.40
+
+
+def verifica(gs, d, sid: str) -> tuple:
+    """Se questo ragazzo puo' correre in questa categoria. Ritorna (si puo', perche' no).
+
+    Le regole non sono di gusto: sono quelle vere. Ogni categoria ha la sua
+    finestra d'eta', si sale un gradino alla volta - dalla Formula 4 non si
+    salta in Formula 2 nemmeno pagando - e un campionato vinto non si rifa'.
+    """
+    s = scheda(sid)
+    if not s:
+        return False, "categoria che non esiste"
+    livelli = scala()
+    eta = int(d.age)
+    emin, emax = s.get("eta", [15, 24])
+    if eta < emin:
+        return False, f"troppo giovane (da {emin} anni)"
+    if eta > emax:
+        return False, f"fuori eta' (fino a {emax})"
+    if sid in (getattr(d, "titoli", None) or []):
+        return False, "l'ha gia' vinta"
+    prima = getattr(d, "ultima_serie", "") or ""
+    if prima in livelli and livelli.index(sid) > livelli.index(prima) + 1:
+        dopo = livelli[livelli.index(prima) + 1]
+        return False, f"un gradino alla volta: prima la {sigla(dopo)}"
+    return True, ""
+
+
+def consigliata(gs, d) -> str:
+    """In che categoria ha senso schierarlo, se non lo decide nessun altro.
 
     Si guarda quanto vale e quanti anni ha: un sedicenne bravo si mette in
     Formula Regional e non in Formula 2, perche' in Formula 2 lo distruggono e
-    l'anno dopo non lo vuole nessuno. E soprattutto si sale di un gradino alla
-    volta: nessuno passa dalla Formula 4 alla Formula 2, nemmeno se e' bravo -
-    la scala esiste proprio per quello.
+    l'anno dopo non lo vuole nessuno. Se non vale abbastanza per nessuna delle
+    categorie che potrebbe fare, si prende comunque la piu' bassa dove ci sta:
+    correre in fondo al gruppo insegna piu' che stare fermo.
     """
     val = float(d.overall)
-    eta = int(d.age)
-    livelli = scala()
     scelta = ""
-    for sid in livelli:
-        s = scheda(sid)
-        emin, emax = s.get("eta", [15, 24])
-        if val >= s.get("ingresso", 50) and emin <= eta <= emax:
+    for sid in scala():
+        if not verifica(gs, d, sid)[0]:
+            continue
+        if val >= scheda(sid).get("ingresso", 50):
             scelta = sid
-    if not scelta:
-        # o e' troppo giovane per la prima, o ha passato l'eta' di tutte: in
-        # nessuno dei due casi lo si schiera, e nel secondo e' un problema
-        piu_bassa = scheda(livelli[0])
-        if eta < piu_bassa.get("eta", [15, 24])[0]:
-            return ""
-        return "" if eta > max(scheda(x).get("eta", [15, 24])[1] for x in livelli) else livelli[0]
-    prima = getattr(d, "ultima_serie", "") or ""
-    if prima in livelli:
-        tetto = livelli[min(len(livelli) - 1, livelli.index(prima) + 1)]
-        if livelli.index(scelta) > livelli.index(tetto):
-            scelta = tetto
-    return scelta
+    if scelta:
+        return scelta
+    for sid in scala():
+        if verifica(gs, d, sid)[0]:
+            return sid
+    return ""
+
+
+def serie_adatta(gs, d) -> str:
+    """Dove corre davvero questo ragazzo la prossima stagione.
+
+    Se qualcuno ha deciso - il giocatore o il responsabile del vivaio - vale
+    quella decisione, finche' resta una decisione possibile: un anno passa,
+    l'eta' cambia, e una scelta di ottobre a marzo puo' non stare piu' in
+    piedi. Altrimenti si ricade su quello che ha senso.
+    """
+    scelta = getattr(d, "serie_scelta", "") or ""
+    if scelta and verifica(gs, d, scelta)[0]:
+        return scelta
+    return consigliata(gs, d)
+
+
+def nota(gs, d, sid: str) -> str:
+    """Il giudizio del responsabile su una categoria possibile: una riga.
+
+    La percentuale e' quella vera: quanto di una stagione di crescita si
+    porta a casa se lo si schiera li'.
+    """
+    s = scheda(sid)
+    if not s:
+        return ""
+    val = float(d.overall)
+    ingresso = float(s.get("ingresso", 50))
+    quota = sfida(d, sid)
+    if quota >= 0.98:
+        return "e' la sua misura"
+    if val >= float(s.get("promozione", 99)):
+        return f"non impara piu': {quota * 100:.0f}%"
+    if val < ingresso - 8:
+        return f"lo massacrano: {quota * 100:.0f}%"
+    return f"ci sta stretto: {quota * 100:.0f}%"
+
+
+def scegli(gs, d, sid: str) -> tuple:
+    """Il giocatore decide dove schierarlo. Sid vuoto vuol dire: decidi tu."""
+    if not sid:
+        d.serie_scelta = ""
+        return True, f"{d.short}: decide il responsabile del vivaio."
+    ok, why = verifica(gs, d, sid)
+    if not ok:
+        return False, f"{d.short} non puo' correre in {sigla(sid)}: {why}."
+    d.serie_scelta = sid
+    return True, (f"{d.short} correra' in {scheda(sid).get('nome', sid)}: "
+                  f"{costo_posto(sid):.2f} M$ il posto.")
+
+
+def delega(gs, team, d) -> str:
+    """La scelta del responsabile del vivaio, con la sua fallibilita'."""
+    ideale = consigliata(gs, d)
+    if not ideale:
+        return ""
+    q = float(getattr(team, "scouting_strength", 55.0))
+    if gs.rng.random() > max(0.0, DELEGA_ERRORE * (1.0 - q / 100.0)):
+        return ideale
+    livelli = scala()
+    i = livelli.index(ideale)
+    for passo in ((1, -1) if gs.rng.random() < 0.5 else (-1, 1)):
+        j = i + passo
+        if 0 <= j < len(livelli) and verifica(gs, d, livelli[j])[0]:
+            return livelli[j]
+    return ideale
+
+
+def pianifica(gs, solo=None) -> list:
+    """Si decide dove correra' ognuno la stagione prossima.
+
+    Dove il vivaio e' delegato - tutte le squadre del computer, e la nostra se
+    la mano l'abbiamo lasciata al responsabile - decide lui. Dove decide il
+    giocatore non si tocca niente, ma le scelte che l'anno nuovo ha reso
+    impossibili si cancellano: meglio una casella vuota che un ragazzo
+    iscritto a un campionato in cui non puo' entrare.
+    """
+    from . import academy
+    msgs = []
+    for team in gs.teams.values():
+        if not academy.has(team) or (solo is not None and team is not solo):
+            continue
+        auto = (not team.is_player) or bool(getattr(team, "vivaio_auto", True))
+        for d in academy.roster(gs, team):
+            scelta = getattr(d, "serie_scelta", "") or ""
+            if auto:
+                nuova = delega(gs, team, d)
+                d.serie_scelta = nuova
+                if team.is_player and nuova and nuova != consigliata(gs, d):
+                    msgs.append(f"Vivaio: il responsabile schiera {d.short} in "
+                                f"{sigla(nuova)}, e se ne prende la responsabilita'.")
+            elif scelta and not verifica(gs, d, scelta)[0]:
+                d.serie_scelta = ""
+                if team.is_player:
+                    msgs.append(f"Vivaio: {d.short} non puo' piu' correre in "
+                                f"{sigla(scelta)}: va deciso dove schierarlo.")
+    return msgs
 
 
 def seme_scala(gs, d) -> str:
@@ -215,6 +335,30 @@ LICENZA_ANNI = 3       # quante stagioni valgono i punti superlicenza
 LICENZA_SOGLIA = 40    # e quanti ne servono per avere il permesso
 
 
+def sfida(d, sid: str) -> float:
+    """Quanto una categoria ha ancora da insegnare a questo ragazzo.
+
+    Dominare un campionato piu' basso del proprio livello non serve a niente:
+    si vince tutto, non si impara niente, e nel frattempo si e' perso un anno.
+    Il contrario - buttare un ragazzo dove non arriva - qualcosa insegna, ma
+    meno di quanto insegnerebbe una categoria alla sua misura. E' anche il
+    freno che tiene onesta la scelta della categoria: chi mette un
+    ventunenne in Formula 4 per vincere facile si ritrova con un ventunenne
+    che non e' cresciuto.
+    """
+    s = scheda(sid)
+    if not s:
+        return 1.0
+    val = float(d.overall)
+    ingresso = float(s.get("ingresso", 55))
+    tetto = float(s.get("promozione", ingresso + 10))
+    if val >= tetto:
+        return max(0.25, 1.0 - (val - tetto) * 0.10)
+    if val < ingresso:
+        return max(0.55, 1.0 - (ingresso - val) * 0.03)
+    return 1.0
+
+
 def _quota_risultato(pos: int, campo: int) -> float:
     """Da 0 a 1: quanto in alto si e' finiti, contando quanti erano."""
     if campo <= 1:
@@ -240,6 +384,7 @@ def cresci(gs, d, camp: Campionato, team) -> str:
     margine = max(0.0, d.potential - d.overall)
     passo = (struttura * (margine / 12.0)
              * (CRESCITA_BASE + CRESCITA_RISULTATO * quota)
+             * sfida(d, camp.serie)
              * gs.rng.uniform(0.8, 1.35))
     for a in DRIVER_ATTRS:
         cur = getattr(d, a)
@@ -249,10 +394,21 @@ def cresci(gs, d, camp: Campionato, team) -> str:
                                      + (quota - 0.45) * 1.6))
     # e il mercato guarda la classifica, non il potenziale: chi vince si fa un
     # nome, e il nome e' meta' di quello che poi gli si offre
-    d.marketability = min(99.0, max(20.0, d.marketability + (quota - 0.45) * 9.0))
+    # e il nome che ci si fa dipende anche da dove lo si e' fatto: la vetrina
+    # della Formula 2 non e' quella di una Formula 4 regionale
+    vetrina = 0.5 + 0.5 * float(scheda(camp.serie).get("livello", 1)) / len(scala())
+    d.marketability = min(99.0, max(20.0, d.marketability
+                                    + (quota - 0.45) * 9.0 * vetrina))
     licenza = getattr(d, "superlicenza", None) or []
     licenza.append({"stagione": gs.season, "punti": riga.superlicenza})
     d.superlicenza = [x for x in licenza if gs.season - x["stagione"] < LICENZA_ANNI]
+    if pos == 1:
+        # un campionato vinto non si rifa': e' la regola vera, ed e' anche il
+        # motivo per cui vincere in basso puo' diventare un problema
+        titoli = list(getattr(d, "titoli", None) or [])
+        if camp.serie not in titoli:
+            titoli.append(camp.serie)
+        d.titoli = titoli
     s = scheda(camp.serie)
     dove = f"{pos}o in {s.get('sigla', camp.serie)}"
     if pos == 1:

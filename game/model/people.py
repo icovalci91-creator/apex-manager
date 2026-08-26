@@ -72,6 +72,10 @@ class Driver:
     # stagione: ne servono quaranta in tre anni per guidare in Formula 1
     superlicenza: list = field(default_factory=list)
     ultima_serie: str = ""       # in che categoria ha corso l'anno scorso
+    # dove correra' la prossima stagione: la sceglie il giocatore, oppure il
+    # responsabile del vivaio se gli e' stata lasciata la mano
+    serie_scelta: str = ""
+    titoli: list = field(default_factory=list)   # i campionati gia' vinti
 
     @property
     def name(self) -> str:

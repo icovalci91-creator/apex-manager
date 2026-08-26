@@ -329,6 +329,11 @@ def end_season(gs) -> dict:
     # crescita/declino dei piloti
     for d in list(gs.drivers.values()) + list(gs.free_agents):
         team = gs.teams.get(d.team)
+        if d.seat == "academy" and team is not None:
+            # i ragazzi del vivaio non crescono qui: crescono correndo, e la
+            # loro stagione si gioca piu' avanti (game.core.serie). Anche
+            # l'anno in piu' se lo prendono li', dopo aver corso
+            continue
         quality = 0.5
         if team:
             quality = (0.38 * (team.facilities.get("simulator", 60) / 100.0)

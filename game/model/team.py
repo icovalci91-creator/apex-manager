@@ -52,6 +52,7 @@ class Team:
     reserves: list = field(default_factory=list)     # terzo pilota e collaudatori
     academy: list = field(default_factory=list)      # ragazzi del vivaio
     academy_name: str = ""       # come si chiama il vivaio, se c'e'
+    vivaio_auto: bool = True     # il responsabile del vivaio sceglie le categorie
     setups: dict = None          # assetto montato, pilota per pilota
     kits: list = None            # pezzi nuovi usciti dalla fabbrica, da montare
     part_delta: dict = None      # specifiche montate su una macchina sola
