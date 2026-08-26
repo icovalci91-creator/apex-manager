@@ -23,9 +23,6 @@ SPEED_LABELS = ["II", "x1", "x4", "x12", "x40"]
 # doverli spiegare.
 VIOLA = (183, 96, 255)
 _SETT = {"viola": VIOLA, "verde": (53, 196, 106), "giallo": (245, 196, 80)}
-_STATO = {"box": "ai box", "uscita": "giro di lancio", "giro": "GIRO LANCIATO",
-          "rientro": "rientra ai box", "finito": "ha finito"}
-_CORTO = {"uscita": "lancio", "giro": "LANCIATO", "rientro": "rientra"}
 _ZONA = {"lente": "curva lenta", "medie": "curva media", "veloci": "curva veloce",
          "trazione": "in trazione", "frenata": "in frenata",
          "rettilinei": "a tutto gas", "box": "corsia box"}
@@ -1365,7 +1362,7 @@ class WeekendScene(Scene):
             col_cod = T.ACCENT if p.stato == "giro" else (T.TEXT if mio else T.DIM)
             T.text(surf, e.code, (tower.x + 52, y), dim, col_cod,
                    bold=(mio or p.stato == "giro"), mono=True)
-            stato = "" if p.fuori else _CORTO.get(p.stato, "")
+            stato = "" if p.fuori else t.etichetta(p, corta=True)
             if stato and x_dot - (tower.x + 94) >= 76:
                 T.text(surf, stato, (tower.x + 94, y + 1), 11,
                        T.ACCENT if p.stato == "giro" else T.DIM_2,
@@ -1416,9 +1413,11 @@ class WeekendScene(Scene):
         posto = next((i for i, q in enumerate(t.righe(), 1) if q is p), 0)
         T.text(surf, f"P{posto}", (r.x + 16, r.y + 8), 15, T.GOLD, bold=True)
         T.text(surf, e.name, (r.x + 54, r.y + 8), 16, T.TEXT, bold=True, maxw=150)
-        T.text(surf, _STATO.get(p.stato, ""), (r.x + 210, r.y + 10), 12,
-               T.ACCENT if p.stato == "giro" else T.DIM_2, bold=(p.stato == "giro"))
-        quante = len(p.corse)
+        lanciato = (p.stato == "giro"
+                    and p.corse[min(p.indice, len(p.corse) - 1)].tipo == "qualifica")
+        T.text(surf, t.etichetta(p), (r.x + 210, r.y + 10), 12,
+               T.ACCENT if lanciato else T.DIM_2, bold=lanciato, maxw=180)
+        quante = len(p.corse) + p.restanti
         ora = min(quante, p.indice + (0 if p.stato == "box" else 1))
         if r.w >= 470:
             T.text(surf, f"uscita {ora} di {quante}", (r.right - 90, r.y + 11), 11,

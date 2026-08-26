@@ -166,12 +166,16 @@ def best_available(ws, driver_id: str, preferite: tuple) -> str:
     return "medium"
 
 
-# Quante morbide un ingegnere non tocca mai il venerdi': servono al sabato, e
-# chi le brucia in prova si presenta in qualifica con le gomme di ieri.
+# Quanti treni nuovi consuma una sessione di libere: uno per il lungo di passo
+# gara e uno per la simulazione di qualifica. Il giro di controllo e il pezzo
+# di passo dopo la simulazione si fanno su gomme gia' usate, e non contano.
 SET_PER_SESSIONE = 2
-# Quello che il venerdi' non si tocca: due morbide per il sabato e le due
-# mescole che il regolamento tiene da parte per la domenica.
-RISERVE = {"soft": 2, "medium": 1, "hard": 1}
+# Quello che il venerdi' non si tocca: quattro morbide per il sabato - una per
+# turno di qualifica piu' quella della seconda uscita in Q3, che e' il conto
+# esatto di chi arriva in fondo - e le due mescole che il regolamento tiene da
+# parte per la domenica. Chi le brucia il venerdi' il sabato gira su gomme
+# gia' usate, e si vede.
+RISERVE = {"soft": 4, "medium": 1, "hard": 1}
 
 
 def reserves(track) -> dict:
@@ -188,34 +192,39 @@ def reserves(track) -> dict:
     return r
 
 
+# Le due uscite di una sessione che vogliono gomme nuove, nell'ordine in cui
+# si preferirebbero: il lungo di passo gara si fa sulle mescole da gara, la
+# simulazione di qualifica sulla morbida. Il giro di controllo esce su quello
+# che c'e' gia' montato e il pezzo di passo dopo la simulazione resta sulle
+# stesse gomme: sono uscite che non costano un treno.
+PROGRAMMA_SET = (("medium", "hard", "soft"), ("soft", "medium", "hard"))
+
+
 def spend_practice(gs, ws) -> None:
     """Una sessione di libere consuma set: si gira, e girare costa gomme.
 
-    Si comincia dalle dure, che servono a capire il passo gara, e si arriva
-    alle morbide solo se non c'e' altro. Le ultime tre morbide non si toccano:
-    quelle sono del sabato.
+    Se ne bruciano due, e sono quelli del programma: uno per il lungo di passo
+    gara e uno per la simulazione di qualifica. Le morbide del sabato e le due
+    mescole che il regolamento tiene per la domenica non si toccano finche'
+    c'e' altro.
     """
     tenute = reserves(ws.track)
     for did in list(getattr(ws, "tyre_stock", {})):
         st = ws.tyre_stock[did]
-        for _ in range(SET_PER_SESSIONE):
+        for prefer in PROGRAMMA_SET[:SET_PER_SESSIONE]:
             # quello che si puo' bruciare e' solo cio' che avanza dopo aver
             # messo da parte le morbide del sabato e le due mescole che il
             # regolamento vuole intatte per la gara
             avanzo = {m: st.get(m, 0) - tenute[m] for m in MESCOLE}
-            liberi = [m for m in MESCOLE if avanzo[m] > 0]
-            if liberi:
-                # si consuma in proporzione a quello che si e' portato: chi ha
-                # caricato morbide brucia morbide, e arriva al sabato con la
-                # scelta che ha fatto invece che con quella di tutti gli altri
-                m = gs.rng.choices(liberi, weights=[avanzo[x] for x in liberi])[0]
-                st[m] -= 1
-                continue
-            # non resta niente di comodo: si gira con quello che c'e'
-            for m in ("medium", "soft", "hard"):
-                if st.get(m, 0) > 0:
-                    st[m] -= 1
-                    break
+            scelta = next((m for m in prefer if avanzo.get(m, 0) > 0), "")
+            if not scelta:
+                # niente di libero: tocca intaccare quello che si teneva da
+                # parte, e si comincia dal fondo - la morbida del sabato e'
+                # l'ultima cosa che un ingegnere brucia il venerdi'
+                scelta = next((m for m in ("hard", "medium", "soft")
+                               if st.get(m, 0) > 0), "")
+            if scelta:
+                st[scelta] -= 1
 
 
 # Quanto vale il giro secco a seconda di cosa si riesce a montare. Chi arriva

@@ -320,12 +320,37 @@ identiche ad Albert Park, con la stessa macchina e lo stesso pilota:
 | 6 / 3 / 1 | 4.9 | 6.9 |
 | 3 / 3 / 4 | 4.4 | **3.0** |
 
-E i set si consumano davvero: due per ogni sessione di libere, uno per ogni turno di
-qualifica, uno per ogni stint di gara. Se arrivi al sabato senza morbide nuove il giro
-buono lo fai con le medie e paghi tre decimi; se arrivi alla domenica senza dure, il piano
-soste te lo detta il camion e non il muretto. Le squadre del computer scelgono in base a
-dove sono in classifica: chi sta davanti difende la gara e carica dure, chi insegue si
-gioca la qualifica.
+E i set si consumano davvero: due per ogni sessione di libere - il lungo di passo gara e
+la simulazione di qualifica - **uno per ogni uscita di qualifica** e uno per ogni stint di
+gara. Se arrivi al sabato senza morbide nuove il giro buono lo fai su gomme gia' usate e
+paghi un decimo e mezzo; se arrivi alla domenica senza dure, il piano soste te lo detta il
+camion e non il muretto. Le squadre del computer scelgono in base a dove sono in
+classifica: chi sta davanti difende la gara e carica dure, chi insegue si gioca la
+qualifica.
+
+### Il programma di un turno
+
+Un'ora di libere non e' fatta di quattro giri secchi. Si comincia con tre giri di
+controllo sulle gomme che si hanno gia' addosso - si guarda che la macchina sia a posto -
+poi si monta un treno da gara e si fa un **lungo di quattordici giri** per capire il passo.
+Nell'ultima parte si monta la morbida per la **simulazione di qualifica**, e con quelle
+stesse gomme si resta fuori a fare un altro pezzo di passo gara. Il sabato mattina il
+programma si inverte: prima il lungo, e il giro secco alla fine, che e' la prova generale
+della qualifica. Il tabellone dice cosa sta facendo ognuno - *passo gara, giro 9 di 14* -
+e il tempo che avanza sono i minuti ai box, spalmati diversamente da ogni squadra.
+
+In qualifica la seconda uscita non e' scontata. Si esce una prima volta con gomme nuove;
+quando la macchina rientra, il muretto guarda dove ci si vede arrivare e di quanto si e'
+davanti a chi resterebbe fuori, e decide. Se il tempo tiene si resta ai box e **si salva
+un treno per la domenica**: succede a un quinto della griglia in Q1 e in Q2, e sono quasi
+sempre le macchine di testa. Nell'ultimo turno esce sempre due volte, perche' li' non c'e'
+niente da risparmiare.
+
+La previsione puo' sbagliare, e sbaglia piu' spesso dove il muretto vale meno: chi legge
+male la pista resta ai box con un tempo che non basta e si ritrova eliminato. Anche
+l'orario e' una scelta: chi rischia il taglio esce presto per mettere un tempo in
+cassaforte, chi e' tranquillo aspetta - la pista si gomma mentre il turno va avanti, e
+l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
 
 ### Durante la gara
 
