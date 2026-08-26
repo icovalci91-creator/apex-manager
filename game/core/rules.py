@@ -171,12 +171,20 @@ def apply_effects(gs, proposal: dict) -> list:
             notes.append(f"Degrado gomme: x{reg['tyres']['deg_multiplier']:.2f}")
         elif k == "standard_parts":
             reg["standard_parts"] = v
-        elif k == "customer_cars_allowed":
-            reg["customer_cars_allowed"] = v
-        elif k == "third_car":
-            reg["third_car"] = v
-        elif k == "refuelling":
-            reg["refuelling"] = v
+            if v:
+                # una fornitura unica non e' un obiettivo: dal giorno dopo quei
+                # pezzi arrivano uguali a tutti, e chi ci aveva speso li perde
+                from .development import PEZZI_STANDARD
+                for pezzo in PEZZI_STANDARD:
+                    livelli = [t.car.parts[pezzo].perf for t in gs.teams.values()
+                               if pezzo in t.car.parts]
+                    if not livelli:
+                        continue
+                    media = round(sum(livelli) / len(livelli), 1)
+                    for t in gs.teams.values():
+                        if pezzo in t.car.parts:
+                            t.car.parts[pezzo].perf = media
+                notes.append("Freni, sospensioni e trasmissione di fornitura unica")
         elif k == "prize_flatten":
             reg["prize_flatten"] = v
         elif k == "cap_carryover_musd":
@@ -249,8 +257,19 @@ def apply_effects(gs, proposal: dict) -> list:
         elif k == "pu_reset":
             _rimescola_motori(gs)
             notes.append("Le power unit ripartono da zero")
-        elif k in ("standard_hybrid", "pu_bench_limit", "reverse_grid",
-                   "aggregate_quali", "supply_obligation"):
+        elif k == "standard_hybrid":
+            reg[k] = v
+            if v:
+                # la parte elettrica diventa uguale per tutti il giorno stesso:
+                # e' una fornitura unica, non un obiettivo di convergenza
+                media = sum(float(m.get("ers", 85)) for m in gs.engine_makers.values())
+                media /= max(1, len(gs.engine_makers))
+                for m in gs.engine_makers.values():
+                    m["ers"] = round(media, 1)
+                notes.append(f"Ibrido di fornitura unica: ERS a {media:.0f} per tutti")
+        elif k in ("pu_bench_limit", "reverse_grid", "aggregate_quali",
+                   "supply_obligation", "customer_cars_allowed", "third_car",
+                   "refuelling", "reverse_grid"):
             reg[k] = v
     reg.setdefault("applied", []).append(proposal["id"])
     if any(k in FISICHE for k in eff):
@@ -269,8 +288,8 @@ def apply_effects(gs, proposal: dict) -> list:
 DESTINAZIONE = {
     "cost_cap_musd": "economia: il tetto di spesa della stagione",
     "cost_cap_excludes_driver_salaries": "economia: gli ingaggi dentro o fuori dal cap",
-    "driver_salary_cap_musd": None,
-    "cap_carryover_musd": None,
+    "driver_salary_cap_musd": "mercato: massimale sul monte ingaggi dei titolari",
+    "cap_carryover_musd": "economia: budget non speso riportato all'anno dopo",
     "income_bonus_musd": "budget delle squadre, subito",
     "min_weight_kg": "car.mass_base: peso della vettura nel modello di giro",
     "downforce_index": "car.reg_downforce_index: carico aerodinamico",
@@ -300,17 +319,17 @@ DESTINAZIONE = {
     "pu_reset": "power unit: i motoristi ripartono da zero",
     "atr_slope": "galleria del vento: la scala delle ore",
     "testing_days": "test collettivi",
-    "rookie_fp1_sessions": None,
+    "rookie_fp1_sessions": "prove libere: turni obbligatori ai debuttanti",
     "prize_flatten": "premi: ripartizione piu' piatta",
-    "standard_parts": None,
-    "customer_cars_allowed": None,
-    "third_car": None,
-    "refuelling": None,
-    "reverse_grid": None,
-    "aggregate_quali": None,
-    "supply_obligation": None,
-    "standard_hybrid": None,
-    "pu_bench_limit": None,
+    "standard_parts": "sviluppo: freni, sospensioni e cambio di fornitura unica",
+    "customer_cars_allowed": "fine stagione: le ultime comprano il telaio dal motorista",
+    "third_car": "gara: terza vettura per le prime tre, senza punti",
+    "refuelling": "gara: si parte leggeri e si rifornisce alla sosta",
+    "reverse_grid": "sprint: griglia rovesciata rispetto alla classifica",
+    "aggregate_quali": "qualifica: conta la somma dei due piloti",
+    "supply_obligation": "power unit: fornitura garantita e prezzo calmierato",
+    "standard_hybrid": "power unit: ERS uguale per tutti e fuori dallo sviluppo",
+    "pu_bench_limit": "power unit: ore di banco contate, come la galleria",
     "reset_strength": "ciclo tecnico: quanto rimescola le carte",
 }
 

@@ -189,4 +189,47 @@ def end_season(gs) -> list:
         msgs += build(gs, team)
         if not team.is_player:
             ai_brief(gs, team)
+    msgs += vetture_cliente(gs)
+    return msgs
+
+
+# Quanto vale il telaio comprato rispetto a quello del costruttore: non e' la
+# stessa macchina - arriva piu' tardi, la si conosce meno e l'aerodinamica va
+# rifatta attorno alle proprie fiancate - ma e' un altro pianeta rispetto a
+# quello che una squadra piccola disegna da sola.
+QUOTA_CLIENTE = 0.94
+
+
+def vetture_cliente(gs) -> list:
+    """Chi si compra il telaio da un altro, quando il regolamento lo permette.
+
+    E' la proposta che torna ogni volta che una squadra piccola rischia di
+    chiudere: invece di disegnare una macchina che non ha i mezzi per
+    disegnare, si compra quella di chi il mezzo ce l'ha. Le ultime quattro
+    della classifica che non costruiscono la power unit prendono il telaio dal
+    proprio motorista, e la griglia si accorcia di brutto.
+    """
+    if not gs.regulations.get("customer_cars_allowed"):
+        return []
+    from . import powertrain
+    msgs = []
+    for team in gs.constructor_standings()[-4:]:
+        if team.works:
+            continue          # chi costruisce il motore il telaio se lo fa da solo
+        donatore = powertrain.builder_of(gs, team.engine)
+        if donatore is None or donatore is team:
+            continue
+        salto = 0.0
+        for chiave, parte in team.car.parts.items():
+            arrivo = donatore.car.parts.get(chiave)
+            if arrivo is None:
+                continue
+            comprato = arrivo.perf * QUOTA_CLIENTE
+            if comprato > parte.perf:
+                salto += comprato - parte.perf
+                parte.perf = round(comprato, 1)
+        if salto > 0.5:
+            msgs.append(f"{team.short} corre con il telaio {donatore.short}: "
+                        f"{salto / max(1, len(team.car.parts)):+.1f} di media sulla vettura.")
+            gs.push(msgs[-1], "tecnico")
     return msgs

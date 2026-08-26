@@ -49,10 +49,41 @@ def buyout_cost(gs, driver: Driver) -> float:
     return round(driver.salary * (0.55 + 0.45 * years), 2)
 
 
+def tetto_ingaggi(gs) -> float:
+    """Il massimale che il regolamento mette al monte ingaggi dei titolari."""
+    return float(gs.regulations.get("driver_salary_cap_musd", 0.0) or 0.0)
+
+
+def monte_ingaggi(gs, team, escluso: str = "") -> float:
+    """Quanto costano gia' i titolari, senza contare chi si sta trattando."""
+    tot = 0.0
+    for did in team.drivers:
+        if did == escluso:
+            continue
+        d = gs.drivers.get(did)
+        if d is not None:
+            tot += float(d.salary)
+    return round(tot, 2)
+
+
+def spazio_ingaggi(gs, team, escluso: str = "") -> float:
+    """Quanto resta da spendere in stipendi, se c'e' un massimale."""
+    tetto = tetto_ingaggi(gs)
+    if tetto <= 0:
+        return float("inf")
+    return round(max(0.0, tetto - monte_ingaggi(gs, team, escluso)), 2)
+
+
 def offer_contract(gs, team, driver: Driver, salary: float, years: int) -> tuple:
     """Ritorna (esito, messaggio). Esito: accepted | rejected | counter."""
     if len(team.drivers) >= 2 and driver.id not in team.drivers:
         return "rejected", "Hai gia' due piloti sotto contratto: liberane uno prima."
+    # il massimale sugli ingaggi, quando c'e', non e' trattabile: la
+    # federazione non registra il contratto e il pilota non puo' firmare
+    spazio = spazio_ingaggi(gs, team, escluso=driver.id)
+    if salary > spazio:
+        return "rejected", (f"Fuori dal massimale ingaggi: restano {spazio:.1f} M$ "
+                            f"su {tetto_ingaggi(gs):.0f} per il monte piloti.")
     # solo l'indennizzo va pagato subito: lo stipendio e' un impegno annuale
     # che il bilancio spalma sulle gare
     if driver.team and driver.team != team.id:
@@ -262,6 +293,10 @@ def run_transfer_window(gs) -> list:
                     break
             if not pick:
                 pick = (pool[0], round(pool[0].market_value * 1.25, 1))
+            # e anche le altre devono stare nel massimale: chi non ci sta
+            # ripiega su un ingaggio piu' basso, ed e' il senso della norma
+            spazio = spazio_ingaggi(gs, team)
+            pick = (pick[0], round(min(pick[1], spazio), 1)) if spazio < float("inf") else pick
             _sign(gs, team, pick[0], pick[1], gs.rng.randint(1, 3))
             news.append(f"{pick[0].name} firma per {team.short}.")
 

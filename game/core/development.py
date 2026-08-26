@@ -484,9 +484,23 @@ def _unsettle(team, quota: float) -> None:
                                 for k, v in team.setup_knowledge.items()}
 
 
+# I pezzi che una fornitura unica toglie di mano alle squadre. Non sono
+# scelti a caso: sono quelli che nel dibattito vero si propone di rendere
+# standard, perche' costano tanto e differenziano poco.
+PEZZI_STANDARD = ("brakes", "suspension", "gearbox")
+
+
+def standard(gs, part: str) -> bool:
+    """Questo pezzo lo fa un fornitore unico, e quindi non lo si sviluppa."""
+    return bool(gs.regulations.get("standard_parts")) and part in PEZZI_STANDARD
+
+
 def start_project(gs, team, part: str, size: str, focus: str = "") -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
     from . import departments
+    if standard(gs, part):
+        return False, (f"{C.CAR_PARTS[part]['label']} e' di fornitura unica: "
+                       f"arriva uguale a tutti e non c'e' niente da sviluppare.")
     cost = cost_of_upgrade(gs, team, part, size)
     races = RACES_OF[size]
     aperti = len(team.dev_projects) + sum(1 for t in team.spec_trials
@@ -501,7 +515,7 @@ def start_project(gs, team, part: str, size: str, focus: str = "") -> tuple:
                        f"{liberi} libere: o si assume, o si chiude un cantiere.")
     if team.cash < cost / races:
         return False, "Non c'e' liquidita' nemmeno per la prima tranche."
-    if team.spent + cost > economy.cap_limit(gs):
+    if team.spent + cost > economy.cap_limit(gs, team):
         return False, "Il pacchetto intero non ci sta dentro il tetto di spesa."
     from ..model.car import DOMINI_PEZZO
     if focus and focus not in DOMINI_PEZZO.get(part, {}):
@@ -952,7 +966,7 @@ def budget_headroom(gs, team) -> float:
     """Quanto si puo' ancora spendere per gara restando dentro il cap."""
     races_left = max(1, len(gs.tracks) - gs.round)
     fixed = (team.staff_cost + team.facility_upkeep) / len(gs.tracks) + economy.TRAVEL_PER_RACE
-    room = (economy.cap_limit(gs) - team.spent) / races_left - fixed
+    room = (economy.cap_limit(gs, team) - team.spent) / races_left - fixed
     return max(0.0, room)
 
 
@@ -994,9 +1008,12 @@ def run_department(gs, team) -> None:
     from . import engineering
     q = lucidita(team)
     consigliate = [p for p in engineering.suggested_parts(gs, team, 3)
-                   if p in team.car.parts]
+                   if p in team.car.parts and not standard(gs, p)]
     if not consigliate:
-        consigliate = [min(team.car.parts.items(), key=lambda kv: kv[1].perf)[0]]
+        liberi = {k: v for k, v in team.car.parts.items() if not standard(gs, k)}
+        consigliate = [min(liberi.items(), key=lambda kv: kv[1].perf)[0]] if liberi else []
+    if not consigliate:
+        return
     weak = consigliate[0] if gs.rng.random() < q else gs.rng.choice(consigliate)
     # e anche il lavoro continuo segue la stessa linea, invece di un'idea sua
     alloc = engineering.suggested_allocation(gs, team)

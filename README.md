@@ -1119,11 +1119,28 @@ gioco dell'energia, e va votata sapendolo. E il tetto al recupero di 8,5 MJ oggi
 mai: il circuito più generoso del calendario ne rimette dentro 8,2, quindi abbassarlo si
 sente e alzarlo no.
 
-Lo stesso strumento stampa anche le voci che una proposta può cambiare e che **non legge
-nessuno**: dodici, oggi, elencate in `rules.DESTINAZIONE` con un `None` accanto. Sono
-proposte che passano in Commissione e in pista non cambiano niente - `refuelling`,
-`third_car`, `reverse_grid`, `standard_parts` e le altre - ed è la lista di lavoro per
-chi vuole renderle vere.
+Lo stesso strumento stampa anche le voci che una proposta può cambiare e che non legge
+nessuno. Oggi non ce n'è nessuna: ogni voce di `rules.DESTINAZIONE` dice chi la legge, e
+una modifica votata in Commissione arriva sempre da qualche parte.
+
+### Cosa fa ognuna delle norme votabili
+
+Le dodici che fino a poco fa erano solo etichette:
+
+| norma | cosa succede davvero |
+|---|---|
+| Rifornimento in gara | si parte con la benzina di un solo stint - a Sakhir 20 kg invece di 70 - e alla sosta se ne rimette dentro dell'altra, 0,12 s al chilo. Macchine più leggere, soste più lunghe |
+| Terza vettura | le prime tre del costruttori schierano una macchina in più con un giovane di riserva o del vivaio: 25 al via, e la terza non prende punti né li toglie a chi la segue |
+| Vetture cliente | le ultime quattro che non costruiscono la power unit prendono il telaio dal proprio motorista al 94%: Cadillac guadagna 7 punti di media sulla vettura, Haas 3,4 |
+| Componenti standard | freni, sospensioni e trasmissione diventano uguali per tutti il giorno stesso, e non si possono più sviluppare - né dal giocatore né dalle IA |
+| Ibrido standard | l'ERS di tutti i motoristi va sulla media e esce dallo sviluppo: al banco restano termico e affidabilità |
+| Ore di banco contate | lo sviluppo della power unit rallenta come la galleria del vento, e toglie di più a chi sta davanti: il primo lavora al 60%, l'ultimo all'82% |
+| Obbligo di fornitura | un motorista regge al massimo tre clienti; con l'obbligo chi cerca un motore lo trova sempre e il prezzo è calmierato, senza paga il 25% in più (McLaren 32,5 M$ contro 26) |
+| Massimale ingaggi | il monte stipendi dei titolari non può superare il tetto: chi è già sopra non può firmare nessuno finché non scadono i contratti |
+| Riporto del budget | quello che non si è speso resta in cassa per l'anno dopo, fino al massimale, e alza il tetto solo di quella squadra |
+| FP1 ai debuttanti | ogni squadra cede un tot di prime libere a un giovane, sfalsate fra squadre: quel venerdì si impara meno sull'assetto e il ragazzo cresce (+2,8 di overall in una stagione, +3,6 se le sessioni raddoppiano) |
+| Qualifica aggregata | conta la media dei due piloti: le squadre si schierano in coppia e una seconda guida lenta ti rovina la griglia |
+| Griglia invertita | nelle sprint si parte al contrario della classifica, e a inizio stagione al contrario della qualifica |
 
 I valori di piloti e scuderie sono ancorati alla forza espressa nella stagione 2025, che e'
 l'ultima cosa verificabile prima di un reset regolamentare: nel 2026 nessuno sa davvero

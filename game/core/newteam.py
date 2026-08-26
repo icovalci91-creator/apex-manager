@@ -154,6 +154,15 @@ def create(gs, spec: dict) -> Team:
              for k in C.CAR_PARTS}
 
     motore = spec.get("engine") or _motorista_disponibile(gs)
+    emergenza = False
+    if motore is None:
+        # nessuno ha posto e nessuno e' obbligato: si entra lo stesso, ma con
+        # la fornitura che si riesce a strappare - specifica dell'anno prima e
+        # prezzo da chi sa di averti in pugno
+        from . import powertrain
+        motore = min(gs.engine_makers,
+                     key=lambda e: len(powertrain.customers_of(gs, e)))
+        emergenza = True
     eng = gs.engine_makers[motore]
     team = Team(
         id=tid, name=spec.get("name", "Nuova Scuderia"),
@@ -174,6 +183,11 @@ def create(gs, spec: dict) -> Team:
     team.car = Car.build(pezzi, eng, gs.regulations)
     team.is_player = True
     team.engine_customer_cost = eng.get("cost_per_customer", 25.0)
+    if emergenza:
+        team.engine_customer_cost = round(team.engine_customer_cost * 1.5, 2)
+        team.pu_reason = ("Fornitura d'emergenza: nessun motorista aveva posto, "
+                          "si corre con la specifica dell'anno scorso")
+        team.pu_emergency = True
     team.resource_alloc = {k: 1.0 / len(C.CAR_PARTS) for k in C.CAR_PARTS}
     team.set_clock(gs.season, 1, 0)
     # niente e' vecchio e niente e' da rifare: e' tutto appena messo in piedi
@@ -196,10 +210,10 @@ def create(gs, spec: dict) -> Team:
     return team
 
 
-def _motorista_disponibile(gs) -> str:
-    """Chi il motore lo venderebbe: si sceglie fra chi lo costruisce."""
-    fatti = [t.engine for t in gs.teams.values() if t.works]
-    return fatti[0] if fatti else next(iter(gs.engine_makers))
+def _motorista_disponibile(gs):
+    """Chi il motore lo venderebbe: quello con meno clienti, se ha ancora posto."""
+    from . import powertrain
+    return powertrain.fornitore_libero(gs)
 
 
 def suppliers(gs) -> list:

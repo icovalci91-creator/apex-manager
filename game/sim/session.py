@@ -141,13 +141,18 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
     except Exception:
         punte = {}
     out = []
+    terze = terze_vetture(gs)
     for team in gs.teams.values():
         # il pacchetto lavora uguale per tutti e due, l'assetto no
         pacchetto = gs.rng.gauss(0.0, 0.13)
         quote = _quote_settori(gs, team, track, cond)
         pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
                + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
-        for d in gs.lineup_of(team.id):
+        schierati = list(gs.lineup_of(team.id))
+        terzo = terze.get(team.id)
+        if terzo is not None:
+            schierati.append(terzo)
+        for d in schierati:
             base = pace.lap_base(gs, team, track, d, cond, aff.get(team.id, 0.0)) + pacchetto
             reso = pace.quali_rating(d, cond) if quali else pace.race_rating(d, cond)
             col = _hex(team.colour)
@@ -165,7 +170,32 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 ers_skill=float((team.car.engine or {}).get("ers", 85)),
                 sector_shares=list(quote),
                 is_player=(team.id == gs.player_team),
+                terza=(terzo is not None and d.id == terzo.id),
             ))
+    return out
+
+
+def terze_vetture(gs) -> dict:
+    """Le terze vetture in pista, quando il regolamento le consente.
+
+    E' una vecchia proposta che torna ogni volta che qualcuno rischia di
+    chiudere: le prime tre del costruttori schierano una macchina in piu' con
+    un giovane. Corre, occupa la pista e da' fastidio, ma non porta punti a
+    nessuno - se no il campionato lo deciderebbe chi ha piu' macchine.
+    """
+    if not gs.regulations.get("third_car"):
+        return {}
+    out = {}
+    gia = {d for t in gs.teams.values() for d in t.drivers}
+    for team in gs.constructor_standings()[:3]:
+        panchina = [gs.drivers[x] for x in (list(team.reserves) + list(team.academy))
+                    if x in gs.drivers and x not in gia]
+        panchina = [d for d in panchina if getattr(d, "banned_races", 0) <= 0]
+        if not panchina:
+            continue
+        panchina.sort(key=lambda d: -(d.potential + d.overall))
+        out[team.id] = panchina[0]
+        gia.add(panchina[0].id)
     return out
 
 
@@ -200,13 +230,24 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True, turno=None)
         ws.weather = ws.weather.drift(track, gs.rng)
     cond = turno.cond if turno is not None else pace.of_weekend(ws, "prove")
     notes = []
-    for team in gs.teams.values():
+    for indice, team in enumerate(gs.teams.values()):
         drivers = gs.drivers_of(team.id)
         fb = sum(d.feedback for d in drivers) / max(1, len(drivers))
+        # il turno riservato ai debuttanti: in macchina sale un ragazzo, il
+        # venerdi' rende meno e in cambio lui cresce
+        ragazzo = rookie_di_turno(gs, ws, team, indice)
+        if ragazzo is not None:
+            fb *= 0.86
         SETUP.learn_from_track(gs, team, track, fb, cond=cond)
         quota = 1.0
+        if ragazzo is not None:
+            quota = 0.55
+            cresci_rookie(gs, team, ragazzo)
+            if team.id == gs.player_team:
+                notes.append(f"FP1 al debuttante: in macchina c'e' {ragazzo.short}, "
+                             f"il venerdi' rende meno ma lui impara.")
         if team.id == gs.player_team and not delegate_player:
-            quota = 0.45      # il giocatore tiene in mano i regolatori
+            quota = min(quota, 0.45)   # il giocatore tiene in mano i regolatori
         SETUP.apply_paper(gs, team, quota)
         team.car.wear(0.55, track)
         # e ogni tanto qualcuno ci finisce dentro: e' l'unico modo in cui una
@@ -265,6 +306,51 @@ def run_practice(gs, ws: WeekendState, delegate_player: bool = True, turno=None)
         notes.append(f"{who}: con questo vento la macchina cambia a ogni passaggio.")
     ws.practice_notes = notes
     return notes
+
+
+def rookie_di_turno(gs, ws: WeekendState, team, indice: int):
+    """Chi sale in macchina nella prima libera, se tocca al debuttante.
+
+    Il regolamento obbliga ogni squadra a un tot di prime libere all'anno con
+    un pilota senza esperienza. Le si spalmano sulla stagione e le squadre non
+    le fanno tutte lo stesso venerdi': cosi' chi ci passa perde un'ora di
+    lavoro sull'assetto mentre gli altri no.
+    """
+    quante = int(gs.regulations["sporting"].get("rookie_fp1_sessions") or 0)
+    # nei weekend con la sprint c'e' una sola libera e non la si regala
+    if quante <= 0 or ws.practice_done or getattr(ws.track, "sprint", False):
+        return None
+    # i turni si spalmano sui weekend senza sprint, sfalsati da squadra a
+    # squadra: cosi' ognuna ne fa esattamente quanti ne chiede il regolamento
+    liberi = [r for r, t in enumerate(gs.tracks, 1) if not getattr(t, "sprint", False)]
+    if not liberi:
+        return None
+    scelti = {liberi[(k * len(liberi) // quante + indice) % len(liberi)]
+              for k in range(quante)}
+    if gs.round not in scelti:
+        return None
+    titolari = set(team.drivers)
+    panchina = [gs.drivers[x] for x in (list(team.reserves) + list(team.academy))
+                if x in gs.drivers and x not in titolari]
+    panchina = [d for d in panchina if getattr(d, "races", 0) < 12
+                and getattr(d, "banned_races", 0) <= 0]
+    if not panchina:
+        return None
+    panchina.sort(key=lambda d: -(d.potential - d.overall))
+    return panchina[0]
+
+
+def cresci_rookie(gs, team, d) -> None:
+    """Un'ora vera in macchina vale piu' di una stagione al simulatore."""
+    from ..model.people import DRIVER_ATTRS
+    margine = max(0.0, d.potential - d.overall)
+    if margine < 0.3:
+        return
+    passo = (0.30 + 0.25 * float(team.facilities.get("academy", 60.0)) / 100.0) \
+        * (margine / 12.0) * gs.rng.uniform(0.8, 1.5)
+    for a in DRIVER_ATTRS:
+        cur = getattr(d, a)
+        setattr(d, a, min(99.0, cur + min(passo, max(0.0, d.potential - cur))))
 
 
 def learn_from_sprint(gs, ws: WeekendState) -> list:
@@ -339,6 +425,43 @@ def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:
     turno = LapSession(gs, ws, kind)
     turno.corri_tutto()
     return turno.applica()
+
+
+def ordina_griglia(gs, griglia: list, tempi: dict, kind: str) -> tuple:
+    """La griglia dopo che il regolamento ci ha messo mano.
+
+    Il formato normale mette davanti chi ha girato piu' forte. Ma in
+    Commissione tornano ogni tanto due idee che lo cambiano di netto: la
+    qualifica a tempo aggregato, in cui conta la somma dei due piloti di una
+    squadra - e allora nessuno puo' piu' permettersi una seconda guida - e la
+    griglia invertita nelle sprint, in cui si parte al contrario della
+    classifica. Se sono in vigore, e' qui che l'ordine cambia.
+    """
+    reg = gs.regulations
+    note = []
+    if reg.get("aggregate_quali"):
+        squadre = {}
+        for d in griglia:
+            drv = gs.drivers.get(d)
+            if drv is None:
+                continue
+            squadre.setdefault(getattr(drv, "team", ""), []).append(d)
+        ordine = sorted(squadre.items(),
+                        key=lambda kv: sum(tempi.get(d, 999.0) for d in kv[1]) / max(1, len(kv[1])))
+        nuova = []
+        for _, piloti in ordine:
+            nuova.extend(sorted(piloti, key=lambda d: tempi.get(d, 999.0)))
+        if nuova:
+            griglia = nuova
+            note.append("Griglia a tempo aggregato: contano i due piloti insieme.")
+    if kind == "sprint" and reg.get("reverse_grid"):
+        # al contrario della classifica piloti: chi non ha punti davanti a tutti
+        punti = {d: getattr(gs.drivers.get(d), "points", 0.0) for d in griglia}
+        # a parita' di punti - a inizio stagione sono tutti a zero - si
+        # rovescia il tempo: la griglia esce esattamente al contrario
+        griglia = sorted(griglia, key=lambda d: (punti.get(d, 0.0), -tempi.get(d, 999.0)))
+        note.append("Griglia invertita: si parte al contrario della classifica.")
+    return griglia, note
 
 
 def _regola_107(gs, times: dict, reached: dict, primo: str) -> list:
@@ -457,14 +580,21 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
             continue
         e.grid = i + 1
         e.dist = -i * 8.0
-        # benzina per i giri che si corrono davvero, con un filo di margine:
-        # guidando normale si arriva, attaccando tutta la gara no
-        e.fuel = min(C.FUEL_MASS_KG, laps * BURN_KG_PER_LAP * 1.04)
         # in griglia la batteria e' piena: e' l'unico giro in cui lo e' per tutti
         e.carica = float((gs.regulations.get("power_unit", {}) or {}).get(
             "batteria_mj", C.BATTERIA_MJ))
         e.stock = ws.tyre_stock.get(did) if ws.tyre_stock else None
         e.plan = plan_strategy(gs, e, track, laps, weather) if kind == "gp" else []
+        # benzina per i giri che si corrono davvero, con un filo di margine:
+        # guidando normale si arriva, attaccando tutta la gara no
+        serbatoio = float((gs.regulations.get("power_unit", {}) or {}).get(
+            "fuel_race_target_kg", C.FUEL_MASS_KG))
+        e.fuel = min(serbatoio, laps * BURN_KG_PER_LAP * 1.04)
+        if gs.regulations.get("refuelling"):
+            # col rifornimento non si parte pieni: si carica quello che serve
+            # per arrivare alla prima sosta, e li' se ne rimette dell'altra
+            prima = e.plan[0][0] if e.plan else laps
+            e.fuel = min(e.fuel, (prima + 1) * BURN_KG_PER_LAP * 1.06)
         e.tyre_life = 25.0
         ordered.append(e)
 
@@ -473,7 +603,11 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
     # 10% di riserva. Basta per attaccare in un terzo dei giri, non per tutta
     # la gara: chi ci prova resta a piedi prima della bandiera.
     if ordered:
-        sim.burn_per_lap = ordered[0].fuel / (laps * 1.10)
+        # il consumo si tara sul pieno di una gara intera, non su quello che
+        # ognuno ha nel serbatoio adesso: col rifornimento si parte leggeri
+        pieno = min(float((gs.regulations.get("power_unit", {}) or {}).get(
+            "fuel_race_target_kg", C.FUEL_MASS_KG)), laps * BURN_KG_PER_LAP * 1.04)
+        sim.burn_per_lap = pieno / (laps * 1.10)
     for e in ordered:
         e.tyre_life = sim._tyre_life(e, e.tyre)
     sim.log(f"Semaforo verde a {track.name} - {laps} giri - {weather.label}", "flag")

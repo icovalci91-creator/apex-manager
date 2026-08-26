@@ -17,7 +17,7 @@ FPS = 60
 RHO = 1.225                 # densita aria kg/m3
 G = 9.81
 CAR_MASS_KG = 768.0         # peso minimo regolamentare
-FUEL_MASS_KG = 100.0        # carico massimo di benzina
+FUEL_MASS_KG = 70.0         # carico massimo di benzina: il 2026 ne concede meno
 POWER_W = 745_000.0         # ~1000 CV: 400 kW termico + 350 kW elettrico
 # Meta' di quella potenza e' elettrica, e la batteria non la puo' erogare
 # ovunque: il pacco ha un budget per giro, e in fondo a un rettilineo lungo e'

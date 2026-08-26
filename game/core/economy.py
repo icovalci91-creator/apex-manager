@@ -66,8 +66,18 @@ def sponsor_income(gs, team, race_points: float, position: int) -> float:
     return round(contratti + minori + race_points * 0.03, 3)
 
 
-def cap_limit(gs) -> float:
-    return float(gs.regulations.get("cost_cap_musd", 215.0))
+def cap_limit(gs, team=None) -> float:
+    """Il tetto di spesa della stagione, per tutti o per una squadra sola.
+
+    Se il regolamento permette di riportare avanti quello che non si e' speso,
+    chi l'anno prima e' stato sotto si porta dietro un pezzo di margine: e' il
+    solo motivo per cui il tetto puo' essere diverso da una squadra all'altra.
+    """
+    base = float(gs.regulations.get("cost_cap_musd", 215.0))
+    if team is None:
+        return base
+    riporto = (gs.regulations.get("cap_carry") or {}).get(team.id, 0.0)
+    return round(base + float(riporto), 2)
 
 
 # ------------------------------------------------------- spesa in conto capitale
@@ -117,7 +127,7 @@ def can_afford_capex(gs, team, amount: float) -> tuple:
 
 
 def cap_usage(gs, team) -> tuple:
-    limit = cap_limit(gs)
+    limit = cap_limit(gs, team)
     return team.spent, limit, (team.spent / limit if limit else 0.0)
 
 
@@ -175,9 +185,11 @@ def end_of_season_finances(gs) -> list:
     """Premi FOM e verifica del tetto di spesa. Ritorna i messaggi da mostrare."""
     msgs = []
     flatten = float(gs.regulations.get("prize_flatten", 0.0))
-    limit = cap_limit(gs)
     thr = gs.regulations["sporting"].get("budget_penalty_threshold_pct", 5) / 100.0
+    massimo_riporto = float(gs.regulations.get("cap_carryover_musd", 0.0) or 0.0)
+    riporti = {}
     for pos, team in enumerate(gs.constructor_standings(), 1):
+        limit = cap_limit(gs, team)
         prize = prize_money(gs, pos, flatten, team)
         # durante l'anno sono gia' state pagate le rate sul piazzamento
         # precedente: a dicembre si versa solo la differenza
@@ -208,6 +220,17 @@ def end_of_season_finances(gs) -> list:
             gs.regulations["violation_pending"] = True
         if team.is_player:
             msgs.append(f"Premio FOM incassato: {prize} M$ per il {pos}o posto costruttori.")
+        # e quello che non si e' speso, se il regolamento lo consente, resta
+        # in cassa per l'anno dopo: e' un premio a chi ha tenuto i conti in
+        # ordine, e un problema per chi si illude di poterlo accumulare
+        if massimo_riporto > 0:
+            avanzo = max(0.0, limit - team.spent)
+            riporti[team.id] = round(min(massimo_riporto, avanzo), 2)
+            if team.is_player and riporti[team.id] > 0.5:
+                msgs.append(f"Budget non speso riportato al {gs.season + 1}: "
+                            f"{riporti[team.id]:.1f} M$.")
+    if massimo_riporto > 0:
+        gs.regulations["cap_carry"] = riporti
     # i conti col proprietario si chiudono dopo i premi, che e' quando si sa
     # davvero com'e' andata
     for team in gs.teams.values():
@@ -401,7 +424,7 @@ def cap_forecast(gs, team) -> dict:
     che le gare che restano si porteranno via comunque. La forbice attorno alla
     previsione la decide il direttore finanziario.
     """
-    limite = cap_limit(gs)
+    limite = cap_limit(gs, team)
     gare = max(0, len(gs.tracks) - gs.round)
     n = max(1, len(gs.tracks))
     fissi_gara = (team.staff_cost + team.facility_upkeep) / n + TRAVEL_PER_RACE
@@ -456,7 +479,7 @@ def can_afford(team, amount: float, gs=None, check_cap: bool = True) -> tuple:
     if team.cash < amount:
         return False, "Liquidita' insufficiente."
     if check_cap and gs is not None:
-        if team.spent + amount > cap_limit(gs):
+        if team.spent + amount > cap_limit(gs, team):
             return False, "Supereresti il tetto di spesa (budget cap)."
     return True, ""
 

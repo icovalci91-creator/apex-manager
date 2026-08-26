@@ -452,7 +452,7 @@ class LapSession:
         return self._applica_quali()
 
     def _applica_quali(self) -> list:
-        from .session import _learn_from_running, _regola_107
+        from .session import _learn_from_running, _regola_107, ordina_griglia
         gs, ws = self.gs, self.ws
         tempi = {d: p.tempo if p.tempo > 0 else 999.0 for d, p in self.piste.items()}
         raggiunto = {d: (p.fase_uscita if p.fuori else len(self.fasi) - 1)
@@ -461,6 +461,10 @@ class LapSession:
         griglia = [d for d, _ in ordine]
         pole = griglia[0]
         note = _regola_107(gs, tempi, raggiunto, self.fasi[0][0])
+        # e poi, se il regolamento ha qualcosa da dire sull'ordine, lo dice qui
+        griglia, altre = ordina_griglia(gs, griglia, tempi, self.kind)
+        note += altre
+        pole = griglia[0]
         for team in gs.teams.values():
             team.car.wear(0.4, self.track)
         pace.rubber_in(ws, 0.006)

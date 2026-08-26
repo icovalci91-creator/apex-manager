@@ -110,6 +110,12 @@ def supply_cost(gs, team) -> float:
     if team.works:
         return 0.0
     full = float(gs.engine_makers.get(team.engine, {}).get("cost_per_customer", 25.0))
+    # un motorista al completo sa di avere il coltello dalla parte del manico e
+    # il prezzo lo fa lui. Con l'obbligo di fornitura il listino e' calmierato:
+    # e' la meta' del senso della norma, l'altra e' che nessuno resta a piedi
+    if (len(customers_of(gs, team.engine)) >= LIMITE_CLIENTI
+            and not gs.regulations.get("supply_obligation")):
+        full *= 1.25
     if team.is_partner:
         return round(full * PARTNER_COST_SHARE, 2)
     parent = gs.teams.get(team.parent_team) if team.parent_team else None
@@ -118,15 +124,58 @@ def supply_cost(gs, team) -> float:
     return full
 
 
+# Quanti clienti puo' reggere un motorista, oltre alla propria squadra. Il
+# tetto e' vero: sopra un certo numero di forniture non ci stanno ne' i banchi
+# ne' le persone in pista. Quando sono tutti pieni, chi cerca un motore resta
+# a piedi - a meno che il regolamento non obblighi qualcuno a prenderselo.
+LIMITE_CLIENTI = 3
+
+
+def fornitore_libero(gs) -> str | None:
+    """Chi puo' ancora vendere una power unit, o chi e' obbligato a farlo.
+
+    Si guarda prima chi ha posto, e fra quelli si prende il meno carico: e' il
+    modo in cui le forniture si distribuiscono da sole. Se non ha posto
+    nessuno, decide il regolamento: con l'obbligo di fornitura il motorista con
+    meno clienti se lo prende comunque, senza si resta senza motore.
+    """
+    conta = {eid: len(customers_of(gs, eid)) for eid in gs.engine_makers}
+    if not conta:
+        return None
+    liberi = [e for e, n in conta.items() if n < LIMITE_CLIENTI]
+    if liberi:
+        return min(liberi, key=lambda e: (conta[e], -rating(gs.engine_makers[e])))
+    if gs.regulations.get("supply_obligation"):
+        return min(conta, key=lambda e: conta[e])
+    return None
+
+
 def rating(eng: dict) -> float:
     """Indice sintetico della power unit, come lo si legge nelle schermate."""
     return sum(float(eng.get(a, 85)) for a in PU_ATTRS) / len(PU_ATTRS)
 
 
 # -------------------------------------------------------------- capacita' tecnica
+# Il tetto alle ore di banco, quando c'e': funziona come la restrizione
+# aerodinamica, cioe' toglie di piu' a chi sta davanti. Non congela lo
+# sviluppo, lo rallenta e lo riavvicina.
+BANCO_BASE = 0.60
+BANCO_PASSO = 0.055
+
+
+def bench_factor(gs, engine_id: str) -> float:
+    """Quanto puo' girare il banco di questo motorista, se ci sono ore contate."""
+    if not gs.regulations.get("pu_bench_limit"):
+        return 1.0
+    ordine = sorted(gs.engine_makers.items(), key=lambda kv: -rating(kv[1]))
+    posto = next((i for i, (k, _) in enumerate(ordine) if k == engine_id), 0)
+    return min(1.0, BANCO_BASE + BANCO_PASSO * posto)
+
+
 def dev_rate(gs, team) -> float:
     """Da 0.5 a 1.6: quanto rende un milione speso in power unit."""
-    return 0.50 + 1.10 * (team.pu_strength / 100.0)
+    base = 0.50 + 1.10 * (team.pu_strength / 100.0)
+    return base * bench_factor(gs, team.engine)
 
 
 def ceiling(gs, team) -> float:
@@ -191,7 +240,11 @@ def _advance(gs, engine_id: str, eng: dict, ceil: float, rate: float,
     sp = spec(gs, engine_id)
     gained = 0.0
     push = min(2.5, max(0.0, budget) / 2.0)
-    for attr in SPEC_ATTRS:
+    # con l'ibrido di fornitura unica la parte elettrica non e' piu' roba da
+    # motoristi: al banco restano il termico e l'affidabilita'
+    attrs = [a for a in SPEC_ATTRS
+             if not (a == "ers" and gs.regulations.get("standard_hybrid"))]
+    for attr in attrs:
         cur = float(eng.get(attr, 85)) + float(sp["gain"].get(attr, 0.0))
         gap = ceil - cur
         if gap <= 0:
@@ -201,7 +254,7 @@ def _advance(gs, engine_id: str, eng: dict, ceil: float, rate: float,
         gained += step
     sp["races"] = int(sp.get("races", 0)) + 1
     sp["invested"] = float(sp.get("invested", 0.0)) + max(0.0, budget)
-    return gained / len(SPEC_ATTRS)
+    return gained / max(1, len(attrs))
 
 
 # ------------------------------------------------------- portarla in pista

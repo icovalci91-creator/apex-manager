@@ -32,12 +32,19 @@ def apply_result(gs, ws, sim, kind: str = "gp") -> RaceResult:
         t.set_clock(gs.season, mese, gs.round + 1)
 
     team_points = {tid: 0.0 for tid in gs.teams}
+    # le terze vetture corrono ma non prendono punti, e nemmeno li tolgono a
+    # chi le segue: per il punteggio si contano solo le macchine che ne danno
+    posto_punti = 0
     for pos, e in enumerate(order, 1):
         d = gs.drivers.get(e.driver_id)
         team = gs.teams[e.team_id]
-        pts = points_for(gs, pos, kind) if e.status == "finished" else 0.0
-        if (kind == "gp" and gs.regulations["sporting"].get("fastest_lap_point")
-                and fastest and e.driver_id == fastest.driver_id and pos <= 10):
+        terza = bool(getattr(e, "terza", False))
+        if not terza:
+            posto_punti += 1
+        pts = 0.0 if terza else (points_for(gs, posto_punti, kind)
+                                 if e.status == "finished" else 0.0)
+        if (kind == "gp" and not terza and gs.regulations["sporting"].get("fastest_lap_point")
+                and fastest and e.driver_id == fastest.driver_id and posto_punti <= 10):
             pts += 1
         if d:
             d.points += pts

@@ -20,7 +20,11 @@ PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
 # quanto pesa un punto di valutazione pilota sul giro (secondi)
 DRIVER_S_PER_POINT = 0.046
 FUEL_S_PER_KG = 0.032
-BURN_KG_PER_LAP = 1.75
+# Quanto ci mette a entrare un chilo di benzina, quando il rifornimento e'
+# permesso: le pompe dell'ultima era ne mandavano giu' poco piu' di otto al
+# secondo, e una sosta con un pieno vero diventava una sosta lunga.
+SECONDI_PER_KG = 0.12
+BURN_KG_PER_LAP = 1.18    # settanta chili per una gara: il consumo del 2026
 
 # Modalita' di guida (0.9 conserva, 1.0 normale, 1.1 attacca). Attaccare deve
 # valere poco piu' di un secondo sul giro e costare caro in gomme e benzina:
@@ -52,8 +56,8 @@ SOGLIA_SCARSA = 1.15
 FORZA_SORPASSO = 0.45
 # Quanto puo' arrivare a valere un tentativo, per quanto grosso sia il divario
 # di passo: dove non c'e' spazio non si passa nemmeno con due secondi al giro.
-TETTO_BASE = 0.017
-TETTO_PISTA = 0.146
+TETTO_BASE = 0.016
+TETTO_PISTA = 0.133
 
 
 def follow_gap(track) -> float:
@@ -272,6 +276,7 @@ class Entrant:
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
+    terza: bool = False           # terza vettura: corre ma non prende punti
     laps_led: int = 0
     penalty_pending: float = 0.0     # secondi assegnati e non ancora scontati
     penalty_total: float = 0.0       # secondi complessivi ricevuti
@@ -351,6 +356,8 @@ class RaceSim:
         self.batteria_max = float(pu.get("batteria_mj", C.BATTERIA_MJ))
         self.senza_coperte = gs.regulations.get("tyre_warmers") is False
         self.superclip_kw = float(pu.get("superclip_kw", 250.0))
+        self.rifornimento = bool(gs.regulations.get("refuelling"))
+        self.serbatoio = float(pu.get("fuel_race_target_kg", C.FUEL_MASS_KG))
         self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
@@ -822,6 +829,10 @@ class RaceSim:
         muretto lo dice prima, non dopo.
         """
         left = self.laps - e.lap
+        if self.rifornimento and e.plan:
+            # col rifornimento non si deve arrivare in fondo alla gara: si
+            # deve arrivare alla prossima sosta, ed e' un altro mestiere
+            left = max(1, e.plan[0][0] - e.lap + 1)
         if left <= 0 or e.fuel_warned or e.fuel >= left * self.burn_per_lap:
             return
         e.fuel_warned = True
@@ -884,6 +895,18 @@ class RaceSim:
         e.tyre_age = 0.0
         e.tyre_life = self._tyre_life(e, target)
         e.stops += 1
+        # e se il regolamento permette di rifornire, alla sosta si rimette
+        # dentro anche la benzina per il pezzo di gara che viene: il tempo lo
+        # decide quanta ne entra, ed e' per questo che con il rifornimento le
+        # soste non sono piu' tutte uguali
+        if self.rifornimento:
+            prossima = e.plan[0][0] if e.plan else self.laps
+            serve = (prossima - e.lap + 1) * self.burn_per_lap * 1.06
+            metti = max(0.0, min(self.serbatoio, serve) - e.fuel)
+            if metti > 0.1:
+                e.fuel += metti
+                e.pit_timer += metti * SECONDI_PER_KG
+                self.log(f"{e.name} rifornisce {metti:.0f} kg", "pit")
         self.log(f"{e.name} ai box: monta {C.COMPOUNDS[target]['label']}", "pit")
         self.radio_say(e, f"Box, box, box: montiamo {C.COMPOUNDS[target]['label'].lower()}.",
                        "muretto")
