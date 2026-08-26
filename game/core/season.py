@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from .. import config as C
 from ..model.car import Part
-from . import (academy, calendar, departments, development, economy, facilities,
-               market, nextcar, penalties,
+from . import (academy, architetture, calendar, departments, development, economy,
+               facilities, market, nextcar, penalties,
                powertrain, rules, setup, sponsors, testing)
 from .state import RaceResult
 
@@ -274,6 +274,9 @@ def after_race(gs, dev_budget: float | None = None, pu_budget: float | None = No
                 msgs.append(m)
     powertrain.advance_partnership(gs)
     powertrain.running_costs(gs)
+    # e la rata di chi sta gia' lavorando sul motore del regolamento che verra'
+    powertrain.investi_arch(gs)
+    powertrain.ai_arch(gs)
     msgs += powertrain.develop(gs, pu_budget)
     msgs += powertrain.advance_program(gs, pu_budget)
     if powertrain.ready_to_debut(gs):
@@ -369,10 +372,24 @@ def end_season(gs) -> dict:
         era = {"from": gs.season + 1, "to": gs.season + 6,
                "label": _nome_ciclo(gs, ciclo), "dominant": [],
                "reset_strength": round(reset, 2), "focus": rules.cycle_focus(gs),
+               "arch": ciclo.get("arch", ""),
                "nota": "Nato da " + ", ".join(ciclo["titles"][:3]).lower() + "."}
         gs.history_data.setdefault("eras", []).append(era)
         gs.regulations.pop("pending_cycle", None)
         report["rules"].append(f"Nuovo ciclo tecnico: {era['label']}.")
+        # l'architettura nuova entra in vigore prima del rimescolamento: la
+        # macchina del ciclo nuovo la si giudica con il motore del ciclo nuovo
+        arch = ciclo.get("arch") or ""
+        if arch and arch != architetture.corrente(gs):
+            report["rules"] += architetture.applica(gs, arch)
+            gs.refresh_tracks()
+        # e chi ci aveva scommesso sopra incassa adesso
+        for team in gs.teams.values():
+            punti, nota = powertrain.resa_arch(gs, team, arch)
+            if punti > 0:
+                team.reg_prep += punti
+            if nota and (team.is_player or punti > 8.0):
+                report["rules"].append(nota)
     if reset > 0:
         report["rules"] += development.regulation_reset(gs, reset, era)
         if era and era.get("nota"):

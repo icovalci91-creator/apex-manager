@@ -25,6 +25,7 @@ class CommissionScene(Scene):
         self.step = "voto"          # voto | tavolo | esito
         self.spinta = None          # su cosa spingiamo al tavolo tecnico
         self.radicale = 0.5         # quanto vogliamo che cambi
+        self.motore = None          # e che architettura chiediamo
         self.talks_esito = None
         self.build()
 
@@ -47,27 +48,55 @@ class CommissionScene(Scene):
             self.widgets.append(Button((w // 2 - 140, h - 78, 280, 46),
                                        "Chiudi la votazione", self.tally, "primary"))
         elif self.step == "tavolo":
-            x = 40
+            g = self._geometria(w, h)
+            larga = g["larga"]
+            x = g["sx"]
             for key, lab in (("pu", "Power unit"), ("aero", "Aerodinamica"),
                              ("chassis", "Telaio")):
-                b = Button((x, 300, 210, 40), lab, style="tab")
+                b = Button((x, g["y_linea"], larga, 38), lab, style="tab")
                 b.on_click = (lambda k=key: self.set_spinta(k))
                 b.active = (self.spinta == key)
                 self.widgets.append(b)
-                x += 222
-            x = 40
-            for val, lab in ((0.25, "Cambiamento graduale"), (0.55, "Equilibrato"),
-                             (0.90, "Rivoltiamo il tavolo")):
-                b = Button((x, 392, 210, 40), lab, style="tab")
+                x += larga + 10
+            x = g["sx"]
+            for val, lab in ((0.25, "Graduale"), (0.55, "Equilibrato"),
+                             (0.90, "Rivoltiamo tutto")):
+                b = Button((x, g["y_radicale"], larga, 38), lab, style="tab")
                 b.on_click = (lambda v=val: self.set_radicale(v))
                 b.active = abs(self.radicale - val) < 0.01
                 self.widgets.append(b)
-                x += 222
+                x += larga + 10
+            # e che motore chiediamo: e' la parte della bozza su cui si puo'
+            # cominciare a lavorare anni prima
+            from ...core import architetture as AR
+            for i, aid in enumerate(AR.catalogo()):
+                bx = g["dx"] + (i % 2) * (g["larga_m"] + 12)
+                by = g["y_motori"] + (i // 2) * 66
+                b = Button((bx, by, g["larga_m"], 34), AR.etichetta(self.gs, aid),
+                           style="tab")
+                b.on_click = (lambda k=aid: self.set_motore(k))
+                b.active = (self.motore == aid)
+                self.widgets.append(b)
             self.widgets.append(Button((w // 2 - 140, h - 78, 280, 46),
                                        "Porta la nostra linea", self.do_talks, "primary"))
         else:
             self.widgets.append(Button((w // 2 - 140, h - 78, 280, 46),
                                        "Torna alla squadra", self.done, "primary"))
+
+    def _geometria(self, w: int, h: int) -> dict:
+        """Dove sta ogni cosa nella schermata del tavolo, a qualunque misura.
+
+        Due colonne: a sinistra dove sta andando il tavolo e la linea che ci
+        portiamo, a destra il motore - che e' la parte su cui si decide se
+        cominciare a spendere anni prima.
+        """
+        sx = 32
+        dx = w // 2 + 16
+        larga = int((w // 2 - 48 - 20) / 3)
+        return {"sx": sx, "dx": dx, "larga": larga,
+                "larga_m": int((w - dx - 32 - 12) / 2),
+                "y_aree": 190, "y_linea": 318, "y_radicale": 400,
+                "y_motori": 190, "y_altri": 452}
 
     def on_resize(self) -> None:
         self.build()
@@ -84,8 +113,13 @@ class CommissionScene(Scene):
         self.radicale = val
         self.build()
 
+    def set_motore(self, aid) -> None:
+        self.motore = None if self.motore == aid else aid
+        self.build()
+
     def do_talks(self) -> None:
-        self.talks_esito = rules.talks_round(self.gs, self.spinta, self.radicale)
+        self.talks_esito = rules.talks_round(self.gs, self.spinta, self.radicale,
+                                             self.motore)
         self.step = "esito"
         self.build()
 
@@ -115,8 +149,9 @@ class CommissionScene(Scene):
         w, h = surf.get_size()
         gs = self.gs
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 76))
-        titolo = ("COMMISSIONE F1 - RIUNIONE" if self.step == "voto"
-                  else "COMMISSIONE F1 - ESITO")
+        titolo = {"voto": "COMMISSIONE F1 - RIUNIONE",
+                  "tavolo": "COMMISSIONE F1 - TAVOLO TECNICO"}.get(
+                      self.step, "COMMISSIONE F1 - ESITO")
         T.text(surf, titolo, (32, 16), 26, T.TEXT, bold=True)
         gara = min(gs.round, len(gs.tracks))
         T.text(surf, f"Stagione {gs.season}, dopo la gara {gara} di {len(gs.tracks)}",
@@ -176,55 +211,99 @@ class CommissionScene(Scene):
             T.text(surf, "Il tuo voto", (r.right - 420, r.y + 40), 12, T.DIM_2, bold=True)
 
     def _draw_talks(self, surf, w, h) -> None:
-        gs = gs_ = self.gs
+        from ...core import architetture as AR
+        from ...core import powertrain as PT
+        gs = self.gs
         st = rules.talks(gs)
         if not st:
             return
-        T.text(surf, "TAVOLO TECNICO PER IL PROSSIMO REGOLAMENTO", (32, 96), 12,
+        g = self._geometria(w, h)
+        sx, dx = g["sx"], g["dx"]
+        T.text(surf, "TAVOLO TECNICO PER IL PROSSIMO REGOLAMENTO", (sx, 96), 12,
                T.GOLD, bold=True)
-        T.text(surf, "Qui non si vota: si tratta. Ognuno tira dalla propria parte e dopo "
-                     f"{st['servono']} riunioni esce un compromesso che non e' la proposta "
-                     "di nessuno. Da quel momento servono ancora due stagioni prima che le "
-                     "macchine nuove vadano in pista.",
-               (32, 118), 14, T.DIM, maxw=w - 64)
+        T.text(surf, "Qui non si vota: si tratta. Dopo "
+                     f"{st['servono']} riunioni esce un compromesso che non e' la "
+                     "proposta di nessuno, e da li' servono ancora due stagioni prima "
+                     "che le macchine nuove vadano in pista.",
+               (sx, 116), 13, T.DIM, maxw=w - 64)
 
-        # dove sta il compromesso adesso
-        T.text(surf, "Dove sta andando il tavolo", (32, 176), 13, T.DIM_2, bold=True)
-        x = 32
-        for k, lab in (("pu", "POWER UNIT"), ("aero", "AERODINAMICA"), ("chassis", "TELAIO")):
+        # ---- colonna sinistra: dove sta andando il tavolo
+        T.text(surf, "DOVE STA ANDANDO IL TAVOLO", (sx, 164), 12, T.DIM_2, bold=True)
+        y = g["y_aree"]
+        for k, lab in (("pu", "Power unit"), ("aero", "Aerodinamica"), ("chassis", "Telaio")):
             v = st["aree"].get(k, 0.33)
-            T.text(surf, lab, (x, 200), 12, T.TEXT, bold=True)
-            T.bar(surf, (x, 220, 200, 10), v * 100, 100, T.ACCENT)
-            T.text(surf, f"{v*100:.0f}%", (x + 210, 216), 13, T.TEXT, bold=True)
-            x += 260
+            T.text(surf, lab, (sx, y), 13, T.TEXT)
+            T.bar(surf, (sx + 110, y + 5, 180, 9), v * 100, 100, T.ACCENT)
+            T.text(surf, f"{v*100:.0f}%", (sx + 330, y), 13, T.TEXT, bold=True,
+                   align="right")
+            y += 24
         forza = st.get("forza", 0.5)
-        T.text(surf, "Quanto rimescolera'", (x, 200), 12, T.DIM_2, bold=True)
-        T.bar(surf, (x, 220, 180, 10), forza * 100, 100, T.WARN)
+        T.text(surf, "Quanto rimescolera'", (sx, y), 13, T.DIM)
+        T.bar(surf, (sx + 130, y + 5, 160, 9), forza * 100, 100, T.WARN)
 
-        T.text(surf, "La linea che portiamo al tavolo", (32, 276), 13, T.DIM_2, bold=True)
-        T.text(surf, "Quanto vogliamo che cambi", (32, 368), 13, T.DIM_2, bold=True)
+        T.text(surf, "LA LINEA CHE PORTIAMO", (sx, g["y_linea"] - 24), 12, T.DIM_2, bold=True)
+        T.text(surf, "QUANTO VOGLIAMO CHE CAMBI", (sx, g["y_radicale"] - 24), 12,
+               T.DIM_2, bold=True)
 
-        # cosa vorrebbero gli altri, per capire dove si va a finire
-        y = 452
-        T.text(surf, "COSA CHIEDONO GLI ALTRI", (32, y), 12, T.DIM_2, bold=True)
-        y += 24
+        # ---- colonna destra: il motore, e chi ci sta gia' lavorando
+        motori = st.get("motori") or {}
+        T.text(surf, "CHE MOTORE CHIEDIAMO", (dx, 164), 12, T.DIM_2, bold=True)
+        if motori:
+            ordinati = sorted(motori.items(), key=lambda kv: -kv[1])
+            testa = ordinati[0][0]
+            for i, aid in enumerate(AR.catalogo()):
+                bx = dx + (i % 2) * (g["larga_m"] + 12)
+                by = g["y_motori"] + (i // 2) * 66 + 38
+                quota = motori.get(aid, 0.0)
+                T.bar(surf, (bx, by, g["larga_m"] - 46, 8), quota * 100, 100,
+                      T.GOLD if aid == testa else T.PANEL_3)
+                T.text(surf, f"{quota*100:.0f}%", (bx + g["larga_m"], by - 4), 12,
+                       T.GOLD if aid == testa else T.DIM_2, bold=True, align="right")
+            y = g["y_motori"] + 148
+            T.text(surf, f"La bozza dice {AR.etichetta(gs, testa)}: "
+                         f"{AR.descrizione(gs, testa)}.", (dx, y), 13, T.DIM,
+                   maxw=w - dx - 32)
+            y += 34
+            prog = PT.programma_arch(gs.player)
+            if prog.get("arch"):
+                col = T.OK if prog["arch"] == testa else T.WARN
+                T.text(surf, f"Noi lavoriamo al {AR.etichetta(gs, prog['arch'])} dal "
+                             f"{prog.get('da', gs.season)}: "
+                             f"{float(prog.get('investito', 0.0)):.0f} M$ spesi.",
+                       (dx, y), 13, col, maxw=w - dx - 32)
+            else:
+                T.text(surf, "Nessun programma aperto: dalla pagina Power unit si puo' "
+                             "cominciare a lavorare sull'architettura che si pensa "
+                             "arrivera', anche prima che il tavolo decida.",
+                       (dx, y), 12, T.DIM_2, maxw=w - dx - 32)
+
+        # ---- cosa chiedono gli altri, sotto la colonna sinistra
+        y = g["y_altri"]
+        T.text(surf, "COSA CHIEDONO GLI ALTRI", (sx, y), 12, T.DIM_2, bold=True)
+        y += 22
         righe = []
-        for t in gs_.teams.values():
+        for t in gs.teams.values():
             if t.is_player:
                 continue
-            aree, f = rules.team_position(gs_, t)
+            aree, f = rules.team_position(gs, t)
             dom = max(aree, key=aree.get)
             righe.append((t.short, rules.ETICHETTA_AREA[dom], f))
         righe.sort(key=lambda r: -r[2])
+        colonne = 2 if w < 1200 else 3
+        passo = int((w - 64) / colonne)
         for i, (nome, area, f) in enumerate(righe):
-            col = 32 + (i % 3) * 320
-            riga = y + (i // 3) * 22
-            T.text(surf, f"{nome}: {area}", (col, riga), 13, T.DIM, maxw=200)
+            col = sx + (i % colonne) * passo
+            riga = y + (i // colonne) * 21
+            if riga > h - 120:
+                break
+            T.text(surf, f"{nome}: {area}", (col, riga), 13, T.DIM, maxw=passo - 110)
             T.text(surf, "rivoluzione" if f > 0.65 else ("ritocco" if f < 0.4 else "misura"),
-                   (col + 210, riga), 12, T.WARN if f > 0.65 else T.DIM_2)
-        y += ((len(righe) + 2) // 3) * 22 + 12
-        for riga in st.get("storia", [])[-3:]:
-            T.text(surf, "- " + riga, (32, y), 13, T.GOLD, maxw=w - 64)
+                   (col + passo - 100, riga), 12, T.WARN if f > 0.65 else T.DIM_2)
+        y += ((len(righe) + colonne - 1) // colonne) * 21 + 10
+        for riga in st.get("storia", [])[-2:]:
+            if y > h - 112:
+                break
+            T.text(surf, "- " + riga, (sx, y), 13, T.GOLD, maxw=w - 64)
             y += 20
 
     def _draw_outcome(self, surf, w, h) -> None:

@@ -84,6 +84,7 @@ class Team:
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
     next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
+    arch_prog: dict = None        # programma sull'architettura di power unit futura
     next_car_brief: dict = None   # la linea data al reparto per la vettura nuova
     next_car_work: dict = None    # lavoro gia' fatto sul progetto dell'anno prossimo
 

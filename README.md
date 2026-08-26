@@ -193,7 +193,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | Lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
-| Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unita' |
+| Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
 | Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
@@ -1095,6 +1095,40 @@ discesa della spinta elettrica: il regolamento la fa calare fra 290 e 355 km/h, 
 di giro fra 320 e 380, perché lì la batteria non esiste e quei numeri rappresentano
 l'erogazione media di un giro. Quei valori stanno in `power_unit.modello` e sono gli stessi
 che una modifica votata in Commissione va a spostare.
+
+### Il motore del ciclo che verrà, e come arrivarci pronti
+
+Un ciclo tecnico non è una percentuale: è una decisione su **come sarà fatto il motore**.
+`data/regulations.json` porta un catalogo di architetture con i numeri veri, e quando il
+tavolo tecnico si apre la bozza dice anche quale sta vincendo.
+
+| architettura | cosa è | giro | punta | peso | benzina | energia |
+|---|---|---|---|---|---|---|
+| V6 turbo 1.6 ibrido | il regolamento 2026: 15.000 giri, 400 kW + 350 elettrici | — | — | 768 kg | 70 kg | 5,7 MJ |
+| V8 turbo 2.4, ibrido minimo | la strada che la FIA guarda per il 2031 | +0,99 s | −17 km/h | 733 kg | 90 kg | 1,6 MJ |
+| V10 aspirato 3.0 | il ritorno di cui si è parlato nel 2025 e mai deciso: 19.000 giri, niente ibrido | **−1,03 s** | −7 km/h | 678 kg | 110 kg | 0 |
+| V8 aspirato 2.4 con KERS | quello che ha corso dal 2009 al 2013 | +0,81 s | −22 km/h | 678 kg | 100 kg | 0,4 MJ |
+
+I secondi sono misurati con `tools/sensibilita.py` sul calendario vero: un V10 senza ibrido
+è più leggero di 90 kg e va più forte di un secondo al giro, un V8 turbo con l'ibrido
+tagliato ne perde uno. E cambia anche il mestiere: con 0 MJ a giro sparisce tutto il gioco
+di batteria, clipping e override.
+
+**La scommessa.** Dalla pagina Power unit si può aprire un *programma sull'architettura che
+verrà* - scegliendo quella che si pensa arriverà, anche prima che il tavolo decida, e anche
+una che nella bozza sta ultima. Costa un budget annuale che sta dentro il cost cap, quindi
+sono soldi tolti alla macchina di adesso. Quando il ciclo entra in vigore:
+
+- se l'architettura è quella su cui si è lavorato, tutto il programma diventa vantaggio, e
+  vale di più quanto prima si è cominciato (fino a +70% per chi parte cinque stagioni prima);
+- se il tavolo ha deciso diversamente resta il 10%: materiali, combustione, banchi. Non è
+  niente, non è tutto.
+
+In una prova su un ciclo intero - scommessa sul V10 dal 2028, accordo nel 2033, motore nuovo
+nel 2034 - chi aveva speso 60 M$ sull'architettura giusta è uscito dal reset con **+12,5** di
+media sulla vettura, chi ne aveva spesi 47 sull'architettura sbagliata con +2,8, cioè meno di
+chi ne aveva spesi 22 azzeccandola. Al tavolo si può anche spingere per l'architettura che
+conviene a noi: nella stessa prova il V10 è passato dal 29% al 35% e ha vinto.
 
 ### Quanto vale cambiare una regola
 

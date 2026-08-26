@@ -108,6 +108,7 @@ class Car:
     v_fine: float = C.V_FINE_ERS                  # m/s, dove finisce
     recupero_max_mj: float = C.RECUPERO_MAX_MJ    # tetto al recupero di un giro
     reg_grip: float = 1.0                         # quanta aderenza concede la gomma
+    potenza_reg: float = 1.0                      # quanta potenza concede l'architettura
     balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
@@ -131,6 +132,7 @@ class Car:
         c.v_fine = float(mod.get("v_fine_kmh", C.V_FINE_ERS * 3.6)) / 3.6
         c.recupero_max_mj = float(mod.get("recupero_max_mj", C.RECUPERO_MAX_MJ))
         c.reg_grip = float(reg.get("grip_multiplier", 1.0))
+        c.potenza_reg = float(mod.get("potenza_rel", 1.0))
         return c
 
     def p(self, key: str) -> float:

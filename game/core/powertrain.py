@@ -487,6 +487,141 @@ def advance_partnership(gs) -> None:
         team.pu_partner_races += 1
 
 
+# =============================================== il programma sull'architettura
+# La cosa che una squadra puo' fare, e che nella realta' fanno tutte: mettere
+# gente a lavorare sul motore che *forse* ci sara' fra tre anni, prima che il
+# regolamento lo dica. Se ci si azzecca si arriva al primo anno del ciclo nuovo
+# con il lavoro gia' fatto; se il tavolo decide diversamente resta in mano
+# quello che si e' imparato lo stesso - materiali, combustione, banchi - che
+# non e' niente ma non e' nemmeno tutto.
+#
+# Non serve il permesso di nessuno per aprirlo: si puo' cominciare mentre il
+# tavolo sta ancora discutendo, o anche prima, su un'architettura che nella
+# bozza non c'e'. E' una scommessa, e le scommesse le fa chi vuole.
+PROG_MIN = 1.0            # meno di un milione a stagione non e' un programma
+PROG_MAX = 20.0           # oltre, il tetto di spesa non regge
+RESA_ARCH = 0.60          # quanto rende un milione speso sull'architettura giusta
+RESA_SBAGLIATA = 0.10     # e quanto ne resta se il tavolo decide un'altra cosa
+ANTICIPO_PASSO = 0.14     # quanto vale ogni stagione di vantaggio
+ANTICIPO_MAX = 1.70
+
+
+def programma_arch(team) -> dict:
+    """Il programma anticipato di questa squadra, se ce n'e' uno."""
+    return getattr(team, "arch_prog", None) or {}
+
+
+def avvia_arch(gs, team, aid: str, budget: float) -> tuple:
+    """Apre - o ridisegna - il programma su un'architettura futura."""
+    from . import architetture
+    if aid not in architetture.catalogo(gs):
+        return False, "Questa architettura non esiste."
+    budget = round(max(PROG_MIN, min(PROG_MAX, float(budget))), 1)
+    vecchio = programma_arch(team)
+    investito = float(vecchio.get("investito", 0.0)) if vecchio.get("arch") == aid else 0.0
+    da = int(vecchio.get("da", gs.season)) if vecchio.get("arch") == aid else gs.season
+    if vecchio.get("arch") and vecchio.get("arch") != aid:
+        # cambiare cavallo a meta' strada non azzera tutto, ma quasi
+        investito = float(vecchio.get("investito", 0.0)) * 0.25
+    team.arch_prog = {"arch": aid, "budget": budget, "investito": round(investito, 2),
+                      "da": da}
+    return True, (f"Programma {architetture.etichetta(gs, aid)} avviato: "
+                  f"{budget:.1f} M$ a stagione.")
+
+
+def chiudi_arch(gs, team) -> tuple:
+    """Chiude il programma. Quello che si e' speso resta speso."""
+    prog = programma_arch(team)
+    if not prog.get("arch"):
+        return False, "Non c'e' nessun programma aperto."
+    team.arch_prog = {"arch": "", "budget": 0.0,
+                      "investito": round(float(prog.get("investito", 0.0)), 2),
+                      "da": int(prog.get("da", gs.season))}
+    return True, "Programma sospeso: la gente torna sul motore di adesso."
+
+
+def investi_arch(gs) -> None:
+    """La rata di questa gara, per chi ha un programma aperto."""
+    races = max(1, len(gs.tracks))
+    for team in gs.teams.values():
+        prog = programma_arch(team)
+        budget = float(prog.get("budget", 0.0))
+        if not prog.get("arch") or budget <= 0:
+            continue
+        rata = round(budget / races, 3)
+        if team.cash < rata:
+            continue
+        team.add_expense("Programma architettura futura", rata, in_cap=True,
+                         category="powertrain")
+        prog["investito"] = round(float(prog.get("investito", 0.0)) + rata, 3)
+
+
+def resa_arch(gs, team, arch_finale: str) -> tuple:
+    """Cosa resta in mano quando il ciclo nuovo arriva davvero.
+
+    Se l'architettura e' quella su cui si e' lavorato, tutto il programma
+    diventa vantaggio, e vale di piu' quanto prima si e' cominciato. Se e'
+    un'altra, resta la parte che non dipende da quanti cilindri ci sono.
+    """
+    prog = programma_arch(team)
+    investito = float(prog.get("investito", 0.0))
+    if investito <= 0.5:
+        return 0.0, ""
+    from . import architetture
+    scelta = prog.get("arch", "")
+    stagioni = max(1, gs.season - int(prog.get("da", gs.season)) + 1)
+    if scelta == arch_finale:
+        anticipo = min(ANTICIPO_MAX, 1.0 + ANTICIPO_PASSO * (stagioni - 1))
+        punti = investito * RESA_ARCH * anticipo * (0.75 + 0.5 * team.dev_rate)
+        nota = (f"{team.short}: il programma {architetture.etichetta(gs, scelta)} era "
+                f"quello giusto - {investito:.0f} M$ spesi in {stagioni} stagioni "
+                f"arrivano tutti sulla macchina nuova.")
+    else:
+        punti = investito * RESA_SBAGLIATA
+        nota = (f"{team.short}: il programma {architetture.etichetta(gs, scelta)} non "
+                f"serve piu' - il tavolo ha scelto un'altra strada e di "
+                f"{investito:.0f} M$ resta quello che si e' imparato.")
+    team.arch_prog = {"arch": "", "budget": 0.0, "investito": 0.0, "da": gs.season}
+    return round(punti, 2), nota
+
+
+def ai_arch(gs) -> None:
+    """Su cosa scommettono le squadre del computer, e con quanti soldi.
+
+    Non lo fanno tutte e non lo fanno subito: si comincia quando il tavolo e'
+    aperto, si guarda cosa dice la bozza e si mette sul piatto quello che ci si
+    puo' permettere. Una squadra ricca che ha la power unit scarsa e' quella
+    che ci va piu' pesante: e' il momento in cui puo' rimettersi in pari.
+    """
+    from . import architetture, rules
+    st = rules.talks(gs)
+    ciclo = gs.regulations.get("pending_cycle") or {}
+    bozza = (st or {}).get("motori") or {}
+    fissata = ciclo.get("arch") or ""
+    if not bozza and not fissata:
+        return
+    for team in gs.teams.values():
+        if team.is_player:
+            continue
+        prog = programma_arch(team)
+        if prog.get("arch") and prog.get("budget"):
+            continue
+        if gs.rng.random() > 0.35:
+            continue          # non e' una decisione che si prende ogni gara
+        pref = architetture.preferenza_squadra(gs, team)
+        if not pref:
+            continue
+        if fissata:
+            scelta = fissata          # a bozza firmata non si scommette piu'
+        else:
+            # meta' quello che vuole il tavolo e meta' quello che vorrebbe lei
+            punteggi = {k: 0.55 * bozza.get(k, 0.0) + 0.45 * pref.get(k, 0.0)
+                        for k in pref}
+            scelta = max(punteggi, key=punteggi.get)
+        quanto = 3.0 + 9.0 * max(0.0, min(1.0, (team.budget_base - 130.0) / 120.0))
+        avvia_arch(gs, team, scelta, round(quanto, 1))
+
+
 def running_costs(gs) -> list[str]:
     """Costo fisso del reparto motori e incasso dalle forniture, per gara.
 

@@ -593,6 +593,46 @@ def _polarizza(peso: dict, gamma: float) -> dict:
     return {k: v / tot for k, v in forte.items()}
 
 
+def _posizioni_motore(gs, motore: str | None = None) -> list:
+    """Chi siede al tavolo e che motore vorrebbe, con il peso che ha.
+
+    E' la parte del ciclo che si vede da fuori: non "il 62% di power unit" ma
+    "vogliamo tornare agli otto cilindri". Ognuno tira dalla propria parte -
+    chi ha l'ibrido migliore vuole tenerlo, chi non ce l'ha vuole ripartire, la
+    FOM vuole il rumore e la federazione vuole spendere meno.
+    """
+    from . import architetture
+    voci = []
+    for t in gs.teams.values():
+        pref = architetture.preferenza_squadra(gs, t)
+        if not pref:
+            continue
+        if t.is_player and motore in pref:
+            # la nostra squadra al tavolo chiede una cosa sola
+            pref = {k: (0.95 if k == motore else 0.10) for k in pref}
+        peso = 0.60 + 0.80 * (t.reputation / 100.0)
+        voci.append((_normalizza(pref), peso, t.short))
+    voci += [(_normalizza(p), w, nome)
+             for p, w, nome in architetture.preferenza_istituzioni(gs)]
+    return voci
+
+
+def _normalizza(peso: dict) -> dict:
+    tot = sum(peso.values()) or 1.0
+    return {k: v / tot for k, v in peso.items()}
+
+
+def _media_motore(voci: list) -> dict:
+    """Dove sta andando la bozza sul motore."""
+    tot = sum(v[1] for v in voci) or 1.0
+    chiavi = set()
+    for p, _, _ in voci:
+        chiavi.update(p)
+    grezza = {k: sum(p.get(k, 0.0) * w for p, w, _ in voci) / tot for k in chiavi}
+    # come per le aree: chi raccoglie piu' sostegno detta, gli altri si accodano
+    return _polarizza(grezza, 3.4)
+
+
 def _posizioni(gs, spinta: str | None = None, radicale: float | None = None) -> list:
     """Tutti quelli che siedono al tavolo, con il loro peso."""
     voci = []
@@ -679,15 +719,23 @@ def open_talks(gs) -> dict:
     aree, forza = _media(voci)
     lontani = _distanza(voci, aree)
     servono = 5 if lontani > float(gs.commission.get("talks_split", 0.36)) else 4
+    motori = _media_motore(_posizioni_motore(gs))
     st = {"aperto": True, "riunioni": 0, "servono": servono,
-          "aree": aree, "forza": forza, "storia": []}
+          "aree": aree, "forza": forza, "motori": motori, "storia": []}
     gs.regulations["cycle_talks"] = st
+    from . import architetture
+    testa = max(motori, key=motori.get) if motori else ""
     gs.push(f"La FIA apre il tavolo per il prossimo ciclo tecnico: se ne parlera' in "
             f"{servono} riunioni prima di arrivare a un accordo.", "regole")
+    if testa:
+        gs.push(f"Nella bozza il motore e' ancora tutto da decidere: al momento "
+                f"il piu' votato e' il {architetture.etichetta(gs, testa)} "
+                f"({motori[testa] * 100:.0f}%).", "regole")
     return st
 
 
-def talks_round(gs, spinta: str | None = None, radicale: float | None = None) -> dict:
+def talks_round(gs, spinta: str | None = None, radicale: float | None = None,
+                motore: str | None = None) -> dict:
     """Una riunione del tavolo. Ritorna com'e' andata."""
     st = talks(gs)
     if not st or not st.get("aperto"):
@@ -698,10 +746,21 @@ def talks_round(gs, spinta: str | None = None, radicale: float | None = None) ->
     passo = 0.45
     st["aree"] = {k: st["aree"][k] * (1 - passo) + obiettivo[k] * passo for k in AREE}
     st["forza"] = st["forza"] * (1 - passo) + forza_media * passo
+    # e la stessa cosa per il motore, che e' la parte della bozza che tutti
+    # guardano: da qui si capisce su cosa conviene cominciare a lavorare
+    bersaglio = _media_motore(_posizioni_motore(gs, motore))
+    vecchia = st.get("motori") or bersaglio
+    st["motori"] = {k: vecchia.get(k, 0.0) * (1 - passo) + bersaglio.get(k, 0.0) * passo
+                    for k in bersaglio}
     st["riunioni"] += 1
     dom = max(st["aree"], key=st["aree"].get)
     riga = (f"Riunione {st['riunioni']} di {st['servono']}: il tavolo si sta orientando "
             f"verso {ETICHETTA_AREA[dom]} ({st['aree'][dom]*100:.0f}%).")
+    if st["motori"]:
+        from . import architetture
+        testa = max(st["motori"], key=st["motori"].get)
+        riga += (f" Sul motore la bozza dice {architetture.etichetta(gs, testa)} "
+                 f"({st['motori'][testa] * 100:.0f}%).")
     st["storia"].append(riga)
     esito = {"riga": riga, "accordo": False, "stagione": None}
     if st["riunioni"] >= st["servono"]:
@@ -722,12 +781,23 @@ def _accordo(gs, st: dict) -> dict:
     ciclo["season"] = stagione
     dom = max(st["aree"], key=st["aree"].get)
     ciclo["titles"] = ciclo.get("titles", []) + [f"accordo sul ciclo {stagione}"]
+    # e la firma dice anche che motore si correra': da qui in poi chi ha
+    # scommesso sull'architettura giusta ha due stagioni di vantaggio, chi ha
+    # scommesso sull'altra ha due stagioni di lavoro da buttare
+    from . import architetture
+    arch = max(st.get("motori") or {}, key=(st.get("motori") or {}).get, default="")
+    if arch:
+        ciclo["arch"] = arch
+        ciclo["arch_quota"] = round(st["motori"][arch], 3)
     gs.regulations.pop("cycle_talks", None)
     msg = (f"Accordo raggiunto: il nuovo regolamento entra in vigore nel {stagione} e a "
            f"decidere sara' soprattutto {ETICHETTA_AREA[dom]} ({st['aree'][dom]*100:.0f}%). "
            f"Da adesso si puo' cominciare a prepararlo.")
+    if arch:
+        msg += (f" Il motore sara' il {architetture.etichetta(gs, arch)}: "
+                f"{architetture.descrizione(gs, arch)}.")
     gs.push(msg, "regole")
-    return {"accordo": True, "stagione": stagione, "riga": msg}
+    return {"accordo": True, "stagione": stagione, "riga": msg, "arch": arch}
 
 
 def cycle_focus(gs) -> dict:

@@ -293,7 +293,7 @@ class Track:
         cla = C.CLA_BASE * car.downforce
         cda = C.CDA_BASE * car.drag
         mass = car.mass_base + car.mass_extra
-        power = C.POWER_W * car.power
+        power = C.POWER_W * car.power * getattr(car, "potenza_reg", 1.0)
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet) * b.get("frenata", 1.0)
         mu_t = mu * b.get("trazione", 1.0)
@@ -488,7 +488,8 @@ class Track:
         mass = ref_car.mass_base + ref_car.mass_extra
         rho = cond.rho
         cda = C.CDA_BASE * ref_car.drag
-        potenza_e = C.POWER_W * getattr(ref_car, "quota_elettrica", C.QUOTA_ELETTRICA)
+        potenza_e = (C.POWER_W * getattr(ref_car, "potenza_reg", 1.0)
+                     * getattr(ref_car, "quota_elettrica", C.QUOTA_ELETTRICA))
         preso = 0.0
         for i in range(n):
             j = (i + 1) % n
@@ -720,7 +721,7 @@ class Track:
         scala = (t / self.calibration) if self.calibration else 1.0
         tempi = {d: 0.0 for d in DOMINI}
         mass = car.mass_base + car.mass_extra
-        power = C.POWER_W * car.power
+        power = C.POWER_W * car.power * getattr(car, "potenza_reg", 1.0)
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         aero = (C.RHO if rho is None else rho) * C.CLA_BASE * car.downforce / (2.0 * mass)
         vmax = vmax_kmh / 3.6

@@ -1304,6 +1304,35 @@ class PowerUnitPage(Page):
             self.widgets.append(self.b_omologa)
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         y = right.y + 300
+        # il programma sul motore che verra': si apre quando un ciclo nuovo e'
+        # all'orizzonte, e da li' in poi si puo' scommettere
+        self.arch_y = 0
+        if self._ciclo_futuro() and not powertrain.has_program(gs) \
+                and not powertrain.ready_to_debut(gs):
+            self.arch_y = y
+            from ...core import architetture as AR
+            prog = powertrain.programma_arch(team)
+            larga = (right.w - 32 - 9) / 4.0
+            x = right.x + 16
+            for aid in AR.catalogo():
+                b = Button((int(x), y + 30, int(larga), 30), AR.etichetta(gs, aid),
+                           style="tab")
+                b.on_click = (lambda k=aid: self.set_arch(k))
+                b.active = (prog.get("arch") == aid)
+                self.widgets.append(b)
+                x += larga + 3
+            if prog.get("arch"):
+                bud = float(prog.get("budget", 0.0))
+                b = Button((right.x + 16, y + 92, 40, 28), "-", style="tab")
+                b.on_click = (lambda: self.set_budget(-2.0))
+                self.widgets.append(b)
+                b = Button((right.x + 60, y + 92, 40, 28), "+", style="tab")
+                b.on_click = (lambda: self.set_budget(2.0))
+                self.widgets.append(b)
+                b = Button((right.right - 156, y + 92, 140, 28), "Sospendi", style="ghost")
+                b.on_click = self.stop_arch
+                self.widgets.append(b)
+            y += 132
         if powertrain.ready_to_debut(gs):
             self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
                                        "Porta in pista la nostra power unit",
@@ -1321,6 +1350,34 @@ class PowerUnitPage(Page):
             self.found_note = "" if can else why
 
     def refresh(self) -> None:
+        self.build()
+
+    def _ciclo_futuro(self) -> bool:
+        """C'e' un ciclo nuovo all'orizzonte su cui valga la pena scommettere?"""
+        from ...core import rules
+        return bool(rules.talks(self.gs)
+                    or (self.gs.regulations.get("pending_cycle") or {}).get("season"))
+
+    def set_arch(self, aid: str) -> None:
+        prog = powertrain.programma_arch(self.team)
+        budget = float(prog.get("budget", 0.0)) or 6.0
+        ok, msg = powertrain.avvia_arch(self.gs, self.team, aid, budget)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "tecnico")
+        self.build()
+
+    def set_budget(self, delta: float) -> None:
+        prog = powertrain.programma_arch(self.team)
+        if not prog.get("arch"):
+            return
+        powertrain.avvia_arch(self.gs, self.team, prog["arch"],
+                              float(prog.get("budget", 0.0)) + delta)
+        self.build()
+
+    def stop_arch(self) -> None:
+        ok, msg = powertrain.chiudi_arch(self.gs, self.team)
+        self.app.toast(msg)
         self.build()
 
     def start_program(self) -> None:
@@ -1485,6 +1542,8 @@ class PowerUnitPage(Page):
             y += 22
 
         y += 10
+        if getattr(self, "arch_y", 0):
+            y = max(y, self.arch_y + 132)
         if powertrain.locked(gs):
             T.text(surf, "Sviluppo power unit congelato dal regolamento.",
                    (right.x + 16, y), 13, T.WARN, bold=True, maxw=right.w - 32)
@@ -1493,6 +1552,38 @@ class PowerUnitPage(Page):
             T.text(surf, "Equalizzazione in vigore: chi e' indietro sviluppa di piu'.",
                    (right.x + 16, y), 12, T.DIM, maxw=right.w - 32)
             y += 22
+
+        # --- il motore del regolamento che verra' ------------------------
+        if getattr(self, "arch_y", 0):
+            from ...core import architetture as AR
+            from ...core import rules
+            ay = self.arch_y
+            prog = powertrain.programma_arch(team)
+            st = rules.talks(gs)
+            ciclo = gs.regulations.get("pending_cycle") or {}
+            T.text(surf, "IL MOTORE CHE VERRA'", (right.x + 16, ay), 12, T.DIM_2, bold=True)
+            if ciclo.get("arch"):
+                T.text(surf, f"deciso: {AR.etichetta(gs, ciclo['arch'])} dal {ciclo['season']}",
+                       (right.right - 16, ay), 12, T.GOLD, bold=True, align="right")
+            elif st and st.get("motori"):
+                testa = max(st["motori"], key=st["motori"].get)
+                T.text(surf, f"bozza: {AR.etichetta(gs, testa)} "
+                             f"{st['motori'][testa]*100:.0f}%",
+                       (right.right - 16, ay), 12, T.WARN, bold=True, align="right")
+            if prog.get("arch"):
+                inv = float(prog.get("investito", 0.0))
+                da = int(prog.get("da", gs.season))
+                T.text(surf, f"{AR.descrizione(gs, prog['arch'])}",
+                       (right.x + 16, ay + 62), 12, T.DIM, maxw=right.w - 32)
+                T.text(surf, f"investiti {inv:.0f} M$ dal {da}",
+                       (right.x + 16, ay + 80), 12, T.DIM)
+                T.text(surf, f"{float(prog.get('budget', 0.0)):.0f} M$ a stagione",
+                       (right.x + 108, ay + 96), 13, T.TEXT, bold=True)
+            else:
+                T.text(surf, "Si puo' cominciare a lavorare sull'architettura che si "
+                             "pensa arrivera', anche prima che il tavolo decida. Se e' "
+                             "quella giusta si arriva pronti, se no resta il mestiere.",
+                       (right.x + 16, ay + 64), 12, T.DIM, maxw=right.w - 32)
 
         p = powertrain.program(gs)
         if powertrain.has_program(gs):

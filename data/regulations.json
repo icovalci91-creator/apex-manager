@@ -59,8 +59,10 @@
         "v_taglio_kmh": 320,
         "v_fine_kmh": 380,
         "recupero_max_mj": 8.5,
-        "_nota": "Gli stessi numeri visti dal modello di giro, che non e' il banco della federazione. La quota elettrica e' quella vera - 350 kW su 750 - mentre la discesa della spinta e' tarata piu' in alto dei 290-355 del regolamento perche' qui rappresenta l'erogazione media di un giro e non l'istante, e i tempi di riferimento su cui il modello e' allineato sono ancora pole della generazione precedente. Se una proposta cambia la ripartizione o il tetto di recupero, sono questi i numeri che si muovono e con loro i tempi."
-      }
+        "_nota": "Gli stessi numeri visti dal modello di giro, che non e' il banco della federazione. La quota elettrica e' quella vera - 350 kW su 750 - mentre la discesa della spinta e' tarata piu' in alto dei 290-355 del regolamento perche' qui rappresenta l'erogazione media di un giro e non l'istante, e i tempi di riferimento su cui il modello e' allineato sono ancora pole della generazione precedente. Se una proposta cambia la ripartizione o il tetto di recupero, sono questi i numeri che si muovono e con loro i tempi.",
+        "potenza_rel": 1.0
+      },
+      "architettura": "v6_turbo_ibrido"
     },
     "aero": {
       "active_aero": true,
@@ -1266,5 +1268,92 @@
       "area": "chassis",
       "reset": 0.15
     }
-  ]
+  ],
+  "_architetture_nota": "Le architetture di power unit fra cui il tavolo tecnico puo' scegliere quando si apre un ciclo nuovo. I numeri sono quelli veri: il V6 turbo ibrido e' il regolamento 2026, il V8 turbo con ibrido minimo e' la proposta che la federazione sta discutendo per il 2031, il V10 aspirato e' il ritorno di cui si e' parlato nel 2025 e mai deciso, il V8 aspirato con KERS e' quello che ha corso dal 2009 al 2013. potenza_rel dice quanta potenza totale concede l'architettura rispetto ai 750 kW del 2026: e' il numero che il modello di giro usa davvero.",
+  "architetture": {
+    "v6_turbo_ibrido": {
+      "nome": "V6 turbo ibrido 1.6",
+      "breve": "V6 turbo",
+      "cilindri": 6,
+      "cilindrata_cc": 1600,
+      "aspirazione": "turbo",
+      "giri_max": 15000,
+      "ice_kw": 400,
+      "elettrico_kw": 350,
+      "potenza_rel": 1.0,
+      "quota_elettrica": 0.47,
+      "batteria_mj": 4.0,
+      "recupero_max_mj": 8.5,
+      "v_taglio_kmh": 320,
+      "v_fine_kmh": 380,
+      "benzina_kg": 70,
+      "peso_pu_kg": 185,
+      "spettacolo": 0.35,
+      "costo": 1.0,
+      "nota": "Meta' della potenza e' elettrica e la gara si gioca su come la si spende. Costa quanto nessun'altra e non fa rumore."
+    },
+    "v8_turbo_leggero": {
+      "nome": "V8 turbo 2.4 con ibrido minimo",
+      "breve": "V8 turbo",
+      "cilindri": 8,
+      "cilindrata_cc": 2400,
+      "aspirazione": "turbo",
+      "giri_max": 16000,
+      "ice_kw": 550,
+      "elettrico_kw": 100,
+      "potenza_rel": 0.87,
+      "quota_elettrica": 0.15,
+      "batteria_mj": 1.0,
+      "recupero_max_mj": 2.5,
+      "v_taglio_kmh": 300,
+      "v_fine_kmh": 345,
+      "benzina_kg": 90,
+      "peso_pu_kg": 150,
+      "spettacolo": 0.75,
+      "costo": 0.6,
+      "nota": "La strada che la federazione sta guardando per il 2031: si torna a otto cilindri e l'ibrido resta solo dove serve. Costa molto meno e l'energia smette di decidere la gara."
+    },
+    "v10_aspirato": {
+      "nome": "V10 aspirato 3.0",
+      "breve": "V10",
+      "cilindri": 10,
+      "cilindrata_cc": 3000,
+      "aspirazione": "aspirato",
+      "giri_max": 19000,
+      "ice_kw": 690,
+      "elettrico_kw": 0,
+      "potenza_rel": 0.92,
+      "quota_elettrica": 0.02,
+      "batteria_mj": 0.0,
+      "recupero_max_mj": 0.0,
+      "v_taglio_kmh": 340,
+      "v_fine_kmh": 400,
+      "benzina_kg": 110,
+      "peso_pu_kg": 95,
+      "spettacolo": 1.0,
+      "costo": 0.75,
+      "nota": "Quello di cui si e' parlato nel 2025 e non si e' fatto: niente ibrido, benzina sostenibile e diciannovemila giri. Le tribune lo vogliono, i costruttori che hanno speso in elettrico molto meno."
+    },
+    "v8_aspirato_kers": {
+      "nome": "V8 aspirato 2.4 con KERS",
+      "breve": "V8 aspirato",
+      "cilindri": 8,
+      "cilindrata_cc": 2400,
+      "aspirazione": "aspirato",
+      "giri_max": 18000,
+      "ice_kw": 540,
+      "elettrico_kw": 60,
+      "potenza_rel": 0.8,
+      "quota_elettrica": 0.1,
+      "batteria_mj": 0.4,
+      "recupero_max_mj": 0.4,
+      "v_taglio_kmh": 330,
+      "v_fine_kmh": 390,
+      "benzina_kg": 100,
+      "peso_pu_kg": 95,
+      "spettacolo": 0.9,
+      "costo": 0.7,
+      "nota": "L'architettura che ha corso dal 2009 al 2013: otto cilindri aspirati a diciottomila giri e sessanta kilowatt di KERS da spendere in sei secondi al giro."
+    }
+  }
 }

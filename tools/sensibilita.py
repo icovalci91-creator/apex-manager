@@ -50,6 +50,12 @@ LEVE = [
 ]
 
 
+# E le architetture di power unit: qui non si muove una tacca, si cambia il
+# motore. E' il conto che serve quando in Commissione si discute se tornare
+# agli otto o ai dieci cilindri.
+ARCHITETTURE = ("v8_turbo_leggero", "v10_aspirato", "v8_aspirato_kers")
+
+
 def misura(gs) -> dict:
     """Il giro della vettura campione su ogni circuito, con il regolamento di adesso."""
     ref = gs._ref_car()
@@ -107,6 +113,23 @@ def main() -> None:
               f"{statistics.mean(dv):+8.1f}{statistics.mean(de):+9.2f}{statistics.mean(dr):+8.2f}")
     print("\ngiro medio/minimo/massimo in secondi, punta in km/h, energia in MJ a giro,")
     print("valore = quanto vale la spinta elettrica su un giro, in secondi.")
+    print(f"\n{'architettura':<20}{'giro medio':>11}{'punta':>8}{'peso':>7}"
+          f"{'benzina':>9}{'energia':>9}")
+    from game.core import architetture as AR
+    for aid in ARCHITETTURE:
+        gs = GameState.new_game("ferrari", seed=7)
+        AR.applica(gs, aid)
+        gs.refresh_tracks()
+        dopo = misura(gs)
+        dt = [dopo[k][0] - base[k][0] for k in base]
+        dv = [dopo[k][1] - base[k][1] for k in base]
+        a = AR.scheda(gs, aid)
+        print(f"{a['breve']:<20}{statistics.mean(dt):+11.3f}{statistics.mean(dv):+8.1f}"
+              f"{gs.regulations['min_weight_kg']:7.0f}{a['benzina_kg']:9.0f}"
+              f"{statistics.mean(x[2] for x in dopo.values()):9.2f}")
+    print("il confronto e' con il V6 turbo ibrido del 2026: 768 kg, 70 kg di benzina,")
+    print("5.70 MJ recuperati a giro.")
+
     morte, ignote = orfane()
     if morte:
         print(f"\nvoci che il regolamento registra e nessuno legge ({len(morte)}):")
