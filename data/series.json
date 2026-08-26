@@ -1,0 +1,64 @@
+{
+  "_nota": "La scala che porta alla Formula 1. Ogni serie ha il suo costo per posto, il suo calendario, il suo punteggio e i punti superlicenza che assegna: sono i numeri veri delle categorie di adesso, arrotondati dove il mondo vero cambia ogni anno. 'ingresso' e' quanto deve valere un pilota per starci senza fare figure, 'promozione' quanto deve valere per meritarsi il gradino dopo. La Formula 1 e' in elenco come le altre: e' l'ultimo gradino, non un mondo a parte.",
+  "_superlicenza": "Per correre in Formula 1 servono 40 punti superlicenza in tre stagioni. Li danno i primi classificati di ogni campionato, e piu' la categoria e' in alto piu' ne danno: vincere la Formula 2 ne vale 40 da soli, vincere una Formula 4 ne vale 12.",
+  "serie": {
+    "f4": {
+      "nome": "Formula 4",
+      "sigla": "F4",
+      "livello": 1,
+      "gare": 21,
+      "vetture": 30,
+      "costo_posto": 0.35,
+      "eta": [15, 19],
+      "ingresso": 48,
+      "promozione": 60,
+      "punti": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "superlicenza": [12, 10, 7, 5, 3, 2, 1],
+      "nota": "Il primo anno in monoposto: motori da centosessanta cavalli, niente aerodinamica seria, e ragazzi di quindici anni che vengono dai kart."
+    },
+    "fregional": {
+      "nome": "Formula Regional",
+      "sigla": "FRECA",
+      "livello": 2,
+      "gare": 21,
+      "vetture": 34,
+      "costo_posto": 0.7,
+      "eta": [16, 21],
+      "ingresso": 57,
+      "promozione": 66,
+      "punti": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "superlicenza": [25, 20, 15, 10, 7, 5, 3, 1],
+      "nota": "Il gradino di mezzo: la prima macchina con vero carico aerodinamico e il primo campionato in cui si comincia a farsi notare."
+    },
+    "f3": {
+      "nome": "Formula 3",
+      "sigla": "F3",
+      "livello": 3,
+      "gare": 20,
+      "vetture": 30,
+      "costo_posto": 1.1,
+      "eta": [16, 22],
+      "ingresso": 64,
+      "promozione": 70,
+      "punti": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "punti_sprint": [10, 8, 6, 5, 4, 3, 2, 1],
+      "superlicenza": [30, 25, 20, 10, 8, 6, 4, 3, 2, 1],
+      "nota": "Stesso weekend della Formula 1, monoposto uguali per tutti e trenta macchine in pista: chi emerge qui lo vedono tutti."
+    },
+    "f2": {
+      "nome": "Formula 2",
+      "sigla": "F2",
+      "livello": 4,
+      "gare": 28,
+      "vetture": 22,
+      "costo_posto": 2.6,
+      "eta": [17, 25],
+      "ingresso": 71,
+      "promozione": 75,
+      "punti": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "punti_sprint": [10, 8, 6, 5, 4, 3, 2, 1],
+      "superlicenza": [40, 40, 30, 20, 10, 8, 6, 4, 3, 2],
+      "nota": "L'ultimo gradino: chi la vince non ci puo' tornare, e se non trova un volante in Formula 1 si ritrova senza un posto dove correre."
+    }
+  }
+}

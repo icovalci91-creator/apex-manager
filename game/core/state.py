@@ -62,6 +62,7 @@ class GameState:
     proposals: list = field(default_factory=list)
     history_data: dict = field(default_factory=dict)
     engine_makers: dict = field(default_factory=dict)
+    campionati: dict = field(default_factory=dict)   # come e' finita ogni categoria
     results: list = field(default_factory=list)
     inbox: list = field(default_factory=list)
     season_history: list = field(default_factory=list)
@@ -183,6 +184,14 @@ class GameState:
         for squadra in gs.teams.values():
             if _acc.has(squadra) and len(squadra.academy) < 2:
                 _acc.intake(gs, squadra, 2 - len(squadra.academy))
+        # e ognuno si porta dietro il gradino da cui arriva: senza, la prima
+        # stagione li schiererebbe tutti in Formula 2
+        from . import serie as _serie
+        for squadra in gs.teams.values():
+            for did in squadra.academy:
+                drv = gs.drivers.get(did)
+                if drv is not None and not getattr(drv, "ultima_serie", ""):
+                    drv.ultima_serie = _serie.seme_scala(gs, drv)
 
         # e i due che accettano di salirci sopra: vanno presi fra gli svincolati
         # prima che il mercato e gli sponsor guardino chi c'e' in griglia
@@ -435,6 +444,11 @@ class GameState:
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
                            for t in self.candidates],
             "engine_makers": self.engine_makers,
+            "campionati": {sid: {"stagione": c.stagione,
+                                 "ordine": [[p.nome, p.forza, p.squadra, p.driver_id,
+                                             p.punti, p.vittorie, p.podi, p.superlicenza]
+                                            for p in c.ordine[:16]]}
+                           for sid, c in (getattr(self, "campionati", None) or {}).items()},
             "inbox": self.inbox, "season_history": self.season_history,
             "results": [
                 {"track_id": r.track_id, "round": r.round, "season": r.season, "kind": r.kind,
@@ -513,6 +527,15 @@ class GameState:
         gs.pu_specs = data.get("pu_specs", {})
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
+        from . import serie as _serie
+        gs.campionati = {}
+        for sid, c in (data.get("campionati") or {}).items():
+            gs.campionati[sid] = _serie.Campionato(
+                serie=sid, stagione=int(c.get("stagione", gs.season)),
+                ordine=[_serie.Posto(nome=r[0], forza=r[1], squadra=r[2], driver_id=r[3],
+                                     punti=r[4], vittorie=r[5], podi=r[6],
+                                     superlicenza=r[7])
+                        for r in c.get("ordine", [])])
         gs.inbox = data.get("inbox", [])
         gs.season_history = data.get("season_history", [])
         gs.results = [RaceResult(**r) for r in data.get("results", [])]

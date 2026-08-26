@@ -33,12 +33,21 @@ def roster(gs, team) -> list:
 
 
 def running_cost(gs, team) -> float:
-    """Quanto costa il vivaio in una stagione."""
+    """Quanto costa il vivaio in una stagione.
+
+    C'e' la struttura - ingegneri, sede, gente che gira per i kart - e poi ci
+    sono i posti in pista, che sono la voce grossa: un sedile in Formula 2
+    costa quanto sette stagioni di Formula 4, ed e' il motivo per cui nessuno
+    tiene sei ragazzi tutti in alto.
+    """
     if not has(team):
         return 0.0
+    from . import serie
     fac = float(team.facilities.get("academy", 60.0))
     fisso = RUN_BASE * (0.55 + 0.75 * fac / 100.0)
-    return round(fisso + len(team.academy) * COST_PER_JUNIOR, 2)
+    posti = sum(serie.costo_posto(sid) for sid in
+                (serie.serie_adatta(gs, d) for d in roster(gs, team)) if sid)
+    return round(fisso + posti, 2)
 
 
 def can_found(gs, team) -> tuple:
@@ -122,7 +131,12 @@ def intake(gs, team, quanti: int = 1) -> list:
 
 # ---------------------------------------------------------------- crescita
 def grow(gs, team) -> list:
-    """Una stagione di formule minori. Chi ha margine cresce, gli altri no."""
+    """Crescita alla vecchia maniera, senza campionato.
+
+    Resta per i casi in cui una stagione di categorie non c'e' stata - una
+    partita caricata a meta' anno, un ragazzo entrato dopo - ma la strada
+    normale adesso e' game.core.serie, dove si corre davvero.
+    """
     msgs = []
     from ..model.people import DRIVER_ATTRS
     spinta = (0.55 + 0.45 * float(team.facilities.get("academy", 60.0)) / 100.0)
@@ -173,12 +187,12 @@ def release(gs, team, driver) -> tuple:
 
 # -------------------------------------------------------------- fine stagione
 def end_season(gs) -> list:
-    """Crescita, ragazzi che escono per eta', gente nuova che entra."""
-    msgs = []
+    """Le categorie minori corrono, poi si tirano le somme del vivaio."""
+    from . import serie
+    msgs = list(serie.stagione(gs))
     for team in gs.teams.values():
         if not has(team):
             continue
-        msgs += grow(gs, team)
         for d in list(roster(gs, team)):
             if d.age >= LEAVE_AGE:
                 team.academy.remove(d.id)

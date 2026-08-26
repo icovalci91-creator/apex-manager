@@ -68,6 +68,10 @@ class Driver:
     pu_wear: float = 100.0
     gearbox_wear: float = 100.0
     happiness_notes: list = field(default_factory=list)
+    # i punti superlicenza raccolti nelle categorie minori, stagione per
+    # stagione: ne servono quaranta in tre anni per guidare in Formula 1
+    superlicenza: list = field(default_factory=list)
+    ultima_serie: str = ""       # in che categoria ha corso l'anno scorso
 
     @property
     def name(self) -> str:

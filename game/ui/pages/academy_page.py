@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pygame
 
-from ...core import academy as AC
+from ...core import academy as AC, serie as SR
 from .. import theme as T
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, card
@@ -34,8 +34,9 @@ class AcademyPage(Page):
             self.widgets.append(self.found_btn)
             return
 
+        self.camp_h = 116
         self.lista = ScrollList((self.left.x + 12, self.left.y + 40, self.left.w - 24,
-                                 self.left.h - 56), row_h=52,
+                                 self.left.h - 56 - self.camp_h), row_h=52,
                                 draw_row=self._row, on_select=self._select)
         self.widgets.append(self.lista)
         c = self.right
@@ -98,7 +99,9 @@ class AcademyPage(Page):
     def _row(self, surf, rect, i, d) -> None:
         T.text(surf, d.name, (rect.x + 14, rect.y + 6), 15, T.TEXT, bold=True,
                maxw=rect.w - 130)
-        T.text(surf, f"{d.age} anni  -  {d.nat}  -  contratto fino al {d.contract_until}",
+        sid = SR.serie_adatta(self.gs, d)
+        dove = SR.sigla(sid) if sid else "fuori scala"
+        T.text(surf, f"{dove}  -  {d.age} anni  -  {d.nat}  -  fino al {d.contract_until}",
                (rect.x + 14, rect.y + 26), 11, T.DIM, maxw=rect.w - 130)
         T.text(surf, f"{d.overall:.0f}", (rect.right - 66, rect.y + 8), 17,
                T.stat_colour(d.overall, 62, 84), bold=True, align="right")
@@ -135,10 +138,53 @@ class AcademyPage(Page):
                    (self.left.x + 16, self.left.y + 48), 13, T.DIM,
                    maxw=self.left.w - 32)
 
+        self._draw_campionato(surf)
+
         T.panel(surf, self.right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "SCHEDA", (self.right.x + 16, self.right.y + 12), 12, T.DIM_2, bold=True)
         self._draw_card(surf)
         super().draw(surf)
+
+    def _draw_campionato(self, surf) -> None:
+        """Come e' finito il campionato dove corre il ragazzo che stiamo guardando.
+
+        Un vivaio non e' una lista di valutazioni: e' gente che corre da
+        qualche parte contro qualcun altro, e quel qualcun altro ha un nome e
+        una squadra. Senza la classifica, "settantadue di overall" non vuol
+        dire niente.
+        """
+        gs = self.gs
+        d = self.sel
+        y = self.left.bottom - self.camp_h + 6
+        sid = SR.serie_adatta(gs, d) if d is not None else ""
+        camp = SR.ultimo_campionato(gs, sid) if sid else None
+        if camp is None or not camp.ordine:
+            T.text(surf, "CAMPIONATO", (self.left.x + 16, y), 12, T.DIM_2, bold=True)
+            T.paragraph(surf, "La prima stagione di categorie si corre a fine anno: da "
+                              "li' in poi qui c'e' la classifica.",
+                        (self.left.x + 16, y + 20), 12, T.DIM_2, self.left.w - 32)
+            return
+        s = SR.scheda(sid)
+        T.text(surf, f"{s.get('nome', sid).upper()}  {camp.stagione}",
+               (self.left.x + 16, y), 12, T.GOLD, bold=True)
+        T.text(surf, f"{len(camp.ordine)} al via", (self.left.right - 16, y), 11,
+               T.DIM_2, align="right")
+        y += 20
+        mia = camp.posizione_di(d.id)
+        righe = list(enumerate(camp.ordine[:3], 1))
+        if mia > 3:
+            righe.append((mia, camp.ordine[mia - 1]))
+        for pos, riga in righe:
+            nostro = bool(riga.driver_id)
+            col = T.GOLD if nostro else T.TEXT
+            T.text(surf, f"{pos}", (self.left.x + 22, y), 12, col, align="right")
+            T.text(surf, riga.nome, (self.left.x + 34, y), 13, col, bold=nostro,
+                   maxw=self.left.w * 0.42)
+            T.text(surf, riga.squadra, (self.left.x + 34 + self.left.w * 0.44, y), 11,
+                   T.DIM_2, maxw=self.left.w * 0.28)
+            T.text(surf, f"{riga.punti:.0f}", (self.left.right - 16, y), 12, col,
+                   bold=True, align="right")
+            y += 19
 
     def _draw_card(self, surf) -> None:
         c, gs, team = self.right, self.gs, self.team
@@ -187,14 +233,46 @@ class AcademyPage(Page):
             T.text(surf, f"Posti liberi: {2 - n_tit} da titolare, "
                          f"{2 - n_ris} da terzo pilota.",
                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
-        y += 18
-        T.text(surf, "Cresce da solo ogni stagione, ma le giornate di test "
-                     "private lo fanno crescere il doppio.",
-               (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
-        y += 18
-        T.text(surf, f"A {AC.LEAVE_AGE} anni il percorso finisce: o sale in prima "
-                     f"squadra o lascia il programma.",
-               (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
+        y += 20
+        # dove corre, cosa costa quel posto e a che punto e' con la licenza
+        sid = SR.serie_adatta(gs, d)
+        T.text(surf, "DOVE CORRE", (c.x + 16, y), 12, T.DIM_2, bold=True)
+        y += 20
+        if sid:
+            s = SR.scheda(sid)
+            T.text(surf, s.get("nome", sid), (c.x + 16, y), 14, T.TEXT, bold=True,
+                   maxw=c.w * 0.55)
+            T.text(surf, f"{SR.costo_posto(sid):.2f} M$ il posto",
+                   (c.right - 16, y), 13, T.GOLD, align="right")
+            y += 20
+            camp = SR.ultimo_campionato(gs, sid)
+            riga = camp.riga_di(d.id) if camp else None
+            if riga is not None:
+                pos = camp.posizione_di(d.id)
+                T.text(surf, f"L'anno scorso {pos}o su {len(camp.ordine)} con "
+                             f"{riga.punti:.0f} punti"
+                             + (f" e {riga.vittorie} vittorie" if riga.vittorie else ""),
+                       (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
+            else:
+                T.text(surf, "Prima stagione qui: si vedra' a fine anno.",
+                       (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
+            y += 22
+        else:
+            T.paragraph(surf, "Non c'e' piu' una categoria in cui schierarlo: o gli si "
+                              "trova un volante, o il percorso finisce qui.",
+                        (c.x + 16, y), 12, T.WARN, c.w - 32)
+            y += 34
+        punti = SR.punti_licenza(d)
+        col = T.OK if punti >= SR.LICENZA_SOGLIA else T.WARN
+        T.text(surf, "Superlicenza", (c.x + 16, y), 13, T.DIM, maxw=140)
+        T.bar(surf, (c.x + 156, y + 5, c.w - 232, 8), punti, SR.LICENZA_SOGLIA, col)
+        T.text(surf, f"{punti}/{SR.LICENZA_SOGLIA}", (c.right - 16, y), 13, col,
+               bold=True, align="right")
+        y += 22
+        T.paragraph(surf, f"Cresce con i risultati, non con il calendario: una stagione "
+                          f"davanti vale il doppio di una in mezzo al gruppo. A "
+                          f"{AC.LEAVE_AGE} anni il percorso finisce.",
+                    (c.x + 16, y), 12, T.DIM_2, c.w - 32)
 
     def _draw_none(self, surf, cw) -> None:
         r, gs, team = self.rect, self.gs, self.team
@@ -202,10 +280,11 @@ class AcademyPage(Page):
              "i piloti si comprano sul mercato", accent=T.DIM_2)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Aprirlo costa",
              f"{AC.FOUND_COST:.0f} M$", "una volta sola, piu' la gestione", accent=T.WARN)
-        annuo = AC.RUN_BASE * (0.55 + 0.75 * float(team.facilities.get("academy", 60.0))
-                               / 100.0) + 3 * AC.COST_PER_JUNIOR
+        annuo = (AC.RUN_BASE * (0.55 + 0.75 * float(team.facilities.get("academy", 60.0))
+                                / 100.0)
+                 + SR.costo_posto("f3") + 2 * SR.costo_posto("fregional"))
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "E tenerlo aperto",
-             f"{annuo:.1f} M$", "ogni anno, per gente che non porta punti",
+             f"{annuo:.1f} M$", "ogni anno, piu' i posti nelle categorie",
              accent=T.BAD)
 
         T.panel(surf, self.left, T.PANEL, radius=10, border=T.LINE)

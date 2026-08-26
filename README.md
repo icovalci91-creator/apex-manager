@@ -195,7 +195,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Sviluppo | La scala delle ore di galleria con la nostra posizione e quanti run e calcoli CFD ci restano, i vincoli che tengono fermo il reparto (banchi occupati, persone libere, tetto di spesa, giornate di test, pezzi di fornitura unica, sviluppo power unit congelato), lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
-| Vivaio | I ragazzi che crescono in casa: chi c'e', quanto vale, quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha puo' aprirlo, se se lo puo' permettere |
+| Vivaio | I ragazzi che crescono in casa: in che categoria corrono, quanto costa quel posto, come è finito il loro campionato e a che punto sono con la superlicenza. Quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha può aprirlo, se se lo può permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
 | Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
 | Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
@@ -251,6 +251,31 @@ quelle da cui dipendono. I tipi vengono rispettati - un numero resta un numero, 
 resta un si/no - perche' cambiare il tipo di un campo sotto ai piedi del gioco lo farebbe
 esplodere in un punto lontanissimo da li'. Una partita toccata con l'editor se lo porta
 scritto nel salvataggio.
+
+### La scala che porta alla Formula 1
+
+Il vivaio non è più un numero che sale: i ragazzi corrono davvero, in un campionato con un
+campo partenti, una classifica e un costo. Le categorie stanno in `data/series.json` con i
+numeri veri:
+
+| categoria | gare | vetture | un posto costa | ci si entra a | superlicenza al primo |
+|---|---|---|---|---|---|
+| Formula 4 | 21 | 30 | 0,35 M$ | 15 anni | 12 punti |
+| Formula Regional | 21 | 34 | 0,70 M$ | 16 anni | 25 punti |
+| Formula 3 | 20 | 30 | 1,10 M$ | 16 anni | 30 punti |
+| Formula 2 | 28 | 22 | 2,60 M$ | 17 anni | 40 punti |
+
+Si sale **un gradino alla volta** — nessuno passa dalla Formula 4 alla Formula 2, nemmeno se
+è bravo — e per guidare in Formula 1 servono **40 punti superlicenza in tre stagioni**, che
+in pratica vuol dire finire sul podio in Formula 2 o vincere una Formula 3.
+
+Quanto cresce un ragazzo dipende da **come è andata**: una stagione davanti vale il doppio di
+una in mezzo al gruppo, e una storta abbassa anche il potenziale, perché il potenziale vero
+si scopre correndo. Vincere alza la notorietà, e quindi quello che chiede sul mercato.
+
+Il conto lo si sente: tre ragazzi in Formula 2 costano 7,8 M$ di soli posti in pista, sette
+volte quanto ne costerebbero in Formula 4. È il motivo per cui un vivaio serio si tiene
+largo in basso e stretto in alto.
 
 ### Le gomme del weekend
 
