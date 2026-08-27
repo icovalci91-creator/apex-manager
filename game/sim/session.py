@@ -162,6 +162,7 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 skill=reso - gs.rng.gauss(0.0, 1.3),
                 consistency=d.consistency,
                 tyre_skill=d.tyre_mgmt, aggression=d.aggression, racecraft=d.racecraft,
+                estro=float(getattr(d, "estro", 60.0)),
                 wet_skill=d.wet, stamina=d.fitness,
                 confidence=float(getattr(d, "confidence", FIDUCIA_BASE)),
                 reliability=_affidabile(team, d),

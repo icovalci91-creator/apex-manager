@@ -101,6 +101,11 @@ RISERVA_ULTIMO = 1
 # generoso nel primo settore. Ma su un giro secco si sente.
 PENALITA_USATE = 0.15
 
+# Quanto spesso un pilota tira fuori il giro che non doveva venire. Si scala
+# con l'inventiva: chi ce l'ha lo trova una volta su sei, chi non ce l'ha
+# quasi mai. Ed e' la stessa qualita' che gli fa buttare gli altri.
+GIRO_MAGICO = 0.19
+
 
 @dataclass
 class Corsa:
@@ -421,8 +426,16 @@ class LapSession:
         # chi non si fida della macchina il giro perfetto non lo trova
         sporco = 0.055 + (100.0 - e.consistency) * 0.0022
         sporco *= 1.0 + (65.0 - e.confidence) * 0.009
+        # e l'inventiva lavora nelle due direzioni: chi si azzarda trova il
+        # giro che non doveva venire piu' spesso, e piu' spesso lo butta
+        estro = getattr(e, "estro", 60.0)
+        sporco *= 0.82 + 0.36 * (estro / 100.0)
         if tipo == "qualifica" and gs.rng.random() < max(0.010, sporco):
             t += gs.rng.uniform(0.4, 2.4)                 # giro sporcato
+        elif tipo == "qualifica" and gs.rng.random() < GIRO_MAGICO * (estro / 100.0):
+            # la traiettoria che nessuno aveva provato, la staccata tenuta
+            # mezzo metro piu' in la': e' quello che fa le pole a sorpresa
+            t -= gs.rng.uniform(0.10, 0.42)
         return t
 
     def _asfalto(self, c: "Corsa") -> None:

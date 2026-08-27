@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass, field, asdict
 
 DRIVER_ATTRS = ["pace", "racecraft", "consistency", "tyre_mgmt", "wet",
-                "feedback", "aggression", "stamina"]
+                "feedback", "aggression", "stamina", "estro"]
 
 STAFF_ATTRS = ["aero", "mechanical", "powertrain", "development", "reliability",
                "strategy", "analysis", "communication", "management", "scouting"]
@@ -33,6 +33,12 @@ class Driver:
     marketability: float
     salary: float
     contract_until: int
+    # Quanto un pilota si inventa qualcosa. Non e' il passo e non e'
+    # l'aggressivita': e' la traiettoria che nessuno aveva provato, la staccata
+    # tenuta mezzo metro piu' in la', il giro che non doveva venire e viene.
+    # Regala tempo e sorpassi che il modello non prevedeva, e ogni tanto manda
+    # tutto a monte: e' la stessa qualita' che fa le pole e i testacoda.
+    estro: float = 60.0
     # che posto occupa in squadra: si corre in due, ma un terzo pilota lo
     # tengono tutti - per le prove libere, per i test e per il giorno in cui
     # un titolare non e' in condizione di salire in macchina

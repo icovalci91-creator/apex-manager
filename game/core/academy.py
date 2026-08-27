@@ -96,6 +96,7 @@ def _giovane(gs, team, livello: float) -> Driver:
         consistency=base - gs.rng.uniform(4, 10), tyre_mgmt=base - gs.rng.uniform(3, 8),
         wet=base - gs.rng.uniform(0, 6), feedback=base - gs.rng.uniform(3, 8),
         aggression=gs.rng.uniform(58, 88), stamina=gs.rng.uniform(80, 94),
+        estro=gs.rng.uniform(42, 94),
         potential=min(97.0, base + gs.rng.uniform(8, 22)),
         marketability=gs.rng.uniform(30, 58),
         salary=round(gs.rng.uniform(0.15, 0.45), 2),

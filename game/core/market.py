@@ -402,6 +402,7 @@ def new_talents(gs) -> list:
             consistency=base - gs.rng.uniform(4, 10), tyre_mgmt=base - gs.rng.uniform(2, 8),
             wet=base - gs.rng.uniform(0, 6), feedback=base - gs.rng.uniform(2, 8),
             aggression=gs.rng.uniform(60, 85), stamina=gs.rng.uniform(80, 92),
+            estro=gs.rng.uniform(45, 92),
             potential=min(97.0, base + gs.rng.uniform(6, 18)),
             marketability=gs.rng.uniform(35, 65), salary=gs.rng.uniform(0.8, 1.8),
             contract_until=gs.season,
