@@ -193,7 +193,7 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
 | Sviluppo | La scala delle ore di galleria con la nostra posizione e quanti run e calcoli CFD ci restano, i vincoli che tengono fermo il reparto (banchi occupati, persone libere, tetto di spesa, giornate di test, pezzi di fornitura unica, sviluppo power unit congelato), lavoro di reparto per area, conoscenza della vettura, pacchetti di aggiornamento con costo, tempi e forbice degli esiti, specifiche in verifica da tenere o rimontare |
-| Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
+| Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla con i cinque assi su cui si sviluppa (potenza, recupero, software, affidabilità, efficienza) e quanto banco puntare su ognuno, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
 | Vivaio | I ragazzi che crescono in casa: due schede, una per il ragazzo e una per decidere **in che categoria corre** — con il costo del posto, cosa insegna e perché una categoria è preclusa — oppure per lasciare la scelta al responsabile del vivaio. Come è finito il loro campionato e a che punto sono con la superlicenza. Quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha può aprirlo, se se lo può permettere |
 | Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
@@ -373,6 +373,13 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   termico va in batteria invece che a terra (il regolamento lo tappa a 250 kW). Rimette
   dentro molta più energia e non tocca la curva, ma sul rettilineo sei corto - quindi non
   lo si fa mentre si difende o si attacca, e chi ti segue lo sfrutta.
+- **L'attacco preparato**: se resti tre giri entro 1,6 s dallo stesso avversario senza
+  passarlo, il muretto smette di spingere e prepara. Due giri di ricarica - a gas
+  spalancato, che seguendo costa sul dritto ma non costa in curva, quindi resti comunque
+  attaccato - e poi due giri di attacco, arrivando in fondo al rettilineo con un megajoule
+  più di lui. Il vantaggio di carica conta davvero nel tentativo: mezza batteria in più
+  vale un terzo abbondante di possibilità, e altrettanto in meno a chi ce l'ha di meno.
+  È la stessa energia spesa in un ordine diverso, ed è quello che scioglie i trenini.
 - **Mappature del motore** (`CONS` `BASE` `SPIN`): l'altra manopola della power unit.
   `SPIN` vale fino a tre decimi al giro sui circuiti di potenza, beve il 6% di benzina in
   più e stressa il motore; `CONS` fa il contrario. Quanto lo si è tirato si legge nella
