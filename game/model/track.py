@@ -451,6 +451,21 @@ class Track:
         vmax = 0.5 * (lo + hi)
         aero = (rho * cla) / (2.0 * mass)
 
+        # come si spartiscono il lavoro i due assali. Il peso e' quello che e';
+        # il carico aerodinamico lo sposta il bilanciamento della vettura - una
+        # macchina piantata dietro ne mette meno davanti, una nervosa il
+        # contrario - e siccome il carico cresce col quadrato della velocita',
+        # quello che si sceglie qui si sente nelle curve veloci e sparisce nei
+        # tornanti
+        bil = max(-1.0, min(1.0, float(getattr(car, "balance", 0.0) or 0.0)))
+        massa_ant = C.QUOTA_MASSA_ANT
+        aero_ant = min(0.62, max(0.28, C.QUOTA_AERO_ANT + C.BILANCIA_AERO * bil))
+        # quanto carico aerodinamico tocca a ogni assale per ogni chilo che
+        # quell'assale deve tenere in curva: uno vuol dire in equilibrio, sotto
+        # uno vuol dire che e' quell'assale a mollare per primo
+        quota_ant = aero_ant / massa_ant
+        quota_post = (1.0 - aero_ant) / (1.0 - massa_ant)
+
         def carico(v2: float) -> float:
             """Quanti pesi della macchina sta portando la gomma a quella velocita'."""
             return 1.0 + aero * v2 / C.G
@@ -501,13 +516,25 @@ class Track:
                 # Il conto si morde la coda - piu' si va forte piu' si schiaccia
                 # la gomma, e piu' e' schiacciata meno rende - e si scioglie
                 # rigirandolo tre volte, che basta e avanza.
+                #
+                # E lo si fa due volte, una per assale: la curva la fanno tutti
+                # e due insieme, ma a decidere quanto forte ci si passa e' il
+                # piu' in difficolta' dei due. Con la vettura in equilibrio le
+                # due velocita' vengono uguali e il conto e' quello di sempre;
+                # appena il carico non e' ripartito come il peso, una delle due
+                # scende - e quella e' la macchina che sottosterza o che
+                # sovrasterza, a seconda di quale delle due.
                 v2 = 0.0
                 for _ in range(3):
-                    m = m0 * carico(v2) ** -SENSIBILITA_CARICO
-                    d = k - m * aero
-                    if d <= 1e-6:
-                        return vmax
-                    v2 = min(m * C.G / d, vmax * vmax)
+                    peggiore = vmax * vmax
+                    for q in (quota_ant, quota_post):
+                        aq = q * aero
+                        m = m0 * (1.0 + aq * v2 / C.G) ** -SENSIBILITA_CARICO
+                        d = k - m * aq
+                        cand = vmax * vmax if d <= 1e-6 else min(m * C.G / d,
+                                                                 vmax * vmax)
+                        peggiore = min(peggiore, cand)
+                    v2 = peggiore
                 return math.sqrt(v2)
 
             v0 = min(velocita(mu), vmax)
@@ -544,13 +571,17 @@ class Track:
                 # e sotto spinta quel carico cresce, perche' la macchina si
                 # siede. Il conto si morde la coda e si scioglie girandolo due
                 # volte, che e' piu' di quanto serva
-                dietro = C.QUOTA_MOTRICE
+                # il peso statico che gli tocca piu' la sua fetta di carico
+                # aerodinamico: una macchina piantata dietro ne ha di piu', ed
+                # e' esattamente il motivo per cui in uscita di curva spinge
+                n_post = ((1.0 - massa_ant) * C.G
+                          + (1.0 - aero_ant) * aero * vi * vi)
+                tetto = C.QUOTA_MOTRICE_MAX * (C.G + aero * vi * vi)
+                a_tr = 0.0
                 for _ in range(2):
-                    spinta = presa * dietro * quota
-                    dietro = min(C.QUOTA_MOTRICE_MAX,
-                                 C.QUOTA_MOTRICE + C.TRASFERIMENTO * spinta / C.G)
-                a = min(potenza(vi) / (mass * vi),
-                        presa * dietro * quota) - drag_a
+                    carico_post = min(tetto, n_post + C.TRASFERIMENTO * a_tr)
+                    a_tr = mu_v * carico_post * quota
+                a = min(potenza(vi) / (mass * vi), a_tr) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:

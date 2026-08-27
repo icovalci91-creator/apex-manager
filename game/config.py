@@ -59,6 +59,24 @@ V_FINE_ERS = 355.0 / 3.6
 # e mezzo. In frenata invece lavorano tutte e quattro, e infatti si stacca a
 # cinque g.
 QUOTA_MOTRICE = 0.55
+# --- I due assali --------------------------------------------------------
+# Una monoposto non e' un punto con dentro tutta la massa: ha un assale
+# davanti e uno dietro, e ognuno dei due ha il suo peso da portare in curva e
+# la sua aderenza per portarlo. Quello che ferma la macchina e' il piu' in
+# difficolta' dei due, ed e' esattamente la definizione di sottosterzo e di
+# sovrasterzo - due parole che nel modello non esistevano, perche' c'erano una
+# aderenza sola e una massa sola, cioe' una vettura sempre perfettamente
+# bilanciata su tutte le curve di tutti i circuiti.
+#
+# Il peso da fermo sta piu' dietro, perche' dietro c'e' la power unit. Il
+# carico aerodinamico invece si ripartisce come vogliono le ali e il fondo, e
+# siccome cresce con il quadrato della velocita' e' lui a decidere il
+# bilanciamento nelle curve veloci mentre in quelle lente non conta niente. E'
+# il motivo per cui la stessa macchina sottosterza in fondo al curvone e
+# sovrasterza al tornante, e adesso lo fa anche qui dentro.
+QUOTA_MASSA_ANT = 0.45
+QUOTA_AERO_ANT = 0.45        # con la vettura neutra i due coincidono
+BILANCIA_AERO = 0.050        # e il bilanciamento della vettura li separa
 # Ma quella ripartizione e' quella da fermo, e da fermo non ci si sta mai. Nel
 # momento in cui si spinge, la macchina si siede sul posteriore: il carico si
 # sposta indietro di quanto vale il baricentro diviso il passo, e le due ruote
