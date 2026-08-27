@@ -268,7 +268,13 @@ class Track:
     # ------------------------------------------------------- modello di giro
     def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
                   bias: dict | None = None, elettrico: float = 1.0):
-        """Restituisce (tempo_giro_s, vmax_kmh, profilo_velocita).
+        """Restituisce (tempo_giro_s, punta_kmh, profilo_velocita).
+
+        La punta e' quella che si tocca davvero sul giro, cioe' quella che
+        segnerebbe una rilevazione in fondo al dritto - non la velocita' a cui
+        la macchina arriverebbe su un rettilineo infinito, che e' un asintoto e
+        non un dato. Le due cose sono diverse ovunque e a Monza lo erano di
+        trentacinque km/h.
 
         `car` espone: downforce, drag, power, mech_grip, braking, mass_base,
         mass_extra. `rho` e' la densita' dell'aria: a Citta' del Messico ce n'e'
@@ -277,8 +283,9 @@ class Track:
         dominio: una macchina non e' brava allo stesso modo nelle curve lente e
         in quelle veloci.
         """
-        t, vmax, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias, elettrico=elettrico)
-        return t, vmax, v
+        t, _asintoto, v, _vlim, _cl = self._solve(car, wet, grip, rho, bias,
+                                                  elettrico=elettrico)
+        return t, max(v) * 3.6, v
 
     def _solve(self, car, wet: float, grip: float, rho, bias: dict | None, giri: int = 2,
                elettrico: float = 1.0):
@@ -292,6 +299,10 @@ class Track:
         b = bias or {}
         cla = C.CLA_BASE * car.downforce
         cda = C.CDA_BASE * car.drag
+        # sul dritto le ali si appiattiscono: la resistenza cala di un quinto e
+        # la punta sale, ed e' li' che il 2026 ha cambiato faccia ai rettilinei
+        cda_x = cda * (1.0 - C.QUOTA_XMODE)
+        dritto = [k < C.K_DRITTO for k in self.curvature]
         mass = car.mass_base + car.mass_extra
         power = C.POWER_W * car.power * getattr(car, "potenza_reg", 1.0)
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
@@ -317,12 +328,21 @@ class Track:
                 quota = max(0.0, 1.0 - (v - v_taglio) / max(1.0, v_fine - v_taglio))
             return power * (1.0 - quota_e + quota_e * quota * elettrico)
 
-        # velocita' massima assoluta: dove la potenza che resta non basta piu'
-        # a vincere l'aria. Si trova a tentativi perche' la potenza dipende
-        # dalla velocita' e la velocita' dalla potenza
-        vmax = (2.0 * potenza(1.0) / (rho * cda)) ** (1.0 / 3.0)
-        for _ in range(6):
-            vmax = (2.0 * potenza(vmax) / (rho * cda)) ** (1.0 / 3.0)
+        # Velocita' massima assoluta: dove la potenza che resta non basta piu' a
+        # vincere l'aria. La si cerca per bisezione e non rigirando il conto su
+        # se stesso: sopra i trecentoventi il regolamento comincia a spegnere
+        # l'elettrico, e in quella fascia il conto a tentativi rimbalza fra due
+        # valori lontani trenta km/h senza fermarsi mai - con il risultato che
+        # la punta dichiarata dipendeva da quante volte si girava il ciclo.
+        # La funzione e' monotona, quindi la bisezione ci arriva sempre.
+        lo, hi = 5.0, 200.0
+        for _ in range(48):
+            mid = 0.5 * (lo + hi)
+            if potenza(mid) > 0.5 * rho * cda_x * mid ** 3:
+                lo = mid
+            else:
+                hi = mid
+        vmax = 0.5 * (lo + hi)
         aero = (rho * cla) / (2.0 * mass)
 
         def carico(v2: float) -> float:
@@ -406,14 +426,17 @@ class Track:
             for i in range(n):
                 j = (i + 1) % n
                 vi = max(v[i], 5.0)
-                drag_a = 0.5 * rho * cda * vi * vi / mass
+                drag_a = 0.5 * rho * (cda_x if dritto[i] else cda) * vi * vi / mass
                 # anche in accelerazione il carico aerodinamico spinge a terra:
                 # a duecento all'ora la trazione non e' quella di un semaforo
                 mu_v = mu_t * carico(vi * vi) ** -SENSIBILITA_CARICO
                 presa = mu_v * (C.G + aero * vi * vi)
                 ki = self.curvature[i]
                 quota = resta(vi * vi * ki, presa, rap_t) if ki > 1e-9 else 1.0
-                a = min(potenza(vi) / (mass * vi), presa * 0.85 * quota) - drag_a
+                # e la spinta la mettono a terra due ruote sole: conta il
+                # carico che sente l'assale posteriore, non tutta la vettura
+                a = min(potenza(vi) / (mass * vi),
+                        presa * C.QUOTA_MOTRICE * quota) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -429,7 +452,7 @@ class Track:
                 presa = mu_v * (C.G + aero * vj * vj)
                 kj = self.curvature[j]
                 quota = resta(vj * vj * kj, presa, rap_b) if kj > 1e-9 else 1.0
-                a_b = presa * quota + 0.5 * rho * cda * vj * vj / mass
+                a_b = presa * quota + 0.5 * rho * cda * vj * vj / mass  # in frenata l'ala e' aperta
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
                 if cand < v[i]:
                     v[i] = cand
@@ -762,7 +785,9 @@ class Track:
         tempi = {d: x * k for d, x in tempi.items()}
         return {
             "tempo": t,
-            "vmax": vmax_kmh,
+            # la punta e' quella toccata sul giro, non l'asintoto: e' quella
+            # che finisce sulle schede dei circuiti e nel tabellone della gara
+            "vmax": max(v) * 3.6,
             "v_media": self.length_km * 1000.0 / max(1e-6, t) * 3.6,
             "domini": tempi,
             "pieno_gas": pieno * k / max(1e-6, t),

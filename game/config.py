@@ -33,10 +33,28 @@ RECUPERO_MAX_MJ = 8.5
 BATTERIA_MJ = 4.0
 V_TAGLIO_ERS = 320.0 / 3.6
 V_FINE_ERS = 380.0 / 3.6
+# Una monoposto ha due ruote motrici, e la spinta la mette a terra solo il
+# carico che quelle due ruote sentono: il peso che sta dietro piu' la parte di
+# carico aerodinamico che grava sul posteriore. Con la ripartizione vera - poco
+# piu' della meta' dietro - da fermo si tira poco piu' di un g, che e' il
+# motivo per cui una Formula 1 fa lo 0-100 in due secondi e mezzo e non in uno
+# e mezzo. In frenata invece lavorano tutte e quattro, e infatti si stacca a
+# cinque g.
+QUOTA_MOTRICE = 0.55
 MU_LAT = 2.15               # coefficiente di aderenza laterale slick
 MU_BRAKE = 1.60             # aderenza longitudinale in frenata
 CLA_BASE = 3.10             # ClA di riferimento (downforce index 1.0)
-CDA_BASE = 1.85             # CdA di riferimento
+CDA_BASE = 2.05             # CdA di riferimento, con le ali in assetto da curva
+
+# L'ala mobile del 2026 non e' il vecchio DRS. In curva la vettura sta in
+# Z-mode, con tutto il carico; sul dritto le ali si appiattiscono - X-mode - e
+# con loro se ne va un quinto della resistenza. Sono due macchine diverse nello
+# stesso giro, ed e' il motivo per cui una CdA sola non descriveva ne' le curve
+# ne' i rettilinei: teneva il valore di compromesso e sbagliava tutti e due.
+QUOTA_XMODE = 0.20
+# e sotto questa curvatura - un raggio di ottocento metri - la macchina va
+# dritta abbastanza da poterle appiattire
+K_DRITTO = 1.0 / 800.0
 
 # Raggi di curvatura indicativi per classe di curva (metri)
 CORNER_RADIUS = {1: 22.0, 2: 45.0, 3: 90.0, 4: 170.0, 5: 340.0}
