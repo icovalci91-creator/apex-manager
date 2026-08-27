@@ -98,6 +98,7 @@ class Track:
 
     segments: list = field(default_factory=list)
     points: list = field(default_factory=list)      # [(x, y)] normalizzati 0..1
+    pit_points: list = field(default_factory=list)  # la corsia box, stessa scala
     curvature: list = field(default_factory=list)   # 1/raggio per ogni punto
     ds: float = STEP_M
     sector_bounds: tuple = (0.0, 0.0)
@@ -168,7 +169,9 @@ class Track:
 
         self.ds = target / len(pts)
         self.curvature = _curvature(pts)
-        self.points = _normalise(pts)
+        box = _corsia_box(pts, self.ds, self.pit_loss)
+        self.points, extra = _normalise(pts, [box])
+        self.pit_points = extra[0]
         self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
 
     def _al_traguardo(self, pts: list, scala: float) -> list:
@@ -261,7 +264,9 @@ class Track:
         pts = [(px - gx * i / (n - 1), py - gy * i / (n - 1)) for i, (px, py) in enumerate(pts)]
 
         pts = _smooth(pts, passes=3)
-        self.points = _normalise(pts)
+        box = _corsia_box(pts, self.ds, self.pit_loss)
+        self.points, extra = _normalise(pts, [box])
+        self.pit_points = extra[0]
         self.curvature = curv
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
 
@@ -965,7 +970,7 @@ def _curvature(pts) -> list:
     return out
 
 
-def _normalise(pts) -> list:
+def _normalise(pts, extra=None):
     """Porta la polilinea nel quadrato 0..1, centrata, senza deformarla.
 
     E la gira sottosopra. Nella proiezione il nord e' y positiva, come su una
@@ -984,7 +989,70 @@ def _normalise(pts) -> list:
     ox, oy = min(xs), min(ys)
     cx = (1.0 - w * scale) / 2.0
     cy = (1.0 - h * scale) / 2.0
-    return [((px - ox) * scale + cx, 1.0 - ((py - oy) * scale + cy)) for px, py in pts]
+
+    def porta(p):
+        return ((p[0] - ox) * scale + cx, 1.0 - ((p[1] - oy) * scale + cy))
+
+    if extra is None:
+        return [porta(p) for p in pts]
+    # quello che sta attorno al tracciato - la corsia box - deve muoversi con
+    # lui: stessa scala, stessa origine, stesso ribaltamento
+    return [porta(p) for p in pts], [[porta(p) for p in e] for e in extra]
+
+
+# La corsia box: quanto e' larga - la distanza fra l'asse della pista e l'asse
+# della corsia - e quanto e' lunga prima e dopo la linea del traguardo. Sono le
+# misure medie di un circuito vero: si entra prima della linea, si esce dopo, e
+# in mezzo ci stanno venti garage da dodici metri l'uno.
+BOX_LARGO = 30.0        # asse pista - asse corsia: pista, erba, muretto, corsia
+BOX_PRIMA = 150.0
+BOX_DOPO = 250.0
+BOX_RACCORDO = 110.0    # quanto ci mette a staccarsi dalla pista e a rientrarci
+
+
+def _corsia_box(pts: list, ds: float, pit_loss: float = 20.0) -> list:
+    """Dove passa la corsia dei box, in metri, sullo stesso piano del tracciato.
+
+    Non ce l'abbiamo da nessuna parte - OpenStreetMap la strada dei box non la
+    disegna quasi mai - ma dove sta lo sappiamo lo stesso: corre parallela al
+    rettilineo del traguardo, dalla parte interna del circuito, comincia prima
+    della linea e finisce dopo. La si costruisce da li': si prende il pezzo di
+    tracciato attorno al traguardo, lo si sposta di lato di una ventina di
+    metri e lo si raccorda alle due estremita', che e' esattamente il disegno
+    di un ingresso e di un'uscita box.
+
+    La lunghezza segue il tempo che quella corsia fa perdere: dove si perdono
+    venticinque secondi la corsia e' piu' lunga che dove se ne perdono sedici.
+    """
+    n = len(pts)
+    if n < 16 or ds <= 0:
+        return []
+    scala = max(0.6, min(1.6, pit_loss / 20.0))
+    prima = int(BOX_PRIMA * scala / ds)
+    dopo = int(BOX_DOPO * scala / ds)
+    raccordo = max(2.0, BOX_RACCORDO / ds)
+    if prima + dopo >= n - 4:
+        return []
+    # da che parte sta l'interno del circuito: e' li' che stanno i box
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]
+    verso = 1.0 if area > 0 else -1.0
+    fuori = []
+    for k in range(-prima, dopo + 1):
+        i = k % n
+        a, b = pts[(i - 1) % n], pts[(i + 1) % n]
+        tx, ty = b[0] - a[0], b[1] - a[1]
+        d = math.hypot(tx, ty) or 1.0
+        # normale verso l'interno
+        nx, ny = -ty / d * verso, tx / d * verso
+        # e il raccordo alle due estremita': la corsia nasce sulla pista e ci
+        # torna, non compare di colpo a venti metri di distanza
+        vicino = min(k + prima, dopo - k, raccordo) / raccordo
+        largo = BOX_LARGO * max(0.0, min(1.0, vicino))
+        fuori.append((pts[i][0] + nx * largo, pts[i][1] + ny * largo))
+    return fuori
 
 
 def _smooth(pts, passes: int = 2):

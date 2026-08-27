@@ -211,7 +211,10 @@ Dal calendario si clicca su un circuito e si apre la sua scheda, che tiene insie
 quello che riguarda quel gran premio:
 
 - **Il tracciato** disegnato in grande, con lunghezza, curve, giri (quelli veri di questa
-  carriera, se si corre a distanza ridotta) e perdita ai box.
+  carriera, se si corre a distanza ridotta) e perdita ai box. Non è un filo grigio su fondo
+  nero: c'è il prato dentro l'anello, la via di fuga attorno al nastro, i cordoli rossi e
+  bianchi dove si gira davvero, le caselle della griglia prima del traguardo e **la corsia
+  dei box** con il muretto e la fila dei garage.
 - **Com'e' fatto**: carico, potenza, frenata, consumo gomme, possibilita' di sorpasso e
   sconnessioni.
 - **Che macchina ci vuole**: le caratteristiche del circuito tradotte nelle aree su cui si
@@ -520,6 +523,22 @@ passata in avanti limitata da potenza e trazione e una all'indietro limitata dal
 Il risultato viene calibrato sul tempo di riferimento reale di ogni pista (`ref_lap`), così
 i tempi sono realistici ma restano sensibili alle scelte tecniche: più ala significa più
 carico e più resistenza, esattamente come in pista.
+
+Tre cose che il modello prende sul serio e che si sentono sul cronometro:
+
+- **La trazione la fanno due ruote.** La spinta a terra la mette solo il carico che sente
+  l'assale posteriore — il 55%, la ripartizione vera — e non tutta la vettura. Da fermo si
+  tira poco più di un g: **0-100 in 2,2 s** (il vero è 2,6), 0-200 in 4,2 (4,9). In frenata
+  invece lavorano tutte e quattro, e infatti si stacca a 5-6 g.
+- **Sul dritto le ali si appiattiscono.** Il 2026 non ha più il DRS: ha due assetti nello
+  stesso giro, Z-mode in curva e X-mode sul rettilineo, e X-mode toglie un quinto della
+  resistenza. Tenere una CdA sola sbagliava sia le curve sia i dritti; con i due assetti le
+  punte sui 24 circuiti stanno a **-3 km/h** di media dal vero (erano -10).
+- **La punta dichiarata è quella che si tocca.** Non l'asintoto su un rettilineo infinito:
+  quella che segnerebbe una rilevazione in fondo al dritto. A Monza sono due numeri diversi
+  di 35 km/h, e prima veniva stampato quello sbagliato.
+
+Le g di punta che ne escono: 6,0-6,6 laterali, 5,2-6,5 in frenata, 1,8 in uscita di curva.
 
 **Gara.** Continua, non a giri discreti: ogni vettura avanza in metri, i duelli si
 risolvono quando due monoposto sono davvero a contatto, e il confronto di passo usa il
@@ -1356,10 +1375,14 @@ il risultato del confronto.
 - Il modello di giro, senza taratura, sbaglia in media dell'1.8% con uno scarto tipo del
   3.2%: è quello che resta da guadagnare in fedeltà, e le strade sono l'altimetria (che oggi
   manca del tutto), l'aderenza combinata fra curva e frenata, e tracciati più fitti.
-- Il tracciato di Miami scaricato da OpenStreetMap non è quello vero: è un anello della
-  lunghezza giusta ma sei chilometri più a sud del circuito. Va riscaricato
-  (`tools/fetch_layouts.py --force --only miami`), e finché non lo si fa la sua linea del
-  traguardo resta dove capita. Stesso problema per Tsukuba, fra i candidati.
+- Il tracciato di Tsukuba, fra i candidati, non è quello vero: è un anello della lunghezza
+  giusta ma quattordici chilometri a ovest del circuito. Va riscaricato
+  (`tools/fetch_layouts.py --force --only tsukuba`), e finché non lo si fa non ha una linea
+  del traguardo. Miami aveva lo stesso problema ed è stato rifatto.
+- La corsia dei box è ricostruita, non rilevata: OpenStreetMap la strada dei box non la
+  disegna quasi mai. Si sa però dove passa — parallela al rettilineo del traguardo, dalla
+  parte interna, con l'ingresso prima della linea e l'uscita dopo — e la lunghezza segue il
+  `pit_loss` di quel circuito. È giusta come disegno e come posizione, non come rilievo.
 - Melbourne e Jeddah sbagliano il giro del 9% e del 16%: il tracciato scaricato non è quello
   di adesso (Albert Park è stato rifatto nel 2021) o è troppo approssimativo. Vanno
   riscaricati anche loro.
