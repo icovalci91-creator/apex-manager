@@ -437,6 +437,30 @@ i versi. Di quei dati non resta niente nel gioco: il risultato è un punto sul n
 tracciato. Gli altri — le cittadine soprattutto — hanno la coordinata scritta a mano nello
 strumento, che la aggancia al tracciato e dice di quanto l'ha dovuta spostare.
 
+**E poi si controlla.** Un traguardo spostato non si vede: i tempi restano quelli, il
+disegno resta quello, e intanto i settori cadono nel posto sbagliato e le vetture sul
+tracciato sono avanti o indietro di qualche centinaio di metri.
+
+```bash
+python tools/verifica_traguardi.py    # esce con 1 se qualche linea è da rifare
+```
+
+Due prove indipendenti. Per i circuiti che la banca dati ha, si guarda **la prima curva
+dopo il traguardo** — a che metro comincia e da che parte gira — e la si confronta con la
+stessa curva nella mediana del TUM, che parte dalla linea per costruzione: oggi le 18 linee
+trovate così stanno tutte entro 76 m dal riferimento, con una media di 28 m. Per gli altri
+vale la regola che non sbaglia mai: **una linea del traguardo sta su un rettilineo**, e si
+misura quanto dritto c'è prima e quanto dopo. Non tanto quanto si crederebbe — a Budapest
+sono 37 m dall'uscita dell'ultima curva e a Silverstone 49, e sono giuste tutte e due — ma
+sotto i 25 m la linea è dentro la curva, e un circuito così non esiste.
+
+Il controllo ha trovato quattro linee sbagliate, tutte fra le coordinate scritte a mano:
+Portimão e Kyalami erano **dentro una curva**, Ímola e Losail sul **rettilineo sbagliato**
+(a Ímola la Variante Tamburello risultava a destra invece che a sinistra). Rimesse sul
+rettilineo principale, a quattrocento metri circa dal suo inizio, che è dove la linea sta
+quasi sempre. Restano fuori dal controllo Miami e Tsukuba, che non hanno un traguardo
+perché la traccia scaricata non è quel circuito.
+
 **Quanto ci si puo' fidare di un circuito.** Ogni pista porta un fattore di taratura che
 allunga o accorcia il giro fino a farlo combaciare con la pole vera: comodo, e pericoloso,
 perché fa tornare i tempi e nasconde tutto il resto. `tools/track_report.py` lo spegne e

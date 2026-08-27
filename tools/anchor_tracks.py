@@ -75,8 +75,14 @@ CORR_MINIMA = 0.55
 STACCO_MINIMO = 1.5
 
 # Dove sta il traguardo sui circuiti che la banca dati non ha, e in che verso
-# si corre. Sono posizioni reali: lo strumento le aggancia al tracciato e dice
-# di quanto le ha spostate, cosi' si vede subito se una e' sbagliata.
+# si corre. Lo strumento le aggancia al tracciato e dice di quanto le ha
+# spostate, cosi' si vede subito se una e' sbagliata.
+#
+# Quattro non sono posizioni rilevate ma prese sul rettilineo principale del
+# nostro stesso tracciato, a quattrocento metri circa dal suo inizio, che e'
+# dove la linea sta quasi sempre: sono segnate una per una. Valgono meno delle
+# altre e si riconoscono da li'; tools/verifica_traguardi.py controlla che
+# almeno cadano su un dritto e che la prima curva dopo sia quella giusta.
 ANCORE_A_MANO = {
     "monaco": (43.73470, 7.42120, "orario"),
     "jeddah": (21.63190, 39.10440, "antiorario"),
@@ -84,12 +90,21 @@ ANCORE_A_MANO = {
     "baku": (40.37250, 49.85330, "antiorario"),
     "singapore": (1.29140, 103.86370, "antiorario"),
     "lasvegas": (36.11500, -115.16500, "antiorario"),
-    "lusail": (25.49000, 51.45420, "orario"),
-    "imola": (44.34120, 11.71330, "antiorario"),
-    "portimao": (37.22930, -8.62680, "orario"),
+    # sul dritto: quella di prima cadeva sul secondo rettilineo per lunghezza
+    # invece che sul chilometro buono del rettilineo principale
+    "lusail": (25.48718, 51.45088, "orario"),
+    # sul dritto: la coordinata di prima cadeva sul rettilineo sbagliato e
+    # metteva la Variante Tamburello a destra invece che a sinistra
+    "imola": (44.34423, 11.71520, "antiorario"),
+    # sul rettilineo principale, a quattro decimi di chilometro dal suo inizio,
+    # che e' dove la mette il circuito: la coordinata di prima cadeva dentro la
+    # curva che porta al dritto, con otto metri di rettilineo per parte
+    "portimao": (37.22967, -8.62993, "orario"),
     "mugello": (43.99750, 11.37160, "orario"),
     "istanbul": (40.95170, 29.40500, "antiorario"),
-    "kyalami": (-25.99860, 28.07660, "orario"),
+    # anche questa presa sul rettilineo principale: quella di prima cadeva a
+    # quattrocento metri dal tracciato, e lo strumento lo diceva da mesi
+    "kyalami": (-25.99720, 28.07148, "orario"),
     "paulricard": (43.25070, 5.79180, "orario"),
     "tsukuba": (36.15370, 140.07680, "orario"),
     "hockenheim": (49.32780, 8.56580, "orario"),
