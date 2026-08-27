@@ -941,7 +941,16 @@ def _curvature(pts) -> list:
 
 
 def _normalise(pts) -> list:
-    """Porta la polilinea nel quadrato 0..1, centrata, senza deformarla."""
+    """Porta la polilinea nel quadrato 0..1, centrata, senza deformarla.
+
+    E la gira sottosopra. Nella proiezione il nord e' y positiva, come su una
+    carta geografica; sullo schermo la y cresce verso il basso. Senza questo
+    giro ogni tracciato finisce disegnato con il nord in fondo - che non e'
+    una rotazione, e' uno specchio: le curve vanno dalla parte sbagliata e le
+    vetture girano al contrario del verso di gara. Questi sono gli unici punti
+    che finiscono a schermo; il modello di giro, la curvatura e il verso di
+    marcia restano nel piano della carta, dove il nord sta in alto.
+    """
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
     w = max(xs) - min(xs) or 1.0
@@ -950,7 +959,7 @@ def _normalise(pts) -> list:
     ox, oy = min(xs), min(ys)
     cx = (1.0 - w * scale) / 2.0
     cy = (1.0 - h * scale) / 2.0
-    return [((px - ox) * scale + cx, (py - oy) * scale + cy) for px, py in pts]
+    return [((px - ox) * scale + cx, 1.0 - ((py - oy) * scale + cy)) for px, py in pts]
 
 
 def _smooth(pts, passes: int = 2):

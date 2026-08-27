@@ -411,6 +411,19 @@ i distacchi, la posizione delle vetture sul disegno — quindi ogni circuito por
 `start` (le coordinate della linea del traguardo) e `senso` (`orario` o `antiorario`), e il
 tracciato viene ruotato e girato al momento di costruirlo.
 
+**E il nord sta in alto.** La proiezione da gradi a metri mette il nord in y positiva, come
+una carta geografica; lo schermo la y la fa crescere verso il basso. I punti che finiscono
+a video vengono quindi ribaltati: senza, ogni circuito uscirebbe specchiato — non ruotato,
+proprio a specchio — con le curve dalla parte sbagliata e le vetture che girano al
+contrario del verso di gara. Il modello di giro, la curvatura e il verso di marcia restano
+nel piano della carta, dove il nord sta in alto: il ribaltamento riguarda solo il disegno.
+Il controllo è meccanico — si calcola l'area con segno del tracciato disegnato e si
+confronta con il `senso` dichiarato — e oggi torna su tutti e 23 i circuiti con la traccia:
+
+```bash
+python tools/verso_tracciati.py    # esce con 1 se qualcuno si vede a specchio
+```
+
 ```bash
 python tools/anchor_tracks.py            # trova la linea e la scrive
 python tools/anchor_tracks.py --dry-run  # stampa il referto senza scrivere
