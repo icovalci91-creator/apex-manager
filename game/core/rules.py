@@ -265,7 +265,9 @@ def apply_effects(gs, proposal: dict) -> list:
                 media = sum(float(m.get("ers", 85)) for m in gs.engine_makers.values())
                 media /= max(1, len(gs.engine_makers))
                 for m in gs.engine_makers.values():
-                    m["ers"] = round(media, 1)
+                    # la fornitura unica pareggia tutta la parte ibrida: sia
+                    # l'hardware che recupera sia la centralina che eroga
+                    m["recupero"] = m["software"] = m["ers"] = round(media, 1)
                 notes.append(f"Ibrido di fornitura unica: ERS a {media:.0f} per tutti")
         elif k in ("pu_bench_limit", "reverse_grid", "aggregate_quali",
                    "supply_obligation", "customer_cars_allowed", "third_car",

@@ -1374,6 +1374,17 @@ class EngineersPage(Page):
 
 
 # ================================================================ POWER UNIT
+# Come si chiamano i cinque assi su cui si sviluppa una power unit, adesso che
+# la potenza di picco ha un tetto che nessuno scavalca.
+ETICHETTE_PU = (
+    ("power", "Termico, verso il tetto"),
+    ("recupero", "Recupero in frenata"),
+    ("software", "Centralina e passaggio"),
+    ("reliability", "Affidabilita'"),
+    ("efficiency", "Consumi"),
+)
+
+
 class PowerUnitPage(Page):
     """Il reparto motori: sviluppo, confronto coi motoristi, programma proprio."""
 
@@ -1390,6 +1401,20 @@ class PowerUnitPage(Page):
                                     "Omologa la specifica nuova",
                                     self.homologate, "primary")
             self.widgets.append(self.b_omologa)
+        # dove il banco lavora: una riga per asse, con due pulsanti per
+        # spostare il lavoro. La y la sa anche il disegno, che usa la stessa
+        # formula: l'elenco dei motoristi ha altezza fissa
+        self.assi_y = int(left.y + 42 + 52 * len(gs.engine_makers) + 26)
+        self.b_focus = {}
+        if team.works and not powertrain.locked(gs):
+            for i, attr in enumerate(powertrain.PU_ATTRS):
+                yy = self.assi_y + i * 24
+                meno = Button((left.right - 58, yy - 2, 26, 20), "-", style="tab")
+                meno.on_click = (lambda a=attr: self.sposta_focus(a, -1))
+                piu = Button((left.right - 30, yy - 2, 26, 20), "+", style="tab")
+                piu.on_click = (lambda a=attr: self.sposta_focus(a, +1))
+                self.b_focus[attr] = (meno, piu)
+                self.widgets += [meno, piu]
         right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         y = right.y + 300
         # il programma sul motore che verra': si apre quando un ciclo nuovo e'
@@ -1444,6 +1469,25 @@ class PowerUnitPage(Page):
         from ...core import rules
         return bool(rules.talks(self.gs)
                     or (self.gs.regulations.get("pending_cycle") or {}).get("season"))
+
+    def sposta_focus(self, attr: str, verso: int) -> None:
+        """Sposta un pezzo di banco su un asse, togliendolo agli altri."""
+        eng = powertrain.maker(self.gs, self.team)
+        quote = dict(powertrain.focus_di(eng))
+        passo = 0.05
+        nuovo = max(0.0, min(1.0, quote[attr] + verso * passo))
+        resto = [a for a in powertrain.PU_ATTRS if a != attr]
+        avanzo = sum(quote[a] for a in resto)
+        delta = nuovo - quote[attr]
+        if avanzo <= 1e-6 and delta > 0:
+            return
+        quote[attr] = nuovo
+        for a in resto:
+            quote[a] = max(0.0, quote[a] - delta * (quote[a] / avanzo if avanzo else 0.0))
+        ok, msg = powertrain.imposta_focus(self.gs, self.team.engine, quote)
+        if not ok:
+            self.app.toast(msg)
+        self.build()
 
     def set_arch(self, aid: str) -> None:
         prog = powertrain.programma_arch(self.team)
@@ -1536,17 +1580,31 @@ class PowerUnitPage(Page):
         if nostro:
             T.text(surf, "in banco", (left.right - 16, y), 11, T.DIM_2, align="right")
         y += 22
-        for attr, label in (("power", "Potenza termica"), ("ers", "Ibrido ed ERS"),
-                            ("reliability", "Affidabilita'")):
-            T.text(surf, label, (left.x + 16, y), 13, T.DIM)
-            T.text(surf, f"{float(eng.get(attr, 85)):.1f}",
-                   (left.right - (96 if nostro else 16), y), 13, T.TEXT,
-                   bold=True, align="right")
+        y = self.assi_y
+        quote = powertrain.focus_di(eng)
+        comandi = bool(getattr(self, "b_focus", None))
+        for attr, label in ETICHETTE_PU:
+            T.text(surf, label, (left.x + 16, y), 13, T.DIM, maxw=left.w * 0.42)
             g = float(sp["gain"].get(attr, 0.0))
-            if nostro and g > 0.01:
-                T.text(surf, f"+{g:.1f}", (left.right - 16, y), 13, T.OK,
-                       bold=True, align="right")
-            y += 20
+            xval = left.right - (156 if comandi else (70 if nostro else 16))
+            T.text(surf, f"{float(eng.get(attr, 85)):.1f}", (xval, y), 13, T.TEXT,
+                   bold=True, align="right")
+            if nostro and abs(g) > 0.01:
+                T.text(surf, f"{g:+.1f}", (xval + 44, y), 12,
+                       T.OK if g > 0 else T.BAD, bold=True, align="right")
+            if comandi:
+                # la quota di banco su questo asse: e' la sola cosa che il
+                # giocatore decide, e da qui si vede dove sta andando il lavoro
+                T.bar(surf, (left.right - 152, y + 5, 88, 7), quote[attr] * 100, 60,
+                      T.ACCENT if quote[attr] > 0.26 else T.PANEL_3)
+            y += 24
+        if comandi:
+            eccesso = quote.get("power", 0.0) - powertrain.POWER_SICURO
+            if eccesso > 0:
+                T.text(surf, f"Cosi' tanto sul termico costa affidabilita': "
+                             f"{-eccesso * powertrain.POWER_COSTO * 100:.1f} a gara.",
+                       (left.x + 16, y), 11, T.WARN, maxw=left.w - 32)
+                y += 18
 
         # --- la specifica che sta crescendo al banco ----------------------
         y += 12

@@ -110,6 +110,8 @@ class Car:
     reg_grip: float = 1.0                         # quanta aderenza concede la gomma
     potenza_reg: float = 1.0                      # quanta potenza concede l'architettura
     potenza_max_w: float = C.POWER_W              # il tetto del regolamento, in watt
+    deploy: float = 1.0          # quanta spinta elettrica la centralina mette a terra
+    consumo_rel: float = 1.0     # quanta benzina serve, in quote di quella di riferimento
     balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
@@ -144,9 +146,20 @@ class Car:
         if pu.get("electric_kw") and tetto > 0:
             c.quota_elettrica = float(pu["electric_kw"]) / tetto
         # una power unit che recupera meglio arriva piu' vicina al tetto di
-        # recupero del regolamento: e' li' che si vede un ERS fatto bene
+        # recupero del regolamento: e' li' che si vede l'hardware fatto bene -
+        # batteria, freno elettrico, raffreddamento
         c.recupero_max_mj = c.recupero_max_mj * (0.72 + 0.28 * min(
-            1.0, float(engine.get("ers", 85)) / 100.0))
+            1.0, float(engine.get("recupero", engine.get("ers", 85))) / 100.0))
+        # e la centralina decide quanta di quell'energia finisce davvero a
+        # terra dove serve: il taglio pulito fra termico ed elettrico, la
+        # gestione del pedale, il passaggio di consegne. Nessuno arriva al
+        # cento per cento
+        c.deploy = 0.90 + 0.10 * min(
+            1.0, float(engine.get("software", engine.get("ers", 85))) / 100.0)
+        # e quanta benzina serve per fare la gara: un motore che consuma meno
+        # parte piu' leggero, e sono chili veri
+        c.consumo_rel = 1.0 - 0.10 * (min(
+            1.0, float(engine.get("efficiency", 85)) / 100.0) - 0.85) / 0.15
         return c
 
     def p(self, key: str) -> float:

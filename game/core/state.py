@@ -99,6 +99,11 @@ class GameState:
 
         teamdata = _load("teams.json")
         gs.engine_makers = teamdata["engine_manufacturers"]
+        # nei dati la parte ibrida e' un numero solo: qui diventa i due assi su
+        # cui si lavora davvero, il recupero e la centralina
+        from . import powertrain as _pt
+        for _m in gs.engine_makers.values():
+            _pt.prepara(_m)
 
         for td in teamdata["teams"]:
             engine = gs.engine_makers[td["engine"]]
@@ -267,7 +272,8 @@ class GameState:
     def _ref_car(self):
         """La vettura campione con cui si misurano i circuiti."""
         ref_spec = {k: 85.0 for k in C.CAR_PARTS}
-        ref_engine = {"power": 90, "ers": 88, "reliability": 86, "efficiency": 87}
+        ref_engine = {"power": 90, "ers": 88, "recupero": 89, "software": 87,
+                      "reliability": 86, "efficiency": 87}
         return Car.build(ref_spec, ref_engine, self.regulations)
 
     def _calibrate_tracks(self) -> None:
@@ -534,6 +540,9 @@ class GameState:
         gs.pu_specs = data.get("pu_specs", {})
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
+        from . import powertrain as _pt
+        for _m in gs.engine_makers.values():
+            _pt.prepara(_m)
         from . import serie as _serie
         gs.campionati = {}
         for sid, c in (data.get("campionati") or {}).items():

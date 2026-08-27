@@ -338,6 +338,10 @@ class Track:
         # carreggiata e quindi piu' dolce
         curva = self.curvatura_linea()
         quota_e = getattr(car, "quota_elettrica", C.QUOTA_ELETTRICA)
+        # la centralina non mette a terra tutto quello che c'e' in cassa: il
+        # passaggio fra termico ed elettrico ha un costo, e quanto costa lo
+        # decide il software del motorista
+        elettrico *= max(0.0, min(1.0, getattr(car, "deploy", 1.0)))
         v_taglio = getattr(car, "v_taglio", C.V_TAGLIO_ERS)
         v_fine = getattr(car, "v_fine", C.V_FINE_ERS)
 

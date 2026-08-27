@@ -167,7 +167,8 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 reliability=_affidabile(team, d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 vmax=float(punte.get(team.id, 330.0)),
-                ers_skill=float((team.car.engine or {}).get("ers", 85)),
+                ers_skill=float((team.car.engine or {}).get(
+                    "software", (team.car.engine or {}).get("ers", 85))),
                 sector_shares=list(quote),
                 is_player=(team.id == gs.player_team),
                 terza=(terzo is not None and d.id == terzo.id),
@@ -589,7 +590,10 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
         # guidando normale si arriva, attaccando tutta la gara no
         serbatoio = float((gs.regulations.get("power_unit", {}) or {}).get(
             "fuel_race_target_kg", C.FUEL_MASS_KG))
-        e.fuel = min(serbatoio, laps * BURN_KG_PER_LAP * 1.04)
+        # e un motore che consuma meno parte piu' leggero: sono chili veri, e
+        # su una gara valgono decimi
+        consumo = float(getattr(gs.teams[e.team_id].car, "consumo_rel", 1.0))
+        e.fuel = min(serbatoio, laps * BURN_KG_PER_LAP * 1.04 * consumo)
         if gs.regulations.get("refuelling"):
             # col rifornimento non si parte pieni: si carica quello che serve
             # per arrivare alla prima sosta, e li' se ne rimette dell'altra

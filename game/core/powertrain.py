@@ -13,11 +13,42 @@ from __future__ import annotations
 
 from . import economy
 
-# Attributi che la simulazione legge davvero: potenza ed ERS pesano sul giro,
-# l'affidabilita' sui ritiri. `efficiency` resta com'e', non essendo ancora
-# usata da nessuna parte.
-PU_ATTRS = ("power", "ers", "reliability")
+# Su cosa si lavora, adesso che la potenza di picco ha un tetto che nessuno
+# puo' scavalcare. Quando il numero grosso e' scritto nel regolamento, la
+# power unit non si fa piu' con i cavalli: si fa con tutto il resto.
+#
+#   power       il termico: quanto ci si avvicina ai quattrocento kilowatt che
+#               il regolamento concede. E' l'asse che satura prima, perche' il
+#               tetto e' li' e non si sposta
+#   recupero    quanta energia si riprende frenando. Il regolamento ne concede
+#               8.5 MJ a giro: prenderli tutti e' un problema di batteria, di
+#               freno elettrico e di raffreddamento, e nessuno ci arriva
+#   software    la centralina: come si passano la palla il termico e
+#               l'elettrico, quanto e' pulito il taglio della spinta, quanto
+#               dell'energia che si ha in cassa si riesce davvero a mettere a
+#               terra dove serve. E' l'asse che oggi separa le power unit
+#   reliability quello che non si rompe
+#   efficiency  quanta benzina serve per fare la gara: meno se ne carica, piu'
+#               leggera parte la macchina
+PU_ATTRS = ("power", "recupero", "software", "reliability", "efficiency")
 PU_MAX = 99.0
+
+# Quanto e' difficile muovere ognuno di questi assi. Il termico e' quasi
+# arrivato al tetto e ogni decimo costa; la centralina e' software, e il
+# software si scrive; il recupero sta in mezzo perche' e' fatto di hardware.
+DIFFICOLTA = {"power": 0.62, "recupero": 1.00, "software": 1.35,
+              "reliability": 1.05, "efficiency": 0.88}
+
+# E da cosa dipende ciascuno, oltre che dai soldi: il termico e il recupero
+# vogliono la fabbrica e i banchi, la centralina vuole il reparto simulazione e
+# la gente che scrive modelli, l'affidabilita' vuole qualita' e materiali.
+FONTE = {"power": "factory", "recupero": "factory", "software": "simulator",
+         "reliability": "factory", "efficiency": "simulator"}
+
+# Tirare il termico verso il tetto scalda, e quello che scalda si rompe: oltre
+# questa quota di lavoro sul termico l'affidabilita' comincia ad arretrare.
+POWER_SICURO = 0.40
+POWER_COSTO = 0.055
 
 # Quanto lentamente si colma la distanza dal proprio tetto, per gara e per
 # milione investito. Basso di proposito: una power unit si costruisce in anni.
@@ -150,6 +181,51 @@ def fornitore_libero(gs) -> str | None:
     return None
 
 
+# La ripartizione del lavoro, quando nessuno l'ha ancora scelta: un quinto per
+# uno non e' una strategia, e' il punto di partenza.
+FOCUS_BASE = {a: 1.0 / len(PU_ATTRS) for a in PU_ATTRS}
+
+
+def prepara(eng: dict) -> dict:
+    """Porta una power unit scritta com'era al modo in cui si lavora adesso.
+
+    Nei dati c'e' un solo numero per tutta la parte ibrida: `ers`. Da li' si
+    ricavano i due assi veri - quanto si recupera e quanto vale la centralina -
+    tenendoli vicini a quel numero ma non identici, perche' non esiste una casa
+    che sia brava allo stesso modo nell'hardware e nel software.
+    """
+    base = float(eng.get("ers", 85))
+    eng.setdefault("recupero", round(base + 1.0, 1))
+    eng.setdefault("software", round(base - 1.0, 1))
+    eng.setdefault("efficiency", round(base, 1))
+    eng.setdefault("focus", dict(FOCUS_BASE))
+    eng["ers"] = round((float(eng["recupero"]) + float(eng["software"])) / 2.0, 1)
+    return eng
+
+
+def focus_di(eng: dict) -> dict:
+    """Come e' ripartito il lavoro al banco, normalizzato a uno."""
+    f = {a: max(0.0, float((eng.get("focus") or {}).get(a, FOCUS_BASE[a])))
+         for a in PU_ATTRS}
+    tot = sum(f.values())
+    if tot <= 1e-6:
+        return dict(FOCUS_BASE)
+    return {a: v / tot for a, v in f.items()}
+
+
+def imposta_focus(gs, engine_id: str, quote: dict) -> tuple:
+    """Il giocatore decide su cosa lavora il banco."""
+    eng = gs.engine_makers.get(engine_id)
+    if eng is None:
+        return False, "Non e' una power unit che conosciamo."
+    if locked(gs):
+        return False, "Il regolamento ha congelato lo sviluppo delle power unit."
+    eng["focus"] = {a: max(0.0, float(quote.get(a, 0.0))) for a in PU_ATTRS}
+    if sum(eng["focus"].values()) <= 1e-6:
+        eng["focus"] = dict(FOCUS_BASE)
+    return True, "Il banco lavora su quello che hai deciso."
+
+
 def rating(eng: dict) -> float:
     """Indice sintetico della power unit, come lo si legge nelle schermate."""
     return sum(float(eng.get(a, 85)) for a in PU_ATTRS) / len(PU_ATTRS)
@@ -234,24 +310,52 @@ def specs_left(gs, engine_id: str) -> int:
 
 
 # ------------------------------------------------------------------- sviluppo
+def _spinta_reparto(team, attr: str) -> float:
+    """Quanto aiuta la struttura su quell'asse.
+
+    Il termico e il recupero si fanno con i banchi e la fabbrica; la centralina
+    si fa con il reparto simulazione e con la gente che scrive modelli. Un
+    motorista con una fabbrica bellissima e nessun simulatore fa cavalli e non
+    fa software, e si vede.
+    """
+    if team is None:
+        return 1.0
+    val = float((getattr(team, "facilities", None) or {}).get(FONTE.get(attr, "factory"), 65.0))
+    return 0.80 + 0.40 * max(0.0, min(1.0, val / 100.0))
+
+
 def _advance(gs, engine_id: str, eng: dict, ceil: float, rate: float,
-             budget: float, rng) -> float:
+             budget: float, rng, team=None) -> float:
     """Fa lavorare il banco. Il guadagno non va sul motore: va nella specifica."""
     sp = spec(gs, engine_id)
     gained = 0.0
     push = min(2.5, max(0.0, budget) / 2.0)
     # con l'ibrido di fornitura unica la parte elettrica non e' piu' roba da
-    # motoristi: al banco restano il termico e l'affidabilita'
+    # motoristi: al banco restano il termico, l'affidabilita' e i consumi
+    standard = bool(gs.regulations.get("standard_hybrid"))
     attrs = [a for a in SPEC_ATTRS
-             if not (a == "ers" and gs.regulations.get("standard_hybrid"))]
+             if not (standard and a in ("recupero", "software"))]
+    quote = focus_di(eng)
+    # il lavoro tolto agli assi che il regolamento chiude si ridistribuisce
+    resto = sum(quote[a] for a in attrs) or 1.0
     for attr in attrs:
         cur = float(eng.get(attr, 85)) + float(sp["gain"].get(attr, 0.0))
         gap = ceil - cur
         if gap <= 0:
             continue
-        step = gap * CLOSE_RATE * push * rate * rng.uniform(0.55, 1.45)
+        # tutto il banco su un asse solo lo fa correre cinque volte piu' di
+        # quanto correrebbe spalmato, ed e' esattamente la scelta che si fa
+        quota = quote[attr] / resto * len(attrs)
+        step = (gap * CLOSE_RATE * push * rate * quota * DIFFICOLTA[attr]
+                * _spinta_reparto(team, attr) * rng.uniform(0.55, 1.45))
         sp["gain"][attr] = float(sp["gain"].get(attr, 0.0)) + step
         gained += step
+    # e tirare il termico costa: quello che si guadagna in cavalli lo si perde
+    # in cose che si rompono, ed e' la scelta piu' vecchia che ci sia
+    troppo = quote.get("power", 0.0) - POWER_SICURO
+    if troppo > 0 and "reliability" in attrs:
+        sp["gain"]["reliability"] = (float(sp["gain"].get("reliability", 0.0))
+                                     - troppo * POWER_COSTO * push * rng.uniform(0.6, 1.4))
     sp["races"] = int(sp.get("races", 0)) + 1
     sp["invested"] = float(sp.get("invested", 0.0)) + max(0.0, budget)
     return gained / max(1, len(attrs))
@@ -320,6 +424,7 @@ def homologate(gs, engine_id: str, free: bool = False) -> tuple:
     elif band == "sottotono":
         eng["reliability"] = max(30.0, float(eng.get("reliability", 85))
                                  - gs.rng.uniform(0.0, 1.2))
+    prepara(eng)          # `ers` resta la media dei due assi ibridi
     guadagno = promesso * mult
     if not free:
         sp["used"] = int(sp.get("used", 0)) + 1
@@ -382,7 +487,7 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
             ref = partner or max(gs.teams.values(), key=lambda t: t.reputation)
             _advance(gs, eid, eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
                      EXTERNAL_DEV_RATE * EXTERNAL_DEV_PENALTY * _equalisation_boost(gs, eng),
-                     EXTERNAL_BUDGET, gs.rng)
+                     EXTERNAL_BUDGET, gs.rng, team=ref)
             ai_homologate(gs, eid)
             continue
         if team.is_player:
@@ -400,7 +505,7 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
         if budget <= 0:
             continue
         rate = dev_rate(gs, team) * _equalisation_boost(gs, eng)
-        _advance(gs, eid, eng, ceiling(gs, team), rate, budget, gs.rng)
+        _advance(gs, eid, eng, ceiling(gs, team), rate, budget, gs.rng, team=team)
         if team.is_player:
             sp = spec(gs, eid)
             valore, rimaste = spec_value(sp), specs_left(gs, eid)
