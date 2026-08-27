@@ -106,6 +106,10 @@ PENALITA_USATE = 0.15
 # quasi mai. Ed e' la stessa qualita' che gli fa buttare gli altri.
 GIRO_MAGICO = 0.19
 
+# Quanta benzina si porta in qualifica: quella per il giro di uscita, quello
+# buono e il rientro, e nemmeno un chilo di piu'.
+BENZINA_QUALI = 8.0
+
 
 @dataclass
 class Corsa:
@@ -234,9 +238,10 @@ class LapSession:
         decidere in che ordine si va in pista e a capire, a meta' turno, se il
         tempo che si ha in mano terra'.
         """
-        from .weekend import DRIVER_S_PER_POINT
+        from .weekend import DRIVER_S_PER_POINT, FUEL_S_PER_KG
         from ..core import tyres
-        t = e.base_lap + (85.0 - e.skill) * DRIVER_S_PER_POINT + 8.0 * 0.032
+        t = e.base_lap + (85.0 - e.skill) * DRIVER_S_PER_POINT * self.track.pilota_rel
+        t += BENZINA_QUALI * FUEL_S_PER_KG * self.track.benzina_rel
         t -= tyres.QUALI_GAIN.get(self.imposta or "soft", 0.35)
         t *= 1.0 - 0.0022 * self.phase - 0.0012
         if self.weather.wet > 0.05:
@@ -403,11 +408,12 @@ class LapSession:
     def _tempo_di(self, e, tipo: str, mescola: str, nuovo: bool) -> float:
         """Il giro che quella vettura, con quel pilota, fa qui adesso."""
         from ..core import tyres
-        from .weekend import DRIVER_S_PER_POINT
+        from .weekend import DRIVER_S_PER_POINT, FUEL_S_PER_KG
         gs = self.gs
         t = e.base_lap
-        t += (85.0 - e.skill) * DRIVER_S_PER_POINT
-        t += 8.0 * 0.032                                  # serbatoio da qualifica
+        t += (85.0 - e.skill) * DRIVER_S_PER_POINT * self.track.pilota_rel
+        # il serbatoio da qualifica: pochi chili, ma dove pesano pesano
+        t += BENZINA_QUALI * FUEL_S_PER_KG * self.track.benzina_rel
         t -= tyres.QUALI_GAIN.get(mescola, 0.35)
         if not nuovo:
             t += PENALITA_USATE

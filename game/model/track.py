@@ -54,6 +54,33 @@ ELLISSE = 3.0
 # massima non e' piu' trazione, e' un rettilineo.
 V_USCITA = 0.62
 
+# ------------------------------------------------------- le sensibilita'
+# Un chilo di benzina non costa lo stesso a Monza e a Losail, un decimo di
+# aderenza in meno non si paga uguale al Red Bull Ring e a Madrid, e l'aria
+# sporca di chi sta davanti a Monte Carlo e' un'altra cosa che sul rettifilo.
+# La gara pero' li trattava tutti come numeri unici, uguali per le
+# ventiquattro piste: era l'unico pezzo di simulazione che non guardava il
+# circuito. Adesso li misura il modello di giro - una volta sola, quando la
+# pista si tara - e quello che arriva alla gara e' un moltiplicatore attorno a
+# uno: il livello resta quello calibrato sul mondo vero, la forma la da' la
+# fisica. Sono numeri con la stessa dignita' di `ers_secondi`, e nascono nello
+# stesso posto.
+#
+# Questi sono i valori medi delle ventiquattro piste in calendario: servono
+# solo a centrare i moltiplicatori su uno. Se il calendario cambia parecchio
+# vanno rimisurati, e li rimisura `tools/sensibilita_piste.py`.
+BENZINA_RIF = 0.0182     # secondi al giro per chilo
+SCIA_RIF = 1.35          # secondi persi seguendo, a carico ridotto
+GRIP_RIF = 34.13         # secondi per unita' di aderenza persa
+PILOTA_RIF = 0.3233      # quota di giro che non e' rettilineo
+
+# Quanto perde chi segue: il carico se ne va perche' l'aria arriva sporca, la
+# resistenza cala un po' perche' arriva anche piu' lenta. Le due cose insieme
+# fanno la scia, e non si pesano uguale su tutte le piste - ed e' esattamente
+# quello che questa misura serve a tirare fuori.
+SCIA_CARICO = 0.85
+SCIA_RESISTENZA = 0.94
+
 
 @dataclass
 class Segment:
@@ -92,6 +119,12 @@ class Track:
     mappa_ala: list = field(default_factory=list)    # le stesse, in tabella per la gara
     energia_giro: float = 0.0    # MJ che si riescono a recuperare in un giro
     ers_secondi: float = 0.0     # quanto vale la spinta elettrica, in secondi al giro
+    # quanto pesano qui, rispetto alla pista media, le cose che in gara
+    # cambiano il passo giro dopo giro
+    benzina_rel: float = 1.0     # un chilo di benzina
+    scia_rel: float = 1.0        # l'aria sporca di chi sta davanti
+    grip_rel: float = 1.0        # un punto di aderenza: mescola e usura
+    pilota_rel: float = 1.0      # un punto di pilota
     start: list = field(default_factory=list)   # [lat, lon] della linea del traguardo
     senso: str = ""              # "orario" | "antiorario": da che parte si gira
     settori: list = field(default_factory=list)  # dove tagliano i due intertempi
@@ -540,7 +573,46 @@ class Track:
         self.corner_map = self.corner_list(v, vlim, classi)
         self._map_ala(v)
         self._map_energia(ref_car, cond, v, _t)
+        self._map_sensibilita(ref_car, cond, _t, mappa)
         self._map_time(v, mappa)
+
+    # -------------------------------------------------- le sensibilita'
+    def _map_sensibilita(self, ref_car, cond, t_con: float, mappa: list) -> None:
+        """Quanto pesano qui benzina, aderenza, scia e pilota.
+
+        Tre giri simulati in piu' per circuito, una volta sola quando la pista
+        si tara. Si misurano come si misurerebbero in pista: si cambia una
+        cosa sola e si guarda il cronometro. Il numero che resta appeso al
+        circuito e' un moltiplicatore attorno a uno - la forma - perche' il
+        livello lo tiene la gara, tarato su quello che si vede davvero.
+        """
+        from ..sim import pace
+        g = pace.surface_grip(cond)
+
+        # la benzina: la differenza fra il primo giro e l'ultimo, divisa per i
+        # chili che si sono bruciati in mezzo
+        salvato = ref_car.fuel_kg
+        ref_car.fuel_kg = C.FUEL_MASS_KG
+        t_pieno = self.lap_model(ref_car, grip=g, rho=cond.rho)[0]
+        ref_car.fuel_kg = salvato
+        s_kg = (t_pieno - t_con) / max(1.0, C.FUEL_MASS_KG)
+        self.benzina_rel = round(max(0.25, s_kg / BENZINA_RIF), 3)
+
+        # l'aderenza: tre punti percentuali in meno, che e' quello che passa
+        # fra una mescola e l'altra e fra una gomma nuova e una finita
+        t_meno = self.lap_model(ref_car, grip=g * 0.97, rho=cond.rho)[0]
+        self.grip_rel = round(max(0.25, ((t_meno - t_con) / 0.03) / GRIP_RIF), 3)
+
+        # la scia: la stessa macchina con il carico che le lascia chi sta
+        # davanti. Dove si curva forte e' un macigno, sul rettifilo e' niente
+        t_scia = self.lap_model(_Scia(ref_car), grip=g, rho=cond.rho)[0]
+        self.scia_rel = round(max(0.15, (t_scia - t_con) / SCIA_RIF), 3)
+
+        # il pilota: conta dove la macchina non va dritta, cioe' dove c'e'
+        # qualcosa da guidare. A Monte Carlo e' meta' giro, a Spa un quarto
+        if mappa:
+            quota = sum(1 for d in mappa if d != "rettilinei") / len(mappa)
+            self.pilota_rel = round(max(0.35, quota / PILOTA_RIF), 3)
 
     # ------------------------------------------------------------- l'energia
     def _map_energia(self, ref_car, cond, v: list, t_con: float) -> None:
@@ -942,6 +1014,30 @@ class Track:
 
 # --------------------------------------------------------------- geometria
 MIN_RADIUS = 12.0      # sotto questo raggio e' rumore di rilievo, non una curva
+
+
+class _Scia:
+    """La stessa vettura, vista dall'aria sporca di chi la precede.
+
+    Non e' un'altra macchina: e' questa con meno carico e un filo meno
+    resistenza, che e' quello che succede a seguire da vicino. Serve solo per
+    la misura, e delega tutto il resto alla vettura vera.
+    """
+
+    def __init__(self, car, carico: float = SCIA_CARICO,
+                 resistenza: float = SCIA_RESISTENZA):
+        self._c, self._cl, self._cd = car, carico, resistenza
+
+    def __getattr__(self, k):
+        return getattr(self._c, k)
+
+    @property
+    def downforce(self) -> float:
+        return self._c.downforce * self._cl
+
+    @property
+    def drag(self) -> float:
+        return self._c.drag * self._cd
 
 
 def _project(geo, origine: tuple | None = None) -> list:

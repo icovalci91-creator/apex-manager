@@ -17,9 +17,17 @@ from . import energia as EN
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
 
-# quanto pesa un punto di valutazione pilota sul giro (secondi)
-DRIVER_S_PER_POINT = 0.046
-FUEL_S_PER_KG = 0.032
+# Quanto pesano, sul giro, le cose che cambiano da un giro all'altro. Sono i
+# livelli: tarati su quello che si vede nel mondo vero, e uguali per tutti. La
+# forma - quanto quello stesso chilo o quello stesso decimo di aderenza costa
+# *qui* - la da' il circuito, con i moltiplicatori che il modello di giro si e'
+# misurato quando la pista si e' tarata. Un chilo di benzina a Losail costa
+# quasi il doppio che a Monza, e adesso la gara lo sa.
+DRIVER_S_PER_POINT = 0.046     # un punto di valutazione pilota
+FUEL_S_PER_KG = 0.032          # un chilo di benzina nel serbatoio
+MESCOLA_S = 28.0               # tutta la forbice di aderenza fra le mescole
+GOMMA_S = 22.0                 # e quella fra una gomma nuova e una finita
+ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
 # Quanto ci mette a entrare un chilo di benzina, quando il rifornimento e'
 # permesso: le pompe dell'ultima era ne mandavano giu' poco piu' di otto al
 # secondo, e una sosta con un pieno vero diventava una sosta lunga.
@@ -429,12 +437,13 @@ class RaceSim:
 
     # -------------------------------------------------------- tempo sul giro
     def lap_time_of(self, e: Entrant) -> float:
+        tr = self.track
         t = e.base_lap
-        t += (85.0 - e.skill) * DRIVER_S_PER_POINT
-        t += e.fuel * FUEL_S_PER_KG
+        t += (85.0 - e.skill) * DRIVER_S_PER_POINT * tr.pilota_rel
+        t += e.fuel * FUEL_S_PER_KG * tr.benzina_rel
         comp = C.COMPOUNDS[e.tyre]
-        t += (1.0 - comp["grip"]) * 28.0
-        t += (1.0 - e.compound_state()) * 22.0
+        t += (1.0 - comp["grip"]) * MESCOLA_S * tr.grip_rel
+        t += (1.0 - e.compound_state()) * GOMMA_S * tr.grip_rel
         t += e.damage * 0.06
         t *= self.evo
         t -= (max(0.90, min(1.10, e.push_mode)) - 1.0) * PUSH_S_PER_LAP
@@ -449,7 +458,7 @@ class RaceSim:
         if e.fuel <= 0.01 and not self.senza_benzina:
             t += DRY_TANK_PENALTY
         clean = t
-        t += e.dirty_air * 0.42
+        t += e.dirty_air * ARIA_SPORCA_S * tr.scia_rel
         if self.weather.wet > 0.05:
             mismatch = 0.0
             if self.weather.wet > 0.45 and e.tyre != "wet":
