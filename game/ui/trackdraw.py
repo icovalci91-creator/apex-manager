@@ -31,6 +31,25 @@ BOX_ASFALTO = (36, 43, 57)
 BOX_MURO = (116, 130, 154)
 BOX_GARAGE = (58, 68, 88)
 GRIGLIA = (150, 163, 184)
+GHIAIA = (74, 66, 52)          # la trappola di ghiaia, fuori dalle curve
+LINEA_BORDO = (128, 140, 158)  # la riga bianca che delimita la pista
+ZONA_ALA = (64, 78, 100)       # dove si corre con le ali chiuse
+NUMERO = (120, 133, 154)       # i numeri delle curve
+
+# Quanto si esagera la larghezza vera. Una pista da tredici metri dentro un
+# riquadro da due chilometri, disegnata in scala, sarebbe un filo da quattro
+# pixel: si perderebbe sotto i pallini delle vetture. La si ingrossa un po',
+# ma non si inventa - il rapporto fra il nastro, la via di fuga e il prato
+# resta quello vero, e le curve tornano a vedersi per quello che sono.
+ESAGERA = 1.8
+# e sotto questa larghezza il nastro non scende mai: su una miniatura sarebbe
+# invisibile
+NASTRO_MINIMO = 5
+# le fasce attorno al nastro, in metri per lato: erba di bordo, via di fuga,
+# prato. Sono le misure di un circuito omologato
+BORDO_M = 5.0
+FUGA_M = 22.0
+PRATO_M = 40.0
 
 # Sotto questo raggio - in frazioni del lato del disegno - un pezzo di pista e'
 # una curva, e una curva ha i cordoli.
@@ -134,6 +153,89 @@ def _cordoli(img, pts, curve, width: int) -> None:
         i = j
 
 
+# Una curva merita una trappola di ghiaia solo se e' abbastanza lunga: le
+# pieghe da mezza dozzina di metri sono raccordi, e nessuno ci mette la ghiaia.
+GHIAIA_MIN = 10
+
+
+def _ghiaia(img, pts, curve, nastro: int, largo: int) -> None:
+    """La trappola di ghiaia, fuori dalle curve: e' li' che si finisce.
+
+    Segue l'esterno della curva e sfuma alle due estremita', come una vera:
+    non e' un rettangolo appoggiato sul prato.
+    """
+    n = len(pts)
+    normali = _normali(pts)
+    spessore = max(3, int((largo - nastro) * 0.42))
+    i = 0
+    while i < n:
+        if not curve[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and curve[j] and (curve[j] > 0) == (curve[i] > 0):
+            j += 1
+        if j - i >= GHIAIA_MIN:
+            verso = 1.0 if curve[i] > 0 else -1.0    # l'esterno della curva
+            a, b = max(0, i - 4), min(n - 1, j + 4)
+            off = nastro * 0.5 + spessore * 0.55
+            for k in range(a, b + 1):
+                nx, ny = normali[k]
+                x = pts[k][0] + nx * off * verso
+                y = pts[k][1] + ny * off * verso
+                pygame.draw.circle(img, GHIAIA, (int(x), int(y)), spessore // 2 + 1)
+        i = j + 1
+
+
+def _bordo_pista(img, pts, nastro: int) -> None:
+    """Le due righe bianche che dicono dove finisce la pista."""
+    normali = _normali(pts)
+    off = nastro / 2.0 - 0.5
+    for verso in (1.0, -1.0):
+        riga = [(p[0] + normali[k][0] * off * verso, p[1] + normali[k][1] * off * verso)
+                for k, p in enumerate(pts)]
+        pygame.draw.lines(img, LINEA_BORDO, True, riga, 1)
+
+
+def _zone_ala(img, track, pts, nastro: int) -> None:
+    """I tratti in cui si corre con le ali chiuse: la' si prova a passare."""
+    zone = getattr(track, "zone_ala", None) or []
+    n = len(pts)
+    for z in zone[:6]:
+        a, b = z.get("inizio", 0.0), z.get("fine", 0.0)
+        i0, i1 = int(a * n) % n, int(b * n) % n
+        seg = []
+        k = i0
+        for _ in range(n):
+            seg.append(pts[k])
+            if k == i1:
+                break
+            k = (k + 1) % n
+        if len(seg) >= 2:
+            pygame.draw.lines(img, ZONA_ALA, False, seg, max(2, nastro - 2))
+
+
+def _numeri_curve(img, track, pts, nastro: int) -> None:
+    """Il numero di ogni curva, scritto di fianco come sulle piantine."""
+    curve = getattr(track, "corner_map", None) or []
+    if not curve:
+        return
+    n = len(pts)
+    normali = _normali(pts)
+    for c in curve:
+        q = c.get("quota")
+        if q is None:
+            continue
+        i = int(q * n) % n
+        nx, ny = normali[i]
+        off = nastro / 2.0 + 9
+        for verso in (1.0, -1.0):
+            x = pts[i][0] + nx * off * verso
+            y = pts[i][1] + ny * off * verso
+            T.text(img, str(c.get("n", "")), (int(x) - 3, int(y) - 6), 10, NUMERO)
+            break
+
+
 def _griglia(img, pts, width: int) -> None:
     """Le caselle della griglia, in fila prima della linea del traguardo."""
     n = len(pts)
@@ -206,26 +308,48 @@ def draw_track(surf, track, rect, width: int = 12, colour=ASFALTO,
         pit = fit_pit(track, base)
         if len(local) >= 3:
             lato = min(base.w, base.h)
+            # quanti pixel vale un metro, con l'ingrossamento: da qui escono
+            # tutte le larghezze, che cosi' stanno fra loro come in pista
+            ppm = ESAGERA * (lato - 52) / max(1.0, getattr(track, "scala_m", 0.0) or 1e9)
+            vero = getattr(track, "larghezza_m", 13.0) * ppm
+            nastro = max(NASTRO_MINIMO, min(width, int(round(vero))))
+            # se il nastro si e' dovuto ingrossare per restare visibile, le
+            # fasce attorno si comprimono della stessa quantita': cosi' su una
+            # mappa piccola non si finisce con un filo dentro un prato enorme
+            gonfia = nastro / max(0.5, vero)
+
+            def fascia(m):
+                return nastro + max(2, int(round(2 * m * ppm / gonfia)))
             # il prato dentro l'anello, che e' quello che si vede in mezzo
             pygame.draw.polygon(img, PRATO_INT, local)
             # e attorno al nastro: prima l'erba, poi la via di fuga, poi il
             # bordo, poi l'asfalto. Sono quattro passate una dentro l'altra
-            _fascia(img, local, PRATO, width + 30)
-            _fascia(img, local, FUGA, width + 16)
-            _fascia(img, local, BORDO, width + 6)
-            _fascia(img, local, colour, width)
-            if kerb and width >= 8:
-                _cordoli(img, local, _curve(local, K_CURVA / lato), width)
-            if pit and width >= 8:
+            _fascia(img, local, PRATO, fascia(PRATO_M))
+            _fascia(img, local, FUGA, fascia(FUGA_M))
+            curve = _curve(local, K_CURVA / lato)
+            if kerb and nastro >= 6:
+                _ghiaia(img, local, curve, nastro, fascia(FUGA_M))
+            _fascia(img, local, BORDO, fascia(BORDO_M))
+            _fascia(img, local, colour, nastro)
+            width = nastro
+            if width >= 7:
+                _zone_ala(img, track, local, width)
+            if width >= 5:
+                _bordo_pista(img, local, width)
+            if kerb and width >= 6:
+                _cordoli(img, local, curve, width)
+            if pit and width >= 6:
                 _box(img, pit, local, width)
             if start_line:
-                if width >= 8:
+                if width >= 6:
                     _griglia(img, local, width)
                 a, b = local[0], local[3 % len(local)]
                 ang = math.atan2(b[1] - a[1], b[0] - a[0]) + math.pi / 2
                 dx, dy = math.cos(ang) * (width / 2 + 2), math.sin(ang) * (width / 2 + 2)
                 pygame.draw.line(img, T.WHITE, (a[0] - dx, a[1] - dy),
                                  (a[0] + dx, a[1] + dy), 3)
+            if width >= 7 and lato >= 420:
+                _numeri_curve(img, track, local, width)
         _ASPHALT[key] = img
     surf.blit(img, rect.topleft)
     return pts or fit_points(track, rect)

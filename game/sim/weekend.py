@@ -56,8 +56,8 @@ SOGLIA_SCARSA = 1.15
 FORZA_SORPASSO = 0.45
 # Quanto puo' arrivare a valere un tentativo, per quanto grosso sia il divario
 # di passo: dove non c'e' spazio non si passa nemmeno con due secondi al giro.
-TETTO_BASE = 0.016
-TETTO_PISTA = 0.133
+TETTO_BASE = 0.022
+TETTO_PISTA = 0.185
 
 
 def follow_gap(track) -> float:

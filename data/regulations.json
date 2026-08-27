@@ -1,1464 +1,1464 @@
 {
-  "_note": "Regolamento vigente, storia dei cicli tecnici e catalogo delle proposte votabili in Commissione F1.",
-  "current": {
-    "season": 2026,
-    "label": "Regolamento 2026 - nuova era tecnica",
-    "cost_cap_musd": 215.0,
-    "capex_limit_musd": 45.0,
-    "entry_fee_musd": 450.0,
-    "cost_cap_excludes_driver_salaries": true,
-    "driver_salary_cap_musd": 0,
-    "min_weight_kg": 768,
-    "power_unit": {
-      "ice_kw": 400,
-      "electric_kw": 350,
-      "mgu_h": false,
-      "fuel": "100% sostenibile",
-      "units_per_season": 4,
-      "energy_store_per_season": 3,
-      "penalty_grid": 10,
-      "_energia_nota": "Numeri del regolamento tecnico 2026. La batteria tiene 4 MJ utili; in un giro se ne recuperano al massimo 8.5 in frenata, e senza MGU-H passa tutto dal motore posteriore. La spinta elettrica cala da 290 a 355 km/h; chi insegue entro un secondo puo' chiedere l'override e riavere i 350 kW pieni fino a 337 km/h, per mezzo megajoule. Nel modello di giro la discesa e' tarata piu' in alto (game/config.py) perche' li' la batteria non esiste: quel modello rappresenta l'erogazione media di un giro, e i tempi di riferimento sono ancora pole della generazione precedente.",
-      "batteria_mj": 4.0,
-      "recupero_max_mj": 8.5,
-      "v_taglio_kmh": 290,
-      "v_fine_kmh": 355,
-      "override_kmh": 337,
-      "override_mj": 0.5,
-      "override_gap_s": 1.0,
-      "mappe_motore": [
-        "conservativa",
-        "base",
-        "spinta"
-      ],
-      "_mappe_nota": "Le mappature del motore restano libere entro il limite di flusso di energia del carburante: quella lunga vale qualche decimo al giro e consuma di piu', quella magra fa il contrario. Il freno vero sono le unita' a disposizione nella stagione - quattro - e la penalita' in griglia per chi le finisce: tirare il motore tutta la gara si paga in affidabilita', non in un limite scritto.",
-      "capacity_cc": 1600,
-      "layout": "V6 turbo",
-      "max_rpm": 15000,
-      "fuel_energy_flow_max_mjh": 3000,
-      "fuel_energy_flow_low_rpm": "EF (MJ/h) = 0.27 * N(rpm) + 165, sotto i 10500 giri",
-      "fuel_race_target_kg": 70,
-      "pu_min_weight_kg": 185,
-      "harvest_max_mj_lap": 8.5,
-      "harvest_ceiling_mj_lap": 9.0,
-      "superclip_kw": 250,
-      "es_usable_mj": 4.0,
-      "components_per_season": {
-        "ice": 4,
-        "turbo": 4,
-        "mgu_k": 3,
-        "energy_store": 3,
-        "control_electronics": 3,
-        "exhaust": 4
-      },
-      "penalty_grid_first": 10,
-      "penalty_grid_next": 5,
-      "penalty_back_of_grid_over": 15,
-      "_regolamento_nota": "Il 2026 non limita piu' la benzina a chili l'ora ma a energia: 3000 MJ/h, e sotto i 10500 giri una retta che sale con i giri. Il motore e' sempre 1600 cc V6 turbo ma gira al massimo a 15000. L'ERS-K puo' erogare 350 kW e riprenderne al massimo 9 MJ a giro - il riferimento e' 8.5, e la federazione lo puo' spostare fra 8 e 9 secondo il circuito. A gas spalancato il recupero e' tappato a 250 kW: e' il superclipping. La batteria ne tiene 4 utili, che sono circa undici secondi e mezzo di spinta piena.",
-      "modello": {
-        "quota_elettrica": 0.47,
-        "v_taglio_kmh": 320,
-        "v_fine_kmh": 380,
-        "recupero_max_mj": 8.5,
-        "_nota": "Gli stessi numeri visti dal modello di giro, che non e' il banco della federazione. La quota elettrica e' quella vera - 350 kW su 750 - mentre la discesa della spinta e' tarata piu' in alto dei 290-355 del regolamento perche' qui rappresenta l'erogazione media di un giro e non l'istante, e i tempi di riferimento su cui il modello e' allineato sono ancora pole della generazione precedente. Se una proposta cambia la ripartizione o il tetto di recupero, sono questi i numeri che si muovono e con loro i tempi.",
-        "potenza_rel": 1.0
-      },
-      "architettura": "v6_turbo_ibrido"
-    },
-    "aero": {
-      "active_aero": true,
-      "modes": [
-        "X-mode (basso drag)",
-        "Z-mode (alto carico)"
-      ],
-      "override_mode": true,
-      "drs": false,
-      "downforce_index": 0.7,
-      "drag_index": 0.55,
-      "ground_effect": true,
-      "downforce_vs_2022_pct": -30,
-      "drag_vs_2022_pct": -55,
-      "front_wing_elements": 2,
-      "rear_wing_elements": 3,
-      "beam_wing": false,
-      "straight_mode_min_seconds": 3.0,
-      "overtake_gap_s": 1.0,
-      "_nota": "Non e' il DRS: lo straight mode (X) lo hanno tutti, nelle zone segnate, e ogni zona deve durare almeno tre secondi - per questo a Monte Carlo non ce n'e' nessuna. Chi insegue entro un secondo al punto di rilevamento ha in piu' l'overtake mode, che e' energia, non ala. Rispetto alle macchine del 2022 il carico cala del 30% e la resistenza del 55%."
-    },
-    "sporting": {
-      "points": [
-        25,
-        18,
-        15,
-        12,
-        10,
-        8,
-        6,
-        4,
-        2,
-        1
-      ],
-      "fastest_lap_point": false,
-      "sprint_events": 6,
-      "sprint_points": [
-        8,
-        7,
-        6,
-        5,
-        4,
-        3,
-        2,
-        1
-      ],
-      "mandatory_compounds": 2,
-      "parc_ferme_from": "Q1",
-      "rookie_fp1_sessions": 4,
-      "testing_days": 3,
-      "gearbox_units": 5,
-      "budget_penalty_threshold_pct": 5,
-      "private_test_days": 8,
-      "pu_specs_per_season": 2,
-      "preseason_tests": [
-        {
-          "track": "barcelona",
-          "days": 3
-        },
-        {
-          "track": "bahrain",
-          "days": 3
-        }
-      ],
-      "races": 24,
-      "atr_baseline_wind_tunnel_runs": 320,
-      "atr_baseline_cfd_items": 2000,
-      "atr_period_months": 2,
-      "atr_resets_per_season": 2,
-      "_atr_nota": "La scala della galleria del vento va dal 70% del primo al 115% del decimo, a scalini del 5%, e il riferimento sono 320 run in galleria e 2000 calcoli CFD ogni due mesi. Le tabelle si rifanno due volte l'anno, sulla classifica costruttori di quel momento."
-    },
-    "aero_testing_restriction": {
-      "_note": "Ore di galleria del vento e run CFD assegnate in base alla posizione nel costruttori dell'anno precedente. 100 = riferimento.",
-      "scale": [
-        70,
-        75,
-        80,
-        85,
-        90,
-        95,
-        100,
-        105,
-        110,
-        115,
-        115
-      ]
-    },
-    "tyres": {
-      "supplier": "Pirelli",
-      "compounds": [
-        "C1",
-        "C2",
-        "C3",
-        "C4",
-        "C5"
-      ],
-      "deg_multiplier": 1.0,
-      "sets_per_weekend": 13,
-      "sets_sprint_weekend": 12,
-      "inter_sets": 4,
-      "wet_sets": 3,
-      "front_narrower_mm": 25,
-      "rear_narrower_mm": 30,
-      "_nota": "Nel 2026 la gamma torna a cinque mescole: la C6 non c'e' piu'. Le gomme sono piu' strette di 25 mm davanti e 30 dietro."
-    },
-    "pending_changes": [],
-    "pit_lane_penalty_s": 0.0,
-    "_fonti": "Numeri presi dal regolamento tecnico, sportivo e finanziario FIA 2026 e dalle comunicazioni ufficiali FIA/F1, raccolti il 25 agosto 2026. I PDF sulla fia.com non sono raggiungibili da qui: ogni cifra e' stata verificata su almeno due fonti che citano il testo del regolamento. Dove il gioco si discosta dal numero vero c'e' una nota che dice perche'.",
-    "chassis": {
-      "min_weight_kg": 768,
-      "driver_min_kg": 82,
-      "wheelbase_max_mm": 3400,
-      "width_max_mm": 1900,
-      "floor_width_cut_mm": 150,
-      "gearbox_forward_gears_min": 8,
-      "gearbox_reverse": 1,
-      "wheel_diameter_in": 18,
-      "_nota": "Il 2026 accorcia e stringe la macchina: 200 mm di passo in meno (3600 -> 3400), 100 mm di larghezza (2000 -> 1900), 150 mm di fondo e 32 kg di peso (800 -> 768). Il peso minimo del pilota con il sedile resta 82 kg."
-    },
-    "cost_cap_extra_race_musd": 1.8,
-    "pu_manufacturer_cap_musd": 190.0,
-    "_finanza_nota": "215 M$ per una stagione fino a 24 gare, piu' 1.8 per ogni gara in piu'. Il tetto dei motoristi sale a 190 M$ nel 2026, da quando e' sparito il tetto separato agli investimenti."
+ "_note": "Regolamento vigente, storia dei cicli tecnici e catalogo delle proposte votabili in Commissione F1.",
+ "current": {
+  "season": 2026,
+  "label": "Regolamento 2026 - nuova era tecnica",
+  "cost_cap_musd": 215.0,
+  "capex_limit_musd": 45.0,
+  "entry_fee_musd": 450.0,
+  "cost_cap_excludes_driver_salaries": true,
+  "driver_salary_cap_musd": 0,
+  "min_weight_kg": 768,
+  "power_unit": {
+   "ice_kw": 400,
+   "electric_kw": 350,
+   "mgu_h": false,
+   "fuel": "100% sostenibile",
+   "units_per_season": 4,
+   "energy_store_per_season": 3,
+   "penalty_grid": 10,
+   "_energia_nota": "Numeri del regolamento tecnico 2026. La batteria tiene 4 MJ utili; in un giro se ne recuperano al massimo 8.5 in frenata, e senza MGU-H passa tutto dal motore posteriore. La spinta elettrica cala da 290 a 355 km/h; chi insegue entro un secondo puo' chiedere l'override e riavere i 350 kW pieni fino a 337 km/h, per mezzo megajoule. Nel modello di giro la discesa e' tarata piu' in alto (game/config.py) perche' li' la batteria non esiste: quel modello rappresenta l'erogazione media di un giro, e i tempi di riferimento sono ancora pole della generazione precedente.",
+   "batteria_mj": 4.0,
+   "recupero_max_mj": 8.5,
+   "v_taglio_kmh": 290,
+   "v_fine_kmh": 355,
+   "override_kmh": 337,
+   "override_mj": 0.5,
+   "override_gap_s": 1.0,
+   "mappe_motore": [
+    "conservativa",
+    "base",
+    "spinta"
+   ],
+   "_mappe_nota": "Le mappature del motore restano libere entro il limite di flusso di energia del carburante: quella lunga vale qualche decimo al giro e consuma di piu', quella magra fa il contrario. Il freno vero sono le unita' a disposizione nella stagione - quattro - e la penalita' in griglia per chi le finisce: tirare il motore tutta la gara si paga in affidabilita', non in un limite scritto.",
+   "capacity_cc": 1600,
+   "layout": "V6 turbo",
+   "max_rpm": 15000,
+   "fuel_energy_flow_max_mjh": 3000,
+   "fuel_energy_flow_low_rpm": "EF (MJ/h) = 0.27 * N(rpm) + 165, sotto i 10500 giri",
+   "fuel_race_target_kg": 70,
+   "pu_min_weight_kg": 185,
+   "harvest_max_mj_lap": 8.5,
+   "harvest_ceiling_mj_lap": 9.0,
+   "superclip_kw": 250,
+   "es_usable_mj": 4.0,
+   "components_per_season": {
+    "ice": 4,
+    "turbo": 4,
+    "mgu_k": 3,
+    "energy_store": 3,
+    "control_electronics": 3,
+    "exhaust": 4
+   },
+   "penalty_grid_first": 10,
+   "penalty_grid_next": 5,
+   "penalty_back_of_grid_over": 15,
+   "_regolamento_nota": "Il 2026 non limita piu' la benzina a chili l'ora ma a energia: 3000 MJ/h, e sotto i 10500 giri una retta che sale con i giri. Il motore e' sempre 1600 cc V6 turbo ma gira al massimo a 15000. L'ERS-K puo' erogare 350 kW e riprenderne al massimo 9 MJ a giro - il riferimento e' 8.5, e la federazione lo puo' spostare fra 8 e 9 secondo il circuito. A gas spalancato il recupero e' tappato a 250 kW: e' il superclipping. La batteria ne tiene 4 utili, che sono circa undici secondi e mezzo di spinta piena.",
+   "modello": {
+    "quota_elettrica": 0.467,
+    "v_taglio_kmh": 290,
+    "v_fine_kmh": 355,
+    "recupero_max_mj": 8.5,
+    "_nota": "Gli stessi numeri del regolamento, senza aggiustamenti: la spinta elettrica comincia a calare a 290 km/h e si spegne a 355, la quota elettrica e' 350 kW su 750. Il modello di giro non li addolcisce piu': il tetto di potenza, la ripartizione e la discesa sono quelli del regolamento tecnico 2026, e se una proposta li cambia si muovono i tempi.",
+    "potenza_rel": 1.0
+   },
+   "architettura": "v6_turbo_ibrido"
   },
-  "commission": {
-    "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. La riunione ordinaria e' una all'anno, in primavera, e tratta i ritocchi al regolamento in vigore: quello che passa entra in vigore dalla stagione dopo. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
-    "team_votes": 1,
-    "fia_votes": 10,
-    "fom_votes": 10,
-    "threshold_current_season_pct": 0.9,
-    "threshold_next_season_pct": 0.6,
-    "votes_per_season": 2,
-    "proposals_per_vote": 3,
-    "meetings_per_season": 1,
-    "proposals_per_meeting": 4,
-    "cycle_reset_threshold": 1.2,
-    "cycle_lead_seasons": 2,
-    "meeting_last_month": 5,
-    "ordinary_reset_max": 0.35,
-    "cycle_min_seasons": 4,
-    "talks_split": 0.36
+  "aero": {
+   "active_aero": true,
+   "modes": [
+    "X-mode (basso drag)",
+    "Z-mode (alto carico)"
+   ],
+   "override_mode": true,
+   "drs": false,
+   "downforce_index": 0.7,
+   "drag_index": 0.55,
+   "ground_effect": true,
+   "downforce_vs_2022_pct": -30,
+   "drag_vs_2022_pct": -55,
+   "front_wing_elements": 2,
+   "rear_wing_elements": 3,
+   "beam_wing": false,
+   "straight_mode_min_seconds": 3.0,
+   "overtake_gap_s": 1.0,
+   "_nota": "Non e' il DRS: lo straight mode (X) lo hanno tutti, nelle zone segnate, e ogni zona deve durare almeno tre secondi - per questo a Monte Carlo non ce n'e' nessuna. Chi insegue entro un secondo al punto di rilevamento ha in piu' l'overtake mode, che e' energia, non ala. Rispetto alle macchine del 2022 il carico cala del 30% e la resistenza del 55%."
   },
-  "history": {
-    "_note": "Cicli tecnici della categoria: usati per stimare quando arriva un reset regolamentare e quanto rimescola la griglia.",
-    "eras": [
-      {
-        "from": 1950,
-        "to": 1957,
-        "label": "Era dei motori anteriori",
-        "dominant": [
-          "Alfa Romeo",
-          "Ferrari",
-          "Mercedes",
-          "Maserati"
-        ],
-        "reset_strength": 0.5,
-        "focus": {
-          "pu": 0.5,
-          "chassis": 0.3,
-          "aero": 0.2
-        },
-        "nota": "Motori diversissimi fra loro: il Mercedes W196 arrivava da un'altra epoca tecnica."
-      },
-      {
-        "from": 1958,
-        "to": 1967,
-        "label": "Rivoluzione del motore posteriore",
-        "dominant": [
-          "Cooper",
-          "Lotus",
-          "BRM",
-          "Ferrari"
-        ],
-        "reset_strength": 0.9,
-        "focus": {
-          "pu": 0.3,
-          "chassis": 0.6,
-          "aero": 0.1
-        },
-        "nota": "Il motore passa dietro al pilota: e' una rivoluzione di architettura, non di potenza."
-      },
-      {
-        "from": 1968,
-        "to": 1976,
-        "label": "Alettoni e sponsor",
-        "dominant": [
-          "Lotus",
-          "Tyrrell",
-          "McLaren",
-          "Ferrari"
-        ],
-        "reset_strength": 0.6,
-        "focus": {
-          "pu": 0.2,
-          "chassis": 0.3,
-          "aero": 0.5
-        },
-        "nota": "Arrivano gli alettoni. Il DFV ce l'hanno quasi tutti, la differenza la fa il carico."
-      },
-      {
-        "from": 1977,
-        "to": 1982,
-        "label": "Effetto suolo (prima era)",
-        "dominant": [
-          "Lotus",
-          "Williams",
-          "Brabham",
-          "Ferrari"
-        ],
-        "reset_strength": 0.9,
-        "focus": {
-          "pu": 0.1,
-          "chassis": 0.2,
-          "aero": 0.7
-        },
-        "nota": "Effetto suolo: la Lotus 78 vince con lo stesso motore degli altri."
-      },
-      {
-        "from": 1983,
-        "to": 1988,
-        "label": "Turbo",
-        "dominant": [
-          "McLaren",
-          "Williams",
-          "Ferrari",
-          "Brabham"
-        ],
-        "reset_strength": 0.8,
-        "focus": {
-          "pu": 0.6,
-          "chassis": 0.15,
-          "aero": 0.25
-        },
-        "nota": "Fondo piatto ma soprattutto turbo: senza i cavalli non si e' in partita."
-      },
-      {
-        "from": 1989,
-        "to": 1994,
-        "label": "Aspirati e aiuti elettronici",
-        "dominant": [
-          "McLaren",
-          "Williams",
-          "Benetton"
-        ],
-        "reset_strength": 0.7,
-        "focus": {
-          "pu": 0.4,
-          "chassis": 0.35,
-          "aero": 0.25
-        },
-        "nota": "Turbo aboliti, si torna aspirati: chi aveva il motore giusto parte avanti."
-      },
-      {
-        "from": 1995,
-        "to": 2005,
-        "label": "V10 e dominio Ferrari",
-        "dominant": [
-          "Williams",
-          "Ferrari",
-          "McLaren",
-          "Renault"
-        ],
-        "reset_strength": 0.5,
-        "focus": {
-          "pu": 0.35,
-          "chassis": 0.2,
-          "aero": 0.45
-        },
-        "nota": "V10 maturi e vicini: la differenza torna a farla la galleria del vento."
-      },
-      {
-        "from": 2006,
-        "to": 2013,
-        "label": "V8, diffusori e scarichi soffiati",
-        "dominant": [
-          "Renault",
-          "Brawn",
-          "Red Bull"
-        ],
-        "reset_strength": 0.7,
-        "focus": {
-          "pu": 0.15,
-          "chassis": 0.25,
-          "aero": 0.6
-        },
-        "nota": "V8 congelati per regolamento. Il campionato 2009 lo decide un diffusore."
-      },
-      {
-        "from": 2014,
-        "to": 2021,
-        "label": "Era ibrida V6 turbo",
-        "dominant": [
-          "Mercedes",
-          "Red Bull"
-        ],
-        "reset_strength": 0.95,
-        "focus": {
-          "pu": 0.7,
-          "chassis": 0.1,
-          "aero": 0.2
-        },
-        "nota": "Ibrido V6: Mercedes parte col progetto anni prima e ne vive di rendita fino al 2021."
-      },
-      {
-        "from": 2022,
-        "to": 2025,
-        "label": "Ritorno dell'effetto suolo",
-        "dominant": [
-          "Red Bull",
-          "McLaren",
-          "Ferrari"
-        ],
-        "reset_strength": 0.85,
-        "focus": {
-          "pu": 0.1,
-          "chassis": 0.25,
-          "aero": 0.65
-        },
-        "nota": "Effetto suolo con i motori congelati: l'unica leva e' il concetto aerodinamico."
-      },
-      {
-        "from": 2026,
-        "to": 2030,
-        "label": "Nuova era: PU 50/50 e aero attiva",
-        "dominant": [],
-        "reset_strength": 0.95,
-        "focus": {
-          "pu": 0.55,
-          "chassis": 0.15,
-          "aero": 0.3
-        },
-        "nota": "La modifica piu' grossa alla power unit dal 2014, piu' l'aero attiva."
-      }
+  "sporting": {
+   "points": [
+    25,
+    18,
+    15,
+    12,
+    10,
+    8,
+    6,
+    4,
+    2,
+    1
+   ],
+   "fastest_lap_point": false,
+   "sprint_events": 6,
+   "sprint_points": [
+    8,
+    7,
+    6,
+    5,
+    4,
+    3,
+    2,
+    1
+   ],
+   "mandatory_compounds": 2,
+   "parc_ferme_from": "Q1",
+   "rookie_fp1_sessions": 4,
+   "testing_days": 3,
+   "gearbox_units": 5,
+   "budget_penalty_threshold_pct": 5,
+   "private_test_days": 8,
+   "pu_specs_per_season": 2,
+   "preseason_tests": [
+    {
+     "track": "barcelona",
+     "days": 3
+    },
+    {
+     "track": "bahrain",
+     "days": 3
+    }
+   ],
+   "races": 24,
+   "atr_baseline_wind_tunnel_runs": 320,
+   "atr_baseline_cfd_items": 2000,
+   "atr_period_months": 2,
+   "atr_resets_per_season": 2,
+   "_atr_nota": "La scala della galleria del vento va dal 70% del primo al 115% del decimo, a scalini del 5%, e il riferimento sono 320 run in galleria e 2000 calcoli CFD ogni due mesi. Le tabelle si rifanno due volte l'anno, sulla classifica costruttori di quel momento."
+  },
+  "aero_testing_restriction": {
+   "_note": "Ore di galleria del vento e run CFD assegnate in base alla posizione nel costruttori dell'anno precedente. 100 = riferimento.",
+   "scale": [
+    70,
+    75,
+    80,
+    85,
+    90,
+    95,
+    100,
+    105,
+    110,
+    115,
+    115
+   ]
+  },
+  "tyres": {
+   "supplier": "Pirelli",
+   "compounds": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+   ],
+   "deg_multiplier": 1.0,
+   "sets_per_weekend": 13,
+   "sets_sprint_weekend": 12,
+   "inter_sets": 4,
+   "wet_sets": 3,
+   "front_narrower_mm": 25,
+   "rear_narrower_mm": 30,
+   "_nota": "Nel 2026 la gamma torna a cinque mescole: la C6 non c'e' piu'. Le gomme sono piu' strette di 25 mm davanti e 30 dietro."
+  },
+  "pending_changes": [],
+  "pit_lane_penalty_s": 0.0,
+  "_fonti": "Numeri presi dal regolamento tecnico, sportivo e finanziario FIA 2026 e dalle comunicazioni ufficiali FIA/F1, raccolti il 25 agosto 2026. I PDF sulla fia.com non sono raggiungibili da qui: ogni cifra e' stata verificata su almeno due fonti che citano il testo del regolamento. Dove il gioco si discosta dal numero vero c'e' una nota che dice perche'.",
+  "chassis": {
+   "min_weight_kg": 768,
+   "driver_min_kg": 82,
+   "wheelbase_max_mm": 3400,
+   "width_max_mm": 1900,
+   "floor_width_cut_mm": 150,
+   "gearbox_forward_gears_min": 8,
+   "gearbox_reverse": 1,
+   "wheel_diameter_in": 18,
+   "_nota": "Il 2026 accorcia e stringe la macchina: 200 mm di passo in meno (3600 -> 3400), 100 mm di larghezza (2000 -> 1900), 150 mm di fondo e 32 kg di peso (800 -> 768). Il peso minimo del pilota con il sedile resta 82 kg."
+  },
+  "cost_cap_extra_race_musd": 1.8,
+  "pu_manufacturer_cap_musd": 190.0,
+  "_finanza_nota": "215 M$ per una stagione fino a 24 gare, piu' 1.8 per ogni gara in piu'. Il tetto dei motoristi sale a 190 M$ nel 2026, da quando e' sparito il tetto separato agli investimenti."
+ },
+ "commission": {
+  "_note": "Commissione F1: 1 voto per scuderia, 10 voti FIA, 10 voti FOM. La riunione ordinaria e' una all'anno, in primavera, e tratta i ritocchi al regolamento in vigore: quello che passa entra in vigore dalla stagione dopo. Il cambiamento profondo passa da un tavolo tecnico a parte, che ha bisogno di quattro o cinque riunioni per arrivare a un compromesso, e da li' servono ancora due stagioni per progettarci sopra.",
+  "team_votes": 1,
+  "fia_votes": 10,
+  "fom_votes": 10,
+  "threshold_current_season_pct": 0.9,
+  "threshold_next_season_pct": 0.6,
+  "votes_per_season": 2,
+  "proposals_per_vote": 3,
+  "meetings_per_season": 1,
+  "proposals_per_meeting": 4,
+  "cycle_reset_threshold": 1.2,
+  "cycle_lead_seasons": 2,
+  "meeting_last_month": 5,
+  "ordinary_reset_max": 0.35,
+  "cycle_min_seasons": 4,
+  "talks_split": 0.36
+ },
+ "history": {
+  "_note": "Cicli tecnici della categoria: usati per stimare quando arriva un reset regolamentare e quanto rimescola la griglia.",
+  "eras": [
+   {
+    "from": 1950,
+    "to": 1957,
+    "label": "Era dei motori anteriori",
+    "dominant": [
+     "Alfa Romeo",
+     "Ferrari",
+     "Mercedes",
+     "Maserati"
     ],
-    "lessons": [
-      "Un reset regolamentare rimescola la griglia: chi arriva preparato guida per anni.",
-      "Non tutti i reset premiano le stesse cose: nel 2014 contava la power unit, nel 2022 solo l'aerodinamica.",
-      "Chi si gioca il campionato fino all'ultima gara arriva impreparato all'anno dopo: e' il caso di McLaren fra 2012 e 2013.",
-      "Chi sacrifica la stagione in corso puo' vincere quella nuova: la Brawn 2009 nacque da un anno buttato via.",
-      "L'aero testing restriction comprime le differenze: chi domina rallenta, chi insegue recupera.",
-      "Un budget cap premia l'efficienza dei reparti piu' della dimensione della struttura."
-    ]
-  },
-  "proposals": [
-    {
-      "id": "cap_down",
-      "title": "Abbassare il budget cap a 190 M$",
-      "category": "finanziario",
-      "desc": "Riduzione del tetto di spesa per contenere i costi e stringere la griglia.",
-      "effects": {
-        "cost_cap_musd": -25
-      },
-      "appeal": {
-        "small_budget": 1.4,
-        "big_budget": -1.5,
-        "reputation": -0.4
-      },
-      "area": "financial",
-      "reset": 0.1
+    "reset_strength": 0.5,
+    "focus": {
+     "pu": 0.5,
+     "chassis": 0.3,
+     "aero": 0.2
     },
-    {
-      "id": "cap_up",
-      "title": "Alzare il budget cap a 245 M$",
-      "category": "finanziario",
-      "desc": "Aumento del tetto di spesa per assorbire inflazione e nuove tecnologie.",
-      "effects": {
-        "cost_cap_musd": 30
-      },
-      "appeal": {
-        "big_budget": 1.5,
-        "small_budget": -1.3,
-        "reputation": 0.4
-      },
-      "area": "financial",
-      "reset": 0.1
+    "nota": "Motori diversissimi fra loro: il Mercedes W196 arrivava da un'altra epoca tecnica."
+   },
+   {
+    "from": 1958,
+    "to": 1967,
+    "label": "Rivoluzione del motore posteriore",
+    "dominant": [
+     "Cooper",
+     "Lotus",
+     "BRM",
+     "Ferrari"
+    ],
+    "reset_strength": 0.9,
+    "focus": {
+     "pu": 0.3,
+     "chassis": 0.6,
+     "aero": 0.1
     },
-    {
-      "id": "driver_salary_cap",
-      "title": "Includere gli stipendi piloti nel cap",
-      "category": "finanziario",
-      "desc": "Gli ingaggi dei piloti rientrano nel tetto di spesa, con un massimale di 30 M$ a scuderia.",
-      "effects": {
-        "cost_cap_excludes_driver_salaries": false,
-        "driver_salary_cap_musd": 30
-      },
-      "appeal": {
-        "small_budget": 1.3,
-        "star_drivers": -1.6
-      },
-      "area": "financial",
-      "reset": 0.05
+    "nota": "Il motore passa dietro al pilota: e' una rivoluzione di architettura, non di potenza."
+   },
+   {
+    "from": 1968,
+    "to": 1976,
+    "label": "Alettoni e sponsor",
+    "dominant": [
+     "Lotus",
+     "Tyrrell",
+     "McLaren",
+     "Ferrari"
+    ],
+    "reset_strength": 0.6,
+    "focus": {
+     "pu": 0.2,
+     "chassis": 0.3,
+     "aero": 0.5
     },
-    {
-      "id": "ban_active_aero",
-      "title": "Abolire l'aero attiva",
-      "category": "tecnico",
-      "desc": "Ritorno ad ali fisse: si elimina la commutazione X/Z-mode.",
-      "effects": {
-        "active_aero": false,
-        "downforce_index": 0.05,
-        "reset_strength": 0.4
-      },
-      "appeal": {
-        "aero_strength": -1.2,
-        "mechanical_strength": 1.0,
-        "small_budget": 0.5
-      },
-      "area": "aero",
-      "reset": 0.45
+    "nota": "Arrivano gli alettoni. Il DFV ce l'hanno quasi tutti, la differenza la fa il carico."
+   },
+   {
+    "from": 1977,
+    "to": 1982,
+    "label": "Effetto suolo (prima era)",
+    "dominant": [
+     "Lotus",
+     "Williams",
+     "Brabham",
+     "Ferrari"
+    ],
+    "reset_strength": 0.9,
+    "focus": {
+     "pu": 0.1,
+     "chassis": 0.2,
+     "aero": 0.7
     },
-    {
-      "id": "points_top12",
-      "title": "Punti fino al 12esimo posto",
-      "category": "sportivo",
-      "desc": "Il sistema punti si estende: 25-18-15-12-10-8-6-4-3-2-1-0.5 per premiare i team di meta griglia.",
-      "effects": {
-        "points": [
-          25,
-          18,
-          15,
-          12,
-          10,
-          8,
-          6,
-          4,
-          3,
-          2,
-          1,
-          1
-        ]
-      },
-      "appeal": {
-        "small_budget": 1.5,
-        "big_budget": -0.8
-      },
-      "area": "sporting",
-      "reset": 0.0
+    "nota": "Effetto suolo: la Lotus 78 vince con lo stesso motore degli altri."
+   },
+   {
+    "from": 1983,
+    "to": 1988,
+    "label": "Turbo",
+    "dominant": [
+     "McLaren",
+     "Williams",
+     "Ferrari",
+     "Brabham"
+    ],
+    "reset_strength": 0.8,
+    "focus": {
+     "pu": 0.6,
+     "chassis": 0.15,
+     "aero": 0.25
     },
-    {
-      "id": "fastest_lap",
-      "title": "Reintrodurre il punto per il giro veloce",
-      "category": "sportivo",
-      "desc": "Un punto extra al giro piu veloce, solo se classificato nei primi dieci.",
-      "effects": {
-        "fastest_lap_point": true
-      },
-      "appeal": {
-        "big_budget": 0.6,
-        "small_budget": -0.3
-      },
-      "area": "sporting",
-      "reset": 0.0
+    "nota": "Fondo piatto ma soprattutto turbo: senza i cavalli non si e' in partita."
+   },
+   {
+    "from": 1989,
+    "to": 1994,
+    "label": "Aspirati e aiuti elettronici",
+    "dominant": [
+     "McLaren",
+     "Williams",
+     "Benetton"
+    ],
+    "reset_strength": 0.7,
+    "focus": {
+     "pu": 0.4,
+     "chassis": 0.35,
+     "aero": 0.25
     },
-    {
-      "id": "more_sprints",
-      "title": "Portare le Sprint a 10 weekend",
-      "category": "sportivo",
-      "desc": "Piu spettacolo e piu ricavi commerciali, ma meno tempo di messa a punto e piu usura.",
-      "effects": {
-        "sprint_events": 4,
-        "income_bonus_musd": 6.0
-      },
-      "appeal": {
-        "small_budget": -0.6,
-        "reputation": 0.5,
-        "reliability_strength": -0.5
-      },
-      "area": "sporting",
-      "reset": 0.0
+    "nota": "Turbo aboliti, si torna aspirati: chi aveva il motore giusto parte avanti."
+   },
+   {
+    "from": 1995,
+    "to": 2005,
+    "label": "V10 e dominio Ferrari",
+    "dominant": [
+     "Williams",
+     "Ferrari",
+     "McLaren",
+     "Renault"
+    ],
+    "reset_strength": 0.5,
+    "focus": {
+     "pu": 0.35,
+     "chassis": 0.2,
+     "aero": 0.45
     },
-    {
-      "id": "no_sprints",
-      "title": "Eliminare le Sprint",
-      "category": "sportivo",
-      "desc": "Ritorno al formato classico: solo prove libere, qualifica e gara.",
-      "effects": {
-        "sprint_events": -6,
-        "income_bonus_musd": -8.0
-      },
-      "appeal": {
-        "small_budget": 0.7,
-        "reputation": -0.6
-      },
-      "area": "sporting",
-      "reset": 0.0
+    "nota": "V10 maturi e vicini: la differenza torna a farla la galleria del vento."
+   },
+   {
+    "from": 2006,
+    "to": 2013,
+    "label": "V8, diffusori e scarichi soffiati",
+    "dominant": [
+     "Renault",
+     "Brawn",
+     "Red Bull"
+    ],
+    "reset_strength": 0.7,
+    "focus": {
+     "pu": 0.15,
+     "chassis": 0.25,
+     "aero": 0.6
     },
-    {
-      "id": "two_stops",
-      "title": "Due soste obbligatorie in gara",
-      "category": "sportivo",
-      "desc": "Ogni pilota deve effettuare almeno due soste, con tre mescole diverse.",
-      "effects": {
-        "mandatory_stops": 2,
-        "mandatory_compounds": 3
-      },
-      "appeal": {
-        "strategy_strength": 1.2,
-        "pit_crew_strength": 1.0,
-        "tyre_mgmt_strength": -0.8
-      },
-      "area": "sporting",
-      "reset": 0.05
+    "nota": "V8 congelati per regolamento. Il campionato 2009 lo decide un diffusore."
+   },
+   {
+    "from": 2014,
+    "to": 2021,
+    "label": "Era ibrida V6 turbo",
+    "dominant": [
+     "Mercedes",
+     "Red Bull"
+    ],
+    "reset_strength": 0.95,
+    "focus": {
+     "pu": 0.7,
+     "chassis": 0.1,
+     "aero": 0.2
     },
-    {
-      "id": "refuelling",
-      "title": "Ritorno del rifornimento in gara",
-      "category": "tecnico",
-      "desc": "Vetture piu leggere in partenza e strategie sul carburante, con costi e rischi maggiori.",
-      "effects": {
-        "refuelling": true,
-        "min_weight_kg": -30,
-        "reliability_risk": 0.15
-      },
-      "appeal": {
-        "strategy_strength": 1.0,
-        "small_budget": -1.0,
-        "pit_crew_strength": 1.2
-      },
-      "area": "sporting",
-      "reset": 0.2
+    "nota": "Ibrido V6: Mercedes parte col progetto anni prima e ne vive di rendita fino al 2021."
+   },
+   {
+    "from": 2022,
+    "to": 2025,
+    "label": "Ritorno dell'effetto suolo",
+    "dominant": [
+     "Red Bull",
+     "McLaren",
+     "Ferrari"
+    ],
+    "reset_strength": 0.85,
+    "focus": {
+     "pu": 0.1,
+     "chassis": 0.25,
+     "aero": 0.65
     },
-    {
-      "id": "pu_freeze",
-      "title": "Congelare lo sviluppo delle power unit",
-      "category": "tecnico",
-      "desc": "Omologazione dei motori fino al 2029: nessuno sviluppo consentito.",
-      "effects": {
-        "pu_development_locked": true
-      },
-      "appeal": {
-        "pu_leader": 1.6,
-        "pu_laggard": -1.8,
-        "small_budget": 0.6
-      },
-      "area": "pu",
-      "reset": 0.3
+    "nota": "Effetto suolo con i motori congelati: l'unica leva e' il concetto aerodinamico."
+   },
+   {
+    "from": 2026,
+    "to": 2030,
+    "label": "Nuova era: PU 50/50 e aero attiva",
+    "dominant": [],
+    "reset_strength": 0.95,
+    "focus": {
+     "pu": 0.55,
+     "chassis": 0.15,
+     "aero": 0.3
     },
-    {
-      "id": "pu_extra_unit",
-      "title": "Una power unit in piu a stagione",
-      "category": "tecnico",
-      "desc": "Cinque PU annuali invece di quattro: meno penalita ma costi maggiori.",
-      "effects": {
-        "units_per_season": 1
-      },
-      "appeal": {
-        "reliability_strength": -1.2,
-        "big_budget": 0.5
-      },
-      "area": "pu",
-      "reset": 0.05
-    },
-    {
-      "id": "atr_steeper",
-      "title": "Rendere piu ripida la scala dell'aero testing",
-      "category": "tecnico",
-      "desc": "Chi vince perde molte piu ore di galleria del vento: griglia piu compatta.",
-      "effects": {
-        "atr_slope": 1.6
-      },
-      "appeal": {
-        "grid_position_low": 1.5,
-        "grid_position_high": -1.5
-      },
-      "area": "aero",
-      "reset": 0.1
-    },
-    {
-      "id": "atr_flatter",
-      "title": "Appiattire la scala dell'aero testing",
-      "category": "tecnico",
-      "desc": "Ore di sviluppo piu simili per tutti: premia chi ha la struttura migliore.",
-      "effects": {
-        "atr_slope": 0.6
-      },
-      "appeal": {
-        "grid_position_high": 1.4,
-        "grid_position_low": -1.2,
-        "big_budget": 0.8
-      },
-      "area": "aero",
-      "reset": 0.1
-    },
-    {
-      "id": "more_testing",
-      "title": "Portare i test pre-stagionali a 6 giorni",
-      "category": "sportivo",
-      "desc": "Piu chilometri per correlare i dati e far crescere i giovani, a costo di piu spesa.",
-      "effects": {
-        "testing_days": 3
-      },
-      "appeal": {
-        "big_budget": 0.8,
-        "young_drivers": 1.0,
-        "small_budget": -0.5
-      },
-      "area": "sporting",
-      "reset": 0.05
-    },
-    {
-      "id": "standard_parts",
-      "title": "Estendere i componenti standard",
-      "category": "tecnico",
-      "desc": "Freni, sospensioni posteriori e trasmissione diventano di fornitura unica.",
-      "effects": {
-        "standard_parts": true,
-        "cost_cap_musd": -10,
-        "reset_strength": 0.3
-      },
-      "appeal": {
-        "small_budget": 1.4,
-        "mechanical_strength": -1.2,
-        "reputation": -0.5
-      },
-      "area": "chassis",
-      "reset": 0.35
-    },
-    {
-      "id": "customer_cars",
-      "title": "Consentire le vetture cliente",
-      "category": "strutturale",
-      "desc": "Le scuderie non costruttrici possono acquistare un telaio completo da un costruttore.",
-      "effects": {
-        "customer_cars_allowed": true
-      },
-      "appeal": {
-        "customer_team": 1.6,
-        "constructor_team": -1.2,
-        "reputation": -0.4
-      },
-      "area": "chassis",
-      "reset": 0.25
-    },
-    {
-      "id": "third_car",
-      "title": "Terza vettura per i top team",
-      "category": "strutturale",
-      "desc": "Le prime tre scuderie possono schierare una terza monoposto affidata a un giovane.",
-      "effects": {
-        "third_car": true
-      },
-      "appeal": {
-        "grid_position_high": 1.5,
-        "grid_position_low": -1.6,
-        "academy_strength": 0.8
-      },
-      "area": "sporting",
-      "reset": 0.05
-    },
-    {
-      "id": "tyre_harder",
-      "title": "Mescole piu dure per tutta la stagione",
-      "category": "tecnico",
-      "desc": "Meno degrado, gare piu spesso a una sosta.",
-      "effects": {
-        "tyre_deg_multiplier": -0.2
-      },
-      "appeal": {
-        "tyre_mgmt_strength": -0.9,
-        "power_strength": 0.7
-      },
-      "area": "chassis",
-      "reset": 0.1
-    },
-    {
-      "id": "tyre_softer",
-      "title": "Mescole piu morbide e degradanti",
-      "category": "tecnico",
-      "desc": "Piu soste, piu strategia, piu variabilita nei risultati.",
-      "effects": {
-        "tyre_deg_multiplier": 0.25
-      },
-      "appeal": {
-        "tyre_mgmt_strength": 1.1,
-        "strategy_strength": 0.9,
-        "grid_position_low": 0.4
-      },
-      "area": "chassis",
-      "reset": 0.1
-    },
-    {
-      "id": "rookie_sessions",
-      "title": "Raddoppiare le sessioni obbligatorie per i rookie",
-      "category": "sportivo",
-      "desc": "Otto FP1 stagionali riservate ai debuttanti: crescita accelerata dei giovani.",
-      "effects": {
-        "rookie_fp1_sessions": 4
-      },
-      "appeal": {
-        "academy_strength": 1.3,
-        "star_drivers": -0.6
-      },
-      "area": "sporting",
-      "reset": 0.0
-    },
-    {
-      "id": "engine_equalisation",
-      "title": "Meccanismo di equalizzazione delle power unit",
-      "category": "tecnico",
-      "desc": "La FIA puo concedere sviluppo extra ai motoristi in ritardo di prestazione.",
-      "effects": {
-        "pu_equalisation": true
-      },
-      "appeal": {
-        "pu_laggard": 1.7,
-        "pu_leader": -1.7
-      },
-      "area": "pu",
-      "reset": 0.25
-    },
-    {
-      "id": "cap_carryover",
-      "title": "Riporto del budget non speso all'anno successivo",
-      "category": "finanziario",
-      "desc": "Fino a 15 M$ non spesi possono essere trasferiti alla stagione seguente.",
-      "effects": {
-        "cap_carryover_musd": 15
-      },
-      "appeal": {
-        "small_budget": 0.9,
-        "big_budget": 0.4
-      },
-      "area": "financial",
-      "reset": 0.05
-    },
-    {
-      "id": "prize_flatter",
-      "title": "Distribuzione premi piu equa",
-      "category": "finanziario",
-      "desc": "Il montepremi FOM viene ripartito in modo meno legato alla classifica.",
-      "effects": {
-        "prize_flatten": 0.4
-      },
-      "appeal": {
-        "grid_position_low": 1.6,
-        "grid_position_high": -1.5
-      },
-      "area": "financial",
-      "reset": 0.05
-    },
-    {
-      "id": "v10_sostenibile",
-      "title": "Tornare ai V10 aspirati con carburante sostenibile",
-      "category": "tecnico",
-      "area": "pu",
-      "reset": 0.9,
-      "desc": "Addio ibrido: motori piu' semplici, leggeri e rumorosi, con carburante sintetico. Una rivoluzione che azzera anni di lavoro sulle power unit attuali.",
-      "effects": {
-        "min_weight_kg": -40,
-        "pu_reset": true
-      },
-      "appeal": {
-        "pu_laggard": 1.4,
-        "pu_leader": -1.6,
-        "small_budget": 0.9,
-        "reputation": -0.3
-      }
-    },
-    {
-      "id": "piu_elettrico",
-      "title": "Portare la quota elettrica al 60%",
-      "category": "tecnico",
-      "area": "pu",
-      "reset": 0.55,
-      "desc": "Piu' peso sull'ibrido e sulla gestione dell'energia, meno sul motore termico.",
-      "effects": {
-        "electric_share": 0.1
-      },
-      "appeal": {
-        "pu_leader": 0.6,
-        "big_budget": 0.7,
-        "small_budget": -0.6
-      }
-    },
-    {
-      "id": "meno_elettrico",
-      "title": "Ridurre la quota elettrica e alzare il termico",
-      "category": "tecnico",
-      "area": "pu",
-      "reset": 0.5,
-      "desc": "Si torna a premiare il motore a combustione: meno recupero, meno gestione.",
-      "effects": {
-        "electric_share": -0.1
-      },
-      "appeal": {
-        "pu_laggard": 0.8,
-        "small_budget": 0.5,
-        "pu_leader": -0.7
-      }
-    },
-    {
-      "id": "ibrido_standard",
-      "title": "Rendere standard la parte ibrida",
-      "category": "tecnico",
-      "area": "pu",
-      "reset": 0.45,
-      "desc": "Batteria ed elettronica di fornitura unica per tutti: restano liberi solo il termico e l'integrazione.",
-      "effects": {
-        "standard_hybrid": true,
-        "cost_cap_musd": -8
-      },
-      "appeal": {
-        "pu_laggard": 1.3,
-        "pu_leader": -1.5,
-        "small_budget": 1.0
-      }
-    },
-    {
-      "id": "limite_banchi",
-      "title": "Limitare le ore di banco prova sui motori",
-      "category": "tecnico",
-      "area": "pu",
-      "reset": 0.2,
-      "desc": "Un tetto alle ore di sviluppo al banco, sul modello della restrizione aerodinamica.",
-      "effects": {
-        "pu_bench_limit": true
-      },
-      "appeal": {
-        "pu_laggard": 1.1,
-        "pu_leader": -1.2,
-        "small_budget": 0.8
-      }
-    },
-    {
-      "id": "fondo_piatto",
-      "title": "Vietare l'effetto suolo e imporre il fondo piatto",
-      "category": "tecnico",
-      "area": "aero",
-      "reset": 0.85,
-      "desc": "Come nel 1983: si toglie il carico generato dal fondo e si riparte da zero sul concetto aerodinamico.",
-      "effects": {
-        "ground_effect": false,
-        "downforce_index": -0.18
-      },
-      "appeal": {
-        "aero_strength": -1.0,
-        "mechanical_strength": 0.9,
-        "grid_position_low": 0.6
-      }
-    },
-    {
-      "id": "taglio_carico",
-      "title": "Tagliare del 25% il carico aerodinamico",
-      "category": "tecnico",
-      "area": "aero",
-      "reset": 0.55,
-      "desc": "Vetture piu' lente in curva e piu' facili da seguire, con meno turbolenza.",
-      "effects": {
-        "downforce_index": -0.15
-      },
-      "appeal": {
-        "aero_strength": -0.8,
-        "power_strength": 0.7,
-        "grid_position_low": 0.5
-      }
-    },
-    {
-      "id": "ala_mobile",
-      "title": "Introdurre l'ala mobile per chi insegue",
-      "category": "tecnico",
-      "area": "aero",
-      "reset": 0.15,
-      "desc": "Un dispositivo che riduce la resistenza a chi si trova entro un secondo, come il DRS dal 2011: piu' sorpassi, meno merito.",
-      "effects": {
-        "drs": true
-      },
-      "appeal": {
-        "power_strength": 0.6,
-        "aero_strength": -0.4,
-        "reputation": -0.3
-      }
-    },
-    {
-      "id": "vieta_soffiati",
-      "title": "Vietare gli scarichi soffiati sul fondo",
-      "category": "tecnico",
-      "area": "aero",
-      "reset": 0.35,
-      "desc": "Come nel 2012: si toglie il carico ottenuto soffiando i gas di scarico sulle superfici aerodinamiche.",
-      "effects": {
-        "downforce_index": -0.06
-      },
-      "appeal": {
-        "aero_strength": -0.7,
-        "pu_leader": -0.5,
-        "grid_position_low": 0.5
-      }
-    },
-    {
-      "id": "ali_semplici",
-      "title": "Semplificare drasticamente le ali anteriori",
-      "category": "tecnico",
-      "area": "aero",
-      "reset": 0.4,
-      "desc": "Meno appendici, meno flap: si riduce lo spazio dove le grandi gallerie fanno la differenza.",
-      "effects": {
-        "downforce_index": -0.08,
-        "cost_cap_musd": -5
-      },
-      "appeal": {
-        "aero_strength": -1.1,
-        "small_budget": 1.0
-      }
-    },
-    {
-      "id": "vetture_strette",
-      "title": "Ridurre la larghezza delle vetture",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.5,
-      "desc": "Come nel 1998: monoposto piu' strette, meno stabili e piu' difficili da guidare al limite.",
-      "effects": {
-        "min_weight_kg": -15,
-        "downforce_index": -0.05
-      },
-      "appeal": {
-        "mechanical_strength": 0.6,
-        "aero_strength": -0.5,
-        "star_drivers": 0.5
-      }
-    },
-    {
-      "id": "sospensioni_attive",
-      "title": "Consentire le sospensioni attive",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.6,
-      "desc": "Il sistema che dominava nel 1993: assetto sempre ottimale, a un costo di sviluppo che solo alcuni possono reggere.",
-      "effects": {
-        "active_suspension": true
-      },
-      "appeal": {
-        "big_budget": 1.3,
-        "mechanical_strength": 1.0,
-        "small_budget": -1.2
-      }
-    },
-    {
-      "id": "controllo_trazione",
-      "title": "Consentire il controllo di trazione",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.35,
-      "desc": "L'elettronica corregge il pilota in uscita di curva: meno errori, meno differenza fra chi guida bene e chi no.",
-      "effects": {
-        "traction_control": true
-      },
-      "appeal": {
-        "big_budget": 0.8,
-        "star_drivers": -1.1,
-        "young_drivers": 0.7
-      }
-    },
-    {
-      "id": "peso_giu",
-      "title": "Abbassare il peso minimo di 30 kg",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.4,
-      "desc": "Vetture piu' leggere e agili, ma serve rifare il telaio e costa parecchio.",
-      "effects": {
-        "min_weight_kg": -30
-      },
-      "appeal": {
-        "big_budget": 0.9,
-        "mechanical_strength": 0.8,
-        "small_budget": -0.9
-      }
-    },
-    {
-      "id": "gomme_scanalate",
-      "title": "Passare alle gomme scanalate",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.45,
-      "desc": "Come dal 1998 al 2008: meno aderenza meccanica, piu' peso sull'aerodinamica.",
-      "effects": {
-        "grooved_tyres": true
-      },
-      "appeal": {
-        "aero_strength": 0.8,
-        "mechanical_strength": -0.7,
-        "tyre_mgmt_strength": 0.5
-      }
-    },
-    {
-      "id": "guerra_gomme",
-      "title": "Riaprire alla concorrenza fra fornitori di gomme",
-      "category": "tecnico",
-      "area": "chassis",
-      "reset": 0.55,
-      "desc": "Piu' fornitori in gara: chi ha l'accordo giusto vola, gli altri arrancano.",
-      "effects": {
-        "tyre_war": true
-      },
-      "appeal": {
-        "big_budget": 1.2,
-        "reputation": 0.8,
-        "small_budget": -1.3
-      }
-    },
-    {
-      "id": "vieta_termocoperte",
-      "title": "Vietare le termocoperte",
-      "category": "tecnico",
-      "area": "sporting",
-      "reset": 0.1,
-      "desc": "Gomme fredde all'uscita dai box: piu' errori, piu' imprevedibilita', meno costi di trasferta.",
-      "effects": {
-        "tyre_warmers": false
-      },
-      "appeal": {
-        "tyre_mgmt_strength": 0.9,
-        "small_budget": 0.6,
-        "star_drivers": 0.4
-      }
-    },
-    {
-      "id": "griglia_invertita",
-      "title": "Griglia invertita nelle gare Sprint",
-      "category": "sportivo",
-      "area": "sporting",
-      "reset": 0.0,
-      "desc": "Si parte con l'ordine rovesciato rispetto al campionato: spettacolo garantito, merito sportivo discutibile.",
-      "effects": {
-        "reverse_grid": true
-      },
-      "appeal": {
-        "grid_position_low": 1.5,
-        "grid_position_high": -1.6,
-        "reputation": -0.5
-      }
-    },
-    {
-      "id": "quali_aggregata",
-      "title": "Qualifica a tempo aggregato sui due piloti",
-      "category": "sportivo",
-      "area": "sporting",
-      "reset": 0.0,
-      "desc": "Conta la somma dei tempi dei due piloti: nessuna squadra puo' piu' avere una seconda guida.",
-      "effects": {
-        "aggregate_quali": true
-      },
-      "appeal": {
-        "star_drivers": -0.8,
-        "academy_strength": 0.6
-      }
-    },
-    {
-      "id": "motori_clienti_obbligo",
-      "title": "Obbligare i motoristi a fornire chi resta senza",
-      "category": "strutturale",
-      "area": "pu",
-      "reset": 0.1,
-      "desc": "Nessuna squadra puo' restare senza power unit: il motorista con meno clienti e' obbligato a fornirla.",
-      "effects": {
-        "supply_obligation": true
-      },
-      "appeal": {
-        "customer_team": 1.2,
-        "constructor_team": -0.8,
-        "small_budget": 0.7
-      }
-    },
-    {
-      "id": "raffreddamento_pilota",
-      "title": "Obbligo di raffreddamento del pilota oltre i 31 gradi",
-      "category": "sicurezza",
-      "desc": "Gilet refrigerante e presa d'aria dedicata quando la federazione dichiara il rischio da caldo. Pesa qualche chilo e va montato subito.",
-      "effects": {
-        "min_weight_kg": 2
-      },
-      "appeal": {
-        "reputation": 0.2
-      },
-      "area": "chassis",
-      "reset": 0.0,
-      "safety": true
-    },
-    {
-      "id": "strutture_rinforzate",
-      "title": "Rinforzare le strutture anti-intrusione laterali",
-      "category": "sicurezza",
-      "desc": "Prove di schiacciamento piu' severe sui fianchi della cellula. Costa peso, ma di sicurezza non si discute.",
-      "effects": {
-        "min_weight_kg": 5
-      },
-      "appeal": {
-        "reputation": 0.3
-      },
-      "area": "chassis",
-      "reset": 0.05,
-      "safety": true
-    },
-    {
-      "id": "pit_lane_lenta",
-      "title": "Abbassare il limite in corsia box a 60 km/h",
-      "category": "sicurezza",
-      "desc": "Dopo l'ennesimo meccanico sfiorato in pit lane. Allunga ogni sosta.",
-      "effects": {
-        "pit_lane_penalty_s": 0.5
-      },
-      "appeal": {
-        "reputation": 0.1
-      },
-      "area": "sporting",
-      "reset": 0.0,
-      "safety": true
-    },
-    {
-      "id": "metrica_porpoising",
-      "title": "Metrica obbligatoria contro il saltellamento",
-      "category": "sicurezza",
-      "desc": "Un limite misurato alle oscillazioni verticali: chi lo supera alza la macchina. Toglie carico a tutti, ma le schiene sono una sola.",
-      "effects": {
-        "downforce_index": -0.02
-      },
-      "appeal": {
-        "aero_strong": -0.4,
-        "reputation": 0.2
-      },
-      "area": "aero",
-      "reset": 0.1,
-      "safety": true
-    },
-    {
-      "id": "test_ali_severi",
-      "title": "Stringere i test di flessibilita' delle ali",
-      "category": "direttiva",
-      "desc": "Direttiva tecnica dopo una violazione accertata: prove di carico piu' severe, in vigore dal prossimo gran premio.",
-      "effects": {
-        "downforce_index": -0.03
-      },
-      "appeal": {
-        "aero_strong": -0.8,
-        "small_budget": 0.5
-      },
-      "area": "aero",
-      "reset": 0.1,
-      "directive": true
-    },
-    {
-      "id": "recupero_9mj",
-      "title": "Portare il recupero a 9 MJ al giro",
-      "category": "tecnico",
-      "desc": "Il tetto sale al massimo che il regolamento consente: si ricarica di piu' in frenata e si arriva in fondo ai rettilinei con qualcosa in mano.",
-      "effects": {
-        "recupero_mj": 0.5
-      },
-      "appeal": {
-        "pu_leader": 0.8,
-        "pu_laggard": -0.4,
-        "big_budget": 0.3
-      },
-      "area": "power",
-      "reset": 0.05
-    },
-    {
-      "id": "batteria_grande",
-      "title": "Batteria da 6 MJ utili",
-      "category": "tecnico",
-      "desc": "Piu' energia in cassa: si puo' spendere per piu' giri di fila prima di doverla ridare indietro, e il clipping diventa una scelta e non una condanna.",
-      "effects": {
-        "batteria_mj": 2.0
-      },
-      "appeal": {
-        "pu_leader": 0.9,
-        "small_budget": -0.5,
-        "reputation": 0.2
-      },
-      "area": "power",
-      "reset": 0.1
-    },
-    {
-      "id": "superclip_350",
-      "title": "Superclipping fino a 350 kW",
-      "category": "tecnico",
-      "desc": "Si alza il tetto alla ricarica a gas spalancato: nessuno deve piu' alzare il piede per riempire la batteria, si paga tutto sul rettilineo.",
-      "effects": {
-        "superclip_kw": 100
-      },
-      "appeal": {
-        "pu_leader": 0.7,
-        "strategy_strength": 0.6,
-        "aero_strength": -0.3
-      },
-      "area": "power",
-      "reset": 0.05
-    },
-    {
-      "id": "peso_750",
-      "title": "Peso minimo a 750 kg",
-      "category": "tecnico",
-      "desc": "Diciotto chili in meno: macchine piu' agili sui circuiti stretti, e una corsa al grammo che costa cara a chi non ha i materiali.",
-      "effects": {
-        "min_weight_kg": -18
-      },
-      "appeal": {
-        "big_budget": 0.9,
-        "small_budget": -1.0,
-        "mechanical_strength": 0.5,
-        "reputation": 0.3
-      },
-      "area": "chassis",
-      "reset": 0.15
-    }
+    "nota": "La modifica piu' grossa alla power unit dal 2014, piu' l'aero attiva."
+   }
   ],
-  "_architetture_nota": "Le architetture di power unit fra cui il tavolo tecnico puo' scegliere quando si apre un ciclo nuovo. I numeri sono quelli veri: il V6 turbo ibrido e' il regolamento 2026, il V8 turbo con ibrido minimo e' la proposta che la federazione sta discutendo per il 2031, il V10 aspirato e' il ritorno di cui si e' parlato nel 2025 e mai deciso, il V8 aspirato con KERS e' quello che ha corso dal 2009 al 2013. potenza_rel dice quanta potenza totale concede l'architettura rispetto ai 750 kW del 2026: e' il numero che il modello di giro usa davvero. Le competenze dicono che mestiere serve per costruirla - termico, elettrico, integrazione nella vettura - ed e' li' che contano gli ingegneri e la fabbrica. La rarita' e' quanto e' plausibile che il tavolo la scelga davvero.",
-  "architetture": {
-    "v6_turbo_ibrido": {
-      "nome": "V6 turbo ibrido 1.6",
-      "breve": "V6 turbo",
-      "cilindri": 6,
-      "cilindrata_cc": 1600,
-      "aspirazione": "turbo",
-      "giri_max": 15000,
-      "ice_kw": 400,
-      "elettrico_kw": 350,
-      "potenza_rel": 1.0,
-      "quota_elettrica": 0.47,
-      "batteria_mj": 4.0,
-      "recupero_max_mj": 8.5,
-      "v_taglio_kmh": 320,
-      "v_fine_kmh": 380,
-      "benzina_kg": 70,
-      "peso_pu_kg": 185,
-      "spettacolo": 0.35,
-      "costo": 1.0,
-      "nota": "Meta' della potenza e' elettrica e la gara si gioca su come la si spende. Costa quanto nessun'altra e non fa rumore.",
-      "competenze": {
-        "termico": 0.3,
-        "elettrico": 0.5,
-        "integrazione": 0.2
-      },
-      "rarita": 1.0
-    },
-    "v8_turbo_leggero": {
-      "nome": "V8 turbo 2.4 con ibrido minimo",
-      "breve": "V8 turbo",
-      "cilindri": 8,
-      "cilindrata_cc": 2400,
-      "aspirazione": "turbo",
-      "giri_max": 16000,
-      "ice_kw": 550,
-      "elettrico_kw": 100,
-      "potenza_rel": 0.87,
-      "quota_elettrica": 0.15,
-      "batteria_mj": 1.0,
-      "recupero_max_mj": 2.5,
-      "v_taglio_kmh": 300,
-      "v_fine_kmh": 345,
-      "benzina_kg": 90,
-      "peso_pu_kg": 150,
-      "spettacolo": 0.75,
-      "costo": 0.6,
-      "nota": "La strada che la federazione sta guardando per il 2031: si torna a otto cilindri e l'ibrido resta solo dove serve. Costa molto meno e l'energia smette di decidere la gara.",
-      "competenze": {
-        "termico": 0.7,
-        "elettrico": 0.1,
-        "integrazione": 0.2
-      },
-      "rarita": 1.0
-    },
-    "v10_aspirato": {
-      "nome": "V10 aspirato 3.0",
-      "breve": "V10",
-      "cilindri": 10,
-      "cilindrata_cc": 3000,
-      "aspirazione": "aspirato",
-      "giri_max": 19000,
-      "ice_kw": 690,
-      "elettrico_kw": 0,
-      "potenza_rel": 0.92,
-      "quota_elettrica": 0.02,
-      "batteria_mj": 0.0,
-      "recupero_max_mj": 0.0,
-      "v_taglio_kmh": 340,
-      "v_fine_kmh": 400,
-      "benzina_kg": 110,
-      "peso_pu_kg": 95,
-      "spettacolo": 1.0,
-      "costo": 0.75,
-      "nota": "Quello di cui si e' parlato nel 2025 e non si e' fatto: niente ibrido, benzina sostenibile e diciannovemila giri. Le tribune lo vogliono, i costruttori che hanno speso in elettrico molto meno.",
-      "competenze": {
-        "termico": 0.8,
-        "elettrico": 0.0,
-        "integrazione": 0.2
-      },
-      "rarita": 0.8
-    },
-    "v8_aspirato_kers": {
-      "nome": "V8 aspirato 2.4 con KERS",
-      "breve": "V8 asp.",
-      "cilindri": 8,
-      "cilindrata_cc": 2400,
-      "aspirazione": "aspirato",
-      "giri_max": 18000,
-      "ice_kw": 540,
-      "elettrico_kw": 60,
-      "potenza_rel": 0.8,
-      "quota_elettrica": 0.1,
-      "batteria_mj": 0.4,
-      "recupero_max_mj": 0.4,
-      "v_taglio_kmh": 330,
-      "v_fine_kmh": 390,
-      "benzina_kg": 100,
-      "peso_pu_kg": 95,
-      "spettacolo": 0.9,
-      "costo": 0.7,
-      "nota": "L'architettura che ha corso dal 2009 al 2013: otto cilindri aspirati a diciottomila giri e sessanta kilowatt di KERS da spendere in sei secondi al giro.",
-      "competenze": {
-        "termico": 0.72,
-        "elettrico": 0.08,
-        "integrazione": 0.2
-      },
-      "rarita": 0.8
-    },
-    "v6_ibrido_spinto": {
-      "nome": "V6 turbo a ibrido spinto",
-      "breve": "V6 ibr.+",
-      "cilindri": 6,
-      "cilindrata_cc": 1600,
-      "aspirazione": "turbo",
-      "giri_max": 13500,
-      "ice_kw": 300,
-      "elettrico_kw": 450,
-      "potenza_rel": 1.0,
-      "quota_elettrica": 0.6,
-      "batteria_mj": 6.0,
-      "recupero_max_mj": 12.0,
-      "v_taglio_kmh": 305,
-      "v_fine_kmh": 370,
-      "benzina_kg": 55,
-      "peso_pu_kg": 200,
-      "spettacolo": 0.3,
-      "costo": 1.15,
-      "rarita": 0.9,
-      "competenze": {
-        "termico": 0.18,
-        "elettrico": 0.65,
-        "integrazione": 0.17
-      },
-      "nota": "La strada opposta a quella degli otto cilindri: si va ancora piu' avanti sull'elettrico, seicento kilowatt su settecentocinquanta, e la gara diventa quasi solo gestione dell'energia. La vogliono i costruttori che in batteria hanno gia' investito tutto."
-    },
-    "i4_turbo_ibrido": {
-      "nome": "4 cilindri turbo ibrido 1.5",
-      "breve": "4 cilindri",
-      "cilindri": 4,
-      "cilindrata_cc": 1500,
-      "aspirazione": "turbo",
-      "giri_max": 14000,
-      "ice_kw": 350,
-      "elettrico_kw": 350,
-      "potenza_rel": 0.93,
-      "quota_elettrica": 0.5,
-      "batteria_mj": 4.0,
-      "recupero_max_mj": 9.0,
-      "v_taglio_kmh": 300,
-      "v_fine_kmh": 360,
-      "benzina_kg": 60,
-      "peso_pu_kg": 165,
-      "spettacolo": 0.2,
-      "costo": 0.7,
-      "rarita": 0.85,
-      "competenze": {
-        "termico": 0.3,
-        "elettrico": 0.5,
-        "integrazione": 0.2
-      },
-      "nota": "Il motore che somiglia a quello delle auto di serie: quattro cilindri, poco carburante, costi bassi. La federazione lo adora e il pubblico no."
-    },
-    "v12_aspirato": {
-      "nome": "V12 aspirato 3.0",
-      "breve": "V12",
-      "cilindri": 12,
-      "cilindrata_cc": 3000,
-      "aspirazione": "aspirato",
-      "giri_max": 20000,
-      "ice_kw": 720,
-      "elettrico_kw": 0,
-      "potenza_rel": 0.96,
-      "quota_elettrica": 0.02,
-      "batteria_mj": 0.0,
-      "recupero_max_mj": 0.0,
-      "v_taglio_kmh": 345,
-      "v_fine_kmh": 405,
-      "benzina_kg": 115,
-      "peso_pu_kg": 105,
-      "spettacolo": 1.0,
-      "costo": 0.95,
-      "rarita": 0.45,
-      "competenze": {
-        "termico": 0.8,
-        "elettrico": 0.0,
-        "integrazione": 0.2
-      },
-      "nota": "Quello che nessuno propone sul serio e che tutti vorrebbero sentire una volta ancora. Dodici cilindri, ventimila giri, e centoquindici chili di benzina da portarsi dietro."
-    }
+  "lessons": [
+   "Un reset regolamentare rimescola la griglia: chi arriva preparato guida per anni.",
+   "Non tutti i reset premiano le stesse cose: nel 2014 contava la power unit, nel 2022 solo l'aerodinamica.",
+   "Chi si gioca il campionato fino all'ultima gara arriva impreparato all'anno dopo: e' il caso di McLaren fra 2012 e 2013.",
+   "Chi sacrifica la stagione in corso puo' vincere quella nuova: la Brawn 2009 nacque da un anno buttato via.",
+   "L'aero testing restriction comprime le differenze: chi domina rallenta, chi insegue recupera.",
+   "Un budget cap premia l'efficienza dei reparti piu' della dimensione della struttura."
+  ]
+ },
+ "proposals": [
+  {
+   "id": "cap_down",
+   "title": "Abbassare il budget cap a 190 M$",
+   "category": "finanziario",
+   "desc": "Riduzione del tetto di spesa per contenere i costi e stringere la griglia.",
+   "effects": {
+    "cost_cap_musd": -25
+   },
+   "appeal": {
+    "small_budget": 1.4,
+    "big_budget": -1.5,
+    "reputation": -0.4
+   },
+   "area": "financial",
+   "reset": 0.1
+  },
+  {
+   "id": "cap_up",
+   "title": "Alzare il budget cap a 245 M$",
+   "category": "finanziario",
+   "desc": "Aumento del tetto di spesa per assorbire inflazione e nuove tecnologie.",
+   "effects": {
+    "cost_cap_musd": 30
+   },
+   "appeal": {
+    "big_budget": 1.5,
+    "small_budget": -1.3,
+    "reputation": 0.4
+   },
+   "area": "financial",
+   "reset": 0.1
+  },
+  {
+   "id": "driver_salary_cap",
+   "title": "Includere gli stipendi piloti nel cap",
+   "category": "finanziario",
+   "desc": "Gli ingaggi dei piloti rientrano nel tetto di spesa, con un massimale di 30 M$ a scuderia.",
+   "effects": {
+    "cost_cap_excludes_driver_salaries": false,
+    "driver_salary_cap_musd": 30
+   },
+   "appeal": {
+    "small_budget": 1.3,
+    "star_drivers": -1.6
+   },
+   "area": "financial",
+   "reset": 0.05
+  },
+  {
+   "id": "ban_active_aero",
+   "title": "Abolire l'aero attiva",
+   "category": "tecnico",
+   "desc": "Ritorno ad ali fisse: si elimina la commutazione X/Z-mode.",
+   "effects": {
+    "active_aero": false,
+    "downforce_index": 0.05,
+    "reset_strength": 0.4
+   },
+   "appeal": {
+    "aero_strength": -1.2,
+    "mechanical_strength": 1.0,
+    "small_budget": 0.5
+   },
+   "area": "aero",
+   "reset": 0.45
+  },
+  {
+   "id": "points_top12",
+   "title": "Punti fino al 12esimo posto",
+   "category": "sportivo",
+   "desc": "Il sistema punti si estende: 25-18-15-12-10-8-6-4-3-2-1-0.5 per premiare i team di meta griglia.",
+   "effects": {
+    "points": [
+     25,
+     18,
+     15,
+     12,
+     10,
+     8,
+     6,
+     4,
+     3,
+     2,
+     1,
+     1
+    ]
+   },
+   "appeal": {
+    "small_budget": 1.5,
+    "big_budget": -0.8
+   },
+   "area": "sporting",
+   "reset": 0.0
+  },
+  {
+   "id": "fastest_lap",
+   "title": "Reintrodurre il punto per il giro veloce",
+   "category": "sportivo",
+   "desc": "Un punto extra al giro piu veloce, solo se classificato nei primi dieci.",
+   "effects": {
+    "fastest_lap_point": true
+   },
+   "appeal": {
+    "big_budget": 0.6,
+    "small_budget": -0.3
+   },
+   "area": "sporting",
+   "reset": 0.0
+  },
+  {
+   "id": "more_sprints",
+   "title": "Portare le Sprint a 10 weekend",
+   "category": "sportivo",
+   "desc": "Piu spettacolo e piu ricavi commerciali, ma meno tempo di messa a punto e piu usura.",
+   "effects": {
+    "sprint_events": 4,
+    "income_bonus_musd": 6.0
+   },
+   "appeal": {
+    "small_budget": -0.6,
+    "reputation": 0.5,
+    "reliability_strength": -0.5
+   },
+   "area": "sporting",
+   "reset": 0.0
+  },
+  {
+   "id": "no_sprints",
+   "title": "Eliminare le Sprint",
+   "category": "sportivo",
+   "desc": "Ritorno al formato classico: solo prove libere, qualifica e gara.",
+   "effects": {
+    "sprint_events": -6,
+    "income_bonus_musd": -8.0
+   },
+   "appeal": {
+    "small_budget": 0.7,
+    "reputation": -0.6
+   },
+   "area": "sporting",
+   "reset": 0.0
+  },
+  {
+   "id": "two_stops",
+   "title": "Due soste obbligatorie in gara",
+   "category": "sportivo",
+   "desc": "Ogni pilota deve effettuare almeno due soste, con tre mescole diverse.",
+   "effects": {
+    "mandatory_stops": 2,
+    "mandatory_compounds": 3
+   },
+   "appeal": {
+    "strategy_strength": 1.2,
+    "pit_crew_strength": 1.0,
+    "tyre_mgmt_strength": -0.8
+   },
+   "area": "sporting",
+   "reset": 0.05
+  },
+  {
+   "id": "refuelling",
+   "title": "Ritorno del rifornimento in gara",
+   "category": "tecnico",
+   "desc": "Vetture piu leggere in partenza e strategie sul carburante, con costi e rischi maggiori.",
+   "effects": {
+    "refuelling": true,
+    "min_weight_kg": -30,
+    "reliability_risk": 0.15
+   },
+   "appeal": {
+    "strategy_strength": 1.0,
+    "small_budget": -1.0,
+    "pit_crew_strength": 1.2
+   },
+   "area": "sporting",
+   "reset": 0.2
+  },
+  {
+   "id": "pu_freeze",
+   "title": "Congelare lo sviluppo delle power unit",
+   "category": "tecnico",
+   "desc": "Omologazione dei motori fino al 2029: nessuno sviluppo consentito.",
+   "effects": {
+    "pu_development_locked": true
+   },
+   "appeal": {
+    "pu_leader": 1.6,
+    "pu_laggard": -1.8,
+    "small_budget": 0.6
+   },
+   "area": "pu",
+   "reset": 0.3
+  },
+  {
+   "id": "pu_extra_unit",
+   "title": "Una power unit in piu a stagione",
+   "category": "tecnico",
+   "desc": "Cinque PU annuali invece di quattro: meno penalita ma costi maggiori.",
+   "effects": {
+    "units_per_season": 1
+   },
+   "appeal": {
+    "reliability_strength": -1.2,
+    "big_budget": 0.5
+   },
+   "area": "pu",
+   "reset": 0.05
+  },
+  {
+   "id": "atr_steeper",
+   "title": "Rendere piu ripida la scala dell'aero testing",
+   "category": "tecnico",
+   "desc": "Chi vince perde molte piu ore di galleria del vento: griglia piu compatta.",
+   "effects": {
+    "atr_slope": 1.6
+   },
+   "appeal": {
+    "grid_position_low": 1.5,
+    "grid_position_high": -1.5
+   },
+   "area": "aero",
+   "reset": 0.1
+  },
+  {
+   "id": "atr_flatter",
+   "title": "Appiattire la scala dell'aero testing",
+   "category": "tecnico",
+   "desc": "Ore di sviluppo piu simili per tutti: premia chi ha la struttura migliore.",
+   "effects": {
+    "atr_slope": 0.6
+   },
+   "appeal": {
+    "grid_position_high": 1.4,
+    "grid_position_low": -1.2,
+    "big_budget": 0.8
+   },
+   "area": "aero",
+   "reset": 0.1
+  },
+  {
+   "id": "more_testing",
+   "title": "Portare i test pre-stagionali a 6 giorni",
+   "category": "sportivo",
+   "desc": "Piu chilometri per correlare i dati e far crescere i giovani, a costo di piu spesa.",
+   "effects": {
+    "testing_days": 3
+   },
+   "appeal": {
+    "big_budget": 0.8,
+    "young_drivers": 1.0,
+    "small_budget": -0.5
+   },
+   "area": "sporting",
+   "reset": 0.05
+  },
+  {
+   "id": "standard_parts",
+   "title": "Estendere i componenti standard",
+   "category": "tecnico",
+   "desc": "Freni, sospensioni posteriori e trasmissione diventano di fornitura unica.",
+   "effects": {
+    "standard_parts": true,
+    "cost_cap_musd": -10,
+    "reset_strength": 0.3
+   },
+   "appeal": {
+    "small_budget": 1.4,
+    "mechanical_strength": -1.2,
+    "reputation": -0.5
+   },
+   "area": "chassis",
+   "reset": 0.35
+  },
+  {
+   "id": "customer_cars",
+   "title": "Consentire le vetture cliente",
+   "category": "strutturale",
+   "desc": "Le scuderie non costruttrici possono acquistare un telaio completo da un costruttore.",
+   "effects": {
+    "customer_cars_allowed": true
+   },
+   "appeal": {
+    "customer_team": 1.6,
+    "constructor_team": -1.2,
+    "reputation": -0.4
+   },
+   "area": "chassis",
+   "reset": 0.25
+  },
+  {
+   "id": "third_car",
+   "title": "Terza vettura per i top team",
+   "category": "strutturale",
+   "desc": "Le prime tre scuderie possono schierare una terza monoposto affidata a un giovane.",
+   "effects": {
+    "third_car": true
+   },
+   "appeal": {
+    "grid_position_high": 1.5,
+    "grid_position_low": -1.6,
+    "academy_strength": 0.8
+   },
+   "area": "sporting",
+   "reset": 0.05
+  },
+  {
+   "id": "tyre_harder",
+   "title": "Mescole piu dure per tutta la stagione",
+   "category": "tecnico",
+   "desc": "Meno degrado, gare piu spesso a una sosta.",
+   "effects": {
+    "tyre_deg_multiplier": -0.2
+   },
+   "appeal": {
+    "tyre_mgmt_strength": -0.9,
+    "power_strength": 0.7
+   },
+   "area": "chassis",
+   "reset": 0.1
+  },
+  {
+   "id": "tyre_softer",
+   "title": "Mescole piu morbide e degradanti",
+   "category": "tecnico",
+   "desc": "Piu soste, piu strategia, piu variabilita nei risultati.",
+   "effects": {
+    "tyre_deg_multiplier": 0.25
+   },
+   "appeal": {
+    "tyre_mgmt_strength": 1.1,
+    "strategy_strength": 0.9,
+    "grid_position_low": 0.4
+   },
+   "area": "chassis",
+   "reset": 0.1
+  },
+  {
+   "id": "rookie_sessions",
+   "title": "Raddoppiare le sessioni obbligatorie per i rookie",
+   "category": "sportivo",
+   "desc": "Otto FP1 stagionali riservate ai debuttanti: crescita accelerata dei giovani.",
+   "effects": {
+    "rookie_fp1_sessions": 4
+   },
+   "appeal": {
+    "academy_strength": 1.3,
+    "star_drivers": -0.6
+   },
+   "area": "sporting",
+   "reset": 0.0
+  },
+  {
+   "id": "engine_equalisation",
+   "title": "Meccanismo di equalizzazione delle power unit",
+   "category": "tecnico",
+   "desc": "La FIA puo concedere sviluppo extra ai motoristi in ritardo di prestazione.",
+   "effects": {
+    "pu_equalisation": true
+   },
+   "appeal": {
+    "pu_laggard": 1.7,
+    "pu_leader": -1.7
+   },
+   "area": "pu",
+   "reset": 0.25
+  },
+  {
+   "id": "cap_carryover",
+   "title": "Riporto del budget non speso all'anno successivo",
+   "category": "finanziario",
+   "desc": "Fino a 15 M$ non spesi possono essere trasferiti alla stagione seguente.",
+   "effects": {
+    "cap_carryover_musd": 15
+   },
+   "appeal": {
+    "small_budget": 0.9,
+    "big_budget": 0.4
+   },
+   "area": "financial",
+   "reset": 0.05
+  },
+  {
+   "id": "prize_flatter",
+   "title": "Distribuzione premi piu equa",
+   "category": "finanziario",
+   "desc": "Il montepremi FOM viene ripartito in modo meno legato alla classifica.",
+   "effects": {
+    "prize_flatten": 0.4
+   },
+   "appeal": {
+    "grid_position_low": 1.6,
+    "grid_position_high": -1.5
+   },
+   "area": "financial",
+   "reset": 0.05
+  },
+  {
+   "id": "v10_sostenibile",
+   "title": "Tornare ai V10 aspirati con carburante sostenibile",
+   "category": "tecnico",
+   "area": "pu",
+   "reset": 0.9,
+   "desc": "Addio ibrido: motori piu' semplici, leggeri e rumorosi, con carburante sintetico. Una rivoluzione che azzera anni di lavoro sulle power unit attuali.",
+   "effects": {
+    "min_weight_kg": -40,
+    "pu_reset": true
+   },
+   "appeal": {
+    "pu_laggard": 1.4,
+    "pu_leader": -1.6,
+    "small_budget": 0.9,
+    "reputation": -0.3
+   }
+  },
+  {
+   "id": "piu_elettrico",
+   "title": "Portare la quota elettrica al 60%",
+   "category": "tecnico",
+   "area": "pu",
+   "reset": 0.55,
+   "desc": "Piu' peso sull'ibrido e sulla gestione dell'energia, meno sul motore termico.",
+   "effects": {
+    "electric_share": 0.1
+   },
+   "appeal": {
+    "pu_leader": 0.6,
+    "big_budget": 0.7,
+    "small_budget": -0.6
+   }
+  },
+  {
+   "id": "meno_elettrico",
+   "title": "Ridurre la quota elettrica e alzare il termico",
+   "category": "tecnico",
+   "area": "pu",
+   "reset": 0.5,
+   "desc": "Si torna a premiare il motore a combustione: meno recupero, meno gestione.",
+   "effects": {
+    "electric_share": -0.1
+   },
+   "appeal": {
+    "pu_laggard": 0.8,
+    "small_budget": 0.5,
+    "pu_leader": -0.7
+   }
+  },
+  {
+   "id": "ibrido_standard",
+   "title": "Rendere standard la parte ibrida",
+   "category": "tecnico",
+   "area": "pu",
+   "reset": 0.45,
+   "desc": "Batteria ed elettronica di fornitura unica per tutti: restano liberi solo il termico e l'integrazione.",
+   "effects": {
+    "standard_hybrid": true,
+    "cost_cap_musd": -8
+   },
+   "appeal": {
+    "pu_laggard": 1.3,
+    "pu_leader": -1.5,
+    "small_budget": 1.0
+   }
+  },
+  {
+   "id": "limite_banchi",
+   "title": "Limitare le ore di banco prova sui motori",
+   "category": "tecnico",
+   "area": "pu",
+   "reset": 0.2,
+   "desc": "Un tetto alle ore di sviluppo al banco, sul modello della restrizione aerodinamica.",
+   "effects": {
+    "pu_bench_limit": true
+   },
+   "appeal": {
+    "pu_laggard": 1.1,
+    "pu_leader": -1.2,
+    "small_budget": 0.8
+   }
+  },
+  {
+   "id": "fondo_piatto",
+   "title": "Vietare l'effetto suolo e imporre il fondo piatto",
+   "category": "tecnico",
+   "area": "aero",
+   "reset": 0.85,
+   "desc": "Come nel 1983: si toglie il carico generato dal fondo e si riparte da zero sul concetto aerodinamico.",
+   "effects": {
+    "ground_effect": false,
+    "downforce_index": -0.18
+   },
+   "appeal": {
+    "aero_strength": -1.0,
+    "mechanical_strength": 0.9,
+    "grid_position_low": 0.6
+   }
+  },
+  {
+   "id": "taglio_carico",
+   "title": "Tagliare del 25% il carico aerodinamico",
+   "category": "tecnico",
+   "area": "aero",
+   "reset": 0.55,
+   "desc": "Vetture piu' lente in curva e piu' facili da seguire, con meno turbolenza.",
+   "effects": {
+    "downforce_index": -0.15
+   },
+   "appeal": {
+    "aero_strength": -0.8,
+    "power_strength": 0.7,
+    "grid_position_low": 0.5
+   }
+  },
+  {
+   "id": "ala_mobile",
+   "title": "Introdurre l'ala mobile per chi insegue",
+   "category": "tecnico",
+   "area": "aero",
+   "reset": 0.15,
+   "desc": "Un dispositivo che riduce la resistenza a chi si trova entro un secondo, come il DRS dal 2011: piu' sorpassi, meno merito.",
+   "effects": {
+    "drs": true
+   },
+   "appeal": {
+    "power_strength": 0.6,
+    "aero_strength": -0.4,
+    "reputation": -0.3
+   }
+  },
+  {
+   "id": "vieta_soffiati",
+   "title": "Vietare gli scarichi soffiati sul fondo",
+   "category": "tecnico",
+   "area": "aero",
+   "reset": 0.35,
+   "desc": "Come nel 2012: si toglie il carico ottenuto soffiando i gas di scarico sulle superfici aerodinamiche.",
+   "effects": {
+    "downforce_index": -0.06
+   },
+   "appeal": {
+    "aero_strength": -0.7,
+    "pu_leader": -0.5,
+    "grid_position_low": 0.5
+   }
+  },
+  {
+   "id": "ali_semplici",
+   "title": "Semplificare drasticamente le ali anteriori",
+   "category": "tecnico",
+   "area": "aero",
+   "reset": 0.4,
+   "desc": "Meno appendici, meno flap: si riduce lo spazio dove le grandi gallerie fanno la differenza.",
+   "effects": {
+    "downforce_index": -0.08,
+    "cost_cap_musd": -5
+   },
+   "appeal": {
+    "aero_strength": -1.1,
+    "small_budget": 1.0
+   }
+  },
+  {
+   "id": "vetture_strette",
+   "title": "Ridurre la larghezza delle vetture",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.5,
+   "desc": "Come nel 1998: monoposto piu' strette, meno stabili e piu' difficili da guidare al limite.",
+   "effects": {
+    "min_weight_kg": -15,
+    "downforce_index": -0.05
+   },
+   "appeal": {
+    "mechanical_strength": 0.6,
+    "aero_strength": -0.5,
+    "star_drivers": 0.5
+   }
+  },
+  {
+   "id": "sospensioni_attive",
+   "title": "Consentire le sospensioni attive",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.6,
+   "desc": "Il sistema che dominava nel 1993: assetto sempre ottimale, a un costo di sviluppo che solo alcuni possono reggere.",
+   "effects": {
+    "active_suspension": true
+   },
+   "appeal": {
+    "big_budget": 1.3,
+    "mechanical_strength": 1.0,
+    "small_budget": -1.2
+   }
+  },
+  {
+   "id": "controllo_trazione",
+   "title": "Consentire il controllo di trazione",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.35,
+   "desc": "L'elettronica corregge il pilota in uscita di curva: meno errori, meno differenza fra chi guida bene e chi no.",
+   "effects": {
+    "traction_control": true
+   },
+   "appeal": {
+    "big_budget": 0.8,
+    "star_drivers": -1.1,
+    "young_drivers": 0.7
+   }
+  },
+  {
+   "id": "peso_giu",
+   "title": "Abbassare il peso minimo di 30 kg",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.4,
+   "desc": "Vetture piu' leggere e agili, ma serve rifare il telaio e costa parecchio.",
+   "effects": {
+    "min_weight_kg": -30
+   },
+   "appeal": {
+    "big_budget": 0.9,
+    "mechanical_strength": 0.8,
+    "small_budget": -0.9
+   }
+  },
+  {
+   "id": "gomme_scanalate",
+   "title": "Passare alle gomme scanalate",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.45,
+   "desc": "Come dal 1998 al 2008: meno aderenza meccanica, piu' peso sull'aerodinamica.",
+   "effects": {
+    "grooved_tyres": true
+   },
+   "appeal": {
+    "aero_strength": 0.8,
+    "mechanical_strength": -0.7,
+    "tyre_mgmt_strength": 0.5
+   }
+  },
+  {
+   "id": "guerra_gomme",
+   "title": "Riaprire alla concorrenza fra fornitori di gomme",
+   "category": "tecnico",
+   "area": "chassis",
+   "reset": 0.55,
+   "desc": "Piu' fornitori in gara: chi ha l'accordo giusto vola, gli altri arrancano.",
+   "effects": {
+    "tyre_war": true
+   },
+   "appeal": {
+    "big_budget": 1.2,
+    "reputation": 0.8,
+    "small_budget": -1.3
+   }
+  },
+  {
+   "id": "vieta_termocoperte",
+   "title": "Vietare le termocoperte",
+   "category": "tecnico",
+   "area": "sporting",
+   "reset": 0.1,
+   "desc": "Gomme fredde all'uscita dai box: piu' errori, piu' imprevedibilita', meno costi di trasferta.",
+   "effects": {
+    "tyre_warmers": false
+   },
+   "appeal": {
+    "tyre_mgmt_strength": 0.9,
+    "small_budget": 0.6,
+    "star_drivers": 0.4
+   }
+  },
+  {
+   "id": "griglia_invertita",
+   "title": "Griglia invertita nelle gare Sprint",
+   "category": "sportivo",
+   "area": "sporting",
+   "reset": 0.0,
+   "desc": "Si parte con l'ordine rovesciato rispetto al campionato: spettacolo garantito, merito sportivo discutibile.",
+   "effects": {
+    "reverse_grid": true
+   },
+   "appeal": {
+    "grid_position_low": 1.5,
+    "grid_position_high": -1.6,
+    "reputation": -0.5
+   }
+  },
+  {
+   "id": "quali_aggregata",
+   "title": "Qualifica a tempo aggregato sui due piloti",
+   "category": "sportivo",
+   "area": "sporting",
+   "reset": 0.0,
+   "desc": "Conta la somma dei tempi dei due piloti: nessuna squadra puo' piu' avere una seconda guida.",
+   "effects": {
+    "aggregate_quali": true
+   },
+   "appeal": {
+    "star_drivers": -0.8,
+    "academy_strength": 0.6
+   }
+  },
+  {
+   "id": "motori_clienti_obbligo",
+   "title": "Obbligare i motoristi a fornire chi resta senza",
+   "category": "strutturale",
+   "area": "pu",
+   "reset": 0.1,
+   "desc": "Nessuna squadra puo' restare senza power unit: il motorista con meno clienti e' obbligato a fornirla.",
+   "effects": {
+    "supply_obligation": true
+   },
+   "appeal": {
+    "customer_team": 1.2,
+    "constructor_team": -0.8,
+    "small_budget": 0.7
+   }
+  },
+  {
+   "id": "raffreddamento_pilota",
+   "title": "Obbligo di raffreddamento del pilota oltre i 31 gradi",
+   "category": "sicurezza",
+   "desc": "Gilet refrigerante e presa d'aria dedicata quando la federazione dichiara il rischio da caldo. Pesa qualche chilo e va montato subito.",
+   "effects": {
+    "min_weight_kg": 2
+   },
+   "appeal": {
+    "reputation": 0.2
+   },
+   "area": "chassis",
+   "reset": 0.0,
+   "safety": true
+  },
+  {
+   "id": "strutture_rinforzate",
+   "title": "Rinforzare le strutture anti-intrusione laterali",
+   "category": "sicurezza",
+   "desc": "Prove di schiacciamento piu' severe sui fianchi della cellula. Costa peso, ma di sicurezza non si discute.",
+   "effects": {
+    "min_weight_kg": 5
+   },
+   "appeal": {
+    "reputation": 0.3
+   },
+   "area": "chassis",
+   "reset": 0.05,
+   "safety": true
+  },
+  {
+   "id": "pit_lane_lenta",
+   "title": "Abbassare il limite in corsia box a 60 km/h",
+   "category": "sicurezza",
+   "desc": "Dopo l'ennesimo meccanico sfiorato in pit lane. Allunga ogni sosta.",
+   "effects": {
+    "pit_lane_penalty_s": 0.5
+   },
+   "appeal": {
+    "reputation": 0.1
+   },
+   "area": "sporting",
+   "reset": 0.0,
+   "safety": true
+  },
+  {
+   "id": "metrica_porpoising",
+   "title": "Metrica obbligatoria contro il saltellamento",
+   "category": "sicurezza",
+   "desc": "Un limite misurato alle oscillazioni verticali: chi lo supera alza la macchina. Toglie carico a tutti, ma le schiene sono una sola.",
+   "effects": {
+    "downforce_index": -0.02
+   },
+   "appeal": {
+    "aero_strong": -0.4,
+    "reputation": 0.2
+   },
+   "area": "aero",
+   "reset": 0.1,
+   "safety": true
+  },
+  {
+   "id": "test_ali_severi",
+   "title": "Stringere i test di flessibilita' delle ali",
+   "category": "direttiva",
+   "desc": "Direttiva tecnica dopo una violazione accertata: prove di carico piu' severe, in vigore dal prossimo gran premio.",
+   "effects": {
+    "downforce_index": -0.03
+   },
+   "appeal": {
+    "aero_strong": -0.8,
+    "small_budget": 0.5
+   },
+   "area": "aero",
+   "reset": 0.1,
+   "directive": true
+  },
+  {
+   "id": "recupero_9mj",
+   "title": "Portare il recupero a 9 MJ al giro",
+   "category": "tecnico",
+   "desc": "Il tetto sale al massimo che il regolamento consente: si ricarica di piu' in frenata e si arriva in fondo ai rettilinei con qualcosa in mano.",
+   "effects": {
+    "recupero_mj": 0.5
+   },
+   "appeal": {
+    "pu_leader": 0.8,
+    "pu_laggard": -0.4,
+    "big_budget": 0.3
+   },
+   "area": "power",
+   "reset": 0.05
+  },
+  {
+   "id": "batteria_grande",
+   "title": "Batteria da 6 MJ utili",
+   "category": "tecnico",
+   "desc": "Piu' energia in cassa: si puo' spendere per piu' giri di fila prima di doverla ridare indietro, e il clipping diventa una scelta e non una condanna.",
+   "effects": {
+    "batteria_mj": 2.0
+   },
+   "appeal": {
+    "pu_leader": 0.9,
+    "small_budget": -0.5,
+    "reputation": 0.2
+   },
+   "area": "power",
+   "reset": 0.1
+  },
+  {
+   "id": "superclip_350",
+   "title": "Superclipping fino a 350 kW",
+   "category": "tecnico",
+   "desc": "Si alza il tetto alla ricarica a gas spalancato: nessuno deve piu' alzare il piede per riempire la batteria, si paga tutto sul rettilineo.",
+   "effects": {
+    "superclip_kw": 100
+   },
+   "appeal": {
+    "pu_leader": 0.7,
+    "strategy_strength": 0.6,
+    "aero_strength": -0.3
+   },
+   "area": "power",
+   "reset": 0.05
+  },
+  {
+   "id": "peso_750",
+   "title": "Peso minimo a 750 kg",
+   "category": "tecnico",
+   "desc": "Diciotto chili in meno: macchine piu' agili sui circuiti stretti, e una corsa al grammo che costa cara a chi non ha i materiali.",
+   "effects": {
+    "min_weight_kg": -18
+   },
+   "appeal": {
+    "big_budget": 0.9,
+    "small_budget": -1.0,
+    "mechanical_strength": 0.5,
+    "reputation": 0.3
+   },
+   "area": "chassis",
+   "reset": 0.15
   }
+ ],
+ "_architetture_nota": "Le architetture di power unit fra cui il tavolo tecnico puo' scegliere quando si apre un ciclo nuovo. I numeri sono quelli veri: il V6 turbo ibrido e' il regolamento 2026, il V8 turbo con ibrido minimo e' la proposta che la federazione sta discutendo per il 2031, il V10 aspirato e' il ritorno di cui si e' parlato nel 2025 e mai deciso, il V8 aspirato con KERS e' quello che ha corso dal 2009 al 2013. potenza_rel dice quanta potenza totale concede l'architettura rispetto ai 750 kW del 2026: e' il numero che il modello di giro usa davvero. Le competenze dicono che mestiere serve per costruirla - termico, elettrico, integrazione nella vettura - ed e' li' che contano gli ingegneri e la fabbrica. La rarita' e' quanto e' plausibile che il tavolo la scelga davvero.",
+ "architetture": {
+  "v6_turbo_ibrido": {
+   "nome": "V6 turbo ibrido 1.6",
+   "breve": "V6 turbo",
+   "cilindri": 6,
+   "cilindrata_cc": 1600,
+   "aspirazione": "turbo",
+   "giri_max": 15000,
+   "ice_kw": 400,
+   "elettrico_kw": 350,
+   "potenza_rel": 1.0,
+   "quota_elettrica": 0.47,
+   "batteria_mj": 4.0,
+   "recupero_max_mj": 8.5,
+   "v_taglio_kmh": 320,
+   "v_fine_kmh": 380,
+   "benzina_kg": 70,
+   "peso_pu_kg": 185,
+   "spettacolo": 0.35,
+   "costo": 1.0,
+   "nota": "Meta' della potenza e' elettrica e la gara si gioca su come la si spende. Costa quanto nessun'altra e non fa rumore.",
+   "competenze": {
+    "termico": 0.3,
+    "elettrico": 0.5,
+    "integrazione": 0.2
+   },
+   "rarita": 1.0
+  },
+  "v8_turbo_leggero": {
+   "nome": "V8 turbo 2.4 con ibrido minimo",
+   "breve": "V8 turbo",
+   "cilindri": 8,
+   "cilindrata_cc": 2400,
+   "aspirazione": "turbo",
+   "giri_max": 16000,
+   "ice_kw": 550,
+   "elettrico_kw": 100,
+   "potenza_rel": 0.87,
+   "quota_elettrica": 0.15,
+   "batteria_mj": 1.0,
+   "recupero_max_mj": 2.5,
+   "v_taglio_kmh": 300,
+   "v_fine_kmh": 345,
+   "benzina_kg": 90,
+   "peso_pu_kg": 150,
+   "spettacolo": 0.75,
+   "costo": 0.6,
+   "nota": "La strada che la federazione sta guardando per il 2031: si torna a otto cilindri e l'ibrido resta solo dove serve. Costa molto meno e l'energia smette di decidere la gara.",
+   "competenze": {
+    "termico": 0.7,
+    "elettrico": 0.1,
+    "integrazione": 0.2
+   },
+   "rarita": 1.0
+  },
+  "v10_aspirato": {
+   "nome": "V10 aspirato 3.0",
+   "breve": "V10",
+   "cilindri": 10,
+   "cilindrata_cc": 3000,
+   "aspirazione": "aspirato",
+   "giri_max": 19000,
+   "ice_kw": 690,
+   "elettrico_kw": 0,
+   "potenza_rel": 0.92,
+   "quota_elettrica": 0.02,
+   "batteria_mj": 0.0,
+   "recupero_max_mj": 0.0,
+   "v_taglio_kmh": 340,
+   "v_fine_kmh": 400,
+   "benzina_kg": 110,
+   "peso_pu_kg": 95,
+   "spettacolo": 1.0,
+   "costo": 0.75,
+   "nota": "Quello di cui si e' parlato nel 2025 e non si e' fatto: niente ibrido, benzina sostenibile e diciannovemila giri. Le tribune lo vogliono, i costruttori che hanno speso in elettrico molto meno.",
+   "competenze": {
+    "termico": 0.8,
+    "elettrico": 0.0,
+    "integrazione": 0.2
+   },
+   "rarita": 0.8
+  },
+  "v8_aspirato_kers": {
+   "nome": "V8 aspirato 2.4 con KERS",
+   "breve": "V8 asp.",
+   "cilindri": 8,
+   "cilindrata_cc": 2400,
+   "aspirazione": "aspirato",
+   "giri_max": 18000,
+   "ice_kw": 540,
+   "elettrico_kw": 60,
+   "potenza_rel": 0.8,
+   "quota_elettrica": 0.1,
+   "batteria_mj": 0.4,
+   "recupero_max_mj": 0.4,
+   "v_taglio_kmh": 330,
+   "v_fine_kmh": 390,
+   "benzina_kg": 100,
+   "peso_pu_kg": 95,
+   "spettacolo": 0.9,
+   "costo": 0.7,
+   "nota": "L'architettura che ha corso dal 2009 al 2013: otto cilindri aspirati a diciottomila giri e sessanta kilowatt di KERS da spendere in sei secondi al giro.",
+   "competenze": {
+    "termico": 0.72,
+    "elettrico": 0.08,
+    "integrazione": 0.2
+   },
+   "rarita": 0.8
+  },
+  "v6_ibrido_spinto": {
+   "nome": "V6 turbo a ibrido spinto",
+   "breve": "V6 ibr.+",
+   "cilindri": 6,
+   "cilindrata_cc": 1600,
+   "aspirazione": "turbo",
+   "giri_max": 13500,
+   "ice_kw": 300,
+   "elettrico_kw": 450,
+   "potenza_rel": 1.0,
+   "quota_elettrica": 0.6,
+   "batteria_mj": 6.0,
+   "recupero_max_mj": 12.0,
+   "v_taglio_kmh": 305,
+   "v_fine_kmh": 370,
+   "benzina_kg": 55,
+   "peso_pu_kg": 200,
+   "spettacolo": 0.3,
+   "costo": 1.15,
+   "rarita": 0.9,
+   "competenze": {
+    "termico": 0.18,
+    "elettrico": 0.65,
+    "integrazione": 0.17
+   },
+   "nota": "La strada opposta a quella degli otto cilindri: si va ancora piu' avanti sull'elettrico, seicento kilowatt su settecentocinquanta, e la gara diventa quasi solo gestione dell'energia. La vogliono i costruttori che in batteria hanno gia' investito tutto."
+  },
+  "i4_turbo_ibrido": {
+   "nome": "4 cilindri turbo ibrido 1.5",
+   "breve": "4 cilindri",
+   "cilindri": 4,
+   "cilindrata_cc": 1500,
+   "aspirazione": "turbo",
+   "giri_max": 14000,
+   "ice_kw": 350,
+   "elettrico_kw": 350,
+   "potenza_rel": 0.93,
+   "quota_elettrica": 0.5,
+   "batteria_mj": 4.0,
+   "recupero_max_mj": 9.0,
+   "v_taglio_kmh": 300,
+   "v_fine_kmh": 360,
+   "benzina_kg": 60,
+   "peso_pu_kg": 165,
+   "spettacolo": 0.2,
+   "costo": 0.7,
+   "rarita": 0.85,
+   "competenze": {
+    "termico": 0.3,
+    "elettrico": 0.5,
+    "integrazione": 0.2
+   },
+   "nota": "Il motore che somiglia a quello delle auto di serie: quattro cilindri, poco carburante, costi bassi. La federazione lo adora e il pubblico no."
+  },
+  "v12_aspirato": {
+   "nome": "V12 aspirato 3.0",
+   "breve": "V12",
+   "cilindri": 12,
+   "cilindrata_cc": 3000,
+   "aspirazione": "aspirato",
+   "giri_max": 20000,
+   "ice_kw": 720,
+   "elettrico_kw": 0,
+   "potenza_rel": 0.96,
+   "quota_elettrica": 0.02,
+   "batteria_mj": 0.0,
+   "recupero_max_mj": 0.0,
+   "v_taglio_kmh": 345,
+   "v_fine_kmh": 405,
+   "benzina_kg": 115,
+   "peso_pu_kg": 105,
+   "spettacolo": 1.0,
+   "costo": 0.95,
+   "rarita": 0.45,
+   "competenze": {
+    "termico": 0.8,
+    "elettrico": 0.0,
+    "integrazione": 0.2
+   },
+   "nota": "Quello che nessuno propone sul serio e che tutti vorrebbero sentire una volta ancora. Dodici cilindri, ventimila giri, e centoquindici chili di benzina da portarsi dietro."
+  }
+ }
 }

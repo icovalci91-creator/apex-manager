@@ -524,7 +524,19 @@ Il risultato viene calibrato sul tempo di riferimento reale di ogni pista (`ref_
 i tempi sono realistici ma restano sensibili alle scelte tecniche: più ala significa più
 carico e più resistenza, esattamente come in pista.
 
-Tre cose che il modello prende sul serio e che si sentono sul cronometro:
+Quattro cose che il modello prende sul serio e che si sentono sul cronometro:
+
+- **La linea non passa dal centro della pista.** Una monoposto entra larga, tocca la corda
+  ed esce larga: percorre una curva di raggio più grande di quella disegnata. Il guadagno è
+  geometrico e non è uguale ovunque — su un tornante da trenta metri vale l'11% di velocità
+  in più, su un curvone da trecento poco più dell'1% — e ogni circuito porta la sua
+  larghezza (`larghezza_m`: Monaco 9 m, Sepang 16). È il pezzo che pesava di più fra quelli
+  che mancavano: senza, il modello sbagliava il giro del 5%.
+- **Il tetto di potenza è quello del regolamento.** 400 kW dal termico più 350 dall'elettrico,
+  letti da `data/regulations.json`: nessuna power unit lo supera, per quanto sia fatta bene.
+  Fra la migliore e la peggiore della griglia ballano **27 kW** (722-750), che a Monza valgono
+  0,32 s e a Spa 0,55 — la forbice vera. Il resto della differenza fra due motori sta dove sta
+  davvero: recupero (7,8-8,4 MJ a giro), consumi, affidabilità.
 
 - **La trazione la fanno due ruote.** La spinta a terra la mette solo il carico che sente
   l'assale posteriore — il 55%, la ripartizione vera — e non tutta la vettura. Da fermo si
@@ -539,6 +551,12 @@ Tre cose che il modello prende sul serio e che si sentono sul cronometro:
   di 35 km/h, e prima veniva stampato quello sbagliato.
 
 Le g di punta che ne escono: 6,0-6,6 laterali, 5,2-6,5 in frenata, 1,8 in uscita di curva.
+Con tutto questo il giro **senza taratura** sbaglia in media dello **0,0%** con uno scarto
+tipo del 2,9% (era +2,5% con 2,7%), e 21 circuiti su 24 stanno entro l'8%.
+
+La spinta elettrica cala da **290 a 355 km/h**, che è il numero del regolamento 2026 e non
+un compromesso: le punte scendono di una quindicina di km/h rispetto alla generazione
+precedente, ed è quello che succederà in pista.
 
 **Gara.** Continua, non a giri discreti: ogni vettura avanza in metri, i duelli si
 risolvono quando due monoposto sono davvero a contatto, e il confronto di passo usa il
@@ -1372,9 +1390,13 @@ il risultato del confronto.
 
 ## Limiti noti
 
-- Il modello di giro, senza taratura, sbaglia in media dell'1.8% con uno scarto tipo del
-  3.2%: è quello che resta da guadagnare in fedeltà, e le strade sono l'altimetria (che oggi
-  manca del tutto), l'aderenza combinata fra curva e frenata, e tracciati più fitti.
+- Tre circuiti su 24 sbagliano il giro di più del 10% anche senza taratura: **Melbourne**
+  (+10%), **Jeddah** (+15%) e **Madrid** (+13%). Le tracce sono giuste — quella di Melbourne
+  combacia entro 4 m con una seconda fonte indipendente — quindi il problema è nel modello,
+  non nel disegno. Melbourne è il caso peggiore: il cercatore di zone di straight mode non
+  ne trova nessuna, e senza quelle in gara non si sorpassa mai (0 sorpassi contro 25 veri).
+- L'altimetria manca del tutto: Spa senza l'Eau Rouge in salita e Interlagos senza la
+  discesa sono più facili di quanto siano.
 - Il tracciato di Tsukuba, fra i candidati, non è quello vero: è un anello della lunghezza
   giusta ma quattordici chilometri a ovest del circuito. Va riscaricato
   (`tools/fetch_layouts.py --force --only tsukuba`), e finché non lo si fa non ha una linea

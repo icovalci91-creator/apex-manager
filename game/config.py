@@ -18,7 +18,13 @@ RHO = 1.225                 # densita aria kg/m3
 G = 9.81
 CAR_MASS_KG = 768.0         # peso minimo regolamentare
 FUEL_MASS_KG = 70.0         # carico massimo di benzina: il 2026 ne concede meno
-POWER_W = 745_000.0         # ~1000 CV: 400 kW termico + 350 kW elettrico
+# Il tetto di potenza del regolamento: 400 kW dal termico piu' 350 dal motore
+# elettrico. Non e' una taratura, e' un limite - nessuna power unit puo'
+# superarlo, per quanto sia fatta bene, perche' il flusso di energia del
+# carburante e la potenza dell'MGU-K sono scritti nel regolamento tecnico. Il
+# valore vero lo legge la vettura dal regolamento in vigore; questo e' il
+# ripiego per quando il regolamento non lo dice.
+POWER_W = 750_000.0
 # Meta' di quella potenza e' elettrica, e la batteria non la puo' erogare
 # ovunque: il pacco ha un budget per giro, e in fondo a un rettilineo lungo e'
 # gia' finito. Da qui la spinta elettrica si spegne mano a mano - la stessa
@@ -27,12 +33,24 @@ POWER_W = 745_000.0         # ~1000 CV: 400 kW termico + 350 kW elettrico
 # senza questo il modello arrivava a quattrocento all'ora a Monza, cinquanta
 # piu' del vero, e ci compensava rallentando nelle curve.
 QUOTA_ELETTRICA = 0.47
+
+# Quanto del tetto tira fuori la power unit peggiore della griglia. Fra la
+# migliore e la peggiore, nel mondo vero, ballano pochi punti percentuali di
+# potenza di picco - non il venti per cento che serviva a far vedere la
+# differenza quando il tetto non c'era. La differenza vera fra due power unit
+# si e' spostata dove sta davvero: consumi, recupero, affidabilita'.
+# La forbice si legge fra questi due: sotto il primo valore una power unit e'
+# la peggiore che si sia vista, sopra il secondo e' la migliore possibile, e in
+# mezzo si distribuisce il quattro per cento scarso che separa davvero le due.
+PU_MINIMO = 0.960
+PU_BASSO = 0.70
+PU_ALTO = 0.97
 # Quanta ne entra in un giro, al massimo, per regolamento: e' il tetto, poi
 # quanta se ne riesca davvero a riprendere lo dice quanto si frena li'.
 RECUPERO_MAX_MJ = 8.5
 BATTERIA_MJ = 4.0
-V_TAGLIO_ERS = 320.0 / 3.6
-V_FINE_ERS = 380.0 / 3.6
+V_TAGLIO_ERS = 290.0 / 3.6
+V_FINE_ERS = 355.0 / 3.6
 # Una monoposto ha due ruote motrici, e la spinta la mette a terra solo il
 # carico che quelle due ruote sentono: il peso che sta dietro piu' la parte di
 # carico aerodinamico che grava sul posteriore. Con la ripartizione vera - poco
@@ -41,6 +59,16 @@ V_FINE_ERS = 380.0 / 3.6
 # e mezzo. In frenata invece lavorano tutte e quattro, e infatti si stacca a
 # cinque g.
 QUOTA_MOTRICE = 0.55
+
+# Quanto della larghezza della pista finisce nella linea. Una monoposto non
+# passa dal centro dell'asfalto: entra larga, tocca la corda, esce larga, e
+# cosi' facendo percorre una curva di raggio piu' grande di quella che ha
+# disegnato il progettista. Il guadagno e' geometrico e non e' uguale ovunque:
+# su un tornante da trenta metri di raggio vale l'undici per cento di velocita'
+# in piu', su un curvone da trecento poco piu' dell'uno. E' il pezzo di realta'
+# che pesa di piu' fra quelli che mancavano: il centro pista non e' la strada
+# che fa nessuno.
+QUOTA_LINEA = 0.62
 MU_LAT = 2.15               # coefficiente di aderenza laterale slick
 MU_BRAKE = 1.60             # aderenza longitudinale in frenata
 CLA_BASE = 3.10             # ClA di riferimento (downforce index 1.0)
@@ -51,7 +79,7 @@ CDA_BASE = 2.05             # CdA di riferimento, con le ali in assetto da curva
 # con loro se ne va un quinto della resistenza. Sono due macchine diverse nello
 # stesso giro, ed e' il motivo per cui una CdA sola non descriveva ne' le curve
 # ne' i rettilinei: teneva il valore di compromesso e sbagliava tutti e due.
-QUOTA_XMODE = 0.20
+QUOTA_XMODE = 0.26
 # e sotto questa curvatura - un raggio di ottocento metri - la macchina va
 # dritta abbastanza da poterle appiattire
 K_DRITTO = 1.0 / 800.0

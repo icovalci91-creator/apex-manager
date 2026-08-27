@@ -41,7 +41,11 @@ from game.model.car import Car                     # noqa: E402
 from game.sim import pace                          # noqa: E402
 
 # Le punte di velocita' vere, dove si conoscono: sono quelle da qualifica, non
-# quelle in scia con l'ala aperta.
+# quelle in scia con l'ala aperta. Attenzione a leggerle: sono numeri della
+# generazione precedente, presi con il DRS. Dal 2026 la spinta elettrica
+# comincia a calare a 290 all'ora e si spegne a 355, e le punte scendono di
+# una quindicina di km/h sui circuiti veloci: uno scarto negativo di quella
+# grandezza non e' un errore del modello, e' il regolamento nuovo.
 PUNTE = {
     "monza": 355, "monaco": 290, "spa": 340, "silverstone": 320, "baku": 350,
     "singapore": 310, "mexico": 350, "lasvegas": 350, "jeddah": 345,

@@ -109,6 +109,7 @@ class Car:
     recupero_max_mj: float = C.RECUPERO_MAX_MJ    # tetto al recupero di un giro
     reg_grip: float = 1.0                         # quanta aderenza concede la gomma
     potenza_reg: float = 1.0                      # quanta potenza concede l'architettura
+    potenza_max_w: float = C.POWER_W              # il tetto del regolamento, in watt
     balance: float = 0.0     # -1 macchina piantata dietro, +1 nervosa davanti
 
     # ------------------------------------------------------------------ init
@@ -133,6 +134,19 @@ class Car:
         c.recupero_max_mj = float(mod.get("recupero_max_mj", C.RECUPERO_MAX_MJ))
         c.reg_grip = float(reg.get("grip_multiplier", 1.0))
         c.potenza_reg = float(mod.get("potenza_rel", 1.0))
+        # il tetto e' quello del regolamento tecnico, non un numero nostro: la
+        # somma di quanto puo' dare il termico e di quanto puo' dare
+        # l'elettrico. Nessuna power unit lo supera
+        pu = reg.get("power_unit", {}) or {}
+        tetto = float(pu.get("ice_kw", 400)) + float(pu.get("electric_kw", 350))
+        c.potenza_max_w = max(1.0, tetto) * 1000.0
+        # e la ripartizione fra i due e' la loro, non una taratura
+        if pu.get("electric_kw") and tetto > 0:
+            c.quota_elettrica = float(pu["electric_kw"]) / tetto
+        # una power unit che recupera meglio arriva piu' vicina al tetto di
+        # recupero del regolamento: e' li' che si vede un ERS fatto bene
+        c.recupero_max_mj = c.recupero_max_mj * (0.72 + 0.28 * min(
+            1.0, float(engine.get("ers", 85)) / 100.0))
         return c
 
     def p(self, key: str) -> float:
@@ -177,17 +191,26 @@ class Car:
 
     @property
     def power(self) -> float:
+        """Quanto del tetto di potenza questa power unit riesce davvero a dare.
+
+        Non e' un moltiplicatore libero: il regolamento fissa quanto puo' dare
+        il termico e quanto l'elettrico, e nessuno puo' superare quella somma.
+        Quello che separa una power unit buona da una scarsa e' quanto ci va
+        vicino - e quanto spesso ce la tiene - non di quanto la supera. Nel
+        mondo vero fra la migliore e la peggiore ballano pochi punti
+        percentuali di potenza di picco; il resto della differenza sta nei
+        consumi, nel recupero e nell'affidabilita', che stanno altrove.
+        """
         e = self.engine
         pu = (0.62 * e.get("power", 85) + 0.38 * e.get("ers", 85)) / 100.0
-        cooling = 0.96 + 0.06 * (self.p("cooling") / 100.0)
-        gears = 0.97 + 0.05 * (self.p("gearbox") / 100.0)
+        cooling = 0.97 + 0.04 * (self.p("cooling") / 100.0)
+        gears = 0.98 + 0.03 * (self.p("gearbox") / 100.0)
         # chi costruisce il motore lo sfrutta meglio: mappature, raffreddamento
         # e trasmissione sono disegnati sullo stesso tavolo
-        integ = 1.0 + 0.020 * self.pu_integration
-        # la scala tiene il valore medio dov'era e allarga la forbice: fra la
-        # power unit migliore e la peggiore ci deve essere quello che si vede a
-        # Monza, non un'inezia che sparisce nel rumore
-        return (0.761 + 0.465 * pu * cooling * gears) * integ
+        integ = 1.0 + 0.008 * self.pu_integration
+        val = pu * cooling * gears * integ
+        quota = (val - C.PU_BASSO) / max(1e-6, C.PU_ALTO - C.PU_BASSO)
+        return C.PU_MINIMO + (1.0 - C.PU_MINIMO) * max(0.0, min(1.0, quota))
 
     @property
     def mech_grip(self) -> float:

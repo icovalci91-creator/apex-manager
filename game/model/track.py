@@ -16,7 +16,11 @@ from dataclasses import dataclass, field
 
 from .. import config as C
 
-STEP_M = 8.0  # risoluzione della discretizzazione (metri)
+# Risoluzione della discretizzazione, in metri. Con la spline che infittisce il
+# rilievo si puo' scendere: cinque metri sono un terzo di curva di Monte Carlo,
+# e sotto quella soglia il modello di giro non impara piu' niente ma il conto
+# raddoppia.
+STEP_M = 5.0
 
 # Dove finisce una curva lenta e dove comincia una veloce, in metri al secondo.
 # Sono le soglie con cui in pista si divide il lavoro: sotto i centotrenta
@@ -91,6 +95,8 @@ class Track:
     start: list = field(default_factory=list)   # [lat, lon] della linea del traguardo
     senso: str = ""              # "orario" | "antiorario": da che parte si gira
     settori: list = field(default_factory=list)  # dove tagliano i due intertempi
+    larghezza_m: float = 13.0    # quanto e' larga la pista: decide quanto si raddrizza
+    scala_m: float = 0.0         # il lato del riquadro che contiene il circuito, in metri
     altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
     night: bool = False          # si corre col buio: l'asfalto non prende sole
     climate: dict = field(default_factory=dict)   # temperatura, pioggia e vento del mese
@@ -101,6 +107,7 @@ class Track:
     pit_points: list = field(default_factory=list)  # la corsia box, stessa scala
     curvature: list = field(default_factory=list)   # 1/raggio per ogni punto
     ds: float = STEP_M
+    _curva_linea: list = None    # la curvatura della linea, calcolata una volta
     sector_bounds: tuple = (0.0, 0.0)
     # il giro visto dal cronometro invece che dal metro: a ogni frazione di
     # tempo, a che punto del tracciato si e' e a che velocita' ci si passa
@@ -126,6 +133,7 @@ class Track:
             senso=str(d.get("senso", "")),
             settori=list(d.get("settori") or []),
             altitude=float(d.get("altitude", 0.0)),
+            larghezza_m=float(d.get("larghezza_m", 13.0)),
             night=bool(d.get("night", False)),
             climate=dict(d.get("climate") or {}),
             geo=d.get("geo") or [],
@@ -163,13 +171,18 @@ class Track:
             pts = [(x * k, y * k) for x, y in pts]
 
         n = max(64, int(round(target / STEP_M)))
-        pts = _resample(pts, n)
+        # prima si infittisce con la spline, poi si ricampiona a passo fisso:
+        # cosi' il passo lo decide STEP_M e la forma la decide il rilievo
+        pts = _resample(_spline(pts), n)
         pts = _smooth(pts, passes=2)
         pts = self._al_traguardo(pts, k if raw_len > 1.0 else 1.0)
 
         self.ds = target / len(pts)
         self.curvature = _curvature(pts)
+        self._curva_linea = None
         box = _corsia_box(pts, self.ds, self.pit_loss)
+        self.scala_m = max(max(p[0] for p in pts) - min(p[0] for p in pts),
+                           max(p[1] for p in pts) - min(p[1] for p in pts))
         self.points, extra = _normalise(pts, [box])
         self.pit_points = extra[0]
         self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
@@ -265,9 +278,12 @@ class Track:
 
         pts = _smooth(pts, passes=3)
         box = _corsia_box(pts, self.ds, self.pit_loss)
+        self.scala_m = max(max(p[0] for p in pts) - min(p[0] for p in pts),
+                           max(p[1] for p in pts) - min(p[1] for p in pts))
         self.points, extra = _normalise(pts, [box])
         self.pit_points = extra[0]
         self.curvature = curv
+        self._curva_linea = None
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
 
     # ------------------------------------------------------- modello di giro
@@ -309,13 +325,18 @@ class Track:
         cda_x = cda * (1.0 - C.QUOTA_XMODE)
         dritto = [k < C.K_DRITTO for k in self.curvature]
         mass = car.mass_base + car.mass_extra
-        power = C.POWER_W * car.power * getattr(car, "potenza_reg", 1.0)
+        power = (getattr(car, "potenza_max_w", C.POWER_W) * car.power
+                 * getattr(car, "potenza_reg", 1.0))
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet) * b.get("frenata", 1.0)
         mu_t = mu * b.get("trazione", 1.0)
 
         n = len(self.curvature)
         ds = self.ds
+        # la curvatura che conta non e' quella dell'asse della pista: e' quella
+        # della linea che ci si passa sopra, che e' piu' larga di mezza
+        # carreggiata e quindi piu' dolce
+        curva = self.curvatura_linea()
         quota_e = getattr(car, "quota_elettrica", C.QUOTA_ELETTRICA)
         v_taglio = getattr(car, "v_taglio", C.V_TAGLIO_ERS)
         v_fine = getattr(car, "v_fine", C.V_FINE_ERS)
@@ -418,7 +439,7 @@ class Track:
                       "veloci" if v0 > V_VELOCE else "medie")
             return min(velocita(mu * b.get(classe, 1.0)), vmax), classe
 
-        limiti = [lat_limit(k) for k in self.curvature]
+        limiti = [lat_limit(k) for k in curva]
         vlim = [x[0] for x in limiti]
         classi = [x[1] for x in limiti]
 
@@ -436,7 +457,7 @@ class Track:
                 # a duecento all'ora la trazione non e' quella di un semaforo
                 mu_v = mu_t * carico(vi * vi) ** -SENSIBILITA_CARICO
                 presa = mu_v * (C.G + aero * vi * vi)
-                ki = self.curvature[i]
+                ki = curva[i]
                 quota = resta(vi * vi * ki, presa, rap_t) if ki > 1e-9 else 1.0
                 # e la spinta la mettono a terra due ruote sole: conta il
                 # carico che sente l'assale posteriore, non tutta la vettura
@@ -455,7 +476,7 @@ class Track:
                 # quasi mezzo g da sola
                 mu_v = mu_b * carico(vj * vj) ** -SENSIBILITA_CARICO
                 presa = mu_v * (C.G + aero * vj * vj)
-                kj = self.curvature[j]
+                kj = curva[j]
                 quota = resta(vj * vj * kj, presa, rap_b) if kj > 1e-9 else 1.0
                 a_b = presa * quota + 0.5 * rho * cda * vj * vj / mass  # in frenata l'ala e' aperta
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
@@ -468,6 +489,22 @@ class Track:
             vm = max(3.0, 0.5 * (v[i] + v[j]))
             t += ds / vm
         return t * self.calibration, vmax * 3.6, v, vlim, classi
+
+    def curvatura_linea(self) -> list:
+        """La curvatura vista dalla linea, non dall'asse della pista.
+
+        Una monoposto larga due metri su una pista larga tredici non passa dal
+        centro: entra larga, tocca la corda, esce larga, e percorre una curva
+        di raggio piu' grande di quella disegnata. Il conto e' geometrico -
+        raggio piu' un pezzo di carreggiata - e vale tanto dove la curva e'
+        stretta e quasi niente dove e' larga, che e' esattamente come si
+        comporta in pista.
+        """
+        if self._curva_linea is None:
+            largo = max(0.0, self.larghezza_m * C.QUOTA_LINEA)
+            self._curva_linea = [k / (1.0 + k * largo) if k > 1e-9 else k
+                                 for k in self.curvature]
+        return self._curva_linea
 
     def _map_domains(self, ref_car, cond) -> None:
         """Divide il giro in domini una volta per tutte, sulla vettura campione.
@@ -516,7 +553,8 @@ class Track:
         mass = ref_car.mass_base + ref_car.mass_extra
         rho = cond.rho
         cda = C.CDA_BASE * ref_car.drag
-        potenza_e = (C.POWER_W * getattr(ref_car, "potenza_reg", 1.0)
+        potenza_e = (getattr(ref_car, "potenza_max_w", C.POWER_W)
+                     * getattr(ref_car, "potenza_reg", 1.0)
                      * getattr(ref_car, "quota_elettrica", C.QUOTA_ELETTRICA))
         preso = 0.0
         for i in range(n):
@@ -752,7 +790,8 @@ class Track:
         scala = (t / self.calibration) if self.calibration else 1.0
         tempi = {d: 0.0 for d in DOMINI}
         mass = car.mass_base + car.mass_extra
-        power = C.POWER_W * car.power * getattr(car, "potenza_reg", 1.0)
+        power = (getattr(car, "potenza_max_w", C.POWER_W) * car.power
+                 * getattr(car, "potenza_reg", 1.0))
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         aero = (C.RHO if rho is None else rho) * C.CLA_BASE * car.downforce / (2.0 * mass)
         vmax = vmax_kmh / 3.6
@@ -923,6 +962,51 @@ def _centro(geo) -> tuple:
 
 def _path_length(pts) -> float:
     return sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+
+
+def _spline(pts, per_segmento: int = 8, alpha: float = 0.5) -> list:
+    """Infittisce la polilinea con una curva che ci passa dentro.
+
+    I punti che arrivano da OpenStreetMap stanno dove la strada piega, e in
+    mezzo ci sono venti, trenta, a volte cento metri di niente: unirli con
+    segmenti di retta vuol dire disegnare le curve come poligoni, e un poligono
+    non ha una curvatura - ne ha una infinita in ogni vertice e zero in mezzo.
+    Il modello di giro ci si trova male e l'occhio pure.
+
+    La Catmull-Rom passa esattamente per i punti rilevati e in mezzo ci mette
+    l'arco che ci starebbe: non inventa informazione, la ridistribuisce. Si usa
+    la versione centripeta - il parametro sta sulla radice della distanza e non
+    sulla distanza - perche' quella normale, dove due punti rilevati sono
+    vicini e il terzo lontano, scavalca il punto e disegna un cappio: curve
+    piu' strette di quelle vere, e un modello di giro che ci frena dentro.
+    """
+    n = len(pts)
+    if n < 4:
+        return list(pts)
+    fuori = []
+    for i in range(n):
+        p = [pts[(i - 1) % n], pts[i], pts[(i + 1) % n], pts[(i + 2) % n]]
+        t = [0.0] * 4
+        for k in range(1, 4):
+            d = math.dist(p[k], p[k - 1])
+            t[k] = t[k - 1] + (d ** alpha if d > 1e-9 else 1e-6)
+        if t[2] - t[1] < 1e-9:
+            fuori.append(pts[i])
+            continue
+        for j in range(per_segmento):
+            tt = t[1] + (t[2] - t[1]) * j / per_segmento
+            a1 = _lerp(p[0], p[1], (t[1] - tt) / (t[1] - t[0]), (tt - t[0]) / (t[1] - t[0]))
+            a2 = _lerp(p[1], p[2], (t[2] - tt) / (t[2] - t[1]), (tt - t[1]) / (t[2] - t[1]))
+            a3 = _lerp(p[2], p[3], (t[3] - tt) / (t[3] - t[2]), (tt - t[2]) / (t[3] - t[2]))
+            b1 = _lerp(a1, a2, (t[2] - tt) / (t[2] - t[0]), (tt - t[0]) / (t[2] - t[0]))
+            b2 = _lerp(a2, a3, (t[3] - tt) / (t[3] - t[1]), (tt - t[1]) / (t[3] - t[1]))
+            fuori.append(_lerp(b1, b2, (t[2] - tt) / (t[2] - t[1]),
+                               (tt - t[1]) / (t[2] - t[1])))
+    return fuori
+
+
+def _lerp(a, b, wa: float, wb: float):
+    return (a[0] * wa + b[0] * wb, a[1] * wa + b[1] * wb)
 
 
 def _resample(pts, n: int) -> list:
