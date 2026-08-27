@@ -58,6 +58,11 @@ FORZA_SORPASSO = 0.45
 # di passo: dove non c'e' spazio non si passa nemmeno con due secondi al giro.
 TETTO_BASE = 0.022
 TETTO_PISTA = 0.185
+# Quanto pesa, sul tentativo, avere piu' energia in cassa dell'altro. Mezza
+# batteria di vantaggio - che e' tanto, ci vogliono due giri di ricarica per
+# farla - vale poco piu' di un terzo di possibilita' in piu'; e altrettanto in
+# meno a chi si trova nella condizione opposta.
+VANTAGGIO_CARICA = 0.70
 
 
 def follow_gap(track) -> float:
@@ -216,6 +221,7 @@ class Entrant:
     consistency: float = 80.0
     tyre_skill: float = 80.0
     aggression: float = 70.0
+    estro: float = 60.0           # quanto si inventa: traiettorie, staccate, giri
     racecraft: float = 80.0
     wet_skill: float = 80.0
     stamina: float = 90.0
@@ -272,6 +278,9 @@ class Entrant:
     override_usi: int = 0
     override_t: float = 0.0       # da quanto e' acceso, per il tabellone
     ers_skill: float = 85.0       # quanto bene questa power unit riempie la batteria
+    bloccato_da: str = ""         # dietro chi si e' incastrati...
+    bloccato_giri: int = 0        # ...e da quanti giri
+    piano_energia: int = 0        # >0 giri messi via per l'attacco, <0 giri di attacco
     fuel_warned: bool = False
     grid: int = 1
     finished_time: float = 0.0
@@ -724,6 +733,7 @@ class RaceSim:
         metri_s = max(20.0, self.track_len / max(30.0, e.last_lap))
         ga = (avanti.dist - e.dist) / metri_s if avanti else 99.0
         gd = (e.dist - dietro.dist) / metri_s if dietro else 99.0
+        EN.aggiorna_blocco(self, e, avanti, ga)
         EN.scegli_modo(self, e, avanti, dietro, ga, gd)
         e.energy_delta = EN.passo_giro(self, e)
         EN.scegli_mappa(self, e, ga, gd)
@@ -788,6 +798,13 @@ class RaceSim:
                                        "ma in curva no."))
         elif e.clipping:
             voci.append((8, "pilota", "Batteria a secco, in fondo al dritto non spingo piu'."))
+        elif e.piano_energia > 0:
+            chi = f" su {avanti.code}" if avanti else ""
+            voci.append((7, "muretto", f"Lascialo andare e carica: fra due giri{chi} "
+                                       f"ci arriviamo con la batteria piena."))
+        elif e.piano_energia < 0:
+            voci.append((7, "muretto", f"Adesso spendila tutta: {e.carica:.1f} megajoule, "
+                                       f"piu' di quelli che ha lui."))
         elif e.energy_mode == "ricarica":
             voci.append((4, "muretto", f"Due giri di ricarica: siamo a {e.carica:.1f} "
                                        f"megajoule, poi te la ridiamo tutta."))
@@ -1020,6 +1037,15 @@ class RaceSim:
             # due volte riempiva le gare di sorpassi che non esistono
             if ahead.scarica:
                 p *= 1.30
+            # e senza arrivare a tanto: conta gia' averne piu' di lui. Chi
+            # imbocca il dritto con un megajoule di vantaggio ce l'ha in mano
+            # per tutta la staccata, e chi ne ha meno lo sa e si difende prima.
+            # E' qui che la gestione diversa dell'elettrico paga: non si passa
+            # perche' si va piu' forte, si passa perche' in quel giro li' si ha
+            # in cassa quello che l'altro ha gia' speso
+            if self.batteria_max > 0.2:
+                piu = (behind.carica - ahead.carica) / self.batteria_max
+                p *= 1.0 + VANTAGGIO_CARICA * max(-0.5, min(0.5, piu))
             # e poi ci vuole lo spazio per stare affiancati: e' quello che
             # separa Monte Carlo dal Red Bull Ring a parita' di staccata
             p *= 0.20 + 0.80 * ot_track
@@ -1027,6 +1053,12 @@ class RaceSim:
             p *= 0.85 + 0.35 * (behind.aggression / 100.0)
             p /= max(0.60, 0.65 + 0.55 * (ahead.racecraft / 100.0))
             p *= 1.0 + 0.35 * self.weather.wet
+            # e poi c'e' quello che il passo non spiega: la traiettoria da
+            # fuori, la staccata tenuta mezzo metro piu' in la', il buco che
+            # c'era per un decimo. Chi ce l'ha passa dove non si passa - e chi
+            # difende con inventiva quel buco lo chiude prima che si apra
+            p *= 0.82 + 0.36 * (behind.estro / 100.0)
+            p /= max(0.75, 0.86 + 0.28 * (ahead.estro / 100.0))
             # e comunque, per quanto uno sia piu' veloce, il posto per passare
             # non lo inventa: e' il tetto che separa Monza da Monte Carlo
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot_track, p):

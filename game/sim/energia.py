@@ -92,6 +92,24 @@ def valore_mj(track) -> float:
     return RESA * float(getattr(track, "ers_secondi", 8.0)) / energia
 
 
+# Il software di gestione, che e' l'altra meta' della power unit e quella che
+# non si vede. Non cambia quanta energia hai in cassa: cambia quanto ti rende
+# quella che spendi. Un buon software la mette dove serve - all'uscita, nella
+# parte di dritto in cui la macchina accelera ancora - e non a meta' rettilineo
+# dove sei gia' contro il muro dell'aria; e quando la cassa si svuota accompagna
+# la caduta invece di lasciarti senza spinta di colpo. Due macchine con la
+# stessa batteria e lo stesso recupero non guadagnano lo stesso a spenderla, ed
+# e' per questo che il banco prova ci lavora tanto quanto sui kilowatt.
+SOFTWARE_RIF = 85.0
+SOFTWARE_PESO = 0.70
+
+
+def resa_software(e) -> float:
+    """Quanto rende, su questa macchina, un megajoule speso in piu'."""
+    skill = float(getattr(e, "ers_skill", SOFTWARE_RIF))
+    return max(0.60, 1.0 + SOFTWARE_PESO * (skill - SOFTWARE_RIF) / 100.0)
+
+
 # Quanta energia rimette in cassa un giro di ricarica su un circuito medio, e
 # qual e' il circuito medio: dove si frena molto la batteria si riempie in
 # fretta, dove non si frena mai non c'e' modo di rimetterla dentro.
@@ -273,7 +291,8 @@ def passo_giro(sim, e) -> float:
     else:
         voluta = min(voluta, max(0.0, e.carica))
     e.carica = max(0.0, min(sim.batteria_max, e.carica - voluta))
-    guadagno = -voluta * valore_mj(sim.track)
+    resa_sw = resa_software(e)
+    guadagno = -voluta * valore_mj(sim.track) * resa_sw
     if e.lift_coast:
         guadagno += LIFT_SECONDI
     if super_mj > 0.0 and chiesta > 1e-9:
@@ -287,10 +306,10 @@ def passo_giro(sim, e) -> float:
     aggiorna_clip(sim, e)
     if e.clipping:
         manca = 1.0 - min(1.0, e.carica / (SOGLIA_CLIP * k))
-        guadagno += CLIPPING * manca * valore
+        guadagno += CLIPPING * manca * valore / resa_sw
     if e.scarica:
         vuota = 1.0 - min(1.0, e.carica / (USCITA_SCARICA * k))
-        guadagno += PENA_SCARICA * vuota * valore
+        guadagno += PENA_SCARICA * vuota * valore / resa_sw
     return guadagno
 
 
@@ -315,7 +334,44 @@ def usa_override(sim, e) -> float:
     """Spende il mezzo megajoule dell'override. Ritorna quanta spinta da'."""
     e.carica = max(0.0, e.carica - OVERRIDE_MJ * scala(sim))
     e.override_usi += 1
-    return OVERRIDE_SPINTA
+    return OVERRIDE_SPINTA * resa_software(e)
+
+
+# ----------------------------------------------------- l'attacco preparato
+# Stare incollati a uno che va uguale e' il modo migliore per non passarlo mai:
+# per restare li' si spende, e a fine giro se ne ha meno di lui - cosi' il giro
+# dopo si e' li' di nuovo, con anche meno in mano. Quello che si fa davvero e'
+# l'opposto: si molla di mezzo secondo per un giro o due, si riempie la
+# batteria - anche a gas spalancato, che seguendo costa poco - e poi si arriva
+# in fondo al dritto con un megajoule piu' dell'altro. E' la stessa energia,
+# spesa in un ordine diverso, e la differenza fra i due ordini e' che uno dei
+# due fa passare.
+BLOCCO_GAP = 1.6          # entro tanto si e' "li' dietro"
+BLOCCO_GIRI = 3           # e da tanti giri prima che al muretto venga l'idea
+PIANO_CARICA = 2          # quanti giri si mette via
+PIANO_ATTACCO = 2         # e quanti se ne spendono dopo
+PIANO_VANTAGGIO = 0.28    # se gia' se ne ha tanta piu' di lui, si attacca e basta
+PIANO_MOLLA = 3.4         # se intanto lo si e' perso di vista, il piano si butta
+
+
+def aggiorna_blocco(sim, e, avanti, gap_avanti: float) -> None:
+    """Tiene il conto di da quanti giri si e' incastrati dietro lo stesso.
+
+    Va chiamata una volta per giro, prima di scegliere il modo, e vale anche
+    quando l'energia la gestisce il giocatore: il conto serve al tabellone
+    quanto al muretto.
+    """
+    stesso = avanti is not None and avanti.driver_id == e.bloccato_da
+    if avanti is not None and gap_avanti < BLOCCO_GAP and e.status == "running":
+        e.bloccato_giri = e.bloccato_giri + 1 if stesso else 1
+        e.bloccato_da = avanti.driver_id
+    else:
+        e.bloccato_giri = 0
+        if not stesso or gap_avanti > PIANO_MOLLA:
+            # o e' cambiato l'avversario, o lo si e' perso: non c'e' piu' niente
+            # da preparare. Il giro di ricarica invece stacca di suo, e quello
+            # non conta come averlo perso
+            e.bloccato_da, e.piano_energia = "", 0
 
 
 def scegli_modo(sim, e, avanti, dietro, gap_avanti: float, gap_dietro: float) -> None:
@@ -330,14 +386,35 @@ def scegli_modo(sim, e, avanti, dietro, gap_avanti: float, gap_dietro: float) ->
     if e.is_player and e.energy_manual:
         return
     resta = sim.laps - e.lap
-    vicino_avanti = avanti is not None and gap_avanti < 1.6
+    vicino_avanti = avanti is not None and gap_avanti < BLOCCO_GAP
     vicino_dietro = dietro is not None and gap_dietro < 1.2
+    potenza = float((getattr(sim.track, "traits", None) or {}).get("power", 0.55))
+    if e.scarica:
+        e.piano_energia = 0                 # a secco non si prepara niente
     # ricaricare a gas spalancato costa sul dritto: lo si fa quando intorno non
     # c'e' nessuno, e su una pista che ha rettilinei abbastanza da renderlo
     # conveniente. In mezzo a un duello e' il modo migliore per farsi passare
     e.superclip = (not vicino_avanti and not vicino_dietro
                    and e.carica < sim.batteria_max * 0.40
-                   and float((getattr(sim.track, "traits", None) or {}).get("power", 0.55)) > 0.55)
+                   and potenza > 0.55)
+    # se il piano e' in corso comanda lui, che e' tutto il punto di avere un
+    # piano: due giri dietro senza provarci e poi due in cui si prova
+    if e.piano_energia > 0:
+        e.piano_energia -= 1
+        if e.piano_energia == 0:
+            e.piano_energia = -PIANO_ATTACCO
+        e.energy_mode = "ricarica"
+        # seguendo, il gas spalancato costa solo sul dritto - dove tanto dietro
+        # a uno non si passa - e non costa in curva, dove invece si resta
+        # attaccati. E' il momento in cui il superclipping vale davvero
+        e.superclip = potenza > 0.42 and e.carica < sim.batteria_max * 0.92
+        e.lift_coast = not e.superclip and not vicino_dietro
+        return
+    if e.piano_energia < 0:
+        e.piano_energia += 1
+        e.energy_mode = "attacco"
+        e.superclip = e.lift_coast = False
+        return
     if e.scarica or e.carica < sim.batteria_max * 0.22:
         e.energy_mode = "ricarica"          # prima si rimette qualcosa dentro
         e.lift_coast = not vicino_dietro
@@ -346,6 +423,18 @@ def scegli_modo(sim, e, avanti, dietro, gap_avanti: float, gap_dietro: float) ->
     if vicino_avanti:
         # se chi sta davanti e' a secco vale la pena spingere: non puo' rispondere
         scarico = avanti.scarica or avanti.carica < sim.batteria_max * 0.30
+        # ma se si e' li' da tre giri e non se ne esce, spingere di piu' non e'
+        # la risposta: e' quello che si sta gia' facendo. Si molla e si prepara
+        if (not scarico and e.bloccato_giri >= BLOCCO_GIRI
+                and scala_giro(sim) > 0.0 and sim.batteria_max > 0.2
+                and resta > PIANO_CARICA + PIANO_ATTACCO
+                and e.carica - avanti.carica < PIANO_VANTAGGIO * sim.batteria_max):
+            e.bloccato_giri = 0
+            e.piano_energia = PIANO_CARICA - 1
+            e.energy_mode = "ricarica"
+            e.superclip = potenza > 0.42 and e.carica < sim.batteria_max * 0.92
+            e.lift_coast = not e.superclip and not vicino_dietro
+            return
         e.energy_mode = "attacco" if (scarico or e.carica > sim.batteria_max * 0.55) else "normale"
     elif vicino_dietro:
         e.energy_mode = "attacco" if e.carica > sim.batteria_max * 0.45 else "normale"
