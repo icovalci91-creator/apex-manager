@@ -358,12 +358,18 @@ class Car:
         ala = getattr(track, "wing_ref", None)
         if ala is None:
             ala = 100.0 * min(1.0, max(0.0, t["downforce"]))
+        # i rapporti li trova il modello di giro provandoli in fondo al
+        # rettilineo piu' lungo; il carattere del circuito e' il ripiego per
+        # quando quella misura non c'e' ancora
+        marce = getattr(track, "gearing_ref", None)
+        if marce is None:
+            marce = 100.0 * min(1.0, max(0.0, t["power"]))
         return {
             "wing":        float(ala),
             "ride_height": 100.0 * min(1.0, max(0.0, 0.28 + 0.62 * t["bumpiness"])),
             "stiffness":   100.0 * min(1.0, max(0.0, 0.72 - 0.50 * t["bumpiness"] + 0.18 * t["downforce"])),
             "camber":      100.0 * min(1.0, max(0.0, 0.35 + 0.45 * t["downforce"] - 0.15 * t["power"])),
-            "gearing":     100.0 * min(1.0, max(0.0, t["power"])),
+            "gearing":     float(marce),
             "brake_bias":  100.0 * min(1.0, max(0.0, 0.35 + 0.40 * t["braking"])),
         }
 
@@ -372,9 +378,10 @@ class Car:
 
         Non tutte le regolazioni contano uguale dappertutto: l'altezza da terra
         la si paga dove l'asfalto e' sconnesso, i rapporti dove si tira, la
-        ripartizione di frenata dove si stacca forte. Il carico alare fa storia
-        a se': quello lo pesa gia' il modello di giro, in resistenza e in
-        percorrenza, e contarlo due volte sarebbe barare.
+        ripartizione di frenata dove si stacca forte. Il carico alare e i
+        rapporti fanno storia a se': quelli li pesa gia' il modello di giro -
+        l'ala in resistenza e percorrenza, le marce in limitatore e ripresa -
+        e contarli due volte sarebbe barare.
         """
         opt = self.optimal_setup(track, driver, cond)
         t = track.traits
@@ -392,7 +399,7 @@ class Car:
             fuori = min(1.0, (abs(self.setup.get(k, 50.0) - ideale) / 40.0) ** 1.4)
             tot += p * fuori
             peso_tot += p
-            if k != "wing":
+            if k not in ("wing", "gearing"):
                 costo += p * fuori
                 peso_costo += p
         self.setup_quality = max(0.0, 1.0 - tot / max(1e-6, peso_tot))

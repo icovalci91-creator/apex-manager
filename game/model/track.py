@@ -11,6 +11,7 @@ frenata) restituiscono il profilo di velocita' e quindi il tempo sul giro.
 """
 from __future__ import annotations
 
+import bisect
 import math
 from dataclasses import dataclass, field
 
@@ -81,6 +82,12 @@ PILOTA_RIF = 0.3233      # quota di giro che non e' rettilineo
 SCIA_CARICO = 0.85
 SCIA_RESISTENZA = 0.94
 
+# Quanto sopra la velocita' che il circuito concede va messo il limitatore.
+# Poco: l'ultima marcia serve a finire il rettilineo, non a fare da vetrina, e
+# ogni chilometro all'ora di margine che non si usa e' un rapporto piu' lungo
+# di quanto serva - cioe' una ripresa peggiore in tutte le altre marce.
+MARGINE_LIMITATORE = 1.02
+
 
 @dataclass
 class Segment:
@@ -113,6 +120,7 @@ class Track:
     popularity: float = 60.0     # richiamo di pubblico
     calibration: float = 1.0
     wing_ref: float | None = None   # l'ala che il modello di giro vuole qui
+    gearing_ref: float | None = None  # e i rapporti: quanto lunga vuole l'ultima
     domain_map: list = field(default_factory=list)   # cosa e' ogni metro di pista
     corner_map: list = field(default_factory=list)   # le curve, una per una
     zone_ala: list = field(default_factory=list)     # dove si apre l'ala e si prova a passare
@@ -362,7 +370,8 @@ class Track:
                  * getattr(car, "potenza_reg", 1.0))
         mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
         mu_b = C.MU_BRAKE * car.braking * grip * (1.0 - 0.28 * wet) * b.get("frenata", 1.0)
-        mu_t = mu * b.get("trazione", 1.0)
+        mu_t = (C.MU_TRAZIONE * car.mech_grip * grip * (1.0 - 0.30 * wet)
+                * b.get("trazione", 1.0))
 
         n = len(self.curvature)
         ds = self.ds
@@ -378,18 +387,52 @@ class Track:
         v_taglio = getattr(car, "v_taglio", C.V_TAGLIO_ERS)
         v_fine = getattr(car, "v_fine", C.V_FINE_ERS)
 
+        # il cambio: dove arriva l'ultima e quanto sono distanziati gli otto
+        # rapporti. La prima e' quella di sempre, l'ultima la sceglie chi
+        # prepara la macchina, e il passo fra un rapporto e l'altro viene di
+        # conseguenza - piu' l'ultima e' lunga, piu' i salti sono grossi
+        rapporti = float((getattr(car, "setup", None) or {}).get("gearing", 50.0))
+        v_ultima = C.V_ULTIMA_CORTA + (C.V_ULTIMA_LUNGA - C.V_ULTIMA_CORTA) * \
+            max(0.0, min(1.0, rapporti / 100.0))
+        passo_marce = (v_ultima / C.V_PRIMA) ** (1.0 / max(1, C.MARCE - 1))
+        power *= C.RESA_TRASMISSIONE
+        # dove arriva ogni rapporto: otto numeri, calcolati una volta. Il conto
+        # dentro al giro e' una ricerca binaria su questi, non una scalata di
+        # marce - la differenza sono due secondi e mezzo all'avvio del gioco
+        cime = [min(v_ultima, C.V_PRIMA * passo_marce ** i) for i in range(C.MARCE)]
+        giri_minimi = 1.0 / passo_marce
+
+        def marcia(v: float) -> float:
+            """A che punto del rapporto si sta girando, da poco piu' di zero a uno.
+
+            Uno vuol dire limitatore, cioe' potenza massima; appena dopo una
+            cambiata si e' in fondo alla scala e il termico da' di meno. Piu'
+            i rapporti sono lunghi piu' in basso lo si butta a ogni cambiata.
+            """
+            i = bisect.bisect_left(cime, v)
+            cima = cime[i] if i < C.MARCE else v_ultima
+            return max(giri_minimi, min(1.0, v / max(1.0, cima)))
+
         def potenza(v: float) -> float:
             """La potenza che c'e' davvero a quella velocita'.
 
             Sopra una certa andatura il regolamento fa calare la parte
             elettrica fino a spegnerla: e' li' che una monoposto smette di
             accelerare, molto prima di dove la porterebbe la sola resistenza
-            dell'aria.
+            dell'aria. E sotto, a decidere quanta ce n'e', c'e' il rapporto
+            che si sta tirando: in fondo all'ultima non ce n'e' piu' comunque,
+            perche' il limitatore e' il limitatore.
             """
+            if v >= v_ultima:
+                return 0.0
             quota = 1.0
             if v > v_taglio:
                 quota = max(0.0, 1.0 - (v - v_taglio) / max(1.0, v_fine - v_taglio))
-            return power * (1.0 - quota_e + quota_e * quota * elettrico)
+            # il termico segue i giri, l'elettrico no: il motore elettrico la
+            # coppia ce l'ha tutta da subito, ed e' per questo che nel 2026 la
+            # ripresa dopo una cambiata non e' piu' quella di prima
+            giri = max(C.COPPIA_MINIMA, 1.0 - C.CADUTA_COPPIA * (1.0 - marcia(v)))
+            return power * ((1.0 - quota_e) * giri + quota_e * quota * elettrico)
 
         # Velocita' massima assoluta: dove la potenza che resta non basta piu' a
         # vincere l'aria. La si cerca per bisezione e non rigirando il conto su
@@ -497,9 +540,17 @@ class Track:
                 ki = curva[i]
                 quota = resta(vi * vi * ki, presa, rap_t) if ki > 1e-9 else 1.0
                 # e la spinta la mettono a terra due ruote sole: conta il
-                # carico che sente l'assale posteriore, non tutta la vettura
+                # carico che sente l'assale posteriore, non tutta la vettura -
+                # e sotto spinta quel carico cresce, perche' la macchina si
+                # siede. Il conto si morde la coda e si scioglie girandolo due
+                # volte, che e' piu' di quanto serva
+                dietro = C.QUOTA_MOTRICE
+                for _ in range(2):
+                    spinta = presa * dietro * quota
+                    dietro = min(C.QUOTA_MOTRICE_MAX,
+                                 C.QUOTA_MOTRICE + C.TRASFERIMENTO * spinta / C.G)
                 a = min(potenza(vi) / (mass * vi),
-                        presa * C.QUOTA_MOTRICE * quota) - drag_a
+                        presa * dietro * quota) - drag_a
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -962,6 +1013,11 @@ class Track:
         fisica = self._best_wing(ref_car, cond)
         scheda = 100.0 * min(1.0, max(0.0, self.traits.get("downforce", 0.5)))
         self.wing_ref = round(0.5 * fisica + 0.5 * scheda, 1)
+        # i rapporti invece li decide solo il modello, e non c'e' scheda che
+        # tenga: dove finisce l'ultima marcia e' una cosa che si misura in
+        # fondo al rettilineo piu' lungo, non un aggettivo sul circuito
+        ref_car.setup["wing"] = self.wing_ref
+        self.gearing_ref = self._best_gearing(ref_car, cond)
         # e con l'ala giusta si segna, metro per metro, che cosa e' questo
         # circuito: dove si frena, dove si curva piano, dove si tira
         ref_car.setup = ref_car.optimal_setup(self, cond=cond)
@@ -1006,6 +1062,46 @@ class Track:
         fine = min(range(max(0, best - 10), min(100, best + 10) + 1, 5), key=costo)
         ref_car.setup = saved
         return float(fine)
+
+    def _best_gearing(self, ref_car, cond) -> float:
+        """I rapporti piu' veloci qui: si provano, come l'ala.
+
+        Il baratto e' quello vero. Corti, il motore sta sempre vicino al
+        regime di potenza massima e in uscita di curva si spinge; ma
+        l'ultima finisce presto e in fondo al rettilineo si arriva contro il
+        limitatore, che e' il modo piu' stupido di perdere velocita'. Lunghi,
+        in fondo al dritto ce n'e' ancora, ma a ogni cambiata il motore viene
+        buttato piu' in basso e si riprende peggio. Dove sta il punto giusto
+        lo dice la lunghezza dei rettilinei, cioe' il circuito.
+
+        Il punto di partenza non e' un tentativo alla cieca: con i rapporti piu'
+        lunghi che si possano mettere il limitatore non lo si tocca mai, e la
+        velocita' che si tocca in quelle condizioni e' quella che il circuito
+        concede. L'ultima marcia va messa poco sopra quella - come si fa
+        davvero - e attorno a quel punto si prova. Cinque giri simulati invece
+        di tredici, e il risultato e' lo stesso.
+        """
+        from ..sim import pace
+        saved = dict(ref_car.setup)
+        grip = pace.surface_grip(cond)
+        provati = {}
+
+        def costo(g):
+            if g not in provati:
+                ref_car.setup["gearing"] = float(g)
+                provati[g] = self._solve(ref_car, 0.0, grip, cond.rho, None, giri=1)[0]
+            return provati[g]
+
+        ref_car.setup["gearing"] = 100.0
+        _t, _v, v, _l, _c = self._solve(ref_car, 0.0, grip, cond.rho, None, giri=1)
+        voluta = max(v) * MARGINE_LIMITATORE
+        largo = max(1e-6, C.V_ULTIMA_LUNGA - C.V_ULTIMA_CORTA)
+        partenza = 100.0 * (voluta - C.V_ULTIMA_CORTA) / largo
+        centro = int(round(max(0.0, min(100.0, partenza)) / 6.0)) * 6
+        intorno = [g for g in range(centro - 6, centro + 7, 6) if 0 <= g <= 100]
+        best = min(intorno, key=costo)
+        ref_car.setup = saved
+        return float(best)
 
     def sector_of(self, idx: int) -> int:
         a, b = self.sector_bounds

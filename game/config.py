@@ -59,6 +59,49 @@ V_FINE_ERS = 355.0 / 3.6
 # e mezzo. In frenata invece lavorano tutte e quattro, e infatti si stacca a
 # cinque g.
 QUOTA_MOTRICE = 0.55
+# Ma quella ripartizione e' quella da fermo, e da fermo non ci si sta mai. Nel
+# momento in cui si spinge, la macchina si siede sul posteriore: il carico si
+# sposta indietro di quanto vale il baricentro diviso il passo, e le due ruote
+# motrici si trovano sotto piu' peso di quello che avevano un attimo prima.
+# Con un baricentro a trenta centimetri da terra e un passo di tre metri e
+# sessanta fa poco piu' di otto punti di ripartizione per ogni g di spinta -
+# ed e' il motivo per cui una monoposto in uscita di curva ha piu' trazione di
+# quanta ne dica il conto statico. Il conto si morde la coda (piu' spinge piu'
+# si siede, piu' si siede piu' spinge) e si scioglie rigirandolo due volte.
+TRASFERIMENTO = 0.083
+QUOTA_MOTRICE_MAX = 0.86    # oltre non ci si va: davanti resta comunque del peso
+
+# La gomma non tiene uguale in tutte le direzioni, e trattare la trazione come
+# se fosse tenuta laterale era la scorciatoia piu' grossa rimasta: una slick
+# di traverso e' al suo massimo, la stessa gomma che deve trasmettere coppia
+# tiene meno. E' anche il motivo per cui una monoposto scatta forte ma non
+# quanto direbbe il suo peso e la sua aderenza.
+MU_TRAZIONE = 1.90
+
+# --- Il cambio -----------------------------------------------------------
+# Otto rapporti, come vuole il regolamento, e per regolamento sono fissi per
+# la stagione. Quello che una squadra sceglie e' dove metterli: corti, e la
+# macchina scatta ma arriva al limitatore prima della fine del rettilineo;
+# lunghi, e in fondo al dritto ce n'e' ancora ma in uscita di curva si spinge
+# di meno. E' un baratto vero, e finche' i rapporti non entravano nel modello
+# di giro il cursore che li regola non decideva niente.
+MARCE = 8
+# Quanto arriva a terra di quello che esce dal motore: il resto se lo prendono
+# gli ingranaggi, i cuscinetti e i trenta millesimi di strappo di ogni
+# cambiata. Su un giro sono cambiate a decine.
+RESA_TRASMISSIONE = 0.94
+# E come cala la potenza del termico quando i giri scendono. Appena dopo una
+# cambiata il motore non e' al regime di potenza massima, e ci torna salendo:
+# piu' i rapporti sono lunghi, piu' in basso lo si butta a ogni cambiata, e
+# meno potenza media si ha per accelerare.
+CADUTA_COPPIA = 0.90
+COPPIA_MINIMA = 0.72
+# La prima e' quella che serve a partire da fermo e a uscire dai tornanti: la
+# si mette dove la si mette da sempre. L'ultima invece la si sceglie, ed e' il
+# cursore dei rapporti a dire dove.
+V_PRIMA = 88.0 / 3.6        # m/s: dove la prima arriva al limitatore
+V_ULTIMA_CORTA = 302.0 / 3.6
+V_ULTIMA_LUNGA = 372.0 / 3.6
 
 # Quanto della larghezza della pista finisce nella linea. Una monoposto non
 # passa dal centro dell'asfalto: entra larga, tocca la corda, esce larga, e
