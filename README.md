@@ -373,6 +373,15 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   termico va in batteria invece che a terra (il regolamento lo tappa a 250 kW). Rimette
   dentro molta più energia e non tocca la curva, ma sul rettilineo sei corto - quindi non
   lo si fa mentre si difende o si attacca, e chi ti segue lo sfrutta.
+- **Temperatura delle gomme**: una gomma ha una finestra larga una ventina di gradi, e
+  dentro quella tiene. Sotto non si accende — è il giro dopo la sosta — e sopra si sfoglia,
+  perde aderenza e si consuma il 55% più in fretta. A portarla dentro o fuori è tutto quello
+  che succede in gara: le curve la scaldano e i rettilinei la raffreddano (a Budapest è
+  sempre al limite, a Monza non si scalda mai), chi spinge la cuoce, chi sta attaccato a un
+  altro pure — nell'aria sporca si scivola e all'anteriore arriva meno aria fresca — e
+  dietro alla safety car si gela. Con l'asfalto a 50 °C a Budapest si finisce a 125 °C e si
+  fanno 1,7 soste; con l'asfalto a 22 °C a Monza si resta a 84 °C e si perdono tre decimi al
+  giro senza mai riuscire ad accenderle.
 - **L'attacco preparato**: se resti tre giri entro 1,6 s dallo stesso avversario senza
   passarlo, il muretto smette di spingere e prepara. Due giri di ricarica - a gas
   spalancato, che seguendo costa sul dritto ma non costa in curva, quindi resti comunque
@@ -545,10 +554,30 @@ Quattro cose che il modello prende sul serio e che si sentono sul cronometro:
   0,32 s e a Spa 0,55 — la forbice vera. Il resto della differenza fra due motori sta dove sta
   davvero: recupero (7,8-8,4 MJ a giro), consumi, affidabilità.
 
-- **La trazione la fanno due ruote.** La spinta a terra la mette solo il carico che sente
-  l'assale posteriore — il 55%, la ripartizione vera — e non tutta la vettura. Da fermo si
-  tira poco più di un g: **0-100 in 2,2 s** (il vero è 2,6), 0-200 in 4,2 (4,9). In frenata
-  invece lavorano tutte e quattro, e infatti si stacca a 5-6 g.
+- **La trazione la fanno due ruote, e sotto spinta la macchina si siede.** A terra la
+  spinta la mette il carico che sente l'assale posteriore — il suo peso più la sua fetta di
+  carico aerodinamico — e quel carico cresce con l'accelerazione: baricentro diviso passo fa
+  poco più di otto punti di ripartizione per ogni g. Il conto si morde la coda e si scioglie
+  girandolo due volte. E la gomma non tiene uguale in tutte le direzioni: di traverso è al
+  massimo, mentre trasmette coppia tiene meno. Da fermo si tira 1,3 g: **0-100 in 2,1 s**
+  (il vero è 2,6, ma quei cinque decimi sono la frizione e i primi metri, che un modello di
+  giro non ha). In frenata lavorano tutte e quattro, e si stacca a 5-6 g.
+- **Due assali, non un punto.** Ognuno dei due ha il suo peso da portare in curva e la sua
+  aderenza per portarlo, e a decidere quanto forte ci si passa è il più in difficoltà dei
+  due — che è la definizione di sottosterzo e di sovrasterzo. Il peso da fermo sta più
+  dietro; il carico aerodinamico lo ripartisce il bilanciamento della vettura, e siccome
+  cresce col quadrato della velocità si sente nelle curve veloci e sparisce nei tornanti.
+  Da qui esce, senza che sia scritto da nessuna parte, che a **Spa** la macchina la si vuole
+  neutra (uscirne costa 0,66 s da tutte e due le parti) e a **Monte Carlo** piantata dietro
+  (0,24 s guadagnati), perché lì il tempo lo fa la trazione fuori dai tornanti.
+- **Otto rapporti, e sono una scelta.** Corti, il motore sta sempre vicino al regime di
+  potenza massima e in uscita di curva si spinge, ma si arriva al limitatore prima della
+  fine del rettilineo; lunghi, in fondo al dritto ce n'è ancora ma a ogni cambiata il
+  termico viene buttato più in basso e riprende peggio — l'elettrico no, quello la coppia
+  ce l'ha tutta da subito. Quali siano i rapporti giusti lo trova il modello provandoli,
+  come fa con l'ala: a Monza 66 su 100 (limitatore a 348, punta 342), a Barcellona e a
+  Budapest i più corti che ci sono. E i 750 kW del regolamento sono all'albero: ingranaggi,
+  cuscinetti e lo strappo di ogni cambiata se ne prendono il 6%.
 - **Sul dritto le ali si appiattiscono.** Il 2026 non ha più il DRS: ha due assetti nello
   stesso giro, Z-mode in curva e X-mode sul rettilineo, e X-mode toglie un quinto della
   resistenza. Tenere una CdA sola sbagliava sia le curve sia i dritti; con i due assetti le
@@ -557,9 +586,22 @@ Quattro cose che il modello prende sul serio e che si sentono sul cronometro:
   quella che segnerebbe una rilevazione in fondo al dritto. A Monza sono due numeri diversi
   di 35 km/h, e prima veniva stampato quello sbagliato.
 
-Le g di punta che ne escono: 6,0-6,6 laterali, 5,2-6,5 in frenata, 1,8 in uscita di curva.
-Con tutto questo il giro **senza taratura** sbaglia in media dello **0,0%** con uno scarto
-tipo del 2,9% (era +2,5% con 2,7%), e 21 circuiti su 24 stanno entro l'8%.
+Le g di punta che ne escono: 6,0-6,6 laterali, 5,2-6,5 in frenata, 1,8 in uscita di curva,
+e fra i 150 e i 250 km/h il laterale sta entro l'1% da quello vero. Con tutto questo il giro
+**senza taratura** sbaglia in media dell'**1,5%** con uno scarto tipo del **2,9%**, e 21
+circuiti su 24 stanno entro l'8%. La media è salita da 0,0% a 1,5% quando sono entrati il
+rendimento della trasmissione e il trasferimento di carico, che tolgono prestazione vera:
+quello che conta è lo scarto tipo, cioè quanto il modello è d'accordo con la realtà circuito
+per circuito, e quello non si è mosso. La media se la mangia la taratura per pista.
+
+**Le quattro sensibilità.** La gara, giro dopo giro, somma al passo i chili di benzina
+ancora a bordo, la mescola e quanto è consumata, l'aria sporca di chi sta davanti e quanto è
+bravo chi guida. Erano quattro costanti uguali per le ventiquattro piste — l'unico pezzo di
+simulazione che non guardava dove si stava correndo. Adesso il livello resta tarato sul
+mondo vero ma la forma la misura il modello di giro quando la pista si tara, cambiando una
+cosa sola e guardando il cronometro: `python tools/sensibilita_piste.py` fa vedere i numeri.
+Le forbici sono grosse — la benzina va da 0,65 a Monza a 1,44 a Losail, la scia da 0,42 a
+Monza a 1,65 a Losail, il pilota da 0,74 a Spa a 1,55 a Monte Carlo.
 
 La spinta elettrica cala da **290 a 355 km/h**, che è il numero del regolamento 2026 e non
 un compromesso: le punte scendono di una quindicina di km/h rispetto alla generazione

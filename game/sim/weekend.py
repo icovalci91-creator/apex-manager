@@ -14,6 +14,7 @@ from .. import config as C
 
 from ..core.penalties import INFRAZIONI as PENALTY_RULES
 from . import energia as EN
+from . import gomme as GO
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
 
@@ -244,6 +245,7 @@ class Entrant:
     position: int = 1
     tyre: str = "medium"
     tyre_age: float = 0.0
+    gomma_t: float = 90.0         # a che temperatura e' la gomma, in gradi
     tyre_life: float = 25.0
     fuel: float = 100.0
     total_time: float = 0.0
@@ -378,6 +380,10 @@ class RaceSim:
         # una macchina senza motore termico non ha benzina da gestire: il
         # serbatoio, il consumo e tutto quello che ci gira attorno spariscono
         self.senza_benzina = self.serbatoio <= 0.1
+        # in griglia le gomme sono quelle che escono dalle coperte, e senza
+        # coperte sono quelle dell'asfalto: il primo giro non e' un giro
+        for e in entrants:
+            e.gomma_t = GO.dai_box(self, e.tyre)
         self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
@@ -452,9 +458,10 @@ class RaceSim:
         # l'ha finita paga il clipping in fondo a ogni rettilineo
         t += e.energy_delta
         t += e.mappa_delta
-        if self.senza_coperte and e.tyre_age < 1.6 and e.stops:
-            # gomme fredde: il giro dopo la sosta non e' un giro come gli altri
-            t += 2.4 * (1.6 - e.tyre_age) / 1.6
+        # e a che temperatura e' la gomma. Il giro dopo la sosta, quello dietro
+        # alla safety car e il decimo giro passato nell'aria di un altro non
+        # sono giri come gli altri, e adesso il perche' e' un numero solo
+        t += GO.secondi(self, e)
         if e.fuel <= 0.01 and not self.senza_benzina:
             t += DRY_TANK_PENALTY
         clean = t
@@ -512,6 +519,7 @@ class RaceSim:
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
             e.override_t = max(0.0, e.override_t - dt)
 
+            GO.aggiorna(self, e, dt / lt)
             wear_rate = self._wear_rate(e)
             e.tyre_age += wear_rate * dt / lt
             burn = (self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
@@ -644,7 +652,7 @@ class RaceSim:
         push = e.push_mode ** PUSH_WEAR_EXP
         sc = 0.45 if self.safety_car > 0 else 1.0
         wet = 1.0 - 0.35 * self.weather.wet
-        return base * skill * push * sc * wet * self.temp_wear
+        return base * skill * push * sc * wet * self.temp_wear * GO.usura(e)
 
     def _on_lap_complete(self, e: Entrant, lt: float) -> None:
         # il giro che il cronometro ha visto davvero: dentro ci sono la coda
@@ -785,7 +793,18 @@ class RaceSim:
             voci.append((8, "pilota", "Le gomme sono finite, sto scivolando dappertutto."))
         elif stato < 0.82:
             voci.append((5, "pilota", "Comincio a perdere il posteriore in trazione."))
-        if e.tyre_age < 1.5 and e.stops:
+        # e la gomma: adesso e' un numero che si muove, e alla radio si sente
+        caldo = GO.fuori(e)
+        if caldo < -1.0:
+            voci.append((8, "pilota", f"Gomme fredde, non ho niente: "
+                                      f"{e.gomma_t:.0f} gradi, non si accendono."))
+        elif caldo > 1.4:
+            voci.append((8, "pilota", f"Le sto cuocendo, {e.gomma_t:.0f} gradi: "
+                                      f"scivolo dappertutto e le sto finendo."))
+        elif caldo > 1.0:
+            voci.append((6, "muretto", "Sei sopra la finestra di temperatura: "
+                                       "molla un decimo in staccata e rientrano."))
+        elif e.tyre_age < 1.5 and e.stops:
             voci.append((6, "muretto", "Gomme nuove: due curve per metterle in temperatura."))
         if e.position < prima:
             voci.append((7, "muretto", f"Bene cosi', sei {e.position}."))
@@ -925,6 +944,7 @@ class RaceSim:
             e.stock[target] = max(0, e.stock[target] - 1)
         e.tyre_age = 0.0
         e.tyre_life = self._tyre_life(e, target)
+        e.gomma_t = GO.dai_box(self, target)
         e.stops += 1
         # e se il regolamento permette di rifornire, alla sosta si rimette
         # dentro anche la benzina per il pezzo di gara che viene: il tempo lo
