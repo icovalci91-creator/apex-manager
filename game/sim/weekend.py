@@ -14,6 +14,7 @@ from .. import config as C
 
 from ..core.penalties import INFRAZIONI as PENALTY_RULES
 from . import energia as EN
+from . import freni as FR
 from . import gomme as GO
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
@@ -29,6 +30,20 @@ FUEL_S_PER_KG = 0.032          # un chilo di benzina nel serbatoio
 MESCOLA_S = 28.0               # tutta la forbice di aderenza fra le mescole
 GOMMA_S = 22.0                 # e quella fra una gomma nuova e una finita
 ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
+# E sotto l'acqua stare attaccati e' un'altra cosa ancora: dalla macchina
+# davanti esce un muro di spruzzi e non si vede la staccata. Si perde di piu' e
+# si prova a passare di meno, ed e' il motivo per cui certe gare bagnate sono
+# file indiane che non si sbloccano.
+SPRUZZI = 1.60
+# Con l'acqua alta non e' piu' questione di aderenza: sotto le gomme c'e'
+# l'acqua e non l'asfalto. Da li' in su si va piano e basta, per tutti, e chi
+# ci sa fare ci guadagna solo un po'.
+SOGLIA_ACQUAPLANO = 0.62
+ACQUAPLANO_S = 9.0
+# quanto gli spruzzi tolgono alla voglia di provarci. Cresce col quadrato:
+# sotto la pioggerella non cambia niente, sotto l'acqua vera non si vede il
+# cartello dei cento metri e nessuno si infila
+SPRUZZI_SORPASSO = 0.75
 # Quanto ci mette a entrare un chilo di benzina, quando il rifornimento e'
 # permesso: le pompe dell'ultima era ne mandavano giu' poco piu' di otto al
 # secondo, e una sosta con un pieno vero diventava una sosta lunga.
@@ -246,6 +261,9 @@ class Entrant:
     tyre: str = "medium"
     tyre_age: float = 0.0
     gomma_t: float = 90.0         # a che temperatura e' la gomma, in gradi
+    freni_t: float = 500.0        # e a che temperatura sono i dischi
+    freni_usura: float = 0.0      # quanto se n'e' consumato, da 0 a 1 e oltre
+    raffredda: float = 0.5        # quanto e' raffreddata questa vettura, 0..1
     tyre_life: float = 25.0
     fuel: float = 100.0
     total_time: float = 0.0
@@ -350,6 +368,13 @@ class RaceSim:
         self.meteo_prog = [(max(1, int(q * laps)), forza)
                            for q, forza in (getattr(weather, "rain_forecast", None) or [])]
         self.meteo_target = weather.wet
+        # Quanto e' bagnata la *linea*, che non e' quanto sta piovendo. Le
+        # monoposto passano sempre nello stesso posto e quel posto si asciuga
+        # prima di tutto il resto: e' la traiettoria che si vede scurirsi giro
+        # dopo giro mentre a un metro di distanza c'e' ancora l'acqua. E' li'
+        # che si decide quando montare le slick, ed e' la ragione per cui chi
+        # ci prova per primo o fa il capolavoro o va a muro.
+        self.linea_asciutta = 0.0
         # degrado imposto dal regolamento in vigore: fisso per tutta la gara
         reg = getattr(gs, "regulations", None) or {}
         self.tyre_deg = float(reg.get("tyres", {}).get("deg_multiplier", 1.0))
@@ -374,6 +399,12 @@ class RaceSim:
         pu = (getattr(gs, "regulations", None) or {}).get("power_unit", {})
         self.batteria_max = float(pu.get("batteria_mj", C.BATTERIA_MJ))
         self.senza_coperte = gs.regulations.get("tyre_warmers") is False
+        # quanto si perde a passare dai box, con il limite in corsia che il
+        # regolamento impone adesso: abbassarlo a sessanta all'ora non e' mezzo
+        # secondo, sono sette o otto - la corsia si percorre tutta piano
+        limite = float(gs.regulations.get("pit_lane_kmh", 80.0))
+        self.perdita_box = (track.perdita_box(limite)
+                            + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))
         self.superclip_kw = float(pu.get("superclip_kw", 250.0))
         self.rifornimento = bool(gs.regulations.get("refuelling"))
         self.serbatoio = float(pu.get("fuel_race_target_kg", C.FUEL_MASS_KG))
@@ -384,6 +415,9 @@ class RaceSim:
         # coperte sono quelle dell'asfalto: il primo giro non e' un giro
         for e in entrants:
             e.gomma_t = GO.dai_box(self, e.tyre)
+            # i dischi in griglia sono quelli scaldati nel giro di
+            # ricognizione: dentro la finestra, ma appena
+            e.freni_t = FR.FREDDO + 60.0
         self._pos_prima: dict = {}
         self._order_cache = list(entrants)
         # l'ordine in pista del passo precedente: serve a tenere la fila
@@ -462,20 +496,33 @@ class RaceSim:
         # alla safety car e il decimo giro passato nell'aria di un altro non
         # sono giri come gli altri, e adesso il perche' e' un numero solo
         t += GO.secondi(self, e)
+        t += FR.secondi(self, e)
         if e.fuel <= 0.01 and not self.senza_benzina:
             t += DRY_TANK_PENALTY
         clean = t
-        t += e.dirty_air * ARIA_SPORCA_S * tr.scia_rel
-        if self.weather.wet > 0.05:
+        # nell'acqua chi insegue non vede: gli spruzzi di chi sta davanti sono
+        # un muro, e si sta piu' lontani di quanto si vorrebbe
+        t += e.dirty_air * ARIA_SPORCA_S * tr.scia_rel * (1.0 + SPRUZZI * self.weather.wet)
+        acqua = self.bagnato
+        if self.weather.wet > 0.05 or acqua > 0.05:
+            # la gomma giusta e' quella per l'acqua che c'e' sulla linea, non
+            # per quella che sta cadendo: e' esattamente la scommessa che si fa
+            # quando si monta la slick su una pista che si sta asciugando
             mismatch = 0.0
-            if self.weather.wet > 0.45 and e.tyre != "wet":
+            if acqua > 0.45 and e.tyre != "wet":
                 mismatch = 12.0 if e.tyre in ("soft", "medium", "hard") else 2.5
-            elif 0.15 < self.weather.wet <= 0.45 and e.tyre not in ("inter", "wet"):
+            elif 0.15 < acqua <= 0.45 and e.tyre not in ("inter", "wet"):
                 mismatch = 7.0
-            elif self.weather.wet <= 0.15 and e.tyre in ("inter", "wet"):
+            elif acqua <= 0.15 and e.tyre in ("inter", "wet"):
                 mismatch = 4.0
             t += mismatch
-            t += (85.0 - e.wet_skill) * 0.06 * self.weather.wet * 4.0
+            t += (85.0 - e.wet_skill) * 0.06 * acqua * 4.0
+            # e con l'acqua alta non e' piu' una questione di aderenza: e'
+            # l'acquaplano, e a quel punto si va piano e basta, per tutti
+            if acqua > SOGLIA_ACQUAPLANO:
+                troppa = (acqua - SOGLIA_ACQUAPLANO) / (1.0 - SOGLIA_ACQUAPLANO)
+                t += ACQUAPLANO_S * troppa ** 1.7 * (0.75 + 0.5 * (
+                    100.0 - e.wet_skill) / 40.0)
         if self.safety_car > 0:
             t *= 1.42 if not self.vsc else 1.30
         var = self.rng.gauss(0.0, 0.09 + (100.0 - e.consistency) * 0.006
@@ -495,6 +542,7 @@ class RaceSim:
         # la pista continua a gommarsi mentre si corre
         self.evo = max(0.9995, self.evo - dt * 0.0000030)
         self._meteo(dt)
+        self._asciuga(dt)
         if self.safety_car > 0:
             self.safety_car = max(0.0, self.safety_car - dt)
             if self.safety_car == 0.0:
@@ -520,6 +568,7 @@ class RaceSim:
             e.override_t = max(0.0, e.override_t - dt)
 
             GO.aggiorna(self, e, dt / lt)
+            FR.aggiorna(self, e, dt / lt)
             wear_rate = self._wear_rate(e)
             e.tyre_age += wear_rate * dt / lt
             burn = (self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
@@ -628,6 +677,36 @@ class RaceSim:
         if w.wet > 0.2:
             self.evo = min(1.02, self.evo + dt * 0.0000050)
 
+    def _asciuga(self, dt: float) -> None:
+        """La linea si asciuga, o si ribagna. E' un conto a parte dalla pioggia.
+
+        Mentre piove la traiettoria resta bagnata come tutto il resto. Appena
+        smette comincia ad asciugarsi, e non ci mette lo stesso tempo dovunque:
+        la asciugano le macchine che ci passano sopra e l'asfalto caldo, per
+        cui a Sepang in venti minuti la pista e' un'altra e a Spa in autunno
+        no. Quello che si asciuga e' solo la linea: appena si esce di li' e'
+        ancora tutto bagnato, ed e' il motivo per cui in quei giri non si
+        sorpassa quasi mai.
+        """
+        w = self.weather
+        vive = sum(1 for e in self.entrants if e.status == "running")
+        if w.wet > self.linea_asciutta * 0.5 + 0.02 and self.meteo_target >= w.wet - 0.01:
+            # piove ancora: quello che si era asciugato torna bagnato, e in
+            # fretta - bastano due giri di acqua vera
+            self.linea_asciutta = max(0.0, self.linea_asciutta - dt * 0.0022 * (0.4 + w.wet))
+            return
+        if w.wet <= 0.005 and self.linea_asciutta >= 0.999:
+            return
+        caldo = 0.45 + 0.022 * max(0.0, self.cond.track_temp - 12.0)
+        traffico = 0.35 + 0.05 * min(20, vive)
+        self.linea_asciutta = min(1.0, self.linea_asciutta
+                                  + dt * 0.00042 * caldo * traffico)
+
+    @property
+    def bagnato(self) -> float:
+        """Quanta acqua c'e' sulla linea: e' questo che decide l'aderenza."""
+        return max(0.0, self.weather.wet * (1.0 - 0.85 * self.linea_asciutta))
+
     def _queue(self) -> None:
         """Dietro si resta finche' il sorpasso non lo si fa davvero.
 
@@ -651,7 +730,7 @@ class RaceSim:
         skill = 1.30 - 0.55 * (e.tyre_skill / 100.0)
         push = e.push_mode ** PUSH_WEAR_EXP
         sc = 0.45 if self.safety_car > 0 else 1.0
-        wet = 1.0 - 0.35 * self.weather.wet
+        wet = 1.0 - 0.35 * self.bagnato
         return base * skill * push * sc * wet * self.temp_wear * GO.usura(e)
 
     def _on_lap_complete(self, e: Entrant, lt: float) -> None:
@@ -690,6 +769,8 @@ class RaceSim:
         # e quanto gli si e' chiesto col motore: le power unit dell'anno sono
         # contate, e chi le tiene sempre in spinta le paga
         risk *= EN.rischio_motore(e)
+        # e coi freni: un disco cotto per mezza gara non arriva in fondo
+        risk *= FR.rischio(e)
         if self.rng.random() < risk:
             e.status = "retired"
             e.dnf_reason = self.rng.choice([
@@ -705,7 +786,7 @@ class RaceSim:
         err = (100.0 - e.consistency) * 0.00013 * (0.6 + 0.8 * e.push_mode)
         if self.gs.regulations.get("traction_control"):
             err *= 0.68        # con l'elettronica che tiene, gli errori calano
-        err *= 1.0 + 2.2 * self.weather.wet
+        err *= 1.0 + 1.7 * self.bagnato + 0.7 * self.weather.wet
         err *= 1.0 + (1.0 - e.compound_state()) * 1.2
         # chi non si fida di quello che ha sotto sbaglia di piu': non e' che
         # guidi peggio, e' che la macchina lo sorprende
@@ -783,9 +864,9 @@ class RaceSim:
         voci = []
         if e.damage > 25:
             voci.append((9, "pilota", "Ho preso un colpo, la macchina non e' piu' dritta."))
-        if self.weather.wet > 0.05 and e.tyre in ("soft", "medium", "hard"):
+        if self.bagnato > 0.05 and e.tyre in ("soft", "medium", "hard"):
             voci.append((10, "pilota", "Qui piove, con queste gomme non tengo la macchina."))
-        elif self.weather.wet < 0.06 and e.tyre in ("inter", "wet"):
+        elif self.bagnato < 0.06 and e.tyre in ("inter", "wet"):
             voci.append((8, "pilota", "La linea si sta asciugando, sto cuocendo le gomme."))
         if e.fuel_warned and e.fuel < resta * self.burn_per_lap:
             voci.append((8, "muretto", "Benzina al limite: risparmia in staccata o non arriviamo."))
@@ -806,6 +887,11 @@ class RaceSim:
                                        "molla un decimo in staccata e rientrano."))
         elif e.tyre_age < 1.5 and e.stops:
             voci.append((6, "muretto", "Gomme nuove: due curve per metterle in temperatura."))
+        if FR.fuori(e) > 0.6:
+            voci.append((9, "pilota", f"Freni a {e.freni_t:.0f} gradi, il pedale "
+                                      f"si sta allungando."))
+        elif FR.fuori(e) < -0.4:
+            voci.append((6, "pilota", "Freni freddi, alla staccata non mordono."))
         if e.position < prima:
             voci.append((7, "muretto", f"Bene cosi', sei {e.position}."))
         elif e.position > prima:
@@ -891,7 +977,7 @@ class RaceSim:
 
     # ------------------------------------------------------------- strategia
     def _check_pit(self, e: Entrant) -> None:
-        bagnato = self.weather.wet > 0.12
+        bagnato = self.bagnato > 0.12
         target = None
         for lap, comp in list(e.plan):
             if e.lap >= lap:
@@ -910,13 +996,13 @@ class RaceSim:
         # di uscita: si monta la gomma da bagnato appena serve, ma non si torna
         # indietro alla prima schiarita, altrimenti si vive ai box
         if target is None:
-            if self.weather.wet > 0.50 and e.tyre != "wet":
+            if self.bagnato > 0.50 and e.tyre != "wet":
                 target = "wet"
-            elif 0.20 < self.weather.wet <= 0.42 and e.tyre not in ("inter", "wet"):
+            elif 0.20 < self.bagnato <= 0.42 and e.tyre not in ("inter", "wet"):
                 target = "inter"
-            elif self.weather.wet < 0.30 and e.tyre == "wet":
+            elif self.bagnato < 0.30 and e.tyre == "wet":
                 target = "inter"
-            elif self.weather.wet < 0.08 and e.tyre == "inter" and e.lap < self.laps - 3:
+            elif self.bagnato < 0.08 and e.tyre == "inter" and e.lap < self.laps - 3:
                 target = self._pick_compound(e)
         if target is None or target == e.tyre:
             return
@@ -933,7 +1019,7 @@ class RaceSim:
             self.log(f"Sosta lenta per {e.name}!", "warn")
         if self.rng.random() < 0.012 + (100.0 - e.consistency) * 0.0004:
             self._investigate(e, "velocita_box")
-        loss = self.track.pit_loss * (0.62 if self.safety_car > 0 else 1.0)
+        loss = self.perdita_box * (0.62 if self.safety_car > 0 else 1.0)
         # la vettura resta ferma per tutta la durata della sosta mentre gli
         # altri avanzano: e' gia' l'intera perdita di tempo. Toglierle anche
         # la distanza equivalente la farebbe pagare due volte.
@@ -1081,7 +1167,7 @@ class RaceSim:
             p *= 0.70 + 0.60 * (behind.racecraft / 100.0)
             p *= 0.85 + 0.35 * (behind.aggression / 100.0)
             p /= max(0.60, 0.65 + 0.55 * (ahead.racecraft / 100.0))
-            p *= 1.0 + 0.35 * self.weather.wet
+            p *= 1.0 + 0.55 * self.bagnato - SPRUZZI_SORPASSO * self.weather.wet ** 2
             # e poi c'e' quello che il passo non spiega: la traiettoria da
             # fuori, la staccata tenuta mezzo metro piu' in la', il buco che
             # c'era per un decimo. Chi ce l'ha passa dove non si passa - e chi

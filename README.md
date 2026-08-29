@@ -373,6 +373,28 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   termico va in batteria invece che a terra (il regolamento lo tappa a 250 kW). Rimette
   dentro molta più energia e non tocca la curva, ma sul rettilineo sei corto - quindi non
   lo si fa mentre si difende o si attacca, e chi ti segue lo sfrutta.
+- **Temperatura dei freni**: il carbonio freddo non frena e caldo si consuma — la finestra
+  va da 380 a 950 °C. Quanto calore entra lo decide la frenata del circuito, quanto ne esce
+  lo decide l'aria che entra nelle prese, e l'aria entra se si va forte: per questo
+  **Singapore e Monte Carlo** sono incubi per i freni pur non avendo staccate violente (si
+  frena in continuazione e non passa niente nei condotti) mentre **Montreal** lo è per la
+  ragione opposta. A Singapore, a passo di gara con una macchina ben raffreddata si sta a
+  800 °C; attaccando si va a 926, restando dieci giri dietro a un altro a 885, e attaccando
+  dietro a un altro a 1026 — cioè fuori finestra, con i dischi che si consumano e il rischio
+  di rottura che sale. Il pezzo **raffreddamento**, che prima spostava solo qualche kilowatt,
+  vale da solo 350 °C fra la macchina meglio raffreddata della griglia e la peggiore.
+- **La linea che si asciuga**: quanta acqua c'è *sulla traiettoria* non è quanta ne sta
+  cadendo. Le monoposto passano sempre nello stesso posto e quel posto si asciuga per primo,
+  tanto più in fretta quanto più l'asfalto è caldo e quante più macchine ci passano sopra.
+  La gomma giusta è quella per la linea, non per il cielo — ed è esattamente la scommessa di
+  chi monta le slick per primo. In una Spa che parte bagnata e spiana a un terzo di gara, la
+  linea passa da bagnata ad asciutta in una decina di giri e tutti passano alle slick fra il
+  16° e il 24°.
+- **Acquaplaning e spruzzi**: oltre una certa quantità d'acqua non è più questione di
+  aderenza — sotto le gomme c'è acqua e non asfalto — e si va piano e basta, per tutti. E
+  dalla macchina davanti esce un muro di spruzzi: seguire costa molto di più e la staccata
+  non si vede. A Spa i sorpassi passano da **40 sull'asciutto a 28 con la pioggerella, 11
+  con l'acqua vera e 4 sotto il diluvio**, con il giro medio che va da 103 a 134 secondi.
 - **Temperatura delle gomme**: una gomma ha una finestra larga una ventina di gradi, e
   dentro quella tiene. Sotto non si accende — è il giro dopo la sosta — e sopra si sfoglia,
   perde aderenza e si consuma il 55% più in fretta. A portarla dentro o fuori è tutto quello
@@ -593,6 +615,16 @@ circuiti su 24 stanno entro l'8%. La media è salita da 0,0% a 1,5% quando sono 
 rendimento della trasmissione e il trasferimento di carico, che tolgono prestazione vera:
 quello che conta è lo scarto tipo, cioè quanto il modello è d'accordo con la realtà circuito
 per circuito, e quello non si è mosso. La media se la mangia la taratura per pista.
+
+**La corsia dei box.** Quanto si perde a passarci è scritto a mano nei dati di ogni
+circuito, e resta lì: sono numeri che vengono dalle gare vere e il modello non li batte.
+Quello che a mano non c'è — e che serve, perché il limite in corsia è una delle cose su cui
+la Commissione vota — è come quella perdita cambia se il limite cambia. La lunghezza della
+corsia si misura sul rettilineo del traguardo (è lì che corre, dall'ultima curva alla prima)
+e da lì esce il conto: la corsia percorsa al limite invece che a velocità di gara, più il
+tempo di rallentare per entrarci e quello di riprendere velocità per uscirne. Portare il
+limite da 80 a 60 km/h non è mezzo secondo come diceva la proposta: sono **sette secondi** a
+Melbourne e **otto e mezzo** a Monte Carlo.
 
 **Le quattro sensibilità.** La gara, giro dopo giro, somma al passo i chili di benzina
 ancora a bordo, la mescola e quanto è consumata, l'aria sporca di chi sta davanti e quanto è

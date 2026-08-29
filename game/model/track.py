@@ -88,6 +88,28 @@ SCIA_RESISTENZA = 0.94
 # di quanto serva - cioe' una ripresa peggiore in tutte le altre marce.
 MARGINE_LIMITATORE = 1.02
 
+# ------------------------------------------------------- la corsia dei box
+# Quanto si perde a passare dai box e' scritto a mano nei dati di ogni
+# circuito, ed e' giusto che resti li': sono numeri che vengono dalle gare
+# vere, e il modello non li batte. Quello che a mano non c'e' - e che nel
+# gioco serve, perche' il limite in corsia e' una delle cose su cui la
+# Commissione vota - e' come quella perdita cambia se il limite cambia. Quello
+# si calcola, e per calcolarlo serve sapere quanto e' lunga la corsia.
+#
+# La lunghezza non ce l'abbiamo scritta da nessuna parte, ma la corsia dei box
+# sta sempre nello stesso posto - lungo il rettilineo del traguardo, dall'ultima
+# curva alla prima - e quel rettilineo lo sappiamo misurare sul tracciato. Il
+# tratto a velocita' limitata e' poco piu' di due terzi di quel rettilineo: il
+# resto sono l'imbocco e l'uscita, dove si va gia' piano ma non ancora al
+# limite.
+BOX_CURVA = 1.0 / 400.0     # sotto questo raggio il rettilineo e' finito
+BOX_QUOTA = 0.70            # quanta parte di quel dritto e' corsia limitata
+BOX_MIN_M = 300.0
+BOX_MAX_M = 520.0
+BOX_LIMITE_KMH = 80.0       # il limite di velocita' in corsia, da regolamento
+BOX_FRENATA = 32.0          # m/s2 con cui si rallenta all'ingresso
+BOX_RIPRESA = 9.0           # e con cui si riparte all'uscita
+
 
 @dataclass
 class Segment:
@@ -137,6 +159,7 @@ class Track:
     senso: str = ""              # "orario" | "antiorario": da che parte si gira
     settori: list = field(default_factory=list)  # dove tagliano i due intertempi
     larghezza_m: float = 13.0    # quanto e' larga la pista: decide quanto si raddrizza
+    corsia_m: float = 0.0        # quanto e' lunga la corsia dei box, in metri
     scala_m: float = 0.0         # il lato del riquadro che contiene il circuito, in metri
     altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
     night: bool = False          # si corre col buio: l'asfalto non prende sole
@@ -221,12 +244,78 @@ class Track:
         self.ds = target / len(pts)
         self.curvature = _curvature(pts)
         self._curva_linea = None
+        # quanto e' lunga la corsia dei box: serve a sapere cosa succede se il
+        # limite di velocita' in corsia cambia
+        self.corsia_m = self._misura_corsia()
         box = _corsia_box(pts, self.ds, self.pit_loss)
         self.scala_m = max(max(p[0] for p in pts) - min(p[0] for p in pts),
                            max(p[1] for p in pts) - min(p[1] for p in pts))
         self.points, extra = _normalise(pts, [box])
         self.pit_points = extra[0]
         self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
+
+    def _misura_corsia(self) -> float:
+        """Quanto e' lunga la corsia dei box, misurata sul rettilineo del traguardo.
+
+        Il tracciato comincia dal traguardo e va nel verso di gara: si guarda
+        quanto dritto c'e' prima della linea e quanto ce n'e' dopo, che e'
+        esattamente il tratto lungo cui corre la corsia. Ai due capi si
+        aggiunge l'imbocco, perche' una corsia non nasce all'ultima curva e non
+        finisce alla prima: comincia prima e finisce dopo.
+        """
+        k = self.curvature
+        n = len(k)
+        if n < 32 or self.ds <= 0:
+            return 0.0
+        # la curvatura punto per punto e' rumorosa: si guarda su venti metri
+        span = max(1, int(round(20.0 / self.ds)))
+
+        def dritto(verso: int) -> int:
+            for j in range(1, n // 2):
+                i = (verso * j) % n
+                if max(abs(x) for x in k[i:i + span] or [0.0]) > BOX_CURVA:
+                    return j
+            return n // 2
+
+        metri = (dritto(1) + dritto(-1)) * self.ds * BOX_QUOTA
+        return round(max(BOX_MIN_M, min(BOX_MAX_M, metri)), 1)
+
+    def _tempo_corsia(self, limite_kmh: float) -> float:
+        """Il conto della corsia, a un dato limite: quanto ci si mette in piu'.
+
+        Tre pezzi: la corsia percorsa al limite invece che a velocita' di gara,
+        il tempo in piu' che costa rallentare per entrarci e quello che costa
+        riprendere velocita' per uscirne. Il terzo e' il piu' grosso, perche'
+        una monoposto rallenta molto piu' in fretta di quanto riacceleri.
+        """
+        v_lim = max(5.0, limite_kmh / 3.6)
+        # a che velocita' ci si passerebbe restando in pista: e' un rettilineo,
+        # quindi si va forte. La media sul giro moltiplicata per quanto un
+        # rettilineo va piu' della media
+        media = self.length_km * 1000.0 / max(20.0, self.ref_lap)
+        v_pista = max(v_lim + 5.0, media * 1.42)
+        salto = v_pista - v_lim
+        t_corsia = (self.corsia_m / v_lim
+                    + salto / (2.0 * BOX_FRENATA) + salto / (2.0 * BOX_RIPRESA))
+        return max(1.0, t_corsia - self.corsia_m / v_pista)
+
+    def perdita_box(self, limite_kmh: float = BOX_LIMITE_KMH) -> float:
+        """I secondi che si perdono a passare dai box, senza contare la sosta.
+
+        Il numero di partenza e' quello scritto nei dati del circuito, che
+        viene dalle gare vere e non si tocca. Quello che questa funzione fa e'
+        rispondere alla domanda che a mano non c'e': se il limite in corsia
+        non fosse ottanta all'ora, quanto si perderebbe? Il conto lo fa la
+        corsia misurata sul tracciato, e si applica come rapporto - cosi' a
+        ottanta si torna esattamente al numero di partenza.
+        """
+        base = float(self.pit_loss)
+        if self.corsia_m <= 0.0 or abs(limite_kmh - BOX_LIMITE_KMH) < 0.5:
+            return base
+        rif = self._tempo_corsia(BOX_LIMITE_KMH)
+        if rif <= 0.1:
+            return base
+        return round(base * self._tempo_corsia(limite_kmh) / rif, 2)
 
     def _al_traguardo(self, pts: list, scala: float) -> list:
         """Mette il tracciato nel verso di gara e lo fa cominciare dal traguardo.

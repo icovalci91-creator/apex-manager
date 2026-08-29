@@ -170,6 +170,10 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 vmax=float(punte.get(team.id, 330.0)),
                 ers_skill=float((team.car.engine or {}).get(
                     "software", (team.car.engine or {}).get("ers", 85))),
+                # quanta aria arriva ai freni: e' il pezzo "raffreddamento",
+                # che fino a ieri spostava solo qualche kilowatt e adesso
+                # decide anche se i dischi arrivano in fondo
+                raffredda=max(0.0, min(1.0, team.car.p("cooling") / 100.0)),
                 sector_shares=list(quote),
                 is_player=(team.id == gs.player_team),
                 terza=(terzo is not None and d.id == terzo.id),
