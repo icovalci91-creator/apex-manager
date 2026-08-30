@@ -434,6 +434,23 @@ python tools/fetch_layouts.py --only monza spa
 python tools/fetch_layouts.py --dry-run          # controlla senza scrivere
 ```
 
+E il rilievo, che è un passo a parte perché viene da un'altra fonte:
+
+```bash
+python tools/fetch_quote.py                      # quelli che non ce l'hanno
+python tools/fetch_quote.py --only spa cota
+python tools/fetch_quote.py --dry-run            # guarda e verifica senza scrivere
+```
+
+Serve `pip install numpy tifffile imagecodecs`, che leggono i GeoTIFF del Copernicus e non
+servono al gioco. Lo strumento prova prima i LIDAR nazionali — un metro di risoluzione,
+precisione verticale sotto i dieci centimetri, e con quelli si leggono anche le compressioni
+— e ripiega sul Copernicus. Dei LIDAR è implementato **USGS 3DEP** (Stati Uniti); AHN
+(Zandvoort), LIDAR della Vallonia (Spa) ed Environment Agency (Silverstone) sono documentati
+nello strumento ma non scritti, perché dalla rete su cui è nato non si raggiungono e
+consegnare codice che dichiara di funzionare senza averlo mai visto funzionare è peggio che
+non consegnarlo.
+
 Guarda sia le gare in calendario sia i circuiti candidati a entrarci, e salta quelli che
 hanno gia' il tracciato: rilanciarlo costa poche richieste. Con `--force` li rifa'.
 
@@ -615,6 +632,43 @@ circuiti su 24 stanno entro l'8%. La media è salita da 0,0% a 1,5% quando sono 
 rendimento della trasmissione e il trasferimento di carico, che tolgono prestazione vera:
 quello che conta è lo scarto tipo, cioè quanto il modello è d'accordo con la realtà circuito
 per circuito, e quello non si è mosso. La media se la mangia la taratura per pista.
+
+**L'altimetria.** Un circuito non è piatto, e nel modello lo era. Le quote arrivano da
+`python tools/fetch_quote.py`, che le campiona lungo il tracciato — un valore ogni 25 m,
+dal traguardo in avanti — e le scrive nei dati come profilo a passo fisso. Da lì il modello
+ricava la pendenza: in salita la gravità ruba accelerazione, in discesa allunga le frenate.
+Vengono fuori il 14,1% di Raidillon, il 13,8% della salita di curva 1 ad Austin, il 12,3%
+del Red Bull Ring.
+
+La fonte è il **Copernicus DEM GLO-30**, aperto e gratuito (Google Maps Elevation no: le
+sue condizioni d'uso limitano la memorizzazione dei dati e la creazione di insiemi
+derivati, e un profilo scritto dentro `tracks.json` e pubblicato è esattamente quello). Ma
+il Copernicus è un modello di *superficie*: dentro ci sono i tetti e le chiome. Su un
+circuito fra le colline non cambia niente — Spa esce a 102,3 m contro i 100 veri, Interlagos
+a 43,9 contro 43 — mentre su un cittadino la traiettoria passa fra i palazzi e si
+campionano quelli: Las Vegas verrebbe 24 m invece di 5, Monza 23 invece di 12 perché è
+dentro a un parco.
+
+Per questo lo strumento **verifica prima di scrivere**, confrontando il dislivello scaricato
+con quello pubblicato del circuito (`dislivello_noto`, scritto a mano nei dati e
+controllabile). Il controllo è asimmetrico apposta: un rilievo *spianato* dalla risoluzione
+ha la forma giusta e l'ampiezza piccola, quindi resta utilizzabile; un rilievo *sporcato dai
+tetti* ha la forma sbagliata, e nessun ridimensionamento toglie una salita dove c'è un
+albergo. Sotto il 55% del vero o sopra il 120% il circuito viene scartato e resta piatto:
+**15 circuiti su 24** in calendario hanno il rilievo, gli altri aspettano un dato migliore.
+
+**Compressioni e dossi.** La pendenza, misurata, sposta il giro fra 0,01 e 0,14 s: su un
+anello chiuso quello che si perde salendo lo si riprende scendendo. Quello che sposta
+davvero il cronometro è la *curvatura verticale* — in fondo a una discesa che risale la
+macchina viene schiacciata a terra — ed è esattamente ciò che nessuna mappa a 30 m sa dare:
+misurato sul Copernicus a Spa, il rumore residuo ha punte di 6,7 m, quanto la compressione
+da leggere. A finestra stretta si leggono 142 compressioni inventate, a finestra larga
+sparisce anche quella vera.
+
+Quei tratti stanno quindi scritti a mano nei dati (`rilievo`), come frazione di giro e
+raggio verticale: sono pochi, sono famosi, e i loro numeri si controllano. A Raidillon, a
+300 km/h su un raggio di 300 m, sono **2,25 g di carico in più** — e la velocità minima nel
+tratto passa da **267 a 293 km/h**, che è quella vera. Sul giro sono 0,17 s.
 
 **La corsia dei box.** Quanto si perde a passarci è scritto a mano nei dati di ogni
 circuito, e resta lì: sono numeri che vengono dalle gare vere e il modello non li batte.

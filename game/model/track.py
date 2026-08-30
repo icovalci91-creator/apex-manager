@@ -88,6 +88,42 @@ SCIA_RESISTENZA = 0.94
 # di quanto serva - cioe' una ripresa peggiore in tutte le altre marce.
 MARGINE_LIMITATORE = 1.02
 
+# ---------------------------------------------------------- l'altimetria
+# Un circuito non e' piatto, e finora nel modello lo era. Le quote arrivano da
+# `tools/fetch_quote.py`, che le campiona lungo il tracciato e le scrive nei
+# dati come un profilo a passo fisso: un valore ogni venticinque metri, dal
+# traguardo in avanti. Il passo e' fisso apposta - cosi' il profilo non dipende
+# da quanti punti ha il tracciato, e riscaricare le coordinate da OSM non lo
+# manda fuori giro.
+PASSO_QUOTA = 25.0
+# Su che distanza si legge la pendenza. Non punto per punto: il dato piu' fine
+# che si riesca a procurarsi ha comunque un metro scarso di rumore, e derivarlo
+# su venticinque metri vorrebbe dire leggere il rumore invece della salita.
+# Su ottanta metri il rumore si divide e la pendenza resta quella vera.
+FINESTRA_PENDENZA = 80.0
+PENDENZA_MAX = 0.22       # oltre il ventidue per cento non e' un circuito
+
+# E poi c'e' la parte del rilievo che sposta davvero il cronometro, e che
+# nessuna mappa a trenta metri sa dare: la curvatura verticale. In fondo a una
+# discesa che risale la macchina viene schiacciata a terra, e non di poco - a
+# Raidillon, a trecento all'ora su un raggio verticale di trecento metri, sono
+# due g e mezzo di carico in piu' sulle gomme, cioe' quasi il doppio di quello
+# che ci sarebbe in piano. E' il motivo per cui quella curva si fa a tavoletta
+# e in un modello piatto no. In cima a un dosso succede l'opposto e la macchina
+# si alleggerisce.
+#
+# Il conto e' comodo: un carico che cresce col quadrato della velocita' e'
+# esattamente quello che fa l'aerodinamica, quindi la curvatura verticale entra
+# nelle stesse righe - una quota di aerodinamica in piu' che pero' la gomma
+# sente su tutti e due gli assali in proporzione al peso, perche' e' inerzia e
+# non aria.
+#
+# Questi tratti stanno scritti a mano nei dati, come frazione di giro: sono
+# pochi, sono famosi, e i loro numeri si controllano. Un valore uscito da un
+# rilievo a trenta metri no - misurato, il rumore che resta ha punte grandi
+# quanto la compressione da leggere.
+RACCORDO_RILIEVO = 0.25   # quanta parte del tratto e' entrata e uscita
+
 # ------------------------------------------------------- la corsia dei box
 # Quanto si perde a passare dai box e' scritto a mano nei dati di ogni
 # circuito, ed e' giusto che resti li': sono numeri che vengono dalle gare
@@ -160,6 +196,9 @@ class Track:
     settori: list = field(default_factory=list)  # dove tagliano i due intertempi
     larghezza_m: float = 13.0    # quanto e' larga la pista: decide quanto si raddrizza
     corsia_m: float = 0.0        # quanto e' lunga la corsia dei box, in metri
+    quota: list = field(default_factory=list)    # il profilo altimetrico, ogni 25 m
+    quota_fonte: str = ""        # da dove viene: copernicus, ahn, lidar...
+    rilievo: list = field(default_factory=list)  # compressioni e dossi, a mano
     scala_m: float = 0.0         # il lato del riquadro che contiene il circuito, in metri
     altitude: float = 0.0        # metri sul livello del mare: l'aria che si respira
     night: bool = False          # si corre col buio: l'asfalto non prende sole
@@ -170,6 +209,8 @@ class Track:
     points: list = field(default_factory=list)      # [(x, y)] normalizzati 0..1
     pit_points: list = field(default_factory=list)  # la corsia box, stessa scala
     curvature: list = field(default_factory=list)   # 1/raggio per ogni punto
+    pendenza: list = field(default_factory=list)   # seno della salita, punto per punto
+    curva_v: list = field(default_factory=list)   # curvatura verticale, punto per punto
     ds: float = STEP_M
     _curva_linea: list = None    # la curvatura della linea, calcolata una volta
     sector_bounds: tuple = (0.0, 0.0)
@@ -198,6 +239,9 @@ class Track:
             settori=list(d.get("settori") or []),
             altitude=float(d.get("altitude", 0.0)),
             larghezza_m=float(d.get("larghezza_m", 13.0)),
+            quota=[float(x) for x in (d.get("quota") or [])],
+            quota_fonte=str(d.get("quota_fonte", "")),
+            rilievo=list(d.get("rilievo") or []),
             night=bool(d.get("night", False)),
             climate=dict(d.get("climate") or {}),
             geo=d.get("geo") or [],
@@ -244,6 +288,13 @@ class Track:
         self.ds = target / len(pts)
         self.curvature = _curvature(pts)
         self._curva_linea = None
+        # i punti in metri e la scala con cui ci si e' arrivati: servono a
+        # tornare indietro in gradi, che e' quello che chiede chi campiona il
+        # rilievo lungo il tracciato
+        self._metri = pts
+        self._scala_geo = k if raw_len > 1.0 else 1.0
+        self.pendenza = self._map_pendenza()
+        self.curva_v = self._map_curva_v()
         # quanto e' lunga la corsia dei box: serve a sapere cosa succede se il
         # limite di velocita' in corsia cambia
         self.corsia_m = self._misura_corsia()
@@ -253,6 +304,83 @@ class Track:
         self.points, extra = _normalise(pts, [box])
         self.pit_points = extra[0]
         self.sector_bounds = (len(pts) / 3.0, 2.0 * len(pts) / 3.0)
+
+    def latlon(self, i: int) -> tuple:
+        """Le coordinate del punto i del tracciato, tornando indietro in gradi.
+
+        La proiezione da gradi a metri e' lineare e la scala e' nota, quindi si
+        inverte esattamente. Serve a chi deve andare a chiedere qualcosa a una
+        mappa - il rilievo, per esempio - sapendo dove sta ogni metro di pista.
+        """
+        metri = getattr(self, "_metri", None)
+        if not metri or not self.geo:
+            return (0.0, 0.0)
+        lat0, lon0 = _centro(self.geo)
+        k = max(1e-9, float(getattr(self, "_scala_geo", 1.0)))
+        x, y = metri[i % len(metri)]
+        mx = 111320.0 * math.cos(math.radians(lat0))
+        return (lat0 + (y / k) / 110540.0, lon0 + (x / k) / max(1e-6, mx))
+
+    def _map_pendenza(self) -> list:
+        """Quanto sale o scende ogni metro di pista, come seno dell'angolo.
+
+        Il profilo nei dati sta a passo fisso: qui lo si porta al passo del
+        modello di giro e lo si deriva su una finestra larga, perche' la
+        pendenza e' una cosa che si misura su decine di metri e non su cinque.
+        Senza profilo la lista resta vuota e il giro si fa in piano, come si e'
+        sempre fatto.
+        """
+        n = len(self.curvature)
+        m = len(self.quota)
+        if m < 8 or n < 8:
+            return []
+        giro = self.length_km * 1000.0
+
+        def z(metro: float) -> float:
+            x = (metro % giro) / giro * m
+            i = int(x)
+            a = x - i
+            return self.quota[i % m] * (1.0 - a) + self.quota[(i + 1) % m] * a
+
+        mezza = FINESTRA_PENDENZA * 0.5
+        out = []
+        for i in range(n):
+            s = i * self.ds
+            salita = (z(s + mezza) - z(s - mezza)) / FINESTRA_PENDENZA
+            out.append(max(-PENDENZA_MAX, min(PENDENZA_MAX, salita)))
+        return out
+
+    def _map_curva_v(self) -> list:
+        """Le compressioni e i dossi, portati al passo del modello di giro.
+
+        Ogni tratto e' scritto come frazione di giro, con il raggio verticale
+        in metri: positivo se la pista si incava - la macchina viene schiacciata
+        - negativo se e' un dosso. Ai due capi il tratto sfuma, perche' una
+        compressione non comincia di colpo.
+        """
+        n = len(self.curvature)
+        if not self.rilievo or n < 8:
+            return []
+        out = [0.0] * n
+        for t in self.rilievo:
+            raggio = float(t.get("raggio_v") or 0.0)
+            if abs(raggio) < 20.0:
+                continue
+            a = float(t.get("da", 0.0)) % 1.0
+            b = float(t.get("a", 0.0)) % 1.0
+            i0, i1 = int(a * n), int(b * n)
+            passi = (i1 - i0) % n or 1
+            bordo = max(1, int(passi * RACCORDO_RILIEVO))
+            for j in range(passi + 1):
+                i = (i0 + j) % n
+                dentro = min(j, passi - j, bordo) / bordo
+                out[i] += max(0.0, min(1.0, dentro)) / raggio
+        return out
+
+    @property
+    def dislivello_m(self) -> float:
+        """Quanti metri ci sono fra il punto piu' alto e il piu' basso."""
+        return round(max(self.quota) - min(self.quota), 1) if self.quota else 0.0
 
     def _misura_corsia(self) -> float:
         """Quanto e' lunga la corsia dei box, misurata sul rettilineo del traguardo.
@@ -464,6 +592,19 @@ class Track:
 
         n = len(self.curvature)
         ds = self.ds
+        # la salita e la discesa: in salita la gravita' tira indietro e ruba
+        # accelerazione, in discesa spinge e allunga le frenate. Su un giro
+        # chiuso quello che si perde salendo lo si riprende scendendo, ma non
+        # nello stesso punto - e siccome in fondo a una discesa ci si arriva
+        # gia' veloci e in cima a una salita no, il conto non torna pari: e'
+        # per questo che vale la pena farlo invece di dare tutto per piatto
+        pend = self.pendenza or [0.0] * n
+        # la curvatura verticale: dove la pista si incava la macchina viene
+        # schiacciata a terra, dove c'e' un dosso si alleggerisce. E' un carico
+        # che cresce col quadrato della velocita' come quello dell'aria, quindi
+        # entra nelle stesse righe - solo che questo lo sentono i due assali in
+        # proporzione al peso, perche' e' inerzia e non aerodinamica
+        kv = self.curva_v or [0.0] * n
         # la curvatura che conta non e' quella dell'asse della pista: e' quella
         # della linea che ci si passa sopra, che e' piu' larga di mezza
         # carreggiata e quindi piu' dolce
@@ -555,9 +696,9 @@ class Track:
         quota_ant = aero_ant / massa_ant
         quota_post = (1.0 - aero_ant) / (1.0 - massa_ant)
 
-        def carico(v2: float) -> float:
+        def carico(v2: float, kvi: float = 0.0) -> float:
             """Quanti pesi della macchina sta portando la gomma a quella velocita'."""
-            return 1.0 + aero * v2 / C.G
+            return 1.0 + (aero + kvi) * v2 / C.G
 
         inv_ell = 1.0 / ELLISSE
 
@@ -585,7 +726,7 @@ class Track:
                 return 0.0
             return (1.0 - lato ** ELLISSE) ** inv_ell
 
-        def lat_limit(k: float):
+        def lat_limit(k: float, kvi: float = 0.0):
             """Velocita' massima in curva e che tipo di curva e'.
 
             La classe si legge sulla velocita' che quella curva permette a una
@@ -617,7 +758,9 @@ class Track:
                 for _ in range(3):
                     peggiore = vmax * vmax
                     for q in (quota_ant, quota_post):
-                        aq = q * aero
+                        # la compressione la sentono tutti e due gli assali per
+                        # intero: e' peso che si aggiunge al peso, non aria
+                        aq = q * aero + kvi
                         m = m0 * (1.0 + aq * v2 / C.G) ** -SENSIBILITA_CARICO
                         d = k - m * aq
                         cand = vmax * vmax if d <= 1e-6 else min(m * C.G / d,
@@ -635,7 +778,7 @@ class Track:
                       "veloci" if v0 > V_VELOCE else "medie")
             return min(velocita(mu * b.get(classe, 1.0)), vmax), classe
 
-        limiti = [lat_limit(k) for k in curva]
+        limiti = [lat_limit(curva[i], kv[i]) for i in range(n)]
         vlim = [x[0] for x in limiti]
         classi = [x[1] for x in limiti]
 
@@ -651,8 +794,8 @@ class Track:
                 drag_a = 0.5 * rho * (cda_x if dritto[i] else cda) * vi * vi / mass
                 # anche in accelerazione il carico aerodinamico spinge a terra:
                 # a duecento all'ora la trazione non e' quella di un semaforo
-                mu_v = mu_t * carico(vi * vi) ** -SENSIBILITA_CARICO
-                presa = mu_v * (C.G + aero * vi * vi)
+                mu_v = mu_t * carico(vi * vi, kv[i]) ** -SENSIBILITA_CARICO
+                presa = mu_v * (C.G + (aero + kv[i]) * vi * vi)
                 ki = curva[i]
                 quota = resta(vi * vi * ki, presa, rap_t) if ki > 1e-9 else 1.0
                 # e la spinta la mettono a terra due ruote sole: conta il
@@ -663,14 +806,15 @@ class Track:
                 # il peso statico che gli tocca piu' la sua fetta di carico
                 # aerodinamico: una macchina piantata dietro ne ha di piu', ed
                 # e' esattamente il motivo per cui in uscita di curva spinge
-                n_post = ((1.0 - massa_ant) * C.G
+                n_post = ((1.0 - massa_ant) * (C.G + kv[i] * vi * vi)
                           + (1.0 - aero_ant) * aero * vi * vi)
-                tetto = C.QUOTA_MOTRICE_MAX * (C.G + aero * vi * vi)
+                tetto = C.QUOTA_MOTRICE_MAX * (C.G + (aero + kv[i]) * vi * vi)
                 a_tr = 0.0
                 for _ in range(2):
                     carico_post = min(tetto, n_post + C.TRASFERIMENTO * a_tr)
                     a_tr = mu_v * carico_post * quota
                 a = min(potenza(vi) / (mass * vi), a_tr) - drag_a
+                a -= C.G * pend[i]          # in salita si spinge anche il peso
                 a = max(a, -8.0)
                 cand = math.sqrt(max(1.0, vi * vi + 2.0 * a * ds))
                 if cand < v[j]:
@@ -682,11 +826,13 @@ class Track:
                 # in frenata rallentano le gomme, che schiacciate dal carico
                 # tengono di piu', e rallenta l'aria: a trecento all'ora vale
                 # quasi mezzo g da sola
-                mu_v = mu_b * carico(vj * vj) ** -SENSIBILITA_CARICO
-                presa = mu_v * (C.G + aero * vj * vj)
+                mu_v = mu_b * carico(vj * vj, kv[j]) ** -SENSIBILITA_CARICO
+                presa = mu_v * (C.G + (aero + kv[j]) * vj * vj)
                 kj = curva[j]
                 quota = resta(vj * vj * kj, presa, rap_b) if kj > 1e-9 else 1.0
                 a_b = presa * quota + 0.5 * rho * cda * vj * vj / mass  # in frenata l'ala e' aperta
+                # e in discesa si frena peggio: la gravita' spinge avanti
+                a_b = max(0.5, a_b + C.G * pend[j])
                 cand = math.sqrt(max(1.0, vj * vj + 2.0 * a_b * ds))
                 if cand < v[i]:
                     v[i] = cand
