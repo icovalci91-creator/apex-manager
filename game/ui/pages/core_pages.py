@@ -98,17 +98,24 @@ class HQPage(Page):
             T.text(surf, f"{d.number}", (mid.x + 22, y + 10), 22, col, bold=True)
             T.text(surf, d.name, (mid.x + 60, y + 10), 17, T.TEXT, bold=True, maxw=mid.w - 150)
             T.text(surf, f"{d.nat} - {d.age} anni - {d.salary:.1f} M$/anno",
-                   (mid.x + 60, y + 32), 12, T.DIM)
+                   (mid.x + 60, y + 32), 12, T.DIM, maxw=mid.w - 200)
             T.text(surf, f"{d.overall:.0f}", (mid.right - 22, y + 10), 22,
                    T.stat_colour(d.overall, 70, 90), bold=True, align="right")
+            # il morale sta sulla riga dell'anagrafica: piu' in basso finiva
+            # sopra all'ultima barra, che era larga quanto le altre e usciva
+            # dal pannello
+            T.text(surf, f"morale {d.morale:.0f}", (mid.right - 22, y + 34), 12,
+                   T.stat_colour(d.morale, 40, 75), align="right")
+            # e le quattro barre si dividono la larghezza che c'e', invece di
+            # essere larghe un numero fisso: su un pannello stretto sforavano
+            passo = max(40.0, (mid.w - 40) / 4.0)
             bx = mid.x + 20
             for lab, v in (("Passo", d.pace), ("Duello", d.racecraft),
                            ("Costanza", d.consistency), ("Gomme", d.tyre_mgmt)):
                 T.text(surf, lab, (bx, y + 54), 10, T.DIM_2)
-                T.bar(surf, (bx, y + 68, 66, 6), v, 100, T.stat_colour(v, 65, 90))
-                bx += 74
-            T.text(surf, f"morale {d.morale:.0f}", (mid.right - 22, y + 62), 12,
-                   T.stat_colour(d.morale, 40, 75), align="right")
+                T.bar(surf, (bx, y + 68, int(passo) - 8, 6), v, 100,
+                      T.stat_colour(v, 65, 90))
+                bx += passo
             y += 100
         y += 6
         T.text(surf, "REPARTI", (mid.x + 16, y), 12, T.DIM_2, bold=True)

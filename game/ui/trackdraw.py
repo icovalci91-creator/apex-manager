@@ -58,12 +58,35 @@ CORDOLO_PASSO = 7          # ogni quanti punti si alterna il colore
 CASELLE_GRIGLIA = 10       # quante caselle si disegnano prima del traguardo
 
 
-def fit_points(track, rect, pad: int = 26) -> list:
+def inquadra(track, rect, pad: int = 26) -> tuple:
+    """Quanto grande sta il circuito dentro a questo riquadro, e dove.
+
+    Prima si infilava il tracciato in un quadrato inscritto nel pannello, e i
+    conti erano due volte penalizzanti: il quadrato buttava via tutta la
+    larghezza in piu' di un pannello largo, e i punti normalizzati - che stanno
+    dentro un quadrato loro - ne buttavano via altrettanta se il circuito non
+    era quadrato. Monza, che e' largo il doppio di quanto sia alto, finiva
+    disegnato in un quarto dello spazio che aveva.
+
+    Adesso si guarda quanto e' davvero grande il disegno nelle due direzioni e
+    lo si ingrandisce fin dove ci sta, tenendo le proporzioni. Un pannello
+    largo mostra un circuito largo in grande.
+    """
     inner = pygame.Rect(rect).inflate(-pad * 2, -pad * 2)
-    side = min(inner.w, inner.h)
-    ox = inner.centerx - side // 2
-    oy = inner.centery - side // 2
-    return [(ox + px * side, oy + py * side) for px, py in track.points]
+    p = track.points
+    if not p:
+        return 0.0, inner.centerx, inner.centery
+    xs = [q[0] for q in p]
+    ys = [q[1] for q in p]
+    ax, bx, ay, by = min(xs), max(xs), min(ys), max(ys)
+    scala = min(inner.w / max(1e-6, bx - ax), inner.h / max(1e-6, by - ay))
+    return (scala, inner.centerx - (ax + bx) * 0.5 * scala,
+            inner.centery - (ay + by) * 0.5 * scala)
+
+
+def fit_points(track, rect, pad: int = 26) -> list:
+    scala, ox, oy = inquadra(track, rect, pad)
+    return [(ox + px * scala, oy + py * scala) for px, py in track.points]
 
 
 def fit_pit(track, rect, pad: int = 26) -> list:
@@ -71,11 +94,10 @@ def fit_pit(track, rect, pad: int = 26) -> list:
     box = getattr(track, "pit_points", None)
     if not box:
         return []
-    inner = pygame.Rect(rect).inflate(-pad * 2, -pad * 2)
-    side = min(inner.w, inner.h)
-    ox = inner.centerx - side // 2
-    oy = inner.centery - side // 2
-    return [(ox + px * side, oy + py * side) for px, py in box]
+    # l'inquadratura la decide il tracciato, non la corsia: se no le due si
+    # scollano e i box finiscono in mezzo al prato
+    scala, ox, oy = inquadra(track, rect, pad)
+    return [(ox + px * scala, oy + py * scala) for px, py in box]
 
 
 def _normali(pts: list) -> list:
@@ -307,10 +329,12 @@ def draw_track(surf, track, rect, width: int = 12, colour=ASFALTO,
         local = fit_points(track, base)
         pit = fit_pit(track, base)
         if len(local) >= 3:
-            lato = min(base.w, base.h)
+            # quanto e' grande il disegno: da qui escono sia i pixel per metro
+            # sia la soglia con cui si riconosce una curva
+            lato, _ox, _oy = inquadra(track, base)
             # quanti pixel vale un metro, con l'ingrossamento: da qui escono
             # tutte le larghezze, che cosi' stanno fra loro come in pista
-            ppm = ESAGERA * (lato - 52) / max(1.0, getattr(track, "scala_m", 0.0) or 1e9)
+            ppm = ESAGERA * lato / max(1.0, getattr(track, "scala_m", 0.0) or 1e9)
             vero = getattr(track, "larghezza_m", 13.0) * ppm
             nastro = max(NASTRO_MINIMO, min(width, int(round(vero))))
             # se il nastro si e' dovuto ingrossare per restare visibile, le
@@ -375,15 +399,38 @@ def car_pos(pts, frac: float, offset: float = 0.0):
 _MINIMAPS: dict = {}
 
 
-def draw_minimap(surf, track, rect, colour=(60, 72, 94), width: int = 4):
-    """La miniatura: qui il contorno non ci sta, serve solo la forma."""
+# La miniatura: dentro non ci stanno cordoli e vie di fuga, ma un filo grigio
+# su fondo scuro non e' una pista - e' un filo. Bastano tre cose per farla
+# tornare una pista: il pieno dentro l'anello, che chiude la forma; un bordo
+# piu' chiaro attorno al nastro, che e' quello che a colpo d'occhio dice "qui
+# si corre"; e il traguardo, che dice da dove si comincia.
+MINI_INTERNO = (23, 31, 26)
+MINI_BORDO = (86, 98, 118)
+MINI_TRAGUARDO = (226, 232, 240)
+
+
+def draw_minimap(surf, track, rect, colour=(60, 72, 94), width: int = 4,
+                 pieno: bool = True):
+    """La miniatura: qui il contorno non ci sta, serve la forma e poco altro."""
     rect = pygame.Rect(rect)
-    key = (track.id, rect.w, rect.h, tuple(colour), width)
+    key = (track.id, rect.w, rect.h, tuple(colour), width, pieno)
     img = _MINIMAPS.get(key)
     if img is None:
         img = pygame.Surface(rect.size, pygame.SRCALPHA)
-        local = fit_points(track, pygame.Rect(0, 0, rect.w, rect.h), pad=10)
+        local = fit_points(track, pygame.Rect(0, 0, rect.w, rect.h), pad=8)
         if len(local) >= 3:
+            if pieno:
+                pygame.draw.polygon(img, MINI_INTERNO, local)
+                pygame.draw.lines(img, MINI_BORDO, True, local, width + 3)
             pygame.draw.lines(img, colour, True, local, width)
+            if pieno and width >= 3:
+                # il traguardo: una tacca di traverso al punto di partenza, che
+                # nei punti normalizzati e' sempre il primo
+                a, b = local[0], local[min(3, len(local) - 1)]
+                dx, dy = b[0] - a[0], b[1] - a[1]
+                d = math.hypot(dx, dy) or 1.0
+                nx, ny = -dy / d * (width + 2), dx / d * (width + 2)
+                pygame.draw.line(img, MINI_TRAGUARDO, (a[0] - nx, a[1] - ny),
+                                 (a[0] + nx, a[1] + ny), 2)
         _MINIMAPS[key] = img
     surf.blit(img, rect.topleft)

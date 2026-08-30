@@ -308,8 +308,12 @@ class DriversPage(Page):
             else:
                 righe.append(("Situazione", "libero, nessun indennizzo", T.OK))
         # da qui in giu' comincia il tavolo della trattativa: la scheda si
-        # stringe per starci sopra, invece di scriverci dentro
-        limite = self.sy - 78
+        # stringe per starci sopra, invece di scriverci dentro. Il limite lo
+        # decide dove comincia il tavolo, non un numero a parte: erano due
+        # costanti diverse - una a -96 e una a -78 - e le ultime righe della
+        # scheda finivano sopra al titolo TRATTATIVA di diciotto pixel
+        ty = self.sy - 96
+        limite = ty - 10
         n_att = (len(self.ATTRS) + 1) // 2
         spazio = limite - (c.y + 94)
         largo = spazio >= len(righe) * 21 + 28 + n_att * 22 + 26
@@ -371,10 +375,8 @@ class DriversPage(Page):
                 testo = f"SQUALIFICATO per {d.banned_races} gara   -   " + testo
             T.text(surf, testo, (c.x + 16, y), 12, col_lic, maxw=c.w - 32)
 
-        # --- il tavolo
-        # un po' piu' in alto di prima: sotto il titolo ci va anche il motivo
-        # per cui un posto non e' disponibile, e finiva sopra i due pulsanti
-        ty = self.sy - 96
+        # --- il tavolo (ty e' quello di sopra: e' lui a dire dove finisce la
+        # scheda, cosi' i due non possono piu' scollarsi)
         T.text(surf, "TRATTATIVA", (c.x + 16, ty), 12, T.DIM_2, bold=True)
         ok_posto, perche = market.can_offer_seat(gs, team, d, self.seat)
         if not ok_posto:

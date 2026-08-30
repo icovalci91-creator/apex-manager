@@ -694,20 +694,30 @@ class CalendarPage(Page):
             if t.sprint:
                 T.text(surf, "SPRINT", (rect.right - 12, rect.y + 24), 10, T.GOLD, bold=True,
                        align="right")
-            trackdraw.draw_minimap(surf, t, (rect.x + 8, rect.y + 26, rect.w - 16, 70),
-                                   colour=(52, 62, 82) if not done else (38, 46, 60), width=3)
+            trackdraw.draw_minimap(surf, t, (rect.x + 8, rect.y + 24, rect.w - 16, 78),
+                                   colour=trackdraw.ASFALTO if not done else (38, 46, 60),
+                                   width=4)
+            # il nome si prende tutta la riga: con la scadenza del contratto
+            # accanto gli restavano cinquantasette pixel, e sei carte su
+            # ventiquattro finivano con i puntini. La scadenza sta bene sotto,
+            # dove c'e' posto
             T.text(surf, t.name, (rect.x + 12, rect.bottom - 44), 12,
-                   T.DIM if done else T.TEXT, maxw=rect.w - 88)
-            T.text(surf, f"{t.length_km:.3f} km - {t.laps} giri",
-                   (rect.x + 12, rect.bottom - 26), 11, T.DIM_2,
-                   maxw=rect.w - 24 - (86 if done else 0))
+                   T.DIM if done else T.TEXT, maxw=rect.w - 24)
             scade = getattr(t, "contract_until", 9999)
             resta = scade - gs.season
             col = T.BAD if resta <= 0 else (T.WARN if resta <= 1 else T.DIM_2)
+            # la scadenza si scrive solo quando vuol dire qualcosa, cioe'
+            # quando sta per arrivare: un contratto fino al 2041 e' rumore, e
+            # in cambio si mangiava lo spazio dei chilometri
+            in_scadenza = resta <= 2 and not done
+            T.text(surf, f"{t.length_km:.3f} km - {t.laps} giri",
+                   (rect.x + 12, rect.bottom - 26), 11, T.DIM_2,
+                   maxw=rect.w - 24 - (86 if done else (62 if in_scadenza else 0)))
             if getattr(t, "tradition", 0) >= 0.85:
                 T.text(surf, "STORICO", (rect.x + 12, rect.y + 8 + 14), 10, T.GOLD, bold=True)
-            T.text(surf, f"fino {scade}", (rect.right - 12, rect.bottom - 44), 11, col,
-                   align="right")
+            if in_scadenza:
+                T.text(surf, f"fino {scade}", (rect.right - 12, rect.bottom - 26), 11, col,
+                       align="right")
             if done:
                 res = next((rr for rr in gs.results
                             if rr.track_id == t.id and rr.season == gs.season and rr.kind == "gp"), None)

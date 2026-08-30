@@ -871,10 +871,26 @@ class WeekendScene(Scene):
         tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
         barra_y = h - 84 - self.BARRA_GARA_H
-        cronaca_y = barra_y - self.CRONACA_H - 8
-        vista = pygame.Rect(20, 68, w - tower_w - 48, cronaca_y - 76)
-        self._race_map(surf, vista)
-        self._race_events(surf, pygame.Rect(20, cronaca_y, vista.w, self.CRONACA_H))
+        # La mappa si prende tutta l'altezza fino alla barra dei comandi, e la
+        # cronaca le sta di fianco invece che sotto. Prima erano un pannello
+        # largo e schiacciato - due volte e mezza piu' largo che alto, mentre
+        # un circuito e' quasi quadrato - con sotto una striscia da sessanta
+        # pixel in cui stavano tre righe. Cosi' il disegno ha una forma che gli
+        # somiglia e la cronaca diventa una colonna che si legge davvero.
+        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
+        cronaca_w = int(min(300, max(0, vista.w * 0.34)))
+        if cronaca_w >= 190:
+            self._race_map(surf, pygame.Rect(vista.x, vista.y,
+                                             vista.w - cronaca_w - 8, vista.h))
+            self._race_events(surf, pygame.Rect(vista.right - cronaca_w, vista.y,
+                                                cronaca_w, vista.h))
+        else:
+            # su una finestra stretta la colonna non ci sta: si torna alla
+            # striscia sotto, che e' meglio di due pannelli inservibili
+            alta = vista.h - self.CRONACA_H - 8
+            self._race_map(surf, pygame.Rect(vista.x, vista.y, vista.w, alta))
+            self._race_events(surf, pygame.Rect(vista.x, vista.y + alta + 8,
+                                                vista.w, self.CRONACA_H))
         self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
         self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_GARA_H))
 
@@ -974,14 +990,36 @@ class WeekendScene(Scene):
             T.text(surf, lab, (int(x2) + 3, int(y2) - 7), 10, (110, 128, 156), bold=True)
 
     def _race_events(self, surf, ev) -> None:
+        """La cronaca della gara. In colonna se c'e' spazio, a striscia se no.
+
+        Le righe che ci stanno le dice l'altezza del pannello: in colonna sono
+        una quindicina e la gara si legge come si legge un giornale, a striscia
+        tornano tre come prima.
+        """
         T.panel(surf, ev, T.PANEL, radius=10, border=T.LINE)
         cols = {"pass": T.OK, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
                 "warn": T.WARN, "flag": T.WHITE, "pen": (255, 120, 90)}
-        for i, e in enumerate(self.sim.events[:3]):
-            y = ev.y + 8 + i * 18
+        colonna = ev.h > 120
+        y = ev.y + 8
+        if colonna:
+            T.text(surf, "CRONACA", (ev.x + 14, y), 11, T.DIM_2, bold=True)
+            y += 20
+        if not colonna:
+            for e in self.sim.events[:3]:
+                T.text(surf, f"g{e['lap']:>2}", (ev.x + 14, y), 12, T.DIM_2, mono=True)
+                T.text(surf, e["text"], (ev.x + 52, y), 13,
+                       cols.get(e["kind"], T.TEXT), maxw=ev.w - 74)
+                y += 18
+            return
+        # in colonna la frase va a capo invece di essere tagliata dai puntini:
+        # una cronaca che finisce con "..." non e' una cronaca
+        for e in self.sim.events:
+            if y + 16 > ev.bottom - 6:
+                break
             T.text(surf, f"g{e['lap']:>2}", (ev.x + 14, y), 12, T.DIM_2, mono=True)
-            T.text(surf, e["text"], (ev.x + 52, y), 13, cols.get(e["kind"], T.TEXT),
-                   maxw=ev.w - 74)
+            alto = T.paragraph(surf, e["text"], (ev.x + 46, y), 12,
+                               cols.get(e["kind"], T.TEXT), maxw=ev.w - 60)
+            y += max(18, alto) + 6
 
     # -------------------------------------------------------- torre dei tempi
     def _race_tower(self, surf, tower) -> None:
@@ -1069,7 +1107,8 @@ class WeekendScene(Scene):
                 gap_m = leader.dist - e.dist
                 gap_s = gap_m / max(20.0, sim.track_len / max(30.0, e.last_lap))
                 giri = int(gap_m // sim.track_len)
-                txt = f"+{giri} giri" if giri >= 1 else f"+{gap_s:.1f}"
+                txt = (f"+{giri} giro" if giri == 1 else f"+{giri} giri") \
+                    if giri >= 1 else f"+{gap_s:.1f}"
                 T.text(surf, txt, (x_gap, y), pic, T.DIM, align="right", mono=True)
             y += rh
 
@@ -1124,7 +1163,8 @@ class WeekendScene(Scene):
         comp = C.COMPOUNDS[e.tyre]
         pygame.draw.circle(surf, comp["colour"], (r.x + 22, y + 7), 7)
         pygame.draw.circle(surf, (12, 16, 24), (r.x + 22, y + 7), 7, 1)
-        T.text(surf, f"{comp['label'].upper()}  {int(e.tyre_age)} giri",
+        eta = int(e.tyre_age)
+        T.text(surf, f"{comp['label'].upper()}  {eta} {'giro' if eta == 1 else 'giri'}",
                (r.x + 36, y), 12, T.DIM)
         stato_g = e.compound_state()
         T.bar(surf, (r.x + 150, y + 4, 74, 7), stato_g * 100, 100,
