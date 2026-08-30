@@ -31,6 +31,9 @@ NAV = [
 
 TOPBAR_H = 64
 NAV_W = 212
+# Quanto dura la dissolvenza quando si cambia pagina. Poco: serve a dire "sei
+# in un altro posto", non a farsi guardare.
+DISSOLVENZA = 0.16
 
 
 class Page:
@@ -135,6 +138,7 @@ class GameShell(Scene):
     def __init__(self, app):
         super().__init__(app)
         self.page_id = "hq"
+        self.entrata = 0.0          # quanto manca alla fine della dissolvenza
         self.pages: dict = {}
         self.nav_buttons: list = []
         self._make_pages()
@@ -204,6 +208,12 @@ class GameShell(Scene):
 
     # ------------------------------------------------------------------ azioni
     def go(self, pid: str) -> None:
+        # cambiare pagina non e' un taglio di montaggio: la nuova entra con una
+        # dissolvenza di un decimo e mezzo di secondo, che e' abbastanza da far
+        # capire che si e' cambiato posto e abbastanza poco da non far
+        # aspettare nessuno. Solo se si cambia davvero pagina
+        if pid != self.page_id:
+            self.entrata = DISSOLVENZA
         self.page_id = pid
         for b, (p, _l) in zip(self.nav_buttons, NAV):
             b.active = (p == pid)
@@ -258,6 +268,7 @@ class GameShell(Scene):
         super().handle(ev)
 
     def update(self, dt: float) -> None:
+        self.entrata = max(0.0, self.entrata - dt)
         self.pages[self.page_id].update(dt)
 
     def draw(self, surf) -> None:
@@ -309,6 +320,13 @@ class GameShell(Scene):
         T.ink_start()
         pagina.draw(surf)
         fondo = T.ink_stop()
+        if self.entrata > 0.0:
+            # la dissolvenza si fa con un velo sopra a quello che e' gia'
+            # disegnato: costa un rettangolo per fotogramma e non obbliga
+            # nessuna pagina a sapere che esiste
+            velo = pygame.Surface(vista.size, pygame.SRCALPHA)
+            velo.fill((*T.BG, int(210 * min(1.0, self.entrata / DISSOLVENZA))))
+            surf.blit(velo, vista.topleft)
         for wd in pagina.widgets:
             if wd.visible:
                 fondo = max(fondo, wd.rect.bottom)

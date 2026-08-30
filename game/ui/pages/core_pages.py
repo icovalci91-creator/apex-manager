@@ -97,8 +97,10 @@ class HQPage(Page):
             T.panel(surf, (mid.x + 10, y, mid.w - 20, 92), T.PANEL_2, radius=8)
             T.text(surf, f"{d.number}", (mid.x + 22, y + 10), 22, col, bold=True)
             T.text(surf, d.name, (mid.x + 60, y + 10), 17, T.TEXT, bold=True, maxw=mid.w - 150)
-            T.text(surf, f"{d.nat} - {d.age} anni - {d.salary:.1f} M$/anno",
-                   (mid.x + 60, y + 32), 12, T.DIM, maxw=mid.w - 200)
+            # riga corta: accanto ci sta il morale, e "anni" e "all'anno" si
+            # capiscono lo stesso senza scriverli
+            T.text(surf, f"{d.nat} - {d.age}a - {d.salary:.1f} M$",
+                   (mid.x + 60, y + 32), 12, T.DIM, maxw=mid.w - 190)
             T.text(surf, f"{d.overall:.0f}", (mid.right - 22, y + 10), 22,
                    T.stat_colour(d.overall, 70, 90), bold=True, align="right")
             # il morale sta sulla riga dell'anagrafica: piu' in basso finiva
@@ -116,6 +118,21 @@ class HQPage(Page):
                 T.bar(surf, (bx, y + 68, int(passo) - 8, 6), v, 100,
                       T.stat_colour(v, 65, 90))
                 bx += passo
+            # e come sta andando: le ultime gare, quelle che uno guarda per
+            # capire se il pilota e' in palla o no. Sotto c'era mezzo pannello
+            # vuoto e questo e' il posto giusto per metterlo
+            piazzamenti = _ultimi_arrivi(gs, d.id)
+            if piazzamenti:
+                T.text(surf, "ULTIME GARE", (mid.x + 20, y + 82), 10, T.DIM_2)
+                px = mid.x + 20 + 78
+                for pos in piazzamenti:
+                    col = (T.GOLD if pos == 1 else T.OK if pos <= 3
+                           else T.TEXT if pos <= 10 else T.DIM_2)
+                    testo = f"{pos}" if pos else "RIT"
+                    T.text(surf, testo, (px, y + 80), 12,
+                           T.BAD if not pos else col, bold=(pos or 99) <= 3)
+                    px += 26
+                y += 20
             y += 100
         y += 6
         T.text(surf, "REPARTI", (mid.x + 16, y), 12, T.DIM_2, bold=True)
@@ -130,6 +147,21 @@ class HQPage(Page):
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "NOTIZIE DALLA SQUADRA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         super().draw(surf)
+
+
+def _ultimi_arrivi(gs, driver_id: str, quante: int = 5) -> list:
+    """Dove e' arrivato nelle ultime gare. Zero vuol dire ritirato."""
+    fuori = []
+    for r in reversed(gs.results):
+        if r.kind != "gp":
+            continue
+        voce = next((o for o in r.order if o.get("driver") == driver_id), None)
+        if voce is None:
+            continue
+        fuori.append(0 if voce.get("status") == "retired" else int(voce.get("pos", 0)))
+        if len(fuori) >= quante:
+            break
+    return list(reversed(fuori))
 
 
 def _posto_in_griglia(campo: dict, part: str, valore: float):

@@ -5,6 +5,7 @@ import pygame
 
 from ...core import economy, market
 from ...model.people import STAFF_ATTRS
+from .. import bandiere
 from .. import theme as T
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Slider, card
@@ -258,7 +259,12 @@ class DriversPage(Page):
         team = self.gs.teams.get(d.team)
         col = T.hex_rgb(team.colour) if team else T.DIM_2
         pygame.draw.rect(surf, col, (rect.x + 6, rect.y + 8, 3, rect.h - 16))
-        T.text(surf, d.name, (rect.x + 16, rect.y + 4), 14, T.TEXT, maxw=rect.w - 96)
+        # la bandiera prima del nome: in una lista di trenta nomi e' la prima
+        # cosa che si riconosce, e non toglie spazio al nome perche' e' larga
+        # quanto due lettere
+        larga = bandiere.disegna(surf, d.nat, (rect.x + 16, rect.y + 8), 10)
+        T.text(surf, d.name, (rect.x + 16 + (larga + 6 if larga else 0), rect.y + 4),
+               14, T.TEXT, maxw=rect.w - 96 - (larga + 6 if larga else 0))
         T.text(surf, f"{d.age}a  -  {team.short if team else 'svincolato'}",
                (rect.x + 16, rect.y + 23), 11, T.DIM, maxw=rect.w - 96)
         T.text(surf, f"{d.overall:.0f}", (rect.right - 12, rect.y + 4), 16,
@@ -284,9 +290,11 @@ class DriversPage(Page):
         posto = ""
         if squadra is not None:
             posto = "  -  terzo pilota" if d.seat == "riserva" else "  -  titolare"
+        larga = bandiere.disegna(surf, d.nat, (c.x + 16, c.y + 63), 11)
         T.text(surf, f"{d.age} anni  -  {d.nat}  -  "
                      f"{squadra.name if squadra else 'svincolato'}{posto}",
-               (c.x + 16, c.y + 60), 13, T.DIM, maxw=c.w - 32)
+               (c.x + 16 + (larga + 8 if larga else 0), c.y + 60), 13, T.DIM,
+               maxw=c.w - 32 - (larga + 8 if larga else 0))
         pygame.draw.line(surf, T.LINE, (c.x + 16, c.y + 84), (c.right - 16, c.y + 84))
 
         margine = max(0.0, d.potential - d.overall)

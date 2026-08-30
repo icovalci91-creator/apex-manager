@@ -11,7 +11,7 @@ from ...sim import hotlap as HOT
 from ...sim.weekend import Weather
 from ...sim import pace as PACE
 from .. import theme as T
-from .. import trackdraw
+from .. import bandiere, trackdraw
 from ..app import Scene
 from ..widgets import Button
 
@@ -898,7 +898,10 @@ class WeekendScene(Scene):
         sim = self.sim
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 58))
         lap = min(sim.leader_lap + 1, sim.laps)
-        T.text(surf, f"{self.track.name.upper()}  -  GIRO {lap}/{sim.laps}", (24, 10), 20,
+        # la bandiera del paese accanto al nome del circuito, come in TV
+        larga = bandiere.disegna(surf, self.track.flag, (24, 14), 13)
+        x0 = 24 + (larga + 10 if larga else 0)
+        T.text(surf, f"{self.track.name.upper()}  -  GIRO {lap}/{sim.laps}", (x0, 10), 20,
                T.TEXT, bold=True)
         sessione = "SPRINT" if sim.kind == "sprint" else "GRAN PREMIO"
         T.text(surf, f"{sessione}  -  {sim.weather.label}", (24, 38), 13,
@@ -1289,7 +1292,9 @@ class WeekendScene(Scene):
         titolo = t.nome_fase
         if t.kind == "prove":
             titolo = f"PROVE LIBERE {self.ws.practice_done + 1}/{S.practice_sessions(self.track)}"
-        T.text(surf, f"{self.track.name.upper()}  -  {titolo}", (24, 10), 20, T.TEXT,
+        larga = bandiere.disegna(surf, self.track.flag, (24, 14), 13)
+        x0 = 24 + (larga + 10 if larga else 0)
+        T.text(surf, f"{self.track.name.upper()}  -  {titolo}", (x0, 10), 20, T.TEXT,
                bold=True)
         resta = t.resta()
         col = T.BAD if resta < 120 else (T.WARN if resta < 300 else T.TEXT)

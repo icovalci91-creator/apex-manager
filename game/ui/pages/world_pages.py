@@ -7,7 +7,7 @@ from ... import config as C
 from ...core import (architetture, calendar as CAL, economy, engineering,
                      facilities, powertrain, rules)
 from .. import theme as T
-from .. import trackdraw
+from .. import bandiere, trackdraw
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Tabs, card
 
@@ -689,8 +689,14 @@ class CalendarPage(Page):
             T.panel(surf, rect, T.PANEL_2 if nxt else T.PANEL, radius=10,
                     border=T.ACCENT if nxt else T.LINE, width=2 if nxt else 1)
             T.text(surf, f"{i+1:02d}", (rect.x + 12, rect.y + 8), 13, T.DIM_2, bold=True)
-            T.text(surf, t.flag, (rect.right - 12, rect.y + 8), 13, T.ACCENT, bold=True,
-                   align="right")
+            # la bandiera se la sappiamo disegnare, se no la sigla come prima
+            larga = bandiere.disegna(surf, t.flag, (rect.right - 30, rect.y + 10), 12)
+            if larga:
+                T.text(surf, t.flag, (rect.right - 34, rect.y + 8), 12, T.DIM_2,
+                       align="right")
+            else:
+                T.text(surf, t.flag, (rect.right - 12, rect.y + 8), 13, T.ACCENT,
+                       bold=True, align="right")
             if t.sprint:
                 T.text(surf, "SPRINT", (rect.right - 12, rect.y + 24), 10, T.GOLD, bold=True,
                        align="right")
