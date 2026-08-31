@@ -4,6 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import config as C
+from ...model import people as PEOPLE
 from ...core import (development, driving, economy, engineering, kits, nextcar,
                       penalties, powertrain, rules)
 from ...core import setup as SETUP
@@ -92,6 +93,9 @@ class HQPage(Page):
         mid = pygame.Rect(r.x + r.w * 0.34, r.y + 92, r.w * 0.32, r.h - 100)
         T.panel(surf, mid, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "I NOSTRI PILOTI", (mid.x + 16, mid.y + 12), 12, T.DIM_2, bold=True)
+        # le medie della griglia, una volta sola per fotogramma invece che una
+        # per barra: sono sessanta piloti per otto attributi
+        medie = PEOPLE.medie(gs.drivers.values())
         y = mid.y + 34
         for d in gs.drivers_of(team.id):
             T.panel(surf, (mid.x + 10, y, mid.w - 20, 92), T.PANEL_2, radius=8)
@@ -112,11 +116,16 @@ class HQPage(Page):
             # essere larghe un numero fisso: su un pannello stretto sforavano
             passo = max(40.0, (mid.w - 40) / 4.0)
             bx = mid.x + 20
-            for lab, v in (("Passo", d.pace), ("Duello", d.racecraft),
-                           ("Costanza", d.consistency), ("Gomme", d.tyre_mgmt)):
+            for lab, attr, v in (("Passo", "pace", d.pace),
+                                 ("Duello", "racecraft", d.racecraft),
+                                 ("Costanza", "consistency", d.consistency),
+                                 ("Gomme", "tyre_mgmt", d.tyre_mgmt)):
                 T.text(surf, lab, (bx, y + 54), 10, T.DIM_2)
-                T.bar(surf, (bx, y + 68, int(passo) - 8, 6), v, 100,
-                      T.stat_colour(v, 65, 90))
+                # la barra e' piu' alta di prima e porta la tacca della media
+                # della griglia: un ottantacinque non vuol dire niente finche'
+                # non si sa se gli altri stanno a settanta o a novantadue
+                T.bar(surf, (bx, y + 67, int(passo) - 8, 8), v, 100,
+                      T.stat_colour(v, 65, 90), riferimento=medie.get(attr))
                 bx += passo
             # e come sta andando: le ultime gare, quelle che uno guarda per
             # capire se il pilota e' in palla o no. Sotto c'era mezzo pannello
@@ -137,10 +146,18 @@ class HQPage(Page):
         y += 6
         T.text(surf, "REPARTI", (mid.x + 16, y), 12, T.DIM_2, bold=True)
         y += 20
-        for lab, v in (("Aerodinamica", team.aero_strength), ("Progettazione", team.mech_strength),
-                       ("Strategia", team.strategy_strength), ("Pit crew", team.pit_strength),
-                       ("Affidabilita'", team.reliability_strength), ("Simulatore/assetto", team.setup_strength)):
-            stat_row(surf, pygame.Rect(mid.x + 16, y, mid.w - 32, 22), lab, v)
+        squadre = list(gs.teams.values())
+        for lab, campo, v in (
+                ("Aerodinamica", "aero_strength", team.aero_strength),
+                ("Progettazione", "mech_strength", team.mech_strength),
+                ("Strategia", "strategy_strength", team.strategy_strength),
+                ("Pit crew", "pit_strength", team.pit_strength),
+                ("Affidabilita'", "reliability_strength", team.reliability_strength),
+                ("Simulatore/assetto", "setup_strength", team.setup_strength)):
+            media = (sum(float(getattr(t, campo, 0.0)) for t in squadre)
+                     / max(1, len(squadre)))
+            stat_row(surf, pygame.Rect(mid.x + 16, y, mid.w - 32, 22), lab, v,
+                     riferimento=media)
             y += 24
 
         right = pygame.Rect(r.x + r.w * 0.68, r.y + 92, r.w * 0.32 - 4, r.h - 100)
@@ -517,8 +534,12 @@ class CarPage(Page):
         T.text(surf, "PRESTAZIONI DERIVATE", (left.x + 16, y), 12, T.DIM_2, bold=True)
         y += 22
         prof = engineering.car_profile(team, gs)
+        tutte = engineering.grid_profiles(gs)
         for key, lab in engineering.AREAS.items():
-            stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 20), lab, prof[key])
+            media = (sum(p[key] for p in tutte.values()) / max(1, len(tutte))
+                     if tutte else None)
+            stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 20), lab,
+                     prof[key], riferimento=media)
             y += 20
         y += 8
         cost = car.repair_cost()

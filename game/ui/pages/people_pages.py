@@ -4,6 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ...core import economy, market
+from ...model import people as PEOPLE
 from ...model.people import STAFF_ATTRS
 from .. import bandiere
 from .. import theme as T
@@ -347,6 +348,9 @@ class DriversPage(Page):
             y += 20
             cw = (c.w - 32) / 2
             barra = cw - 168 >= 44       # sotto questa soglia la barra e' un moncone
+            # la media della griglia, una volta sola: e' la tacca che dice se
+            # ottantatre e' tanto o poco
+            medie = PEOPLE.medie(gs.drivers.values())
             for j, (a, lab, conta) in enumerate(self.ATTRS):
                 v = getattr(d, a)
                 cx = c.x + 16 + (j % 2) * cw
@@ -354,8 +358,8 @@ class DriversPage(Page):
                 T.text(surf, lab, (cx, cy), 12, T.TEXT if conta else T.DIM, bold=conta,
                        maxw=cw - (46 if barra else 34))
                 if barra:
-                    T.bar(surf, (cx + 122, cy + 5, cw - 168, 7), v, 100,
-                          T.stat_colour(v, 65, 90))
+                    T.bar(surf, (cx + 122, cy + 4, cw - 168, 8), v, 100,
+                          T.stat_colour(v, 65, 90), riferimento=medie.get(a))
                 T.text(surf, f"{v:.0f}", (cx + cw - 14, cy), 12, T.stat_colour(v, 65, 90),
                        bold=True, align="right")
             y += n_att * p_a + 8

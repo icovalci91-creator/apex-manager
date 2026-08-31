@@ -8,6 +8,21 @@ from dataclasses import dataclass, field, asdict
 DRIVER_ATTRS = ["pace", "racecraft", "consistency", "tyre_mgmt", "wet",
                 "feedback", "aggression", "stamina", "estro"]
 
+def medie(piloti, attrs=None) -> dict:
+    """La media di ogni attributo su un gruppo di piloti.
+
+    Serve alle barre: un numero da solo non dice niente finche' non si sa dove
+    stanno gli altri. Chi la chiama la tiene da parte, che rifarla a ogni
+    fotogramma per sessanta piloti sarebbe uno spreco.
+    """
+    lista = list(piloti)
+    if not lista:
+        return {}
+    voci = attrs or DRIVER_ATTRS
+    return {a: sum(float(getattr(d, a, 0.0)) for d in lista) / len(lista)
+            for a in voci}
+
+
 STAFF_ATTRS = ["aero", "mechanical", "powertrain", "development", "reliability",
                "strategy", "analysis", "communication", "management", "scouting"]
 

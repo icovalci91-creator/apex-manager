@@ -33,7 +33,18 @@ from __future__ import annotations
 # maltrattate, e finche' non lo sono non danno niente.
 FINESTRA = {"soft": 98.0, "medium": 104.0, "hard": 110.0,
             "inter": 72.0, "wet": 58.0}
-LARGHEZZA = 16.0          # quanti gradi si puo' stare fuori senza pagarla
+# Quanti gradi si puo' stare fuori senza pagarla. I due numeri non sono uguali
+# apposta, ed e' la gomma a non essere simmetrica: sotto la finestra la mescola
+# rende meno ma la si riporta su - basta spingere un giro - mentre sopra si
+# sfoglia, e quello che si e' sfogliato non torna. Il precipizio sta da una
+# parte sola.
+#
+# Con la finestra stretta uguale dai due lati succedeva una cosa sbagliata:
+# una vettura che gestiva il passo usciva dalla finestra dal basso su meta'
+# calendario e non ci rientrava piu', perche' era proprio il gestire a
+# raffreddarla. Un pilota che alza di un decimo non congela le gomme.
+LARGO_FREDDO = 23.0
+LARGO_CALDO = 14.0
 
 # Dove va a finire la gomma se si continua cosi': l'asfalto piu' quello che le
 # si sta chiedendo. Su una pista media, con l'asfalto a quaranta gradi e un
@@ -69,8 +80,10 @@ def bersaglio(sim, e) -> float:
     lavoro = LAVORO * float(getattr(sim.track, "pilota_rel", 1.0))
     lavoro += (1.0 - LAVORO)
     # quanto le si sta chiedendo: il passo scelto pesa piu' che linearmente,
-    # perche' e' scivolando che la gomma si scalda
-    spinta = max(0.85, min(1.15, e.push_mode)) ** 2.0
+    # perche' e' scivolando che la gomma si scalda. Ma non al quadrato: la
+    # maggior parte del calore lo fa l'energia che passa nella gomma in curva,
+    # e quella non cala del venti per cento perche' si e' alzato di un decimo
+    spinta = max(0.85, min(1.15, e.push_mode)) ** 1.3
     deg = 0.72 + 0.55 * float(sim.track.traits.get("tyre_wear", 0.6))
     t = sim.cond.track_temp + SALTO * lavoro * spinta * deg
     t += ARIA_SPORCA * e.dirty_air
@@ -90,8 +103,13 @@ def aggiorna(sim, e, quota: float = 1.0) -> None:
 
 
 def fuori(e) -> float:
-    """Quanto e' fuori finestra: negativo fredda, positivo calda, 0 dentro."""
-    return (e.gomma_t - FINESTRA.get(e.tyre, 100.0)) / LARGHEZZA
+    """Quanto e' fuori finestra: sotto -1 e' fredda, sopra +1 e' calda.
+
+    Le due meta' si misurano con due righelli diversi, perche' la finestra non
+    e' simmetrica: uno vale ventitre gradi sotto e uno quattordici sopra.
+    """
+    scarto = e.gomma_t - FINESTRA.get(e.tyre, 100.0)
+    return scarto / (LARGO_CALDO if scarto > 0 else LARGO_FREDDO)
 
 
 def secondi(sim, e) -> float:

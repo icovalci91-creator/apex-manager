@@ -235,13 +235,33 @@ def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 
         pygame.draw.rect(surf, border, rect, width, border_radius=radius)
 
 
-def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3, radius: int = 4):
+# Il segno del riferimento sulla barra: la tacca che dice dov'e' la media
+# della griglia. Senza, una barra risponde solo a "quanto", che e' meta' della
+# domanda: ottantacinque di aerodinamica non vuol dire niente finche' non si sa
+# se gli altri stanno a settanta o a novantadue. Con la tacca la risposta si
+# legge senza pensarci.
+# Due colori e non uno: la tacca cade sopra il riempimento quando si sta sopra
+# la media e sul fondo vuoto quando si sta sotto, e un grigio solo sparisce in
+# uno dei due casi. Quella scura si vede sul verde, quella chiara sul fondo.
+TACCA = (150, 164, 188)
+TACCA_SOPRA = (18, 24, 34)
+
+
+def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3,
+        radius: int = 4, riferimento: float | None = None):
     _ink(rect[1] + rect[3])
     pygame.draw.rect(surf, bg, rect, border_radius=radius)
     frac = max(0.0, min(1.0, value / maxv if maxv else 0.0))
     if frac > 0:
         r = pygame.Rect(rect[0], rect[1], max(2, int(rect[2] * frac)), rect[3])
         pygame.draw.rect(surf, colour, r, border_radius=radius)
+    if riferimento is not None and maxv and rect[2] >= 30:
+        q = max(0.02, min(0.98, riferimento / maxv))
+        x = int(rect[0] + rect[2] * q)
+        # la tacca sborda di un pixel sopra e sotto: dentro alla barra si
+        # confonderebbe con il riempimento proprio dove serve leggerla
+        col = TACCA_SOPRA if q <= frac else TACCA
+        pygame.draw.rect(surf, col, (x, rect[1] - 1, 2, rect[3] + 2))
 
 
 def stat_colour(v: float, lo: float = 55.0, hi: float = 90.0):

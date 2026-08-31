@@ -497,11 +497,14 @@ class TextInput(Widget):
                              (x, self.rect.bottom - 7), 2)
 
 
-def stat_row(surf, rect, label, value, maxv=100.0, colour=None, suffix="", show_bar=True):
+def stat_row(surf, rect, label, value, maxv=100.0, colour=None, suffix="",
+             show_bar=True, riferimento=None):
+    """Una riga etichetta-barra-numero. `riferimento` mette la tacca della media."""
     T.text(surf, label, (rect.x, rect.centery - 9), 14, T.DIM)
     col = colour or T.stat_colour(value)
     if show_bar:
-        T.bar(surf, (rect.x + 168, rect.centery - 5, rect.w - 240, 10), value, maxv, col)
+        T.bar(surf, (rect.x + 168, rect.centery - 5, rect.w - 240, 10), value, maxv,
+              col, riferimento=riferimento)
     T.text(surf, f"{value:.0f}{suffix}", (rect.right, rect.centery - 9), 15, col,
            bold=True, align="right")
 
