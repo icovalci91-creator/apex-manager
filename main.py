@@ -70,6 +70,14 @@ if __name__ == "__main__":
         code = asyncio.run(main())
     except Exception:
         traceback.print_exc()
-    if code and not IS_WEB:
-        input("\nErrore. Premi Invio per chiudere...")
+    # Se e' andata male si tiene la finestra del terminale aperta, cosi' chi ha
+    # lanciato il gioco da riga di comando fa in tempo a leggere l'errore.
+    # L'eseguibile impacchettato pero' il terminale non ce l'ha - e' una
+    # finestra e basta - e chiedere Invio a un programma senza tastiera di
+    # sistema lo farebbe morire una seconda volta, sull'errore dell'errore.
+    if code and not IS_WEB and sys.stdin is not None and sys.stdin.isatty():
+        try:
+            input("\nErrore. Premi Invio per chiudere...")
+        except Exception:
+            pass
     sys.exit(code)

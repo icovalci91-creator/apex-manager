@@ -1,9 +1,49 @@
 """Costanti globali del gioco."""
+import os
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+# Dove sta il gioco e dove stanno le sue cose. Sono due posti diversi, e
+# tenerli separati e' l'unico modo perche' un eseguibile funzioni davvero.
+#
+# **Quello che il gioco legge** - i dati dei circuiti, i piloti, i caratteri -
+# viaggia dentro al programma. Lanciato dai sorgenti sta accanto a questo file;
+# dentro a un eseguibile impacchettato con PyInstaller sta in una cartella
+# temporanea che il programma si apre all'avvio e che sparisce alla chiusura,
+# e il suo percorso lo dice `sys._MEIPASS`.
+#
+# **Quello che il gioco scrive** - i salvataggi - non puo' stare li'. In un
+# eseguibile monofile quella cartella viene cancellata all'uscita e con lei le
+# partite; in una installazione sotto Programmi non e' nemmeno scrivibile.
+# Quindi va dove ogni sistema mette i dati di un'applicazione: %APPDATA% su
+# Windows, ~/Library/Application Support su Mac, ~/.local/share su Linux.
+#
+# Lanciato dai sorgenti pero' resta tutto com'era, con i salvataggi nella
+# cartella del progetto: chi sviluppa vuole vederseli li' accanto, non
+# nascosti in una cartella di sistema.
+def _radice() -> Path:
+    """La cartella da cui il gioco legge i suoi dati."""
+    interno = getattr(sys, "_MEIPASS", None)
+    return Path(interno) if interno else Path(__file__).resolve().parent.parent
+
+
+def _cartella_utente() -> Path:
+    """La cartella in cui il gioco scrive: una per utente, una per sistema."""
+    if not getattr(sys, "frozen", False):
+        return _radice()          # dai sorgenti si resta nel progetto
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming"
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"
+    return Path(base) / "ApexManager"
+
+
+ROOT = _radice()
 DATA = ROOT / "data"
-SAVES = ROOT / "saves"
+UTENTE = _cartella_utente()
+SAVES = UTENTE / "saves"
 
 GAME_TITLE = "Apex Manager"
 GAME_VERSION = "0.1"

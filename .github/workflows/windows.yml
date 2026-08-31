@@ -1,0 +1,84 @@
+name: Build Windows e allega alla release
+
+# Fa l'eseguibile per Windows. Va fatto qui e non in locale per la stessa
+# ragione per cui la build web si fa qui: PyInstaller non compila per un
+# sistema diverso da quello su cui gira, quindi un .exe lo puo' produrre solo
+# una macchina Windows. Questa e' quella macchina.
+#
+# Ne esce un file solo, ApexManager.exe, che si porta dentro Python, pygame e
+# tutti i dati del gioco: chi lo riceve non installa niente.
+#
+#   * a ogni push si trova in fondo alla pagina Actions, sotto "Artifacts",
+#     e serve a provare in fretta che quello che si e' scritto funziona;
+#   * a ogni tag che comincia per v (v0.2, v1.0...) finisce anche allegato a
+#     una release, che e' il link da dare a chi deve solo giocare.
+
+on:
+  push:
+    branches: [main, claude/game-analysis-l4v034]
+    tags: ['v*']
+    paths-ignore:
+      - 'screenshots/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # serve a creare la release e ad allegarci il file
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Installa quello che serve
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller==6.11.1
+
+      - name: Scrivi la sigla della build
+        # la stessa che usa la build web: si legge nel menu del gioco e dice a
+        # colpo d'occhio quale versione si ha in mano
+        shell: bash
+        run: |
+          git log -1 --format='%h %cd' --date=format:'%d/%m %H:%M' > data/build.txt
+          cat data/build.txt
+
+      - name: Impacchetta
+        run: python -m PyInstaller --noconfirm --clean apex.spec
+
+      - name: Controlla che parta davvero
+        # un eseguibile che si impacchetta ma non si apre e' peggio di niente:
+        # lo si lancia senza schermo per qualche secondo e si guarda che non
+        # muoia da solo. Se muore, l'uscita non e' quella dell'attesa scaduta
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./dist/ApexManager.exe & pid=$!
+          sleep 25
+          if kill -0 $pid 2>/dev/null; then
+            echo "e' ancora vivo dopo venticinque secondi: bene"
+            kill $pid
+          else
+            wait $pid; echo "si e' chiuso da solo con codice $?"; exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApexManager-windows
+          path: dist/ApexManager.exe
+          if-no-files-found: error
+
+      - name: Allega alla release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ApexManager.exe
+          generate_release_notes: true

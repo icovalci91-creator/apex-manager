@@ -6,3 +6,9 @@ _*.png
 
 # i tracciati di confronto scaricati da tools/anchor_tracks.py: si riscaricano
 tools/_cache/
+
+# quello che tira fuori PyInstaller: l'eseguibile lo costruisce la macchina
+# Windows su GitHub, non lo si tiene nel repository
+build/
+dist/
+*.spec.bak

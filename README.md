@@ -29,6 +29,41 @@ fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il m
 sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
 il quale i pannelli non starebbero piu' in piedi.
 
+## Eseguibile per Windows
+
+Chi deve solo giocare non installa Python: scarica **ApexManager.exe**, lo mette dove vuole
+e ci clicca sopra. E' un file solo - Python, pygame e tutti i dati del gioco stanno dentro -
+e pesa una ventina di megabyte.
+
+Lo si trova in due posti: in fondo alla pagina **Actions** sotto "Artifacts" dopo ogni push,
+e allegato a una **release** ogni volta che si mette un tag che comincia per `v`.
+
+```bash
+git tag v0.2 && git push origin v0.2     # e la release si fa da sola
+```
+
+Lo costruisce `.github/workflows/windows.yml` su una macchina Windows, e deve essere una
+macchina Windows: PyInstaller non compila per un sistema diverso da quello su cui gira,
+quindi da Linux o da Mac un `.exe` non esce. La ricetta sta in `apex.spec` e funziona
+uguale sugli altri sistemi (`pyinstaller apex.spec` da' `dist/ApexManager` su Linux e Mac),
+solo che il file che ne esce gira li' e non su Windows.
+
+L'icona non e' un file misterioso trascinato dietro: la disegna
+`python tools/icona.py`, che scrive `assets/apex.ico` con sei misure dentro.
+
+**Dove finiscono i salvataggi.** Non accanto all'eseguibile: dentro a un eseguibile
+monofile quella cartella e' temporanea e sparisce alla chiusura, e sotto `Programmi` non
+sarebbe nemmeno scrivibile. Vanno dove ogni sistema mette i dati di un'applicazione:
+
+| sistema | cartella |
+|---|---|
+| Windows | `%APPDATA%\ApexManager\saves` |
+| macOS | `~/Library/Application Support/ApexManager/saves` |
+| Linux | `~/.local/share/ApexManager/saves` |
+
+Lanciando `python main.py` dai sorgenti invece resta tutto com'era, con i salvataggi in
+`saves/` dentro al progetto: chi sviluppa vuole vederseli li' accanto.
+
 ## Versione web (iPad e tablet)
 
 Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:

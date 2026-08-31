@@ -65,7 +65,9 @@ def write_save(name: str, data: dict) -> str:
     if IS_WEB:
         _window().localStorage.setItem(_PREFIX + name, raw)
         return "memoria del browser"
-    C.SAVES.mkdir(exist_ok=True)
+    # parents=True: dentro a un eseguibile la cartella dell'utente non c'e'
+    # ancora, e sta due livelli sotto quella dei dati di sistema
+    C.SAVES.mkdir(parents=True, exist_ok=True)
     path = C.SAVES / f"{name}.json"
     with open(path, "w", encoding="utf-8") as f:
         f.write(raw)
