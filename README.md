@@ -439,6 +439,13 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   dietro alla safety car si gela. Con l'asfalto a 50 °C a Budapest si finisce a 125 °C e si
   fanno 1,7 soste; con l'asfalto a 22 °C a Monza si resta a 84 °C e si perdono tre decimi al
   giro senza mai riuscire ad accenderle.
+- **Il controsorpasso**: passare costa energia — si arriva in fondo al dritto in attacco e
+  si spende l'override — e chi ti sei appena lasciato dietro quell'energia ce l'ha ancora.
+  Misurato: chi ha appena passato resta con **0,54 MJ** contro gli **1,50** di chi si è
+  fatto passare, e per una cinquantina di secondi quello ci riprova con più voglia, in
+  proporzione a quanto gliene è rimasta in più. Il 6% dei sorpassi sono risposte così (15%
+  a Spa, 8% a Baku). Spendere tutto per passare uno che ne ha di più vuol dire regalargli
+  il posto due curve dopo.
 - **L'attacco preparato**: se resti tre giri entro 1,6 s dallo stesso avversario senza
   passarlo, il muretto smette di spingere e prepara. Due giri di ricarica - a gas
   spalancato, che seguendo costa sul dritto ma non costa in curva, quindi resti comunque
