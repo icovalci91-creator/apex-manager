@@ -88,6 +88,31 @@ TETTO_PISTA = 0.185
 # meno a chi si trova nella condizione opposta.
 VANTAGGIO_CARICA = 0.70
 
+# Quante volte al giro ci si prova davvero. Non una per ogni posto buono che il
+# circuito offre: in pista si arriva a ridosso, si studia, e ci si prova nel
+# punto migliore - due volte, tre su un circuito che perdona. Contarne una per
+# zona faceva salire i sorpassi in proporzione al numero di rettilinei, che e'
+# la ragione per cui a Baku, che di zone ne ha otto, ne uscivano sessantatre a
+# gara contro i quarantacinque veri, mentre Interlagos, che ne ha tre e ne fa
+# cinquanta, restava a venti.
+TENTATIVI_GIRO = 2
+TENTATIVI_APERTA = 3        # dove si passa facile ci si prova una volta di piu'
+# e in una zona mediocre spesso non ci si prova nemmeno: si aspetta quella
+# buona, che e' esattamente quello che fa un pilota
+INGAGGIO_MINIMO = 0.30
+
+# --------------------------------------------------------- il controsorpasso
+# Passare costa energia: si arriva in fondo al dritto in attacco, si spende
+# l'override, e quando si e' davanti la batteria e' piu' vuota di prima. Chi e'
+# stato appena passato invece quell'energia ce l'ha ancora, ed e' per questo
+# che in pista un sorpasso tirato via si paga al dritto successivo. Da qui il
+# senso della gestione: spendere tutto per passare uno che ne ha di piu' vuol
+# dire regalargli il posto due curve dopo.
+COSTO_SORPASSO_MJ = 0.35
+RISCOSSA_S = 55.0           # per quanto resta aperta la finestra della risposta
+RISCOSSA_FORZA = 0.85       # e quanto pesa, sopra al vantaggio di carica
+RISPOSTA_ATTESA = 7.0       # chi e' stato passato puo' rispondere alla zona dopo
+
 
 def follow_gap(track) -> float:
     ot = float(track.traits.get("overtaking", 0.5))
@@ -309,6 +334,9 @@ class Entrant:
     bloccato_da: str = ""         # dietro chi si e' incastrati...
     bloccato_giri: int = 0        # ...e da quanti giri
     piano_energia: int = 0        # >0 giri messi via per l'attacco, <0 giri di attacco
+    tentativi_giro: int = 0       # quante volte ci ha gia' provato in questo giro
+    riscossa: float = 0.0         # secondi di finestra per rispondere a chi l'ha passato
+    riscossa_su: str = ""         # e a chi
     fuel_warned: bool = False
     grid: int = 1
     finished_time: float = 0.0
@@ -565,6 +593,7 @@ class RaceSim:
             e.dist += v * dt
             e.total_time += dt
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
+            e.riscossa = max(0.0, e.riscossa - dt)
             e.override_t = max(0.0, e.override_t - dt)
 
             GO.aggiorna(self, e, dt / lt)
@@ -740,6 +769,7 @@ class RaceSim:
         # secondo gia' corso nel giro nuovo si scala da questo
         oltre = (e.dist - e.lap * self.track_len) * lt / self.track_len
         giro = e.total_time - e.lap_t0 - oltre
+        e.tentativi_giro = 0          # il conto dei tentativi riparte a ogni giro
         if e.sector_done >= 2 and giro > 1.0:
             e.live_sectors[2] = max(0.1, giro - e.live_sectors[0] - e.live_sectors[1])
             self._segna_settore(e, 2)
@@ -1113,6 +1143,12 @@ class RaceSim:
             if (self.safety_car > 0 or behind.overtake_cd > 0
                     or gap_m > self.follow * 1.25):
                 continue
+            # quante volte al giro ci si prova e' un numero piccolo, e non
+            # dipende da quanti posti buoni ci sono: si sceglie il migliore e
+            # si aspetta quello
+            tetto = TENTATIVI_APERTA if ot_track > 0.65 else TENTATIVI_GIRO
+            if behind.tentativi_giro >= tetto:
+                continue
             # e soprattutto: qui c'e' dove passare? Un sorpasso non capita in
             # mezzo a una curva, capita in fondo a un dritto lungo abbastanza
             # da prendere la scia e con una staccata vera in cui infilarsi. Il
@@ -1120,8 +1156,14 @@ class RaceSim:
             posto = self.track.zona_di(behind.lap_fraction(self.track_len))
             if posto <= 0.0:
                 continue
+            # e in una zona mediocre spesso non ci si prova nemmeno: si tiene il
+            # tentativo per quella buona, che e' quello che fa un pilota quando
+            # sa che due curve dopo c'e' il rettilineo vero
+            if self.rng.random() > INGAGGIO_MINIMO + (1.0 - INGAGGIO_MINIMO) * posto:
+                continue
             # da qui in poi e' il tentativo in questa zona, riuscito o no
             behind.overtake_cd = ATTESA_ZONA
+            behind.tentativi_giro += 1
             # l'override: stando entro un secondo si possono chiedere i
             # trecentocinquanta kilowatt pieni fin quasi in fondo al dritto, e
             # costano mezzo megajoule. Se chi sta davanti e' a secco non ha
@@ -1161,6 +1203,15 @@ class RaceSim:
             if self.batteria_max > 0.2:
                 piu = (behind.carica - ahead.carica) / self.batteria_max
                 p *= 1.0 + VANTAGGIO_CARICA * max(-0.5, min(0.5, piu))
+            # e la riscossa: chi e' stato passato pochi giri fa sa dove l'altro
+            # ha speso, e ci riprova. Vale solo contro chi l'ha passato, e vale
+            # in proporzione a quanta energia gli e' rimasta in piu'
+            if behind.riscossa > 0.0 and ahead.driver_id == behind.riscossa_su:
+                margine = 0.35
+                if self.batteria_max > 0.2:
+                    margine = max(0.0, min(1.0, 0.35 + (behind.carica - ahead.carica)
+                                           / self.batteria_max))
+                p *= 1.0 + RISCOSSA_FORZA * margine
             # e poi ci vuole lo spazio per stare affiancati: e' quello che
             # separa Monte Carlo dal Red Bull Ring a parita' di staccata
             p *= 0.20 + 0.80 * ot_track
@@ -1179,8 +1230,15 @@ class RaceSim:
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot_track, p):
                 continue
             behind.dist, ahead.dist = ahead.dist + 6.0, ahead.dist - self.follow * 0.6
+            # passare costa: si e' arrivati in fondo al dritto in attacco, e
+            # quello che si e' speso adesso non ce l'hai piu' per difenderti
+            behind.carica = max(0.0, behind.carica - COSTO_SORPASSO_MJ * EN.scala(self))
             behind.overtake_cd = max(25.0, behind.last_lap * 1.1)
-            ahead.overtake_cd = max(20.0, ahead.last_lap * 0.9)
+            # chi e' stato passato non aspetta un giro intero per rispondere:
+            # aspetta la prossima zona, e per un po' ci prova con piu' voglia
+            ahead.overtake_cd = RISPOSTA_ATTESA
+            ahead.riscossa = RISCOSSA_S
+            ahead.riscossa_su = behind.driver_id
             self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
             if self.rng.random() < 0.075 * (behind.aggression / 100.0) * (1.0 + self.weather.wet):
                 dmg = self.rng.uniform(4, 26)

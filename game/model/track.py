@@ -991,10 +991,43 @@ class Track:
     ALA_ATTACCO = 0.30       # l'attacco si gioca nell'ultimo pezzo del dritto
     ALA_CASELLE = 360        # in quante caselle si spezza il giro per cercarle
 
+    # Quanto deve rallentare un punto per essere una curva e non un'increspatura.
+    # Un minimo locale sul profilo di velocita' non basta: su un rettilineo la
+    # macchina viaggia quasi piatta e il minimo rumore ne genera a decine, e
+    # ognuno di quelli spezza il rettilineo in due tronconi troppo corti per
+    # essere riconosciuti come posti da sorpasso. A Melbourne erano ventuno
+    # vertici con cali da zero a due km/h - contro i dodici di Monza, che e' un
+    # circuito piu' lungo - e da li' non usciva nemmeno una zona: la gara
+    # finiva con zero sorpassi, sempre.
+    APICE_SALTO = 12.0        # km/h di rallentamento minimo perche' sia una curva
+    APICE_INTORNO = 160.0     # entro quanti metri si cerca il picco da cui e' sceso
+
+    def _apici(self, v: list) -> list:
+        """I punti in cui si e' davvero rallentato, non ogni sassolino.
+
+        Di ogni minimo locale si guarda quanto sta sotto al punto piu' veloce
+        che ha attorno: se sono due km/h non e' una curva, e' il profilo che
+        ondeggia. E' lo stesso filtro con cui si separano i picchi veri dal
+        rumore in qualunque serie di misure.
+        """
+        n = len(v)
+        if n < 16:
+            return []
+        raggio = max(2, int(self.APICE_INTORNO / max(1.0, self.ds)))
+        soglia = self.APICE_SALTO / 3.6
+        fuori = []
+        for i in range(n):
+            if not (v[i] <= v[(i - 1) % n] and v[i] < v[(i + 1) % n]):
+                continue
+            picco = max(v[(i + j) % n] for j in range(-raggio, raggio + 1))
+            if picco - v[i] >= soglia:
+                fuori.append(i)
+        return fuori
+
     def _map_ala(self, v: list) -> None:
         """I tratti in cui l'ala si apre, misurati sul giro."""
         n, ds = len(v), self.ds
-        apici = [i for i in range(n) if v[i] <= v[(i - 1) % n] and v[i] < v[(i + 1) % n]]
+        apici = self._apici(v)
         if len(apici) < 2:
             self.zone_ala = []
             return
