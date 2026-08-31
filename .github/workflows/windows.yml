@@ -57,10 +57,11 @@ jobs:
         # lo si lancia senza schermo per qualche secondo e si guarda che non
         # muoia da solo.
         #
-        # In PowerShell e non in bash: un processo con finestra lanciato da Git
-        # Bash non risponde al suo `kill`, il passo restava appeso a aspettarlo
-        # e il workflow non finiva piu'. Start-Process e Stop-Process parlano
-        # con Windows invece che con l'emulazione di una shell Unix.
+        # In PowerShell e non in bash, per due ragioni: Start-Process e
+        # Stop-Process parlano con Windows invece che con l'emulazione di una
+        # shell Unix, e `HasExited` con `ExitCode` dicono *come* si e' chiuso -
+        # che e' l'informazione per cui questo passo esiste. Da Git Bash si
+        # sapeva solo che era morto, non con che codice.
         shell: pwsh
         env:
           SDL_VIDEODRIVER: dummy
