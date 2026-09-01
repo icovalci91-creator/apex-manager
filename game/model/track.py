@@ -70,6 +70,21 @@ V_USCITA = 0.62
 # Questi sono i valori medi delle ventiquattro piste in calendario: servono
 # solo a centrare i moltiplicatori su uno. Se il calendario cambia parecchio
 # vanno rimisurati, e li rimisura `tools/sensibilita_piste.py`.
+# Quanto costa in benzina un giro. Il potere calorifico e' quello del
+# carburante interamente sostenibile del 2026, la resa quella di un termico
+# ibrido moderno a pieno carico: sopra al cinquanta per cento, un numero che
+# nessun motore stradale vede. Il coefficiente di rotolamento e' quello di una
+# slick da competizione, e pesa poco: quasi tutto se lo prende l'aria.
+POTERE_BENZINA = 42.0e6     # J per chilo
+RESA_TERMICA = 0.52         # quanto di quei joule finisce sulle ruote
+ROTOLAMENTO = 0.014
+# Il consumo della pista media del calendario, al chilometro, misurato con il
+# conto qui sopra: e' il riferimento rispetto a cui ogni circuito si dichiara
+# piu' o meno esigente.
+BENZINA_KM_RIF = 0.348
+COMPRESSIONE_BENZINA = 0.45
+LUNGHEZZA_RIF = 5.30        # il giro della pista media, in chilometri
+
 BENZINA_RIF = 0.0182     # secondi al giro per chilo
 SCIA_RIF = 1.35          # secondi persi seguendo, a carico ridotto
 GRIP_RIF = 34.13         # secondi per unita' di aderenza persa
@@ -183,6 +198,8 @@ class Track:
     corner_map: list = field(default_factory=list)   # le curve, una per una
     zone_ala: list = field(default_factory=list)     # dove si apre l'ala e si prova a passare
     mappa_ala: list = field(default_factory=list)    # le stesse, in tabella per la gara
+    benzina_giro: float = 1.18       # chili di benzina bruciati in un giro
+    benzina_rel_giro: float = 1.0    # quanto beve qui rispetto alla pista media
     energia_giro: float = 0.0    # MJ che si riescono a recuperare in un giro
     ers_secondi: float = 0.0     # quanto vale la spinta elettrica, in secondi al giro
     # quanto pesano qui, rispetto alla pista media, le cose che in gara
@@ -963,6 +980,35 @@ class Track:
             preso += max(0.0, min(cinetica - aria, potenza_e * dt))
         tetto = getattr(ref_car, "recupero_max_mj", C.RECUPERO_MAX_MJ)
         self.energia_giro = round(min(preso / 1e6, tetto), 2)
+        # e quanta benzina costa quel giro, che e' lo stesso conto letto al
+        # contrario. L'energia che serve per portare la macchina intorno al
+        # giro e' quella che il vento porta via piu' quella che finisce nella
+        # velocita': quello che non ci mette l'elettrico ce lo mette il
+        # termico, e il termico la benzina la beve. Ecco perche' a Monza si
+        # consuma e a Monte Carlo no, e perche' con settanta chili di
+        # regolamento su certe piste in fondo non ci si arriva tirando.
+        spinta = 0.0
+        for i in range(n):
+            j = (i + 1) % n
+            vm = max(3.0, 0.5 * (v[i] + v[j]))
+            aria = 0.5 * rho * cda * vm * vm * ds
+            rotola = ROTOLAMENTO * mass * 9.81 * ds
+            cinetica = 0.5 * mass * (v[j] * v[j] - v[i] * v[i])
+            spinta += max(0.0, aria + rotola + cinetica)
+        termico = max(0.0, spinta - self.energia_giro * 1e6)
+        self.benzina_giro = round(termico / (POTERE_BENZINA * RESA_TERMICA), 3)
+        # Il numero assoluto che esce da questo conto sta sopra a quello vero:
+        # le costanti aerodinamiche del modello sono tarate sul tempo sul giro,
+        # non sul consumo, e sul consumo si vede. Quello che il conto sa dire
+        # bene e' il confronto - dove si beve di piu' e dove di meno - e quello
+        # si tiene, riportato al chilometro e rispetto alla pista media. Il
+        # livello assoluto resta quello del regolamento: settanta chili a gara.
+        # La forbice si comprime perche' quella grezza, mezza scala fra Monza e
+        # Silverstone, e' piu' larga di quella vera: in pista il consumo fra un
+        # circuito e l'altro balla il dieci per cento, non il cinquanta.
+        per_km = self.benzina_giro / max(0.5, self.length_km)
+        grezzo = per_km / BENZINA_KM_RIF
+        self.benzina_rel_giro = round(1.0 + COMPRESSIONE_BENZINA * (grezzo - 1.0), 3)
         # e quanto vale averla: il giro con la spinta contro il giro senza. Il
         # primo e' gia' stato fatto qui sopra, si rifa' solo quello senza
         from ..sim import pace

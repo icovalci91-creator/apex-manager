@@ -10,6 +10,7 @@ from ...sim import session as S
 from ...sim import hotlap as HOT
 from ...sim.weekend import Weather
 from ...sim import pace as PACE
+from ...sim import benzina
 from .. import theme as T
 from .. import bandiere, trackdraw
 from ..app import Scene
@@ -230,10 +231,14 @@ class WeekendScene(Scene):
             self.widgets.append(Button((px, by, 90, 34), f"BOX {d.code}",
                                        (lambda k=did: self.force_pit(k)), "normal"))
             px += 96
-            for lab, val in (("-", 0.90), ("=", 1.0), ("+", 1.10)):
+            # il passo: risparmia, lascia fare al muretto, attacca. Quello di
+            # mezzo non e' "normale", e' "decidi tu": il muretto guarda quanta
+            # benzina resta e chi si ha intorno, e stringe o allunga da solo
+            attuale = self._passo_di(did)
+            for lab, val in (("-", 0.90), ("=", None), ("+", 1.10)):
                 b = Button((px, by, 32, 34), lab, style="tab")
                 b.on_click = (lambda k=did, v=val, bb=None: self.set_push(k, v))
-                b.active = (val == 1.0)
+                b.active = (val == attuale)
                 self.widgets.append(b)
                 px += 34
             px += 14
@@ -353,12 +358,24 @@ class WeekendScene(Scene):
                 e.plan.insert(0, (e.lap, self.sim._pick_compound(e)))
                 self.app.toast(f"{e.name}: box al prossimo passaggio.")
 
-    def set_push(self, driver_id: str, value: float) -> None:
+    def _passo_di(self, driver_id: str):
+        """Come e' impostato il passo di quella vettura: None = lo fa il muretto."""
+        if not self.sim:
+            return None
+        for e in self.sim.entrants:
+            if e.driver_id == driver_id:
+                return e.passo_manuale
+        return None
+
+    def set_push(self, driver_id: str, value: float | None) -> None:
+        """Il passo lo prende in mano il giocatore, o lo si ridà al muretto."""
         if not self.sim:
             return
         for e in self.sim.entrants:
             if e.driver_id == driver_id:
-                e.push_mode = value
+                e.passo_manuale = value
+                if value is not None:
+                    e.push_mode = value
         self.build()
 
     def finish(self) -> None:
@@ -894,6 +911,20 @@ class WeekendScene(Scene):
         self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
         self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_GARA_H))
 
+    def _auto_seguita(self):
+        """Di chi si guarda l'ultimo giro: la propria macchina messa meglio.
+
+        In una gara si tiene d'occhio il proprio tempo, non quello del primo:
+        e' l'unico modo di sapere se il passo che si sta tenendo basta. Se in
+        pista non c'e' nessuna macchina propria, si guarda chi sta davanti.
+        """
+        sim = self.sim
+        mie = [e for e in sim.entrants if e.is_player and e.status == "running"]
+        if mie:
+            return min(mie, key=lambda e: e.position)
+        vive = [e for e in sim.entrants if e.status == "running"]
+        return min(vive, key=lambda e: e.position) if vive else None
+
     def _race_header(self, surf, w: int) -> None:
         sim = self.sim
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 58))
@@ -914,11 +945,21 @@ class WeekendScene(Scene):
             testo = f"previsione: {cosa} dal giro {giro + 1}"
             T.text(surf, testo, (x, 38), 13, T.WARN)
             x += T.width(testo, 13) + 24
-        # il giro piu' veloce della gara sta in alto come in televisione
+        # il giro piu' veloce della gara sta in alto come in televisione, e
+        # sotto ci sta l'ultimo giro chiuso dalla propria macchina: sono i due
+        # numeri che si guardano insieme, uno dice dov'e' il riferimento e
+        # l'altro a che distanza ci si sta girando adesso
         if sim.best_lap > 0:
-            T.text(surf, "GIRO VELOCE", (x, 40), 11, T.DIM_2, bold=True)
+            T.text(surf, "GIRO VELOCE", (x, 22), 11, T.DIM_2, bold=True)
             T.text(surf, f"{sim.best_lap_by}  {T.fmt_time(sim.best_lap)}",
-                   (x + 92, 38), 13, VIOLA, mono=True, bold=True)
+                   (x + 92, 20), 13, VIOLA, mono=True, bold=True)
+            mio = self._auto_seguita()
+            if mio is not None and mio.giro_scorso > 0:
+                col = (VIOLA if abs(mio.giro_scorso - sim.best_lap) < 0.002 else
+                       T.OK if abs(mio.giro_scorso - mio.best_lap) < 0.002 else T.TEXT)
+                T.text(surf, "ULTIMO GIRO", (x, 42), 11, T.DIM_2, bold=True)
+                T.text(surf, f"{mio.code}  {T.fmt_time(mio.giro_scorso)}",
+                       (x + 92, 40), 13, col, mono=True)
         if sim.safety_car > 0:
             lab = "VIRTUAL SAFETY CAR" if sim.vsc else "SAFETY CAR"
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)
@@ -1186,8 +1227,19 @@ class WeekendScene(Scene):
             T.text(surf, f"{e.fuel:.0f} kg", (r.x + 380, y), 12,
                    T.DIM if giri_b >= restano else T.BAD)
             if r.w >= 520:
-                T.text(surf, f"{giri_b:.0f} giri su {max(0, restano)}",
-                       (r.right - 14, y), 12, T.DIM_2, align="right")
+                # il numero che guarda davvero il muretto non e' quanta ne
+                # resta: e' di quanti giri si e' avanti o indietro sul bisogno.
+                # Sotto zero si deve alzare il piede, sopra c'e' da spendere
+                marg = benzina.margine_giri(sim, e)
+                col = T.OK if marg > 0.4 else (T.WARN if marg > -0.2 else T.BAD)
+                T.text(surf, f"{marg:+.1f} giri", (r.right - 14, y), 12, col,
+                       mono=True, align="right")
+                if e.push_mode < 0.995:
+                    T.text(surf, "RISPARMIO", (r.right - 74, y + 1), 11, T.WARN,
+                           bold=True, align="right")
+                elif e.push_mode > 1.005:
+                    T.text(surf, "SPINGE", (r.right - 74, y + 1), 11, T.OK,
+                           bold=True, align="right")
         # ---- riga tre: tempi e distacchi
         y = r.y + 56
         giro = sum(e.sectors) if e.sectors[2] > 0 else 0.0

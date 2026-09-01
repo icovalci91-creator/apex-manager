@@ -43,6 +43,58 @@ PROVE_PROGRAMMA = (
     (("passo", 14), ("qualifica", 1)),
 )
 
+# Ma quel programma e' la traccia, non il turno. Due macchine non fanno la
+# stessa ora: chi ha una macchina che non va gira di piu' e in pezzi corti per
+# provare le cose, chi ce l'ha a posto fa il suo lungo e rientra; un pilota che
+# non conosce la pista si prende dei giri in piu' per impararla, uno che c'e'
+# gia' stato dieci volte no. E dove si consuma il lungo vale il doppio, mentre
+# fra i muri il lungo non lo fa nessuno: si rompe la macchina e si perde il
+# fine settimana.
+GIRI_FORBICE = 0.28        # di quanto un lungo puo' allungarsi o accorciarsi
+GIRI_MINIMI = 4            # sotto questo non e' piu' un lungo
+GIRI_MASSIMI = 22
+CONTROLLO_FORBICE = (2, 5)
+# Quanto pesa il consumo della pista sulla lunghezza dei lunghi: dove la gomma
+# si sfoglia il passo gara e' l'unica cosa che conta, e si fa lungo
+PESO_CONSUMO = 0.45
+# e quanto pesa avere i muri a bordo pista: si esce di meno e per meno giri
+PESO_MURI = 0.30
+# Chi non si fida della macchina esce in pezzi corti e ci torna sopra: sono
+# giri in piu' in totale, ma nessuno lungo
+SFIDUCIA_GIRI = 0.35
+
+# Il traffico. Una pista non e' un cronometro vuoto: davanti c'e' sempre
+# qualcuno che rientra piano, o che sta cominciando il suo lungo, e trovarselo
+# in mezzo a una curva veloce vuol dire buttare il giro. Nelle libere il
+# traffico e' il vero avversario, ed e' per questo che una macchina resta ferma
+# in fondo alla corsia box con il motore acceso a guardare il monitor, e per
+# cui un pilota fa un secondo giro di lancio invece di lanciarsi: sta facendo
+# il buco. Dove la pista e' stretta il buco deve essere piu' grande, perche'
+# per togliersi di torno non basta spostarsi.
+FINESTRA_TRAFFICO = 0.035    # quanto giro davanti si guarda, in frazione di giro
+TRAFFICO_STRETTO = 0.85      # e di quanto la finestra si allarga fra i muri
+# Il traffico non si paga al secondo: si paga a incontro. Trovarsene uno in
+# mezzo costa una staccata rovinata e l'uscita di curva sbagliata dietro alla
+# sua scia, ed e' quello, non il tempo che ci si resta. Chi ha la mano lo paga
+# meno: se lo vede arrivare e si organizza il giro attorno.
+COSTO_INCONTRO = 0.30        # secondi buttati per ogni macchina trovata in mezzo
+TRAFFICO_MAX = 1.5           # ma un giro non lo si butta piu' di cosi'
+# e quanto pesa a seconda di cosa si sta facendo: su un giro secco e' il
+# giro buttato, dentro a un lungo si molla un attimo e si riprende
+PESO_INCONTRO = {"qualifica": 1.0, "passo": 0.72, "controllo": 0.35}
+# e da chi ci si trova davanti. Uno che sta rientrando ai box si toglie: vede
+# il delta, alza la mano e si sposta, e costa poco. Uno che si sta preparando
+# il giro no - e' sulla traiettoria, va piano apposta per farsi il buco lui, e
+# quello e' l'incubo classico del primo turno di qualifica.
+PESO_CHI = {"rientro": 0.35, "uscita": 1.0, "giro": 0.70}
+PRIMO_GIRO = 0.006           # quanto e' piu' lento il primo giro di uno stint
+# Quanto ci si impegna a evitarlo, e non e' uguale sempre: in un'ora di libere
+# il programma comanda e a un certo punto si esce comunque, in qualifica no -
+# li' il giro pulito e' l'unica cosa che conta, e si aspetta quanto serve.
+ATTESA_MAX = {"prove": 50.0, "quali": 85.0}
+LANCI_MAX = {"prove": 2, "quali": 4}
+USCITA_BOX = 0.03            # a che punto del giro sbuca la corsia box
+
 ETICHETTA = {"controllo": "controllo", "passo": "passo gara",
              "qualifica": "simulazione qualifica"}
 
@@ -147,6 +199,13 @@ class InPista:
     giri_fatti: int = 0                # a che punto e' dell'uscita in corso
     restanti: int = 0                  # uscite ancora concesse in questo turno
     saltata: bool = False              # ha deciso di non uscire piu': treno salvo
+    traffico: list = field(default_factory=lambda: [0.0, 0.0, 0.0])   # secondi buttati per settore
+    attesa: float = 0.0                # da quanto aspetta il buco in fondo ai box
+    lanci: int = 0                     # giri di lancio in piu' fatti per trovarlo
+    persi: float = 0.0                 # secondi lasciati nel traffico in tutto il turno
+    lanci_tot: int = 0                 # quanti giri di lancio in piu' in tutto il turno
+    visto: str = ""                    # chi si sta gia' avendo davanti, per non pagarlo due volte
+    attese: float = 0.0                # e quanti secondi fermi in fondo ai box
 
 
 class LapSession:
@@ -179,6 +238,16 @@ class LapSession:
         self.reached: dict = {}        # driver_id -> ultimo turno disputato
         self.radio: list = []
         self.sessione = int(getattr(ws, "practice_done", 0) or 0)
+        # quanto largo dev'essere il buco su questa pista: fra i muri di Monte
+        # Carlo si sta lontani il doppio che sul rettilineo di Silverstone
+        stretto = max(0.0, min(1.0, (13.0 - float(getattr(self.track, "larghezza_m", 12.0))) / 5.0))
+        self.finestra_traffico = FINESTRA_TRAFFICO * (1.0 + TRAFFICO_STRETTO * stretto)
+        # e quanto costa non riuscire a togliersi di torno: fra i muri, tanto
+        self.durezza_traffico = 1.0 + TRAFFICO_STRETTO * stretto
+        chiave = "prove" if kind == "prove" else "quali"
+        self.attesa_max = ATTESA_MAX[chiave]
+        self.lanci_max = LANCI_MAX[chiave]
+        self._pista_ora: list = []
         self._apri_fase()
 
     # ------------------------------------------------------------- anagrafica
@@ -227,6 +296,9 @@ class LapSession:
             p.settori = [0.0, 0.0, 0.0]
             p.migliori = [0.0, 0.0, 0.0]
             p.tempo, p.ultimo = 0.0, 0.0
+            p.traffico = [0.0, 0.0, 0.0]
+            p.attesa, p.lanci, p.persi = 0.0, 0, 0.0
+            p.lanci_tot, p.attese, p.visto = 0, 0.0, ""
         self.log(f"{nome}: semaforo verde in fondo alla corsia box", "flag")
 
     # ------------------------------------------------------- quando si esce
@@ -301,6 +373,47 @@ class LapSession:
         self._asfalto(prima)
         return [prima]
 
+    def _piano_base(self, e) -> list:
+        """Cosa vuole fare oggi questa macchina: non quello che vogliono tutte.
+
+        Il foglio del programma e' una traccia, e da li' in poi ognuno fa la
+        sua ora. Dove la gomma si sfoglia il lungo e' l'unica cosa che conta e
+        si allunga; dove ci sono i muri si esce meno e per meno giri, perche'
+        un errore costa il fine settimana intero. Un pilota che non si fida
+        della macchina il lungo da quattordici giri non lo fa: fa due pezzi
+        corti e in mezzo si cambia qualcosa. E la simulazione di qualifica il
+        venerdi' mattina non la fa nessuno per obbligo: chi ha altro da
+        provare se la tiene per il pomeriggio.
+        """
+        gs, tr = self.gs, self.track
+        piano = list(PROVE_PROGRAMMA[min(self.sessione, len(PROVE_PROGRAMMA) - 1)])
+        consumo = float((tr.traits or {}).get("tyre_wear", 0.5))
+        stretto = max(0.0, min(1.0, (13.0 - float(getattr(tr, "larghezza_m", 12.0))) / 5.0))
+        k = 1.0 + PESO_CONSUMO * (consumo - 0.5) * 2.0 - PESO_MURI * stretto
+        k *= 1.0 + gs.rng.gauss(0.0, GIRI_FORBICE * 0.6)
+        # quanto poco si fida della macchina chi la deve guidare
+        sfiducia = max(0.0, min(1.0, (70.0 - e.confidence) / 40.0))
+        fuori = []
+        for tipo, giri in piano:
+            if tipo == "controllo":
+                fuori.append((tipo, gs.rng.randint(*CONTROLLO_FORBICE)))
+                continue
+            if tipo == "qualifica":
+                # il giro secco della mattina si salta volentieri, se c'e'
+                # altro da capire; il pomeriggio e il sabato no
+                if self.sessione == 0 and gs.rng.random() < 0.30 + 0.25 * sfiducia:
+                    continue
+                fuori.append((tipo, giri))
+                continue
+            n = max(GIRI_MINIMI, min(GIRI_MASSIMI, int(round(giri * k))))
+            if sfiducia > 0.35 and n >= GIRI_MINIMI * 2:
+                # spezzato in due: si rientra, si cambia qualcosa, si riesce
+                meta = max(GIRI_MINIMI, int(n * 0.55))
+                fuori.append((tipo, meta))
+                n = max(GIRI_MINIMI, n - meta + int(SFIDUCIA_GIRI * meta))
+            fuori.append((tipo, n))
+        return fuori or [("passo", GIRI_MINIMI)]
+
     def _piano_prove(self, e) -> list:
         """L'ora di libere di questa macchina, distesa sull'orologio.
 
@@ -311,7 +424,7 @@ class LapSession:
         fra un'uscita e l'altra - per questo non escono tutti insieme.
         """
         gs = self.gs
-        piano = PROVE_PROGRAMMA[min(self.sessione, len(PROVE_PROGRAMMA) - 1)]
+        piano = self._piano_base(e)
         corse = [self._corsa(e, tipo, giri, None, r)
                  for r, (tipo, giri) in enumerate(piano)]
 
@@ -547,11 +660,64 @@ class LapSession:
         nuova.t_uscita = self._uscita_ultima(p, sicuro)
         self._asfalto(nuova)
 
+    # ------------------------------------------------------------- il traffico
+    def _in_pista(self) -> list:
+        """Chi e' fuori adesso e a che punto del giro, in ordine di pista."""
+        out = [(q.quota, q) for q in self.piste.values()
+               if not q.fuori and q.stato not in ("box", "finito")]
+        out.sort(key=lambda x: x[0])
+        return out
+
+    def _andatura(self, q: InPista) -> float:
+        """Quanto ci mette a fare il giro che sta facendo adesso, in secondi."""
+        if q.indice >= len(q.corse):
+            return 1e6
+        c = q.corse[q.indice]
+        if q.stato == "uscita":
+            return c.tempo * GIRO_USCITA
+        if q.stato == "rientro":
+            return c.tempo * GIRO_RIENTRO
+        return self._giro_di(c, q.giri_fatti)
+
+    def _uscita_libera(self) -> bool:
+        """Se in fondo alla corsia box, adesso, non sta passando nessuno.
+
+        Qui non conta chi va piu' piano di chi: conta che uscire proprio
+        mentre passa un altro vuol dire fargli il giro e farselo fare. Il
+        meccanico col cartello tiene la macchina ferma dieci secondi e la
+        molla nel buco, ed e' esattamente quello che si vede in televisione.
+        """
+        for q_pos, q in self._pista_ora:
+            if (q_pos - USCITA_BOX) % 1.0 <= self.finestra_traffico * 0.8:
+                return False
+        return True
+
+    def _davanti(self, p: InPista, quota: float, andatura: float):
+        """Chi si ha davanti dentro alla finestra, se va piu' piano di noi.
+
+        Uno che va come noi non e' traffico: e' uno che gira. Traffico e' chi
+        sta rientrando, chi si sta lanciando, chi e' al decimo giro di un lungo
+        con la gomma andata - quelli che ci si trova fermi in mezzo alla curva.
+        """
+        for q_pos, q in self._pista_ora:
+            if q is p:
+                continue
+            d = (q_pos - quota) % 1.0
+            if 0.0 < d <= self.finestra_traffico and self._andatura(q) > andatura * 1.03:
+                return q
+        return None
+
+    def _settore_di(self, quota: float) -> int:
+        a, b = getattr(self.track, "sector_time", (0.3333, 0.6667))
+        return 0 if quota < a else (1 if quota < b else 2)
+
     # -------------------------------------------------------------- il turno
     def update(self, dt: float) -> None:
         if self.finita:
             return
         self.t += dt
+        # dove sono tutti, adesso: si guarda una volta sola e vale per tutti
+        self._pista_ora = self._in_pista()
         for p in self.piste.values():
             if p.fuori:
                 continue
@@ -568,16 +734,40 @@ class LapSession:
             return
         c = p.corse[p.indice]
         if p.stato == "box":
-            if self.t >= c.t_uscita:
-                p.stato, p.quota, p.mescola = "uscita", 0.0, c.mescola
-                p.giri_fatti = 0
-                p.live = [0.0, 0.0, 0.0]
+            if self.t < c.t_uscita:
+                return
+            # in fondo alla corsia box si guarda il monitor prima di mollare i
+            # freni: uscire dentro a un gruppo vuol dire buttare l'uscita, e
+            # allora si aspetta. Ma non all'infinito: a un certo punto il turno
+            # finisce, e un'uscita nel traffico vale piu' di nessuna uscita
+            if (p.attesa < self.attesa_max and self.t < self.durata - 90.0
+                    and not self._uscita_libera()):
+                p.attesa += dt
+                p.attese += dt
+                return
+            p.stato, p.quota, p.mescola = "uscita", 0.0, c.mescola
+            p.giri_fatti = 0
+            p.attesa, p.lanci = 0.0, 0
+            p.live = [0.0, 0.0, 0.0]
+            p.traffico = [0.0, 0.0, 0.0]
             return
         durata = {"uscita": c.tempo * GIRO_USCITA, "giro": self._giro_di(c, p.giri_fatti),
                   "rientro": c.tempo * GIRO_RIENTRO}.get(p.stato, c.tempo)
         p.quota += dt / max(1.0, durata)
         if p.stato == "giro":
             self._parziali(p, c)
+            # e quello che il traffico si prende. Si paga quando se ne trova
+            # uno nuovo davanti, non per tutto il tempo che ci si resta
+            addosso = self._davanti(p, p.quota, self._andatura(p))
+            chi = addosso.e.driver_id if addosso is not None else ""
+            if chi and chi != p.visto and sum(p.traffico) < TRAFFICO_MAX:
+                i = self._settore_di(min(0.999, p.quota))
+                # chi guida pulito il giro se lo riorganizza attorno
+                mano = 0.75 + 0.5 * (100.0 - p.e.consistency) / 40.0
+                p.traffico[i] += (COSTO_INCONTRO * self.durezza_traffico * mano
+                                 * PESO_INCONTRO.get(c.tipo, 1.0)
+                                 * PESO_CHI.get(addosso.stato, 1.0))
+            p.visto = chi
         if p.quota < 1.0:
             return
         p.quota = 0.0
@@ -587,13 +777,24 @@ class LapSession:
             if self.t >= self.durata:
                 p.stato = "rientro"
                 return
+            # e solo se davanti si vede libero: se no si fa un altro giro
+            # piano, si lascia andare chi si ha davanti e ci si lancia dopo.
+            # E' la cosa che in pista si vede tutti i sabati
+            if (p.lanci < self.lanci_max and self.t < self.durata - durata * 2.0
+                    and self._davanti(p, 0.0, c.tempo) is not None):
+                p.lanci += 1
+                p.lanci_tot += 1
+                return
             p.stato = "giro"
+            p.lanci = 0
             p.live = [0.0, 0.0, 0.0]
+            p.traffico = [0.0, 0.0, 0.0]
         elif p.stato == "giro":
             self._chiudi_giro(p, c)
             p.giri_fatti += 1
             if p.giri_fatti < c.giri and self.t < self.durata:
                 p.live = [0.0, 0.0, 0.0]     # si resta fuori: e' un lungo
+                p.traffico = [0.0, 0.0, 0.0]
             else:
                 p.stato = "rientro"
         else:
@@ -615,8 +816,12 @@ class LapSession:
             return "" if corta else ("eliminato" if p.fuori else "ha finito")
         c = p.corse[p.indice]
         if p.stato == "box":
+            if p.attesa > 1.0:
+                return "attende" if corta else "in fondo alla corsia, aspetta il buco"
             return "" if corta else "ai box"
         if p.stato == "uscita":
+            if p.lanci > 0:
+                return "spazio" if corta else "un altro lancio per trovare lo spazio"
             return "lancio" if corta else "giro di lancio"
         if p.stato == "rientro":
             return "rientra" if corta else "rientra ai box"
@@ -628,17 +833,31 @@ class LapSession:
         return f"{ETICHETTA[c.tipo]}, giro {dove}"
 
     def _giro_di(self, c: Corsa, k: int) -> float:
-        """Il giro numero k di questa uscita: in un lungo le gomme calano."""
-        return c.tempo * (1.0 + DEGRADO_GIRO * k)
+        """Il giro numero k di questa uscita: in un lungo le gomme calano.
+
+        E il primo giro di un lungo non e' come gli altri: la gomma non e'
+        ancora dentro alla finestra e mezzo secondo se ne va li'. Chi guarda
+        il tabellone lo sa e il primo giro di uno stint non lo guarda.
+        """
+        t = c.tempo * (1.0 + DEGRADO_GIRO * k)
+        if k == 0 and c.giri > 1:
+            t *= 1.0 + PRIMO_GIRO
+        return t
 
 
     def _parziali(self, p: InPista, c: Corsa) -> None:
-        """I traguardi di settore, mano a mano che si passa."""
+        """I traguardi di settore, mano a mano che si passa.
+
+        Il parziale che va a tabellone e' quello vero, traffico compreso: se
+        in quel settore ci si e' trovati dietro a qualcuno, quel tempo se lo
+        e' preso e a schermo si vede giallo.
+        """
         a, b = getattr(self.track, "sector_time", (0.3333, 0.6667))
         for i, soglia in enumerate((a, b)):
             if p.quota >= soglia and p.live[i] <= 0:
-                p.live[i] = c.settori[i]
-                self._segna(p, i, c.settori[i])
+                t = c.settori[i] + p.traffico[i]
+                p.live[i] = t
+                self._segna(p, i, t)
 
     def _segna(self, p: InPista, i: int, t: float) -> None:
         if p.migliori[i] <= 0 or t < p.migliori[i]:
@@ -679,7 +898,7 @@ class LapSession:
         peggio, quanto = 0, 0.0
         for i in range(3):
             if self.best_sectors[i] > 0:
-                perso = c.settori[i] - self.best_sectors[i]
+                perso = p.settori[i] - self.best_sectors[i]
                 if perso > quanto:
                     peggio, quanto = i, perso
         if quanto > 0.25:
@@ -711,18 +930,28 @@ class LapSession:
         self.radio_say(e, testo, chi)
 
     def _chiudi_giro(self, p: InPista, c: Corsa) -> None:
-        p.live[2] = c.settori[2]
-        self._segna(p, 2, c.settori[2])
-        p.settori = list(c.settori)
-        p.ultimo = c.tempo
-        if p.tempo <= 0 or c.tempo < p.tempo:
-            p.tempo = c.tempo
-            self.times[p.e.driver_id] = c.tempo
-        if self.best_lap <= 0 or c.tempo < self.best_lap:
-            self.best_lap, self.best_by = c.tempo, p.e.code
-            self.log(f"{p.e.name} in testa: {_mmss(c.tempo)}", "pass")
+        # il giro che va a tabellone e' quello fatto davvero: al tempo che la
+        # macchina aveva in mano si somma quello che il traffico si e' preso
+        settori = [c.settori[i] + p.traffico[i] for i in range(3)]
+        giro = sum(settori)
+        perso = giro - c.tempo
+        p.persi += perso
+        p.live[2] = settori[2]
+        self._segna(p, 2, settori[2])
+        p.settori = list(settori)
+        p.ultimo = giro
+        if p.tempo <= 0 or giro < p.tempo:
+            p.tempo = giro
+            self.times[p.e.driver_id] = giro
+        if self.best_lap <= 0 or giro < self.best_lap:
+            self.best_lap, self.best_by = giro, p.e.code
+            self.log(f"{p.e.name} in testa: {_mmss(giro)}", "pass")
         elif p.e.is_player and c.tipo == "qualifica":
-            self.log(f"{p.e.name}: {_mmss(c.tempo)}", "info")
+            coda = f" ({perso:.2f} nel traffico)" if perso > 0.15 else ""
+            self.log(f"{p.e.name}: {_mmss(giro)}{coda}", "info")
+        if p.e.is_player and perso > 0.35 and c.tipo == "qualifica":
+            self.radio_say(p.e, f"Me lo sono trovato davanti in curva, "
+                                f"buttati {perso:.2f}.", "pilota")
         # dopo un giro secco si commenta; dentro un lungo si parla alla fine
         if c.tipo == "qualifica" or p.giri_fatti + 1 >= c.giri:
             self._commento(p, c)

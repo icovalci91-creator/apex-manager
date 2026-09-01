@@ -6,7 +6,9 @@ import random
 from dataclasses import dataclass, field
 
 from .. import config as C
+from . import benzina as BZ
 from . import pace
+from ..model import track as TK
 from .weekend import BURN_KG_PER_LAP, DRIVER_S_PER_POINT, Entrant, RaceSim, Weather
 
 
@@ -489,6 +491,18 @@ def _regola_107(gs, times: dict, reached: dict, primo: str) -> list:
 
 
 # -------------------------------------------------------------------- gara
+def kg_giro(track) -> float:
+    """Quanta benzina beve un giro di questo circuito, in chili.
+
+    Il livello e' quello del regolamento - settanta chili per una gara sulla
+    pista media - e la differenza fra un circuito e l'altro la mette il
+    modello di giro: quanta energia serve davvero per portarci intorno la
+    macchina, tolta quella che ci mette l'elettrico.
+    """
+    lungo = track.length_km / TK.LUNGHEZZA_RIF
+    return BURN_KG_PER_LAP * lungo * getattr(track, "benzina_rel_giro", 1.0)
+
+
 def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
     """Piano soste scelto dal muretto: dipende da pista, gomme e da cosa c'e' ancora.
 
@@ -591,32 +605,33 @@ def make_race(gs, ws: WeekendState, kind: str = "gp") -> RaceSim:
             "batteria_mj", C.BATTERIA_MJ))
         e.stock = ws.tyre_stock.get(did) if ws.tyre_stock else None
         e.plan = plan_strategy(gs, e, track, laps, weather) if kind == "gp" else []
-        # benzina per i giri che si corrono davvero, con un filo di margine:
-        # guidando normale si arriva, attaccando tutta la gara no
+        # benzina per i giri che si corrono davvero. Quanta ne serve lo dice il
+        # circuito - un giro di Spa costa piu' del doppio di uno di Monte Carlo
+        # - e quanto se ne puo' caricare lo dice il regolamento: su certe piste
+        # i due numeri non tornano, ed e' li' che la gara si gestisce
         serbatoio = float((gs.regulations.get("power_unit", {}) or {}).get(
             "fuel_race_target_kg", C.FUEL_MASS_KG))
         # e un motore che consuma meno parte piu' leggero: sono chili veri, e
         # su una gara valgono decimi
-        consumo = float(getattr(gs.teams[e.team_id].car, "consumo_rel", 1.0))
-        e.fuel = min(serbatoio, laps * BURN_KG_PER_LAP * 1.04 * consumo)
+        e.consumo = float(getattr(gs.teams[e.team_id].car, "consumo_rel", 1.0))
+        e.fuel = BZ.carico(track, laps, e.consumo, serbatoio,
+                           e.strategy_skill, kg_giro(track))
         if gs.regulations.get("refuelling"):
             # col rifornimento non si parte pieni: si carica quello che serve
             # per arrivare alla prima sosta, e li' se ne rimette dell'altra
             prima = e.plan[0][0] if e.plan else laps
-            e.fuel = min(e.fuel, (prima + 1) * BURN_KG_PER_LAP * 1.06)
+            e.fuel = min(e.fuel, (prima + 1) * kg_giro(track) * e.consumo * 1.06)
         e.tyre_life = 25.0
         ordered.append(e)
 
     sim = RaceSim(gs, track, ordered, weather, laps, kind=kind, rng=gs.rng, cond=cond)
-    # il serbatoio e' quello che e': il consumo si tara su di lui lasciando un
-    # 10% di riserva. Basta per attaccare in un terzo dei giri, non per tutta
-    # la gara: chi ci prova resta a piedi prima della bandiera.
+    # il serbatoio e' quello che e', e su certe piste non ci sta tutta la gara
+    # tirata: chi attacca dall'inizio alla fine resta a piedi prima della
+    # bandiera, e su otto circuiti su ventiquattro non serve nemmeno attaccare
     if ordered:
-        # il consumo si tara sul pieno di una gara intera, non su quello che
-        # ognuno ha nel serbatoio adesso: col rifornimento si parte leggeri
-        pieno = min(float((gs.regulations.get("power_unit", {}) or {}).get(
-            "fuel_race_target_kg", C.FUEL_MASS_KG)), laps * BURN_KG_PER_LAP * 1.04)
-        sim.burn_per_lap = pieno / (laps * 1.10)
+        # il consumo nominale e' quello del circuito, al passo normale: e' il
+        # metro con cui in gara si misura se si sta arrivando in fondo o no
+        sim.burn_per_lap = kg_giro(track)
     for e in ordered:
         e.tyre_life = sim._tyre_life(e, e.tyre)
     sim.log(f"Semaforo verde a {track.name} - {laps} giri - {weather.label}", "flag")

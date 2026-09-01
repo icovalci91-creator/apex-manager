@@ -377,6 +377,36 @@ programma si inverte: prima il lungo, e il giro secco alla fine, che e' la prova
 della qualifica. Il tabellone dice cosa sta facendo ognuno - *passo gara, giro 9 di 14* -
 e il tempo che avanza sono i minuti ai box, spalmati diversamente da ogni squadra.
 
+Ma quel programma e' una traccia, non un binario: **due macchine non fanno la stessa
+ora**. Dove la gomma si sfoglia il lungo e' l'unica cosa che conta e si allunga; dove ci
+sono i muri si esce meno e per meno giri, perche' un errore costa il fine settimana intero.
+Un pilota che non si fida della macchina il lungo da quattordici giri non lo fa: lo spezza
+in due pezzi corti e in mezzo si cambia qualcosa. E la simulazione di qualifica del venerdi'
+mattina non la fa nessuno per obbligo — chi ha altro da capire se la tiene per il
+pomeriggio. Su venti macchine escono cosi' quindici o venti programmi diversi, e nessuno
+di loro e' quello scritto sul foglio.
+
+**E la pista non e' vuota.** Il vero avversario di un'ora di libere non e' il cronometro,
+e' il traffico: davanti c'e' sempre qualcuno che rientra piano, o che sta cominciando il
+suo lungo, e trovarselo in mezzo a una curva veloce vuol dire buttare il giro. Adesso il
+modello lo sa, e chi e' in pista fa le tre cose che si fanno in pista. **Si aspetta il
+buco**: la macchina resta ferma in fondo alla corsia box con il meccanico che tiene il
+cartello, e sul tabellone si legge *aspetta il buco* invece di *ai box*. **Si fa un altro
+giro di lancio**: se all'inizio del giro buono davanti non e' libero, ci si rallenta, si
+lascia andare chi si ha davanti e ci si lancia il giro dopo — al massimo due volte, perche'
+poi il turno finisce. E quando non si riesce **si paga**: ogni macchina che ci si trova in
+mezzo costa una staccata rovinata e l'uscita di curva sbagliata dietro alla sua scia, e
+quel tempo finisce nel settore in cui e' successo, che a schermo diventa giallo.
+
+Il conto e' a incontro, non al secondo, ed e' per questo che non esplode: circa tre decimi
+per macchina trovata in mezzo, di piu' dove la pista e' stretta — la finestra in cui uno
+da' fastidio si allarga con i muri — e di meno per chi guida pulito, che il giro se lo
+riorganizza attorno. Misurato su un'ora di libere fa **0,18 s a giro a Silverstone e 0,40 a
+Monte Carlo**; su una qualifica intera un pilota lascia nel traffico fra un secondo e due,
+e il peggiore della giornata anche tre e mezzo. Il primo giro di ogni lungo, poi, vale mezzo
+secondo in piu' degli altri: la gomma non e' ancora dentro alla finestra, e chi guarda il
+tabellone quel giro non lo guarda.
+
 In qualifica la seconda uscita non e' scontata. Si esce una prima volta con gomme nuove;
 quando la macchina rientra, il muretto guarda dove ci si vede arrivare e di quanto si e'
 davanti a chi resterebbe fuori, e decide. Se il tempo tiene si resta ai box e **si salva
@@ -394,8 +424,20 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
 
 - Velocità di simulazione: `II` pausa, `x1`, `x4`, `x12`, `x40`, oppure "Simula fino alla fine".
 - `BOX <pilota>`: chiama ai box al passaggio successivo.
-- `-` `=` `+`: modalità di guida (conserva / normale / attacca): più passo ma più consumo
-  gomme e più rischio di errore.
+- `-` `=` `+`: il passo. `-` conserva, `+` attacca — più passo ma più consumo di gomme e di
+  benzina, e più rischio di errore. **`=` non vuol dire "normale": vuol dire "decidi tu"**,
+  e da lì in poi lo gestisce il muretto, che guarda di quanti giri si è avanti o indietro
+  sulla benzina e chi si ha intorno, e stringe o allunga da solo. Quando si prende in mano
+  il passo comanda il giocatore, anche se vuol dire non arrivare in fondo: il muretto lo
+  dice alla radio e poi fa quello che gli è stato chiesto.
+- **In alto, sotto al giro veloce della gara, c'è l'ultimo giro chiuso dalla propria
+  macchina** — viola se è il primato della gara, verde se è il proprio, bianco altrimenti.
+  Sono i due numeri che si guardano insieme: uno dice dov'è il riferimento, l'altro a che
+  distanza ci si sta girando adesso.
+- **Benzina** (nel pannello di ogni vettura): oltre ai chili a bordo c'è **di quanti giri si
+  è avanti o indietro** rispetto a quello che serve per arrivare in fondo — verde sopra lo
+  zero, rosso sotto — e la scritta `RISPARMIO` o `SPINGE` quando il passo non è quello
+  normale.
 - **Batteria** (`RIC` `NOR` `ATT`, nel pannello di ogni vettura): quanta energia si spende
   al giro rispetto a quella che si recupera. `RIC` mette via, `ATT` scarica. Sotto 0,9 MJ
   arriva il **clipping** - in fondo ai rettilinei la spinta finisce - e sotto 0,3 MJ la
@@ -734,6 +776,63 @@ Monza a 1,65 a Losail, il pilota da 0,74 a Spa a 1,55 a Monte Carlo.
 La spinta elettrica cala da **290 a 355 km/h**, che è il numero del regolamento 2026 e non
 un compromesso: le punte scendono di una quindicina di km/h rispetto alla generazione
 precedente, ed è quello che succederà in pista.
+
+**La gomma si consuma, e adesso si sente.** La curva del degrado era una parabola, e una
+parabola regala mezzo stint: a dieci giri da una media si perdevano due decimi, quando in
+pista se ne perdono otto. Siccome l'undercut vive proprio li' — nella prima meta' dello
+stint, dove la gomma nuova rende e quella vecchia no — nessuno lo provava mai, e le soste si
+facevano tutte al giro scritto sul foglio del venerdi'. Adesso la curva e' quasi una retta
+(esponente 1,25): a meta' vita la gomma ha gia' restituito quasi meta' di quello che ha da
+dare, e oltre la vita nominale resta il gradino di prima — la gomma non cala, cade.
+Misurato a Barcellona, benzina tolta di mezzo: **+0,86 s a dieci giri, +1,96 a venti**;
+prima erano +0,23 e +1,90.
+
+**E la sosta e' tornata a essere una mossa.** Il muretto non guarda piu' soltanto il
+calendario: guarda chi ha intorno e fa il conto vero. La gomma nuova rende tot secondi al
+giro, il giro di rientro con la gomma fredda ne restituisce un pezzo, e quello che resta si
+accumula per tutti i giri in cui l'altro resta fuori — se quel totale copre il distacco, ai
+box si prende una posizione che in pista non si prenderebbe mai. Da li' escono tre mosse.
+**L'undercut**: si e' incollati da due giri a uno che non si passa, la propria gomma ha gia'
+mollato quattro decimi al giro, e allora ci si ferma un giro prima. **La copertura**: chi
+inseguiva si e' fermato addosso a noi, e se non si risponde subito al rientro se lo ritrova
+davanti — ma solo se era davvero addosso, perche' chi si ferma da tre secondi dietro non sta
+facendo una mossa, sta facendo la sua sosta. **L'overcut**: il giro della sosta e' arrivato,
+ma la gomma tiene ancora e chi era davanti si e' gia' fermato, e allora si allunga di due o
+cinque giri per girare da soli sull'asfalto libero mentre lui scalda le sue. In una stagione
+si contano circa **ottanta undercut, sessanta coperture e sessanta overcut** — tre mosse a
+gara, non una a stagione — e il numero di soste per gara non si e' mosso: lo scarto sulle
+soste vere resta **0,64**. Un muretto distratto la sosta la fa quando c'era scritto: la
+mossa la vede chi ha lo *strategy* per vederla.
+
+**La benzina, che prima non esisteva.** Il serbatoio partiva sempre con il dieci per cento
+di margine e quel margine bastava dappertutto: nessuno risparmiava, nessuno restava a piedi,
+e il muretto non aveva niente da decidere. Adesso il conto e' quello vero, e ha due meta'.
+Quanto beve un giro **lo dice il circuito**: l'energia che serve per portarci intorno la
+macchina — quella che il vento porta via piu' quella che finisce nella velocita', meno
+quella che ci mette l'elettrico — la calcola il modello di giro quando la pista si tara, ed
+e' lo stesso conto del recupero letto al contrario. Il numero assoluto che ne esce sta sopra
+a quello vero, perche' le costanti aerodinamiche sono tarate sul tempo sul giro e non sul
+consumo: quello che il conto sa dire bene e' il confronto, e si tiene quello, riportato al
+chilometro e compresso — fra un circuito e l'altro in pista il consumo balla il dieci per
+cento, non il cinquanta. Il livello assoluto resta quello del regolamento. Ne esce **0,72
+kg a giro a Monte Carlo e 1,59 a Spa**, e su **otto piste su ventiquattro** i settanta chili
+non bastano per fare tutta la gara col piede giu'.
+
+Quanto caricarne **lo decide il muretto**, e non e' un pieno: e' una previsione. Si carica
+il necessario piu' un margine, e il margine e' mestiere — chi lo sa fare lo tiene stretto e
+parte piu' leggero, chi non lo sa fare porta in giro chili inutili per tutta la gara. In
+gara il conto si muove giro per giro, e il numero che il muretto guarda non e' quanta ne
+resta ma **di quanti giri si e' avanti o indietro sul bisogno**: sta nel pannello di ogni
+vettura, verde sopra lo zero e rosso sotto. Sotto zero si stringe, e si stringe **quel tanto
+che basta** — risparmiare piu' del necessario e' regalare tempo, ed e' l'errore dei muretti
+spaventati. Sopra zero, se c'e' qualcosa da prendere o da difendere, si spende; se non c'e'
+nessuno intorno si tiene il passo normale e i chili restano in cassa. Negli ultimi due giri
+quello che avanza non serve piu' a niente e si butta dentro. Il pilota c'entra: risparmiare
+non e' andare piano, e' alzare il piede nel punto giusto e riprenderlo senza scomporre la
+macchina — **chi ha la mano ricava piu' benzina dallo stesso decimo**, e l'esponente con cui
+il passo si trasforma in consumo sale con lui. Misurato in gara: si risparmia sul **3-22%
+dei giri** a seconda della pista, nessuno resta a piedi, e si arriva al traguardo con poco
+piu' di un chilo dentro invece che con sette.
 
 **Gara.** Continua, non a giri discreti: ogni vettura avanza in metri, i duelli si
 risolvono quando due monoposto sono davvero a contatto, e il confronto di passo usa il

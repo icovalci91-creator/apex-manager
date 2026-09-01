@@ -15,6 +15,7 @@ from .. import config as C
 from ..core.penalties import INFRAZIONI as PENALTY_RULES
 from . import energia as EN
 from . import freni as FR
+from . import benzina as BZ
 from . import gomme as GO
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
@@ -29,6 +30,30 @@ DRIVER_S_PER_POINT = 0.046     # un punto di valutazione pilota
 FUEL_S_PER_KG = 0.032          # un chilo di benzina nel serbatoio
 MESCOLA_S = 28.0               # tutta la forbice di aderenza fra le mescole
 GOMMA_S = 22.0                 # e quella fra una gomma nuova e una finita
+# Come si consuma quella gomma dentro alla sua vita. L'esponente poco sopra a
+# uno da' la curva vera: il degrado non aspetta la fine dello stint, comincia
+# subito e cresce piano. A meta' vita di una media sono gia' otto decimi al
+# giro, ed e' quello che rende sensato provare l'undercut.
+PERDITA_GOMMA = 0.11           # quanto vale, in quota di GOMMA_S, l'intera vita
+ESPONENTE_GOMMA = 1.25         # quasi lineare: la parabola regalava mezzo stint
+CADUTA_GOMMA = 0.55            # e dopo la vita nominale la gomma non cala: cade
+
+# Undercut e overcut. La sosta non e' un appuntamento preso il venerdi': e'
+# una mossa, e la si fa quando la gomma nuova rende piu' di quello che si sta
+# perdendo in pista. Il conto e' quello vero del muretto: la gomma fresca vale
+# `guadagno` secondi al giro, il giro di rientro con la gomma fredda ne
+# restituisce un pezzo, e quello che resta si accumula per tutti i giri in cui
+# l'altro resta fuori. Se quel totale copre il distacco, ai box si prende una
+# posizione che in pista non si prenderebbe mai.
+ANTICIPO_MAX = 7          # di quanti giri il muretto si permette di anticipare
+RITARDO_MAX = 5           # e di quanti di ritardare, quando conviene l'overcut
+FINESTRA_UNDERCUT = 2.4   # entro quanti secondi chi sta davanti e' a tiro
+GUADAGNO_UNDERCUT = 0.40  # s/giro di gomma fresca sotto cui non vale la pena
+QUOTA_OVERCUT = 0.86      # fin dove si allunga lo stint senza cadere nel gradino
+GIRI_UNDERCUT = 2.5       # su quanti giri si conta il vantaggio della gomma nuova
+PREZZO_RIENTRO = 0.85     # il giro di uscita con la gomma fredda si paga
+GIRI_BLOCCO_BOX = 2       # da quanti giri si e' dietro allo stesso, per provarci
+COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
 ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
 # E sotto l'acqua stare attaccati e' un'altra cosa ancora: dalla macchina
 # davanti esce un muro di spruzzi e non si vede la staccata. Si perde di piu' e
@@ -291,8 +316,10 @@ class Entrant:
     raffredda: float = 0.5        # quanto e' raffreddata questa vettura, 0..1
     tyre_life: float = 25.0
     fuel: float = 100.0
+    consumo: float = 1.0          # quanta benzina beve questo motore, in quote
     total_time: float = 0.0
     last_lap: float = 0.0
+    giro_scorso: float = 0.0      # l'ultimo giro chiuso davvero, da cronometro
     best_lap: float = 999.0
     # il giro spezzato in tre, come sul tabellone: quello appena fatto, il
     # migliore di ognuno e i parziali gia' presi in questo giro
@@ -315,6 +342,8 @@ class Entrant:
     clean_lap: float = 90.0     # passo in aria libera, usato per valutare i duelli
     damage: float = 0.0
     push_mode: float = 1.0        # 0.9 conserva .. 1.1 attacca
+    passo_benzina: float = 0.0    # quanto il muretto chiede di dare o di tenere
+    passo_manuale: float | None = None   # il giocatore ha preso in mano il passo
     # l'energia elettrica: quanta ce n'e' in cassa e come la si sta usando
     carica: float = 4.0           # MJ nella batteria
     energy_mode: str = "normale"  # ricarica | normale | attacco
@@ -338,6 +367,13 @@ class Entrant:
     riscossa: float = 0.0         # secondi di finestra per rispondere a chi l'ha passato
     riscossa_su: str = ""         # e a chi
     fuel_warned: bool = False
+    # cosa aveva intorno quando si e' fermato: serve al muretto degli altri
+    # per capire se quella sosta era un undercut da coprire
+    pit_lap: int = -99
+    pit_davanti: str = ""         # chi aveva davanti al momento della sosta
+    pit_dietro: str = ""          # e chi aveva dietro
+    pit_gap: float = 99.0         # e a quanti secondi era da quello davanti
+    ritardi_sosta: int = 0        # quante volte ha gia' allungato lo stint
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
@@ -355,11 +391,19 @@ class Entrant:
         return (self.dist % track_len) / track_len
 
     def compound_state(self) -> float:
-        """1.0 = gomma fresca, cala fino allo 0 dopo il degrado."""
+        """1.0 = gomma fresca, cala fino allo 0 dopo il degrado.
+
+        La curva e' quasi una retta, e non e' un dettaglio: con una parabola
+        la prima meta' dello stint non costava niente, e siccome e' proprio
+        li' che vive l'undercut, ai box non ci si fermava mai un giro prima.
+        Adesso a meta' vita la gomma ha gia' restituito quasi la meta' di
+        quello che ha da dare, e la sosta anticipata torna a essere una mossa.
+        Oltre la vita nominale resta il gradino: la gomma non cala, cade.
+        """
         x = self.tyre_age / max(1.0, self.tyre_life)
         if x <= 1.0:
-            return 1.0 - 0.11 * x * x
-        return max(0.35, 0.89 - 0.55 * (x - 1.0))
+            return 1.0 - PERDITA_GOMMA * x ** ESPONENTE_GOMMA
+        return max(0.35, (1.0 - PERDITA_GOMMA) - CADUTA_GOMMA * (x - 1.0))
 
 
 # ------------------------------------------------------------------ simulazione
@@ -600,7 +644,8 @@ class RaceSim:
             FR.aggiorna(self, e, dt / lt)
             wear_rate = self._wear_rate(e)
             e.tyre_age += wear_rate * dt / lt
-            burn = (self.burn_per_lap * (e.push_mode ** PUSH_FUEL_EXP)
+            burn = (self.burn_per_lap * e.consumo
+                    * (e.push_mode ** BZ.esponente(e, PUSH_FUEL_EXP))
                     * EN.BENZINA_MAPPA.get(e.mappa, 1.0))
             if e.lift_coast:
                 burn *= EN.LIFT_BENZINA     # alzare il piede si sente anche qui
@@ -777,6 +822,8 @@ class RaceSim:
         e.lap_t0 = e.total_time - oltre
         e.live_sectors = [0.0, 0.0, 0.0]
         e.sector_done = 0
+        if giro > 20.0:
+            e.giro_scorso = giro
         record = 20.0 < giro < e.best_lap
         if record:
             e.best_lap = giro
@@ -865,6 +912,7 @@ class RaceSim:
         EN.scegli_modo(self, e, avanti, dietro, ga, gd)
         e.energy_delta = EN.passo_giro(self, e)
         EN.scegli_mappa(self, e, ga, gd)
+        BZ.scegli_passo(self, e, ga, gd)
         EN.logora_motore(self, e)
         e.mappa_delta = EN.passo_mappa(self, e)
 
@@ -898,8 +946,21 @@ class RaceSim:
             voci.append((10, "pilota", "Qui piove, con queste gomme non tengo la macchina."))
         elif self.bagnato < 0.06 and e.tyre in ("inter", "wet"):
             voci.append((8, "pilota", "La linea si sta asciugando, sto cuocendo le gomme."))
-        if e.fuel_warned and e.fuel < resta * self.burn_per_lap:
-            voci.append((8, "muretto", "Benzina al limite: risparmia in staccata o non arriviamo."))
+        # la benzina, che adesso e' un conto che si muove giro per giro
+        if not self.senza_benzina and resta > 0:
+            marg = BZ.margine_giri(self, e)
+            if marg < -0.6:
+                voci.append((9, "muretto", f"Siamo {abs(marg):.1f} giri sotto: alza il piede "
+                                           f"in fondo ai dritti o non arriviamo."))
+            elif marg < -0.1:
+                voci.append((7, "muretto", "Un filo corti di benzina: due staccate "
+                                           "anticipate a giro e rientriamo."))
+            elif e.push_mode < 0.995:
+                voci.append((5, "pilota", "Sto alzando il piede, ma cosi' non tengo "
+                                          "il passo di quelli davanti."))
+            elif marg > 1.6 and resta <= 12:
+                voci.append((6, "muretto", f"Hai {marg:.1f} giri di benzina d'avanzo: "
+                                           f"non serve portarla al traguardo, spendila."))
         if stato < 0.72:
             voci.append((8, "pilota", "Le gomme sono finite, sto scivolando dappertutto."))
         elif stato < 0.82:
@@ -999,18 +1060,125 @@ class RaceSim:
             # col rifornimento non si deve arrivare in fondo alla gara: si
             # deve arrivare alla prossima sosta, ed e' un altro mestiere
             left = max(1, e.plan[0][0] - e.lap + 1)
-        if left <= 0 or e.fuel_warned or e.fuel >= left * self.burn_per_lap:
+        if left <= 0 or e.fuel_warned or e.fuel >= left * self.burn_per_lap * e.consumo:
             return
         e.fuel_warned = True
         if e.is_player:
             self.log(f"Benzina critica per {e.name}: cosi' non arriva in fondo", "warn")
 
     # ------------------------------------------------------------- strategia
+    def _guadagno_fresco(self, e: Entrant) -> float:
+        """Quanti secondi al giro renderebbe montare adesso una gomma nuova."""
+        return (1.0 - e.compound_state()) * GOMMA_S * self.track.grip_rel
+
+    def _gap_secondi(self, a: Entrant, b: Entrant) -> float:
+        """Distacco fra due vetture in secondi, con il passo di chi insegue."""
+        metri_s = max(20.0, self.track_len / max(30.0, b.last_lap or b.base_lap))
+        return (a.dist - b.dist) / metri_s
+
+    def _vede_la_mossa(self, e: Entrant) -> bool:
+        """Se il muretto se ne accorge. Un muretto distratto la sosta la fa quando c'era scritto."""
+        return self.rng.random() < 0.30 + 0.0062 * e.strategy_skill
+
+    def _sosta_reattiva(self, e: Entrant) -> str | None:
+        """L'undercut: fermarsi un giro prima per uscire davanti a chi non si passa.
+
+        Due casi, e sono le due facce della stessa mossa. O si e' incollati a
+        uno che non si riesce a passare in pista, e allora la gomma nuova lo
+        scavalca ai box; o e' stato lui a fermarsi per scavalcare noi, e allora
+        ci si ferma subito dietro per coprirlo. In tutti e due i casi la sosta
+        c'era gia' in programma: la si sposta, non la si inventa.
+        """
+        if self.safety_car > 0 or not e.plan or e.lap < 6 or e.lap > self.laps - 6:
+            return None
+        lap_prog, comp = e.plan[0]
+        anticipo = lap_prog - e.lap
+        if anticipo <= 0 or anticipo > ANTICIPO_MAX:
+            return None
+        if e.stock and e.stock.get(comp, 0) <= 0:
+            return None
+        guadagno = self._guadagno_fresco(e)
+        if guadagno < GUADAGNO_UNDERCUT:
+            return None
+        # a) qualcuno che ci inseguiva si e' appena fermato addosso a noi: se
+        #    non si copre, al rientro se lo ritrova davanti
+        for r in self.entrants:
+            if r is e or r.pit_davanti != e.driver_id:
+                continue
+            # ma solo se era davvero addosso: chi si ferma da tre secondi
+            # dietro non sta facendo una mossa, sta facendo la sua sosta
+            if (e.lap - r.pit_lap <= 1 and r.stops > e.stops
+                    and r.pit_gap < COPERTURA_S and self._vede_la_mossa(e)):
+                e.plan.pop(0)
+                self.log(f"{e.name} risponde subito ai box per coprire {r.code}", "pit")
+                return comp
+        # b) e la mossa in attacco: davanti c'e' uno a tiro che non si passa
+        avanti = self._chi_davanti(e)
+        if avanti is None or avanti.status != "running" or avanti.lap < e.lap - 0.5:
+            return None
+        gap = self._gap_secondi(avanti, e)
+        if not 0.0 < gap < FINESTRA_UNDERCUT:
+            return None
+        # e soprattutto: ci si ferma prima perche' in pista non si passa. Un
+        # giro solo appiccicati non basta, ci si prova ancora; due giri dietro
+        # allo stesso senza venirne fuori sono la ragione per cui esiste
+        # l'undercut
+        if e.bloccato_da != avanti.driver_id or e.bloccato_giri < GIRI_BLOCCO_BOX:
+            return None
+        # quanto resta fuori lui: se si ferma insieme a noi non c'e' undercut
+        resta_lui = (avanti.plan[0][0] - e.lap) if avanti.plan else ANTICIPO_MAX
+        if resta_lui < 1:
+            return None
+        giri = max(1.0, min(GIRI_UNDERCUT, float(resta_lui)))
+        # e se la sua gomma e' messa peggio della nostra non c'e' niente da
+        # anticipare: si aspetta che si fermi lui e si guadagna restando fuori
+        if self._guadagno_fresco(avanti) >= guadagno:
+            return None
+        if guadagno * giri - PREZZO_RIENTRO <= gap:
+            return None
+        if not self._vede_la_mossa(e):
+            return None
+        e.plan.pop(0)
+        self.log(f"{e.name} anticipa la sosta: undercut su {avanti.code}", "pit")
+        return comp
+
+    def _conviene_overcut(self, e: Entrant) -> bool:
+        """Se allungare lo stint di qualche giro rende piu' che fermarsi adesso.
+
+        Ha senso solo con la gomma ancora buona e con chi era davanti gia' ai
+        box: sono i giri in cui si gira da soli sull'asfalto libero mentre lui
+        scalda le sue, e sono quelli che al proprio rientro fanno la differenza.
+        """
+        if self.safety_car > 0 or e.ritardi_sosta >= 2 or self.bagnato > 0.12:
+            return False
+        if e.lap > self.laps - RITARDO_MAX - 4:
+            return False
+        # allungare si puo' finche' la gomma non e' sul gradino: oltre, i giri
+        # in piu' costano piu' di quello che l'aria libera regala
+        if e.tyre_age > e.tyre_life * QUOTA_OVERCUT or e.dirty_air > 0.25:
+            return False
+        for r in self.entrants:
+            if r is e or r.pit_dietro != e.driver_id:
+                continue
+            if e.lap - r.pit_lap <= 2 and r.stops > e.stops:
+                return self._vede_la_mossa(e)
+        return False
+
     def _check_pit(self, e: Entrant) -> None:
         bagnato = self.bagnato > 0.12
         target = None
         for lap, comp in list(e.plan):
             if e.lap >= lap:
+                # l'overcut: il giro della sosta e' arrivato, ma la gomma tiene
+                # ancora e chi era davanti si e' gia' fermato. Si allunga
+                if not bagnato and self._conviene_overcut(e):
+                    # quanti giri la gomma regge ancora prima del gradino
+                    resta = int((e.tyre_life - e.tyre_age) / max(0.3, self._wear_rate(e)))
+                    ritardo = max(1, min(RITARDO_MAX, resta, self.rng.randint(2, RITARDO_MAX)))
+                    e.plan[0] = (min(self.laps - 3, e.lap + ritardo), comp)
+                    e.ritardi_sosta += 1
+                    self.log(f"{e.name} allunga lo stint: overcut", "pit")
+                    return
                 e.plan.remove((lap, comp))
                 # quando piove il piano dell'asciutto si straccia: il muretto
                 # non rimanda in pista una macchina con le slick sotto l'acqua
@@ -1019,6 +1187,10 @@ class RaceSim:
                 break
         if bagnato:
             e.plan.clear()
+        # e la mossa opposta: la sosta si anticipa quando la gomma nuova
+        # scavalca chi non si riesce a passare in pista
+        if target is None and not bagnato:
+            target = self._sosta_reattiva(e)
         # sosta d'emergenza se la gomma e' andata
         if target is None and e.tyre_age > e.tyre_life * 1.35 and e.lap < self.laps - 2:
             target = self._pick_compound(e)
@@ -1036,6 +1208,14 @@ class RaceSim:
                 target = self._pick_compound(e)
         if target is None or target == e.tyre:
             return
+        # chi si aveva intorno entrando ai box: e' con questo che il muretto
+        # degli altri capisce se quella sosta era una mossa su di loro
+        vicino_a = self._chi_davanti(e)
+        vicino_d = self._chi_dietro(e)
+        e.pit_lap = e.lap
+        e.pit_davanti = vicino_a.driver_id if vicino_a else ""
+        e.pit_dietro = vicino_d.driver_id if vicino_d else ""
+        e.pit_gap = self._gap_secondi(vicino_a, e) if vicino_a else 99.0
         # opportunismo: sotto safety car si guadagna tempo
         e.status = "pitting"
         stop = e.pit_time + max(0.0, self.rng.gauss(0.25, 0.35))
@@ -1068,7 +1248,7 @@ class RaceSim:
         # soste non sono piu' tutte uguali
         if self.rifornimento:
             prossima = e.plan[0][0] if e.plan else self.laps
-            serve = (prossima - e.lap + 1) * self.burn_per_lap * 1.06
+            serve = (prossima - e.lap + 1) * self.burn_per_lap * e.consumo * 1.06
             metti = max(0.0, min(self.serbatoio, serve) - e.fuel)
             if metti > 0.1:
                 e.fuel += metti
