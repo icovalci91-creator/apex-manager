@@ -948,18 +948,24 @@ class WeekendScene(Scene):
         # il giro piu' veloce della gara sta in alto come in televisione, e
         # sotto ci sta l'ultimo giro chiuso dalla propria macchina: sono i due
         # numeri che si guardano insieme, uno dice dov'e' il riferimento e
-        # l'altro a che distanza ci si sta girando adesso
+        # l'altro a che distanza ci si sta girando adesso. Stanno a destra
+        # perche' in mezzo, quando serve, ci va il cartello della safety car
         if sim.best_lap > 0:
-            T.text(surf, "GIRO VELOCE", (x, 22), 11, T.DIM_2, bold=True)
-            T.text(surf, f"{sim.best_lap_by}  {T.fmt_time(sim.best_lap)}",
-                   (x + 92, 20), 13, VIOLA, mono=True, bold=True)
+            righe = [("GIRO VELOCE", f"{sim.best_lap_by}  {T.fmt_time(sim.best_lap)}",
+                      VIOLA, True)]
             mio = self._auto_seguita()
             if mio is not None and mio.giro_scorso > 0:
                 col = (VIOLA if abs(mio.giro_scorso - sim.best_lap) < 0.002 else
                        T.OK if abs(mio.giro_scorso - mio.best_lap) < 0.002 else T.TEXT)
-                T.text(surf, "ULTIMO GIRO", (x, 42), 11, T.DIM_2, bold=True)
-                T.text(surf, f"{mio.code}  {T.fmt_time(mio.giro_scorso)}",
-                       (x + 92, 40), 13, col, mono=True)
+                righe.append(("ULTIMO GIRO", f"{mio.code}  {T.fmt_time(mio.giro_scorso)}",
+                              col, False))
+            larga = max(T.width(v, 13, mono=True) for _, v, _, _ in righe)
+            destra = w - 24
+            for i, (lab, val, col, grasso) in enumerate(righe):
+                T.text(surf, val, (destra, 20 + i * 20), 13, col, mono=True,
+                       bold=grasso, align="right")
+                T.text(surf, lab, (destra - larga - 12, 22 + i * 20), 11, T.DIM_2,
+                       bold=True, align="right")
         if sim.safety_car > 0:
             lab = "VIRTUAL SAFETY CAR" if sim.vsc else "SAFETY CAR"
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)
