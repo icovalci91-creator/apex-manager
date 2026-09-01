@@ -1020,8 +1020,15 @@ class RaceSim:
             voci.append((6, "muretto", "Override attivo: e' adesso o mai piu'."))
         # e la mappatura: quando cambia, il pilota lo sente
         if e.mappa == "conservativa" and e.lap > 2:
-            voci.append((5, "muretto", "Mappa conservativa: tienilo lungo, dobbiamo "
-                                       "arrivare in fondo."))
+            # e il perche' non e' sempre lo stesso: a volte e' la benzina che
+            # non basta, a volte e' che davanti e dietro non c'e' nessuno e
+            # tirare il motore adesso non serve a niente
+            if not self.senza_benzina and BZ.margine_giri(self, e) < 0.6:
+                voci.append((5, "muretto", "Mappa conservativa: tienilo lungo, dobbiamo "
+                                           "arrivare in fondo."))
+            else:
+                voci.append((4, "muretto", "Mappa conservativa: qui non c'e' nessuno "
+                                           "da prendere, il motore lo teniamo buono."))
         elif e.mappa == "spinta" and e.lap > 2:
             voci.append((5, "muretto", "Mappa in spinta, hai tutto quello che c'e'."))
         if e.motore_usura > 0.60:
