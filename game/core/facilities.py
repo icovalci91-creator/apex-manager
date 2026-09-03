@@ -174,20 +174,45 @@ def decay(gs) -> float:
     return lost / max(1, len(C.FACILITIES))
 
 
+# Quanto rende, in prestazione della macchina, un punto di ogni struttura. Non
+# sono uguali e non e' un dettaglio: la galleria, il CFD e l'ufficio tecnico
+# entrano nella forza dei reparti e quindi in ogni pacchetto e in ogni inverno;
+# l'academy fa crescere i ragazzi e la logistica fa risparmiare, che sono cose
+# buone ma non fanno un decimo al giro.
+#
+# Prima non c'era: si potenziava sempre la struttura messa peggio, e siccome
+# quella messa peggio e' quasi sempre una periferica, in otto stagioni intere
+# nessuna squadra della griglia alzava mai la galleria di un punto. Cosi' un
+# vantaggio tecnico non si poteva costruire - ne' perderlo - e le strutture
+# non decidevano niente.
+RESA = {
+    "windtunnel": 1.00, "cfd": 0.85, "aero_dept": 0.80,
+    "design_office": 0.85, "factory": 0.75, "simulator": 0.70,
+    "private_track": 0.55, "pit_crew": 0.30, "academy": 0.28, "logistics": 0.25,
+}
+
+
 def priorities(team) -> list:
-    """Su quali strutture punta una squadra, secondo la sua filosofia."""
-    weights = {k: 1.0 for k in C.FACILITIES}
+    """Su quali strutture punta una squadra: quanto rendono e quanto e' indietro.
+
+    Le due cose insieme. Una galleria a novanta rende ancora piu' di
+    un'academy a sessanta, ed e' per questo che si costruisce una galleria
+    nuova anche quando quella che si ha non e' il punto piu' debole della
+    squadra: e' il punto in cui si vincono le gare.
+    """
     focus = {
         "aero": ("windtunnel", "cfd", "aero_dept"),
         "mechanical": ("design_office", "factory", "simulator"),
         "powertrain": ("factory", "design_office", "cfd"),
     }.get(team.philosophy, ())
-    for k in focus:
-        weights[k] = 1.8
-    # a parita' di interesse si rimette in pari quella messa peggio
     costruite = [k for k in C.FACILITIES if is_built(team, k)]
-    return sorted(costruite,
-                  key=lambda k: -(weights[k] * (100.0 - team.facilities.get(k, 60.0))))
+
+    def valore(k: str) -> float:
+        resa = RESA.get(k, 0.5) * (1.35 if k in focus else 1.0)
+        indietro = max(4.0, 100.0 - team.facilities.get(k, 60.0))
+        return resa * indietro
+
+    return sorted(costruite, key=lambda k: -valore(k))
 
 
 def ai_invest(gs) -> None:
