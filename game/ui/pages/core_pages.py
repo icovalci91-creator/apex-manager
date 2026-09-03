@@ -1431,13 +1431,13 @@ class EngineersPage(Page):
             testo = f"{etichetta} {q*100:.0f}% ({budget * q:.1f} M$/gara)"
             T.text(surf, testo, (xq, ty + 36), 11, col, bold=True)
             xq += T.width(testo, 11) + 14
+        # dove e' andato finora il lavoro: sulla stessa riga della ripartizione,
+        # a destra. Impilarlo sotto lo faceva finire sopra al primo cursore
         forte = max(proj, key=proj.get) if proj else None
-        T.paragraph(surf, (f"Finora il lavoro e' andato soprattutto su "
-                           f"{nextcar.AREE[forte]['label'].lower()} ({proj[forte]:+.1f})."
-                           if forte and proj[forte] > 0.2 else
-                           "Nessun lavoro ancora dirottato sull'anno prossimo: ogni punto "
-                           "va sulla macchina di adesso."),
-                    (left.x + 16, ty + 54), 11, T.DIM_2, left.w - 32)
+        dove = (f"finora su {nextcar.AREE[forte]['label'].lower()}"
+                if forte and proj[forte] > 0.2 else "niente dirottato finora")
+        T.text(surf, dove, (left.right - 16, ty + 36), 11, T.DIM_2, align="right",
+               maxw=left.w * 0.42)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + TESTA_TECNICA, r.w * 0.52 - 4,
                             r.h - TESTA_TECNICA)
