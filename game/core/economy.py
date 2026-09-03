@@ -252,19 +252,49 @@ def end_of_season_finances(gs) -> list:
 #
 # Quello che il proprietario fa sul serio e' l'altro lato: copre le perdite, e
 # l'anno dopo si spende meno.
-RESERVE_SHARE = 0.35     # riserva di lavoro, in quote di tetto di spesa
+RESERVE_SHARE = 0.35     # riserva di riferimento della griglia, per le schermate
+# Quanta parte di una stagione di costi fissi una squadra tiene da parte: circa
+# quattro mesi di operativita'. E' questa la riserva vera, e si misura sui costi
+# di quella squadra, non su un tetto uguale per tutti.
+RESERVE_STAGIONE = 0.35
+# E quanta parte del capitale oltre la riserva finisce davvero sul tavolo in una
+# stagione. E' il proprietario che mette i soldi nella squadra invece di
+# lasciarli in banca: senza questo, una scuderia fondata da poco non arriva mai
+# in cima, perche' il montepremi lo prende chi e' gia' davanti e i soldi in cassa
+# restavano a guardare.
+QUOTA_CAPITALE = 0.50
 AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
 AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
 
 
 def reserve(gs) -> float:
-    """La liquidita' che una squadra tiene da parte per far girare la baracca."""
+    """La riserva di riferimento della griglia: serve alle schermate."""
     return round(cap_limit(gs) * RESERVE_SHARE, 2)
+
+
+def reserve_of(gs, team) -> float:
+    """La liquidita' che *questa* squadra tiene da parte per far girare la baracca.
+
+    Prima era una quota del tetto di spesa, uguale per tutte: settantacinque
+    milioni, piu' di quanto qualunque squadra della griglia abbia mai in cassa.
+    Il risultato era che il capitale investibile veniva negativo per tutte e
+    undici, la voglia di spendere era zero per tutte e undici, e il meccanismo
+    che dovrebbe far mettere i soldi sul tavolo a chi ce li ha non e' mai
+    scattato una volta in una stagione intera.
+
+    La riserva vera non e' una quota del tetto: e' quanto costa far girare
+    *quella* baracca per qualche mese. La Cadillac, che ha una struttura
+    piccola e i soldi di chi l'ha appena fondata, ne tiene da parte molto meno
+    della Ferrari - ed e' per questo che puo' investire.
+    """
+    gare = max(1, len(gs.tracks))
+    fisse = team.staff_cost + team.facility_upkeep + TRAVEL_PER_RACE * gare
+    return round(fisse * RESERVE_STAGIONE, 2)
 
 
 def war_chest(gs, team) -> float:
     """Quello che c'e' in cassa oltre la riserva: capitale, non fondo cassa."""
-    return round(team.cash - reserve(gs), 2)
+    return round(team.cash - reserve_of(gs, team), 2)
 
 
 def spending_appetite(gs, team) -> float:
@@ -276,7 +306,7 @@ def spending_appetite(gs, team) -> float:
     """
     if team.cash <= 0:
         return 0.0
-    return max(0.0, min(1.0, war_chest(gs, team) / max(1.0, reserve(gs) * 0.6)))
+    return max(0.0, min(1.0, war_chest(gs, team) / max(1.0, reserve_of(gs, team) * 0.6)))
 
 
 def owner_settlement(gs, team) -> list:
@@ -318,8 +348,12 @@ def spending_room(gs, team) -> float:
 
 # Quanta parte del capitale oltre la riserva un proprietario e' disposto a
 # bruciare in una stagione. Non tutto: chi svuota la cassa in un anno l'anno
-# dopo non c'e' piu'.
-OWNER_INJECTION = 0.18
+# dopo non c'e' piu'. Ma nemmeno il 18%: con quella quota una scuderia nuova,
+# che dal promoter non prende niente, non arrivava mai a mettere insieme il
+# budget di un pacchetto vero, e i soldi del proprietario restavano a guardare
+# per anni. Un terzo del capitale libero e' quello che mette sul tavolo chi ha
+# comprato una squadra per portarla in cima.
+OWNER_INJECTION = 0.34
 
 
 def season_room(gs, team) -> float:
@@ -358,7 +392,7 @@ def season_room(gs, team) -> float:
     # E' l'unico modo in cui una squadra appena entrata, che dal promoter non
     # prende niente, sviluppa qualcosa invece di limitarsi a sopravvivere.
     scoperto = max(0.0, fisse - entrate)
-    capitale = max(0.0, team.cash - reserve(gs) * 0.35)
+    capitale = max(0.0, team.cash - reserve_of(gs, team))
     coperto = min(capitale, scoperto)
     resta = capitale - coperto
     return round(max(0.0, entrate + coperto + resta * OWNER_INJECTION - fisse), 2)
