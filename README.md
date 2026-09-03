@@ -885,7 +885,13 @@ Il *lavoro di reparto* - il budget continuo, ripartito fra le aree - non e' un
 aggiornamento: sono affinamenti. In prestazione pura rende poco (il 22% di quello che
 renderebbe se fosse sviluppo vero); quello che lascia davvero e' la **conoscenza della
 vettura**, che si vede il venerdi', quando si trova subito la finestra di assetto invece
-di passarci tre sessioni. A fine stagione ne resta un terzo: la macchina nuova e' un'altra
+di passarci tre sessioni. Quanto se ne capisce dipende anche da chi ci puo' pensare: le
+stesse persone o disegnano il fondo nuovo o studiano quello vecchio, e non fanno le due
+cose insieme. **Con nessun cantiere aperto la macchina si capisce quasi il doppio piu' in
+fretta** (1,75 volte) di quando sono tutti pieni (0,70). E' il conto che si fa chi decide
+di non portare aggiornamenti: sulla scheda tecnica non si guadagna niente, ma si arriva al
+venerdi' sapendo dove mettere le mani - e vale piu' che portare un aggiornamento
+sbagliato, che quella conoscenza la spende senza restituire prestazione. A fine stagione ne resta un terzo: la macchina nuova e' un'altra
 macchina, ed e' il motivo per cui a marzo brancolano tutti. Dopo un cambio di regolamento
 ne resta il 15%.
 
@@ -907,11 +913,24 @@ persone che per settimane disegna, prova in galleria, fa i pezzi e li monta. Il 
 legge in chiaro prima di firmare - materiali piu' straordinari - ma il vincolo vero e'
 un altro: **quelle persone non si sdoppiano**.
 
-| Taglia | Persone | Gare | Costo tipico (fondo) |
-|---|---|---|---|
-| Piccolo | 10 | 1 | 1,6 M$ |
-| Medio | 26 | 3 | 3,8 M$ |
-| Grande | 52 | 6 | 7,0 M$ |
+| Taglia | Persone | Gare | Costo tipico (fondo) | Resa | Punti per M$ |
+|---|---|---|---|---|---|
+| Piccolo | 10 | 1 | 1,6 M$ | 1,0 | 0,63 |
+| Medio | 26 | 3 | 3,8 M$ | 2,6 | 0,70 |
+| Grande | 52 | 6 | 7,0 M$ | 5,6 | 0,83 |
+
+**La resa non e' proporzionale al costo, ed e' apposta.** Sei fondi limati uno alla volta
+non fanno un fondo nuovo: un pacchetto grande e' l'unico modo di fare un gradino invece di
+una deriva, perche' si riparte dal concetto e non dal pezzo. Quello che si paga in cambio
+non e' in fattura - e' il rischio che non funzioni, sono le cinquantadue persone bloccate
+per sei gare, ed e' la macchina da ricapire. Finche' il rendimento per milione era piatto
+(0,63 - 0,63 - 0,69) la scelta razionale era sempre la stessa, il piccolo, che rischia
+meno: in due stagioni intere le squadre aprivano **217 pacchetti piccoli, 16 medi e 9
+grandi**, mezzo pacchetto vero a squadra all'anno, e la griglia non faceva mai un salto.
+Adesso il conto si ribalta, ma solo per chi se lo puo' permettere. Scontando la
+probabilita' di fallire, una squadra di vertice vede il grande a 0,611 contro lo 0,583 del
+piccolo; una di coda lo vede a 0,511 contro 0,543 - e infatti non lo fa. **Il salto se lo
+permette chi ha gli strumenti per non sbagliarlo.**
 
 Un pacchetto grande sull'aerodinamica impegna 52 persone del reparto per sei gare. Se il
 reparto ne ha 88, il secondo pacchetto grande non parte: *"servono 52 persone e il reparto
@@ -945,11 +964,38 @@ verifica aperta si chiude da sola: la macchina nuova e' un'altra macchina.
 
 C'e' un terzo costo, oltre ai soldi e al tempo: **l'assetto va ritrovato**. Un fondo nuovo
 non e' un pezzo in piu' sulla stessa macchina, e quello che si sapeva su come farla
-funzionare vale meno di prima. Un pacchetto grande manda in fumo fino al 45% della
+funzionare vale meno di prima. Un pacchetto grande mette in discussione fino al 45% della
 conoscenza della vettura e buona parte del lavoro fatto sui singoli circuiti; uno piccolo
 quasi niente. Anche un pacchetto fallito costa la meta' di quel disturbo, perche' in pista
 ci e' comunque andato. Simulatore e pista di proprieta' riducono il conto: e' li' che si
 fa il lavoro che altrimenti tocca fare il venerdi'.
+
+**Ma quella conoscenza non si butta: si mette da parte.** Il reparto sa ancora quali
+domande farsi - come si comporta in appoggio, dove va la finestra della gomma, cosa
+risponde a un millimetro di ala - e deve solo tornare a rispondersele su una macchina che
+adesso e' un'altra. Reimparare e' molto piu' veloce che imparare la prima volta: il 38%
+di quello che si e' messo via rientra a ogni gara, e da un pacchetto grande si torna
+dov'eravamo in due o tre appuntamenti.
+
+| | subito dopo | dopo 1 gara | dopo 2 | dopo 3 |
+|---|---|---|---|---|
+| Piccolo | 93% | 100% | | |
+| Medio | 83% | 95% | 102% | |
+| Grande | 70% | 88% | 99% | 107% |
+
+**E adesso quella conoscenza costa qualcosa.** Prima valeva un centesimo al giro, cioe'
+niente: le prove del venerdi' lavavano via tutto e si poteva rifare la macchina ogni tre
+gare senza pagarla mai. Adesso pesa anche su **quanto bene si legge la pista** - i dati
+arrivano uguali, ma nessuno sa ancora quale manopola risponde a cosa - e quel pezzo le
+prove non lo lavano via, perche' non e' un punto di partenza sbagliato: e' un errore
+residuo che resta li' anche a fine turno. Fra una macchina capita del tutto e una da
+scoprire ballano **0,24 s al giro** a Barcellona, 0,21 a Monza.
+
+Da qui esce il conto vero di un pacchetto grande, ed e' il conto che si fa in pista: porta
+**+0,14 s**, ma nel weekend d'esordio se ne tiene indietro **0,05** perche' la macchina e'
+da ricapire. Un terzo di quello che vale arriva alla seconda gara, non alla prima. E' il
+motivo per cui una squadra porta un fondo nuovo, va male un venerdi', e poi sparisce
+davanti.
 
 **Contratti.** Rinnovi e acquisti passano da una trattativa vera, non da un si' o un no.
 Il pilota apre con una richiesta e si risponde con un'offerta su cinque voci: ingaggio
