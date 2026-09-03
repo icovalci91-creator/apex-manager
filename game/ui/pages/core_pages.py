@@ -1208,13 +1208,26 @@ class EngineersPage(Page):
 
         # --- la linea per la vettura dell'anno prossimo
         left = pygame.Rect(r.x, r.y + TESTA_TECNICA, r.w * 0.46, r.h - TESTA_TECNICA)
-        self.nc_y = left.bottom - 40 - (len(nextcar.AREE) + 1) * 30
+        # due destinazioni distinte, non una: la macchina dell'anno prossimo e -
+        # solo quando un ciclo nuovo e' all'orizzonte - il concetto per quelle
+        # regole. Sono due lavori diversi e adesso si dosano separatamente
+        self.ciclo_vicino = development.next_era(self.gs) is not None
+        righe = len(nextcar.AREE) + (2 if self.ciclo_vicino else 1)
+        self.nc_y = left.bottom - 40 - righe * 30
         self.share = Slider((left.x + 16, self.nc_y, left.w - 32, 26),
-                            "Sull'anno prossimo", self.team.next_reg_share * 100.0,
+                            "Sulla vettura dell'anno prossimo",
+                            self.team.next_reg_share * 100.0,
                             0.0, 80.0, on_change=self._set_share, fmt="{:.0f}%")
         self.widgets.append(self.share)
+        if self.ciclo_vicino:
+            self.nc_y += 0
+            self.share_ciclo = Slider(
+                (left.x + 16, self.nc_y + 30, left.w - 32, 26),
+                "Sul regolamento che verra'", self.team.next_cycle_share * 100.0,
+                0.0, 80.0, on_change=self._set_share_ciclo, fmt="{:.0f}%")
+            self.widgets.append(self.share_ciclo)
         self.area_sliders = {}
-        y = self.nc_y + 30
+        y = self.nc_y + (60 if self.ciclo_vicino else 30)
         brief = self.team.next_car_brief or {}
         for key, meta in nextcar.AREE.items():
             sl = Slider((left.x + 16, y, left.w - 32, 26), meta["label"],
@@ -1326,6 +1339,9 @@ class EngineersPage(Page):
     def _set_share(self, v) -> None:
         self.team.next_reg_share = max(0.0, min(0.80, v / 100.0))
 
+    def _set_share_ciclo(self, v) -> None:
+        self.team.next_cycle_share = max(0.0, min(0.80, v / 100.0))
+
     def _set_area(self, key, v) -> None:
         nextcar.set_brief(self.team, key, v)
 
@@ -1401,13 +1417,27 @@ class EngineersPage(Page):
         T.text(surf, frase, (left.x + 16, ty + 18), 12, col_f, maxw=left.w - 32)
         T.text(surf, f"fedelta' alla linea {f*100:.0f}%", (left.right - 16, ty + 18), 11,
                col_f, align="right")
+        # e in chiaro, in milioni: dove va il budget del reparto. E' la riga che
+        # serve per decidere, perche' una percentuale non dice quanto si sta
+        # togliendo alla macchina con cui si corre domenica
+        quote = development.quote_sviluppo(gs, team)
+        budget = development.budget_headroom(gs, team)
+        pezzi = [("oggi", quote["oggi"], T.TEXT),
+                 (f"vettura {gs.season + 1}", quote["anno"], T.GOLD)]
+        if quote["ciclo"] > 0:
+            pezzi.append(("ciclo nuovo", quote["ciclo"], T.ACCENT))
+        xq = left.x + 16
+        for etichetta, q, col in pezzi:
+            testo = f"{etichetta} {q*100:.0f}% ({budget * q:.1f} M$/gara)"
+            T.text(surf, testo, (xq, ty + 36), 11, col, bold=True)
+            xq += T.width(testo, 11) + 14
         forte = max(proj, key=proj.get) if proj else None
         T.paragraph(surf, (f"Finora il lavoro e' andato soprattutto su "
                            f"{nextcar.AREE[forte]['label'].lower()} ({proj[forte]:+.1f})."
                            if forte and proj[forte] > 0.2 else
                            "Nessun lavoro ancora dirottato sull'anno prossimo: ogni punto "
                            "va sulla macchina di adesso."),
-                    (left.x + 16, ty + 36), 11, T.DIM_2, left.w - 32)
+                    (left.x + 16, ty + 54), 11, T.DIM_2, left.w - 32)
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + TESTA_TECNICA, r.w * 0.52 - 4,
                             r.h - TESTA_TECNICA)

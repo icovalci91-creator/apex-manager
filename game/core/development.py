@@ -1042,18 +1042,25 @@ def passive_development(gs, team, budget: float) -> None:
         return
     team.add_expense("Lavoro di reparto", round(budget, 3), in_cap=True,
                      category="sviluppo")
-    # quello che si dirotta sull'anno prossimo: e' sempre lavoro sulla vettura
-    # nuova, e quando c'e' un cambio di regolamento in arrivo vale anche come
-    # preparazione al ciclo. Sono la stessa cosa, non due cose diverse
+    # Il budget del reparto si spartisce fra tre destinazioni, e sono tre cose
+    # diverse: la macchina con cui si corre adesso, quella con cui si correra'
+    # l'anno prossimo, e - quando all'orizzonte c'e' un cambio di regolamento -
+    # il concetto del ciclo che verra'. Prima le ultime due erano lo stesso
+    # cursore: chi voleva prepararsi al 2030 doveva per forza dirottare tutto
+    # anche sulla macchina del 2027, e le due scelte non si potevano separare.
+    # Adesso si', perche' non e' lo stesso lavoro: una e' evoluzione, l'altra
+    # e' ricerca su regole che ancora non esistono.
     from . import nextcar
     era = next_era(gs)
-    share = max(0.0, min(0.90, team.next_reg_share))
-    if share > 0:
-        domani = budget * share
+    quote = quote_sviluppo(gs, team)
+    totale = budget
+    domani = totale * quote["anno"]
+    ciclo = totale * quote["ciclo"]
+    if domani > 0:
         nextcar.invest(gs, team, domani)
-        if era is not None:
-            team.reg_prep += domani * team.dev_rate * prep_conversion(gs, team, era)
-        budget -= domani
+    if ciclo > 0 and era is not None:
+        team.reg_prep += ciclo * team.dev_rate * prep_conversion(gs, team, era)
+    budget = totale - domani - ciclo
 
     # quello che si capisce della macchina, e che finira' nell'assetto. Quanto
     # se ne capisce dipende anche da chi ci puo' pensare: un reparto con tutti
@@ -1076,6 +1083,31 @@ def passive_development(gs, team, budget: float) -> None:
         p = team.car.parts[part]
         reso = yield_factor(gs, p.perf, team) * 0.49
         p.perf = p.perf + pts * (share / tot) * reso * gs.rng.uniform(0.6, 1.4)
+
+
+# Quanto del budget di reparto si puo' mandare lontano dalla macchina di
+# adesso. Il tetto e' sulla somma: chi mette tutto sull'anno prossimo e sul
+# ciclo nuovo corre la stagione in corso con quello che ha, e lo sa.
+QUOTA_FUTURO_MAX = 0.90
+
+
+def quote_sviluppo(gs, team) -> dict:
+    """Come si spartisce il budget del reparto fra oggi, l'anno prossimo e il ciclo.
+
+    Le tre quote sono quelle chieste, ridimensionate se insieme sforano: non
+    si puo' dirottare piu' del novanta per cento, perche' una macchina in
+    pista ci deve comunque andare. E la preparazione al ciclo vale zero
+    finche' un ciclo nuovo non e' all'orizzonte: e' ricerca su regole che
+    ancora non esistono, e senza le regole non c'e' niente su cui ricercare.
+    """
+    anno = max(0.0, float(team.next_reg_share))
+    ciclo = max(0.0, float(team.next_cycle_share)) if next_era(gs) is not None else 0.0
+    somma = anno + ciclo
+    if somma > QUOTA_FUTURO_MAX:
+        k = QUOTA_FUTURO_MAX / somma
+        anno, ciclo = anno * k, ciclo * k
+    return {"anno": round(anno, 4), "ciclo": round(ciclo, 4),
+            "oggi": round(1.0 - anno - ciclo, 4)}
 
 
 def budget_headroom(gs, team) -> float:
@@ -1143,7 +1175,7 @@ def run_department(gs, team) -> None:
     elif team.philosophy == "powertrain":
         for k in ("cooling", "gearbox", "sidepods"):
             alloc[k] = alloc.get(k, 0.1) * 1.2
-    team.next_reg_share = ai_reg_share(gs, team)
+    team.next_reg_share, team.next_cycle_share = ai_quote_futuro(gs, team)
     if not team.next_car_brief:
         from . import nextcar
         nextcar.ai_brief(gs, team)
@@ -1379,6 +1411,25 @@ def ai_reg_share(gs, team) -> float:
     return base
 
 
+def ai_quote_futuro(gs, team) -> tuple:
+    """Quanto il computer manda sull'anno prossimo e quanto sul ciclo nuovo.
+
+    Sono due decisioni diverse e si prendono con due teste diverse. Sull'anno
+    prossimo si lavora sempre un po', e sempre di piu' mano a mano che la
+    stagione in corso non ha piu' niente da dire. Sul ciclo si comincia
+    quando lo si vede arrivare, e chi non ha piu' niente da giocarsi stacca
+    prima la spina - e' quello che fece la Brawn nel 2008.
+    """
+    totale = ai_reg_share(gs, team)
+    left = seasons_to_reset(gs)
+    if left is None or next_era(gs) is None:
+        return round(totale, 3), 0.0
+    # piu' il ciclo e' vicino, piu' di quella quota va sul concetto nuovo
+    # invece che su un'evoluzione che fra un anno non servira' a niente
+    verso_ciclo = {1: 0.75, 2: 0.55, 3: 0.30}.get(left, 0.12)
+    return round(totale * (1.0 - verso_ciclo), 3), round(totale * verso_ciclo, 3)
+
+
 def regulation_reset(gs, strength: float, era: dict | None = None) -> list:
     """Un nuovo ciclo tecnico rimescola la griglia.
 
@@ -1422,6 +1473,7 @@ def regulation_reset(gs, strength: float, era: dict | None = None) -> list:
                 news.append("Ci siamo fatti sorprendere: altri avevano cominciato molto prima.")
         team.reg_prep = 0.0
         team.next_reg_share = 0.0
+        team.next_cycle_share = 0.0
         # concetto nuovo, tutto da riscoprire: e' il caos del primo anno
         team.car_understanding *= 0.15
     return news

@@ -86,6 +86,7 @@ class Team:
     engine_customer_cost: float = 0.0
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
     next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
+    next_cycle_share: float = 0.0  # e quanta sul regolamento che verra'
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
     arch_prog: dict = None        # programma sull'architettura di power unit futura
     arch_exp: dict = None         # mestiere accumulato: termico ed elettrico

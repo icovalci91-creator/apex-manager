@@ -495,7 +495,8 @@ class GameState:
                     "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
-                    "next_reg_share": t.next_reg_share, "reg_prep": t.reg_prep,
+                    "next_reg_share": t.next_reg_share,
+                    "next_cycle_share": t.next_cycle_share, "reg_prep": t.reg_prep,
                     "arch_prog": t.arch_prog or {}, "arch_exp": t.arch_exp or {},
                     "next_car_brief": t.next_car_brief or {},
                     "next_car_work": t.next_car_work or {},
@@ -597,6 +598,7 @@ class GameState:
             t.upgrades_done = td.get("upgrades_done", 0)
             t.upgrade_log = list(td.get("upgrade_log") or [])
             t.next_reg_share = td.get("next_reg_share", 0.0)
+            t.next_cycle_share = float(td.get("next_cycle_share", 0.0))
             from .sponsors import Deal
             t.deals = [Deal(**x) for x in td.get("deals", [])]
             t.ledger = list(td.get("ledger", []))
