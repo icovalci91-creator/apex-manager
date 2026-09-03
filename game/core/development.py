@@ -583,6 +583,11 @@ def start_project(gs, team, part: str, size: str, focus: str = "") -> tuple:
                  confidence=project_confidence(gs, team, part, size),
                  size=size, started_round=gs.round, focus=focus)
     team.dev_projects.append(pr)
+    # il conto dei pacchetti grossi dell'anno si tiene qui, che e' l'unico
+    # punto da cui un cantiere si apre davvero: cosi' vale anche quando il
+    # grande esce dalla scelta al margine invece che dal programma
+    if size == "grande":
+        team.grandi_stagione += 1
     from . import engineering
     dove = (f", disegnato per {engineering.NOMI_DOMINIO.get(focus, focus).lower()}"
             if focus else "")
@@ -1182,8 +1187,6 @@ def _major_stagionale(gs, team, part: str, gare_restanti: int, avanza: float) ->
     # rimandato
     fatto, _ = start_project(gs, team, part, "grande",
                              _ai_focus(gs, team, part, "grande"))
-    if fatto:
-        team.grandi_stagione += 1
     return bool(fatto)
 
 
@@ -1211,6 +1214,10 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
     scelte = []
     for size, gare in (("grande", 6), ("medio", 3), ("piccolo", 1)):
         if gare > gare_restanti:
+            continue
+        # i pacchetti grossi dell'anno sono contati, da qualunque parte
+        # arrivi la decisione di farne uno
+        if size == "grande" and team.grandi_stagione >= MAJOR_MASSIMO:
             continue
         costo = cost_of_upgrade(gs, team, part, size)
         if costo > headroom * gare * 0.9 or costo / gare > team.cash * 0.5:
