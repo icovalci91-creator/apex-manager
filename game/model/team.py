@@ -87,6 +87,8 @@ class Team:
     resource_alloc: dict = field(default_factory=dict)   # area -> quota 0..1
     next_reg_share: float = 0.0   # quota di sviluppo dirottata sull'anno prossimo
     next_cycle_share: float = 0.0  # e quanta sul regolamento che verra'
+    cantieri_inverno: list = field(default_factory=list)  # i lavori scelti per l'inverno
+    inverno_aperto: bool = False  # la riunione di fine anno e' ancora da fare
     reg_prep: float = 0.0         # preparazione accumulata per il prossimo ciclo
     arch_prog: dict = None        # programma sull'architettura di power unit futura
     arch_exp: dict = None         # mestiere accumulato: termico ed elettrico

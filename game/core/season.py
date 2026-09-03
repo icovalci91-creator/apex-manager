@@ -425,6 +425,12 @@ def end_season(gs) -> dict:
     # la vettura dell'anno prossimo: quello che il reparto ha preparato durante
     # la stagione scende in pista adesso
     report["progress"] += nextcar.end_season(gs)
+    # e poi c'e' l'inverno vero e proprio: quattro mesi in cui non si corre e
+    # tutti i reparti lavorano insieme su quello che l'anno appena finito ha
+    # detto che non andava. E' un lavoro diverso da quello di stagione, e
+    # arriva dopo la macchina nuova perche' e' su quella che si interviene
+    from . import inverno
+    report["progress"] += inverno.stagione_finita(gs)
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1
