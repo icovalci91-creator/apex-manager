@@ -331,8 +331,15 @@ def ci_sta(team, cantieri: list, nuovo: Cantiere) -> bool:
 # stesse persone, senza quel rumore attorno, rendono di piu' - ed e' il motivo
 # per cui una macchina di gennaio non e' la macchina di novembre con qualche
 # pezzo nuovo: e' un'altra macchina.
-RIFINITURA = 1.30          # punti su ogni componente, per un reparto medio
-RIFINITURA_FORBICE = 1.10  # e quanto la sposta la qualita' del reparto
+# Il livello va tarato contro l'invecchiamento, non in assoluto: il mondo va
+# avanti di mezzo punto a componente ogni stagione, e se l'inverno ne desse
+# uno e mezzo a tutti la griglia intera scapperebbe via dal riferimento del
+# ciclo - misurato, +3.1 punti in quattro stagioni - e i rendimenti calanti
+# finirebbero per schiacciare tutti. Quindi un reparto medio con l'inverno sta
+# in pari, uno forte guadagna, uno debole arretra lo stesso. Quello che fa la
+# differenza vera sono i cantieri, che si scelgono.
+RIFINITURA = 0.55          # punti su ogni componente, per un reparto medio
+RIFINITURA_FORBICE = 1.30  # e quanto la sposta la qualita' del reparto
 
 
 def rifinitura(gs, team) -> float:
