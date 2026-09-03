@@ -35,22 +35,66 @@ from . import economy
 CYCLE_SPAN = 18.0    # punti oltre il riferimento prima che diventi durissima
 CYCLE_STEP = 2.2     # di quanto sale il riferimento a ogni nuovo ciclo
 CYCLE_DEFAULT = 82.0
+# Di quanti punti si sposta quel riferimento fra la squadra peggio attrezzata
+# della griglia e quella meglio attrezzata. Meta' della forbice del ciclo: e'
+# tanto, ed e' voluto - e' la ragione per cui si spendono anni e centinaia di
+# milioni in una galleria del vento nuova.
+MURO_STRUMENTI = 9.0
 
 
 def cycle_base(gs) -> float:
     return float(gs.regulations.get("cycle_base", CYCLE_DEFAULT))
 
 
-def yield_factor(gs, perf: float) -> float:
+# La forbice vera fra l'ultima e la prima della griglia, in strutture e in
+# uomini. Normalizzare sulla scala teorica 45-95 schiacciava tutto: le squadre
+# stanno fra 60 e 92, e la differenza fra la Cadillac e la Ferrari va letta li'.
+MURO_MIN, MURO_MAX = 62.0, 92.0
+
+
+def _q(v: float) -> float:
+    """Dove sta un valore fra l'ultima e la prima della griglia, da 0 a 1."""
+    return max(0.0, min(1.0, (v - MURO_MIN) / (MURO_MAX - MURO_MIN)))
+
+
+def muro(team) -> float:
+    """Di quanto si sposta in su il punto in cui lo sviluppo comincia a costare.
+
+    Il muro dei rendimenti calanti c'e' per tutti, ma non e' nello stesso
+    posto. Con una galleria che correla, un ufficio tecnico che disegna quello
+    che serve e la gente giusta dentro, si continua a trovare prestazione dove
+    un altro ha gia' sbattuto: non e' che si spenda di piu' - il tetto e'
+    uguale per tutti - e' che gli stessi soldi, in quelle mani e con quegli
+    strumenti, diventano piu' prestazione.
+
+    E' anche il motivo per cui le stesse quattro squadre stanno davanti per
+    anni, e per cui chi fonda una scuderia e passa anni a portare strutture e
+    uomini al livello di quelle, alla fine ci arriva: il muro si sposta con
+    loro. Prima non era cosi' - i calanti erano identici per tutti e
+    dipendevano solo da quanto era gia' buona la macchina - e il risultato era
+    che il pacchetto grande dell'ultima della griglia valeva quanto quello
+    della prima.
+    """
+    if team is None:
+        return 0.0
+    mix = {"aero": 0.50, "mech": 0.35, "pu": 0.15}
+    attrezzi = _q(_tool_score(team, mix))
+    gente = _q(0.5 * team.aero_strength + 0.5 * team.mech_strength)
+    return MURO_STRUMENTI * (0.55 * attrezzi + 0.45 * gente - 0.5)
+
+
+def yield_factor(gs, perf: float, team=None) -> float:
     """Quanto rende ancora lo sviluppo a questo livello, come moltiplicatore.
 
-    Sopra il riferimento del ciclo ogni punto costa piu' del precedente, e non
-    si arriva mai a zero: si arriva a rendimenti cosi' bassi che conviene
-    spendere altrove. Sotto il riferimento invece si va piu' in fretta, perche'
-    i problemi grossi sono ancora tutti li' da risolvere: e' il motivo per cui
+    Sopra il riferimento ogni punto costa piu' del precedente, e non si arriva
+    mai a zero: si arriva a rendimenti cosi' bassi che conviene spendere
+    altrove. Sotto il riferimento invece si va piu' in fretta, perche' i
+    problemi grossi sono ancora tutti li' da risolvere: e' il motivo per cui
     una squadra di coda recupera piu' in fretta di quanto una di testa scappi.
+
+    Dove sta quel riferimento pero' lo decidono strumenti e persone: e' `muro`.
     """
-    over = (perf - cycle_base(gs)) / CYCLE_SPAN
+    over = (perf - cycle_base(gs) - muro(team)) / CYCLE_SPAN
     if over <= 0.0:
         return 1.0 + min(0.35, -over * 0.45)
     return 1.0 / (1.0 + over ** 2.2 * 1.8)
@@ -277,7 +321,8 @@ def expected_gain(gs, team, part: str, size: str) -> float:
     cur = team.car.parts[part].perf
     # 0.93 tiene i guadagni sulla stessa scala di prima a meta' ciclo: cambia
     # la forma della curva, non il ritmo con cui cresce una macchina
-    return round(mult * (dept / 100.0) * team.dev_rate * yield_factor(gs, cur) * 0.93, 2)
+    return round(mult * (dept / 100.0) * team.dev_rate
+                 * yield_factor(gs, cur, team) * 0.93, 2)
 
 
 # ------------------------------------------- quanto vale, in secondi al giro
@@ -1029,7 +1074,7 @@ def passive_development(gs, team, budget: float) -> None:
         if part not in team.car.parts:
             continue
         p = team.car.parts[part]
-        reso = yield_factor(gs, p.perf) * 0.49
+        reso = yield_factor(gs, p.perf, team) * 0.49
         p.perf = p.perf + pts * (share / tot) * reso * gs.rng.uniform(0.6, 1.4)
 
 
