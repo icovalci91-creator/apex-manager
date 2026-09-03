@@ -45,6 +45,7 @@ class Team:
     sim_sessions: int = 0        # sessioni di simulatore fatte per quel weekend
     car_understanding: float = 0.0  # quanto abbiamo capito la macchina di quest'anno
     car_memoria: float = 0.0     # e quanto ne abbiamo messo da parte con l'ultimo pacchetto
+    grandi_stagione: int = 0     # pacchetti grandi gia' messi in programma quest'anno
     workforce: dict = None       # quanti ingegneri lavorano in ogni reparto
     hired_this_season: dict = None  # quanti se ne sono assunti quest'anno, per reparto
     pu_building: bool = False    # ha fondato il reparto motori e lo sta costruendo

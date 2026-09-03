@@ -1134,6 +1134,59 @@ def _ai_focus(gs, team, part: str, size: str) -> str:
     return focus
 
 
+# Il pacchetto della stagione. Una stagione ha un ritmo, e non e' quello di chi
+# ottimizza il rendimento per milione a ogni gara: il pacchetto vero e' uno, al
+# massimo due, lo si mette in programma mesi prima, si mettono da parte i soldi
+# e le persone, e lo si porta quando e' pronto. Tutto il resto e' lavoro
+# incrementale. Senza questa distinzione una squadra che guarda solo il margine
+# porta venti pacchetti piccoli all'anno e non fa mai un gradino - ed era
+# esattamente quello che succedeva: in due stagioni intere, mezzo pacchetto
+# grande a squadra.
+MAJOR_DA_GARA = 2          # prima non si e' ancora pronti a portarlo
+MAJOR_MIN_GARE = 6         # e dopo serve il tempo perche' arrivi
+MAJOR_MASSIMO = 2          # due all'anno e' il tetto, e ci arriva solo chi puo'
+MAJOR_SECONDO = 0.45       # e il secondo non prima di meta' stagione
+
+
+def _major_stagionale(gs, team, part: str, gare_restanti: int, avanza: float) -> bool:
+    """Prova a mettere in programma il pacchetto grosso dell'anno.
+
+    Non lo si mette in concorrenza con un pacchetto piccolo, perche' non e' la
+    stessa decisione: uno lo si fa per limare, l'altro per cambiare marcia. Ci
+    arriva chi si fida dei propri strumenti - chi sa di non correlare porta
+    pacchetti piccoli e sicuri, e fa bene: per lui il grande e' una scommessa
+    su una galleria che gli racconta bugie.
+    """
+    if (team.grandi_stagione >= MAJOR_MASSIMO or gs.round < MAJOR_DA_GARA
+            or gare_restanti < MAJOR_MIN_GARE):
+        return False
+    # il secondo non si accavalla al primo: si porta a meta' stagione, quando
+    # il primo ha girato e ha detto se la strada era quella
+    if team.grandi_stagione >= 1 and gs.round < len(gs.tracks) * MAJOR_SECONDO:
+        return False
+    costo = cost_of_upgrade(gs, team, part, "grande")
+    if costo / RACES_OF["grande"] > team.cash * 0.5:
+        return False
+    # i soldi per il pacchetto dell'anno si mettono da parte, non si guarda
+    # quello che avanza gara per gara: e' l'unica spesa che si programma
+    impegnato = sum(max(0.0, x.budget - x.invested) for x in team.dev_projects)
+    if impegnato + costo > max(costo, avanza * 1.15):
+        return False
+    # e ci si va solo se ci si crede: la fiducia del reparto e' la stessa che
+    # decide se il pacchetto funzionera'
+    conf = project_confidence(gs, team, part, "grande")
+    if gs.rng.random() > conf * (0.55 + 0.45 * lucidita(team)):
+        return False
+    # e il conto si segna solo se il cantiere si apre davvero: se il reparto non
+    # ha le persone libere il pacchetto dell'anno non e' stato speso, e' stato
+    # rimandato
+    fatto, _ = start_project(gs, team, part, "grande",
+                             _ai_focus(gs, team, part, "grande"))
+    if fatto:
+        team.grandi_stagione += 1
+    return bool(fatto)
+
+
 def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) -> None:
     """Decide se aprire un pacchetto e quanto grande farlo.
 
@@ -1152,6 +1205,9 @@ def ai_start_package(gs, team, weak: str, headroom: float, avanza: float = 0.0) 
     altre = [p for p in engineering.suggested_parts(gs, team, 4)
              if p in team.car.parts] or list(team.car.parts)
     part = weak if gs.rng.random() < 0.65 else gs.rng.choice(altre)
+    # il pacchetto della stagione viene prima di qualunque conto al margine
+    if _major_stagionale(gs, team, part, gare_restanti, avanza):
+        return
     scelte = []
     for size, gare in (("grande", 6), ("medio", 3), ("piccolo", 1)):
         if gare > gare_restanti:
@@ -1186,6 +1242,8 @@ def new_car_season(gs) -> None:
     """
     for team in gs.teams.values():
         team.car_understanding *= UNDERSTANDING_CARRY
+        team.car_memoria = 0.0
+        team.grandi_stagione = 0
         # le specifiche in verifica muoiono con la macchina su cui erano nate:
         # quello che si e' recuperato resta, il resto e' storia
         team.spec_trials = []
