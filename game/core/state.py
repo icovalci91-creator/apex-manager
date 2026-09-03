@@ -486,6 +486,7 @@ class GameState:
                     "setup_paper_track": t.setup_paper_track,
                     "sim_sessions": t.sim_sessions,
                     "car_understanding": t.car_understanding,
+                    "car_memoria": t.car_memoria,
                     "workforce": t.workforce or {}, "pu_building": t.pu_building,
                     "hired_this_season": t.hired_this_season or {},
                     "drivers": t.drivers, "reserves": t.reserves,
@@ -579,6 +580,7 @@ class GameState:
             t.setup_paper_track = td.get("setup_paper_track", "")
             t.sim_sessions = td.get("sim_sessions", 0)
             t.car_understanding = td.get("car_understanding", 0.0)
+            t.car_memoria = float(td.get("car_memoria", 0.0))
             t.workforce = dict(td.get("workforce") or {})
             t.pu_building = bool(td.get("pu_building", False))
             t.hired_this_season = dict(td.get("hired_this_season") or {})

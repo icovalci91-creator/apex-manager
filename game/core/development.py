@@ -185,6 +185,17 @@ def dev_capacity(gs, team) -> float:
 # aggiornamento non e' una fattura: e' un gruppo di gente che per settimane
 # disegna, prova in galleria, fa i pezzi e li monta. E' li' che va il grosso
 # del tetto di spesa.
+# Quanto rende una taglia rispetto a un'altra. Non e' proporzionale al costo,
+# ed e' apposta: sei fondi limati uno alla volta non fanno un fondo nuovo. Un
+# pacchetto grande e' l'unico modo di fare un gradino invece di una deriva -
+# si riparte dal concetto, non dal pezzo - e per questo rende di piu' di
+# quanto costa. Quello che si paga in cambio non e' in fattura: e' il rischio
+# che non funzioni, sono le cinquantadue persone bloccate per sei gare, ed e'
+# la macchina da ricapire. Finche' il rendimento per milione era piatto la
+# scelta era sempre la stessa - il piccolo, che rischia meno - e in una
+# stagione intera nessuno portava un pacchetto vero.
+TAGLIA_RESA = {"piccolo": 1.0, "medio": 2.6, "grande": 5.6}
+
 PEOPLE = {"piccolo": 10, "medio": 26, "grande": 52}
 MATERIALS = {"piccolo": 1.0, "medio": 2.2, "grande": 3.6}
 RACES_OF = {"piccolo": 1, "medio": 3, "grande": 6}
@@ -238,9 +249,27 @@ def free_people(team, part: str) -> int:
     return max(0, dept_people(team, part) - people_busy(team))
 
 
+# Quanto va piu' in fretta a capire la macchina un reparto che non ha pacchetti
+# aperti. Non e' un premio: e' che quelle stesse persone o disegnano il fondo
+# nuovo o studiano quello vecchio, e non fanno le due cose insieme.
+MANI_LIBERE = (0.70, 1.75)   # tutti occupati .. nessuno occupato
+
+
+def mani_libere(team) -> float:
+    """Quanta testa ha il reparto per la macchina che c'e' gia', da 0.7 a 1.75."""
+    from . import departments
+    totale = sum(departments.headcount(team, a)
+                 for a in ("aero", "progetto", "powertrain"))
+    if totale <= 0:
+        return 1.0
+    quota = max(0.0, min(1.0, 1.0 - people_busy(team) / totale))
+    lo, hi = MANI_LIBERE
+    return lo + (hi - lo) * quota
+
+
 def expected_gain(gs, team, part: str, size: str) -> float:
     """Quanto promette il pacchetto sulla carta. Poi la pista dira'."""
-    mult = {"piccolo": 1.0, "medio": 2.4, "grande": 4.8}[size]
+    mult = TAGLIA_RESA[size]
     p = C.CAR_PARTS[part]
     dept = (p["aero"] * team.aero_strength + p["mech"] * team.mech_strength
             + p["pu"] * (team.pu_strength if team.works else 55.0))
@@ -476,12 +505,40 @@ def setup_upset(team, size: str) -> float:
     return max(0.02, UPSET[size] * (1.15 - 0.30 * sim - 0.25 * pista))
 
 
+# Quello che un pacchetto rimette in discussione non sparisce: si mette da
+# parte. Il reparto sa ancora quali domande farsi - come si comporta in appoggio,
+# dove va la finestra della gomma, che cosa risponde a un millimetro di ala - e
+# deve solo tornare a rispondersele su una macchina che adesso e' un'altra. Per
+# questo reimparare e' molto piu' veloce che imparare la prima volta: in due o
+# tre gare si e' tornati dov'eravamo, ed e' quello che si vede in pista quando
+# una squadra porta un fondo nuovo, va male un weekend e poi sparisce davanti.
+RIENTRO_MEMORIA = 0.38     # quota della memoria che rientra a ogni gara
+
+
 def _unsettle(team, quota: float) -> None:
-    """Sposta indietro conoscenza della vettura e dei circuiti."""
-    team.car_understanding = max(0.0, team.car_understanding * (1.0 - quota))
+    """Mette da parte conoscenza della vettura e dei circuiti."""
+    perso = team.car_understanding * quota
+    team.car_understanding = max(0.0, team.car_understanding - perso)
+    # non e' buttata: e' in un cassetto, e si riapre in fretta
+    team.car_memoria = min(1.0, team.car_memoria + perso)
     if team.setup_knowledge:
         team.setup_knowledge = {k: v * (1.0 - quota * 0.8)
                                 for k, v in team.setup_knowledge.items()}
+
+
+def rientra_conoscenza(team) -> None:
+    """Una gara di lavoro sulla specifica nuova: la memoria torna a galla.
+
+    Va chiamata una volta per gara. Il grosso rientra subito - il primo weekend
+    con il pezzo addosso e' quello in cui si capisce la meta' di quello che
+    c'era da capire - e la coda si chiude nel giro di un paio di appuntamenti.
+    """
+    if team.car_memoria <= 1e-4:
+        team.car_memoria = 0.0
+        return
+    torna = team.car_memoria * RIENTRO_MEMORIA
+    team.car_memoria -= torna
+    team.car_understanding = min(1.0, team.car_understanding + torna)
 
 
 # I pezzi che una fornitura unica toglie di mano alle squadre. Non sono
@@ -897,6 +954,9 @@ def _ai_decide(gs, team, tr: Trial, buco: float) -> None:
 def advance_projects(gs, team) -> list:
     """Fa avanzare i progetti di una gara. Ritorna i messaggi generati."""
     msgs = []
+    # quello che l'ultimo pacchetto aveva messo da parte torna a galla: e'
+    # lavoro di una gara, e va contato una volta per gara come tutto il resto
+    rientra_conoscenza(team)
     done = []
     for pr in team.dev_projects:
         slice_cost = pr.budget / max(1, pr.races_left + (1 if pr.invested == 0 else 0))
@@ -945,8 +1005,14 @@ def passive_development(gs, team, budget: float) -> None:
             team.reg_prep += domani * team.dev_rate * prep_conversion(gs, team, era)
         budget -= domani
 
-    # quello che si capisce della macchina, e che finira' nell'assetto
-    passo = UNDERSTANDING_RATE * budget * (0.45 + 0.55 * team.setup_strength / 100.0)
+    # quello che si capisce della macchina, e che finira' nell'assetto. Quanto
+    # se ne capisce dipende anche da chi ci puo' pensare: un reparto con tutti
+    # i banchi occupati dai pacchetti la macchina di adesso non la studia, la
+    # subisce. E' il conto che si fa chi decide di non portare aggiornamenti -
+    # non si guadagna niente sulla scheda tecnica, ma si arriva al venerdi'
+    # sapendo dove mettere le mani
+    passo = (UNDERSTANDING_RATE * budget * (0.45 + 0.55 * team.setup_strength / 100.0)
+             * mani_libere(team))
     team.car_understanding = min(1.0, team.car_understanding
                                  + passo * (1.0 - team.car_understanding))
 

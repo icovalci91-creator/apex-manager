@@ -145,6 +145,15 @@ def _refine(gs, team, track, err: float) -> None:
 # si gomma: e' il motivo per cui a volte si insegue tutto il weekend.
 READ_NOISE = 7.0
 
+# E quanto peggiora quella lettura quando la macchina non la si e' ancora
+# capita. E' il vero costo di un pacchetto grosso, ed e' un costo che le prove
+# non lavano via: i dati arrivano uguali, ma nessuno sa ancora quale manopola
+# risponde a cosa, quindi il turno si chiude piu' lontani dall'ottimo di quanto
+# ci si sarebbe chiusi ad agosto con la stessa macchina in mano. Prima questo
+# non c'era, e la conoscenza della vettura contava un centesimo al giro: si
+# poteva rifare la macchina ogni tre gare senza pagarla mai.
+RUMORE_IGNOTA = 2.20
+
 
 def track_learning(team, feedback: float) -> float:
     """Quanto si impara da una sessione in pista, 0..1.
@@ -173,11 +182,16 @@ def learn_from_track(gs, team, track, feedback: float, share: float = 1.0,
     ensure_paper(gs, team, track)
     opt = team.car.optimal_setup(track, cond=cond if cond is not None else _attese(track))
     passo = track_learning(team, feedback) * max(0.0, min(1.0, share))
+    # quanto si legge male dipende anche da quanto si e' capita la macchina:
+    # con una specifica appena arrivata il pilota dice cosa fa, ma tradurlo in
+    # millimetri e' un'altra cosa, e si resta piu' lontani dall'ottimo
+    capita = max(0.0, min(1.0, team.car_understanding))
+    rumore = READ_NOISE * (1.0 + RUMORE_IGNOTA * (1.0 - capita))
     paper = team.setup_paper
     for k in SETUP_KEYS:
         cur = paper.get(k, 50.0)
         # si scopre l'ottimo con un residuo di rumore: i dati non sono perfetti
-        letto = opt[k] + gs.rng.gauss(0.0, READ_NOISE)
+        letto = opt[k] + gs.rng.gauss(0.0, rumore)
         paper[k] = max(0.0, min(100.0, cur + (letto - cur) * passo))
     team.setup_paper = paper
 
