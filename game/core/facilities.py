@@ -226,7 +226,14 @@ def ai_invest(gs) -> None:
             continue
         # il budget delle costruzioni e' quello che resta nel periodo, e non si
         # spende mai tutto in un colpo: si tiene qualcosa per l'anno dopo
-        budget = min(economy.capex_left(gs, team), max(0.0, team.cash - 25.0))
+        # quanto si tiene in cassa prima di aprire un cantiere: la propria
+        # riserva di lavoro, non un numero uguale per tutti. Con i venticinque
+        # milioni fissi di prima solo le due squadre piu' ricche della griglia
+        # costruivano mai qualcosa, e una scuderia appena fondata - che ha i
+        # soldi del proprietario ma una struttura piccola - restava fuori per
+        # una manciata di milioni
+        budget = min(economy.capex_left(gs, team),
+                     max(0.0, team.cash - economy.reserve_of(gs, team)))
         # chi sta perdendo soldi non apre cantieri: il capitale e' un budget a
         # parte, ma la firma la mette lo stesso proprietario
         # chi ha capitale non aspetta il turno buono: il limite per le
@@ -239,7 +246,8 @@ def ai_invest(gs) -> None:
         # chi nuota nei soldi prima o poi si costruisce la pista di casa, e
         # quella la paga il gruppo: non tocca nessuno dei due tetti
         for key in OPTIONAL:
-            if not is_built(team, key) and build_cost(key) <= (team.cash - 60.0):
+            if not is_built(team, key) and build_cost(key) <= (
+                    team.cash - economy.reserve_of(gs, team) * 2.0):
                 ok, _m = build(gs, team, key)
         for key in priorities(team):
             price = cost(team.facilities.get(key, 60.0), C.FACILITIES[key]["cost"])
