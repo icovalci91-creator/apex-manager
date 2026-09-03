@@ -927,10 +927,30 @@ per sei gare, ed e' la macchina da ricapire. Finche' il rendimento per milione e
 (0,63 - 0,63 - 0,69) la scelta razionale era sempre la stessa, il piccolo, che rischia
 meno: in due stagioni intere le squadre aprivano **217 pacchetti piccoli, 16 medi e 9
 grandi**, mezzo pacchetto vero a squadra all'anno, e la griglia non faceva mai un salto.
-Adesso il conto si ribalta, ma solo per chi se lo puo' permettere. Scontando la
-probabilita' di fallire, una squadra di vertice vede il grande a 0,611 contro lo 0,583 del
-piccolo; una di coda lo vede a 0,511 contro 0,543 - e infatti non lo fa. **Il salto se lo
-permette chi ha gli strumenti per non sbagliarlo.**
+Ribaltare il conto pero' non e' bastato: misurando perche' le squadre continuavano a non
+farlo, nel **47% delle occasioni** il pacchetto grande era ammissibile ma perdeva comunque
+il confronto sul rendimento per milione contro un piccolo o un medio. E non poteva che
+finire cosi': un reparto che ottimizza il margine a ogni gara non fara' mai un gradino, per
+costruzione. Non e' un numero da ritoccare - **e' una decisione diversa**.
+
+Percio' il pacchetto grosso e' una voce a se'. Lo si mette in programma dalla seconda gara,
+i soldi si mettono da parte invece di guardare quello che avanza settimana per settimana, e
+non lo si mette in concorrenza con un pacchetto piccolo: uno si fa per limare, l'altro per
+cambiare marcia. Il tetto e' **due all'anno**, e il secondo non prima di meta' stagione,
+quando il primo ha girato e ha detto se la strada era quella. Ci arriva chi si fida dei
+propri strumenti - la probabilita' di metterlo in programma e' la fiducia del reparto -
+quindi chi sa di non correlare continua a portare pacchetti piccoli e sicuri, e fa bene.
+
+| Pacchetti aperti per squadra per stagione | prima | adesso |
+|---|---|---|
+| Piccoli | 10,8 | 5,8 |
+| Medi | 0,8 | 2,3 |
+| Grandi | 0,5 | 1,1 |
+
+Il massimo osservato e' due all'anno, e ci arrivano le squadre di vertice; le tre piu'
+deboli della griglia non ne portano mai uno, perche' sette milioni e cinquantadue persone
+sono un impegno che non hanno. **Il salto se lo permette chi ha gli strumenti per non
+sbagliarlo.**
 
 Un pacchetto grande sull'aerodinamica impegna 52 persone del reparto per sei gare. Se il
 reparto ne ha 88, il secondo pacchetto grande non parte: *"servono 52 persone e il reparto
