@@ -152,7 +152,7 @@ READ_NOISE = 7.0
 # ci si sarebbe chiusi ad agosto con la stessa macchina in mano. Prima questo
 # non c'era, e la conoscenza della vettura contava un centesimo al giro: si
 # poteva rifare la macchina ogni tre gare senza pagarla mai.
-RUMORE_IGNOTA = 2.20
+RUMORE_IGNOTA = 3.00
 
 
 def track_learning(team, feedback: float) -> float:
