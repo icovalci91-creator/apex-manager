@@ -53,6 +53,13 @@ AREE = {
 # macchina sensibilmente diversa, non una rivoluzione.
 WORK_TO_PERF = 0.42
 
+# La forbice vera di reparti fra l'ultima e la prima della griglia, e quanto
+# quella forbice moltiplica il progetto dell'anno nuovo. Piu' larga di quella
+# della stagione, ed e' voluto: d'inverno si sbaglia o si azzecca il concetto,
+# e quello vale per dodici mesi.
+PROGETTO_MIN, PROGETTO_MAX = 62.0, 92.0
+PROGETTO_RESA = (0.70, 1.55)
+
 
 def brief_of(team) -> dict:
     """Le indicazioni date al reparto, normalizzate."""
@@ -115,13 +122,31 @@ def invest(gs, team, budget: float) -> None:
         lavoro[area] += reso * (f * quota + (1.0 - f) / len(AREE))
 
 
+def resa_progetto(team) -> float:
+    """Quanto rende, su una macchina nuova, avere gli strumenti e la gente giusta.
+
+    E' l'inverno il momento in cui una galleria che correla vale davvero: in
+    stagione si limano pezzi su una macchina che c'e' gia' e il margine di
+    manovra e' quello che e', d'inverno si decide *che macchina sara'*, e un
+    errore di concetto lo si porta per dodici mesi. Chi ha gli strumenti per
+    vedere in anticipo che la strada e' sbagliata arriva a marzo con la
+    macchina giusta, e questo si ripete anno dopo anno.
+
+    Prima la forbice fra l'ultima e la prima della griglia era del 22%, e non
+    bastava a spiegare perche' sono sempre le stesse squadre ad arrivarci.
+    """
+    forza = (0.45 * team.aero_strength + 0.35 * team.mech_strength
+             + 0.20 * (team.pu_strength if team.works else 60.0))
+    q = max(0.0, min(1.0, (forza - PROGETTO_MIN) / (PROGETTO_MAX - PROGETTO_MIN)))
+    lo, hi = PROGETTO_RESA
+    return lo + (hi - lo) * q
+
+
 def projection(gs, team) -> dict:
     """Che macchina verra' fuori, area per area, in punti di prestazione."""
     lavoro = work_of(team)
-    forza = (0.45 * team.aero_strength + 0.35 * team.mech_strength
-             + 0.20 * (team.pu_strength if team.works else 60.0)) / 100.0
-    return {k: round(v * WORK_TO_PERF * (0.55 + 0.75 * forza), 2)
-            for k, v in lavoro.items()}
+    resa = resa_progetto(team)
+    return {k: round(v * WORK_TO_PERF * resa, 2) for k, v in lavoro.items()}
 
 
 def expected_gain(gs, team) -> float:
