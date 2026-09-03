@@ -609,7 +609,10 @@ class CarPage(Page):
                    (right.x + 16, right.y + 128), 12,
                    T.stat_colour(fid * 100, 40, 75), bold=True, maxw=right.w - 210)
             und = team.car_understanding
-            T.text(surf, f"vettura capita al {und*100:.0f}%", (right.right - 16, right.y + 128),
+            mem = getattr(team, "car_memoria", 0.0)
+            coda = f" (+{mem*100:.0f}% da ritrovare)" if mem > 0.01 else ""
+            T.text(surf, f"vettura capita al {und*100:.0f}%{coda}",
+                   (right.right - 16, right.y + 128),
                    12, T.stat_colour(und * 100, 30, 65), bold=True, align="right")
             car.setup = dict(driving.setup_of(team, d))
             T.text(surf, f"Carico {car.downforce:.2f}  |  Resistenza {car.drag:.2f}  |  "
@@ -952,9 +955,15 @@ class DevPage(Page):
              f"{team.last_position}o nel costruttori precedente",
              colour=T.OK if atr >= 1.0 else T.WARN, accent=T.WARN)
         und = team.car_understanding
+        # e quanta ne sta rientrando: dopo un pacchetto grosso la percentuale
+        # crolla, e chi la guarda deve sapere che e' un buco che si richiude
+        mem = getattr(team, "car_memoria", 0.0)
+        sotto = (f"in recupero, +{mem*100:.0f}% da ritrovare" if mem > 0.01
+                 else "quanto sappiamo sfruttarla")
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Conoscenza della vettura",
-             f"{und*100:.0f}%", "quanto sappiamo sfruttarla",
-             colour=T.OK if und > 0.45 else T.TEXT, accent=T.GOLD)
+             f"{und*100:.0f}%", sotto,
+             colour=T.WARN if mem > 0.01 else (T.OK if und > 0.45 else T.TEXT),
+             accent=T.GOLD)
         card(surf, (r.x + 3 * (cw + 16), r.y, cw, 86), "Progetti attivi",
              f"{len(team.dev_projects)} / 3",
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
