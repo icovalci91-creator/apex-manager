@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pygame
 
-from ...core import rules, season as SEASON
+from ...core import inverno as INV, rules, season as SEASON
 from .. import theme as T
 from ..app import Scene
 from ..widgets import Button
@@ -16,15 +16,41 @@ class OffseasonScene(Scene):
         self.report = SEASON.end_season(self.gs)
         self.votes: dict = {}
         self.results: list = []
-        self.step = "riepilogo"       # riepilogo | voto | esito
+        self.step = "riepilogo"       # riepilogo | inverno | voto | esito
+        # la riunione di fine anno: i colloqui coi responsabili e i cantieri da
+        # aprire. C'e' solo se il patron non ha delegato il reparto
+        self.inverno = bool(getattr(self.gs.player, "inverno_aperto", False))
+        self.colloqui = INV.colloqui(self.gs, self.gs.player) if self.inverno else []
+        self.scelte: dict = {}        # area -> taglia scelta
+        self.esiti_inverno: list = []
         self.build()
 
     def build(self) -> None:
         w, h = self.app.screen.get_size()
         self.widgets = []
         if self.step == "riepilogo":
+            testo = ("Riunione tecnica di fine anno" if self.inverno
+                     else "Vai alla Commissione F1")
+            azione = self.to_inverno if self.inverno else self.to_vote
             self.widgets.append(Button((w // 2 - 140, h - 92, 280, 46),
-                                       "Vai alla Commissione F1", self.to_vote, "primary"))
+                                       testo, azione, "primary"))
+        elif self.step == "inverno":
+            y0 = 150
+            for i, c in enumerate(self.colloqui):
+                area = c["problema"].area
+                y = y0 + i * 104 + 52
+                x = w - 34 - 4 * 124
+                for pr in c["proposte"] + [None]:
+                    taglia = pr.taglia if pr else "niente"
+                    lab = (f"{INV.TAGLIE[taglia]['label']}" if pr else "lascia stare")
+                    b = Button((x, y, 118, 34), lab, style="tab")
+                    b.on_click = (lambda a=area, t=taglia: self.scegli(a, t))
+                    b.active = (self.scelte.get(area, "niente") == taglia)
+                    self.widgets.append(b)
+                    x += 124
+            self.widgets.append(Button((w // 2 - 150, h - 92, 300, 46),
+                                       "Chiudi l'inverno e vai al voto",
+                                       self.chiudi_inverno, "primary"))
         elif self.step == "voto":
             for i, p in enumerate(self.gs.pending_votes):
                 y = 190 + i * 150
@@ -46,6 +72,47 @@ class OffseasonScene(Scene):
 
     def on_resize(self) -> None:
         self.build()
+
+    def to_inverno(self) -> None:
+        self.step = "inverno"
+        self.build()
+
+    def scegli(self, area: str, taglia: str) -> None:
+        """Il patron sceglie che lavoro far fare su quel problema.
+
+        Se non ci stanno le settimane o i soldi la scelta non passa: e' il
+        vincolo vero dell'inverno, e va detto adesso, non a marzo.
+        """
+        prima = dict(self.scelte)
+        if taglia == "niente":
+            self.scelte.pop(area, None)
+        else:
+            self.scelte[area] = taglia
+            if self.settimane_usate() > INV.capacita(self.gs.player) or \
+                    self.soldi_usati() > max(0.0, self.gs.player.cash):
+                self.scelte = prima
+                self.app.toast("Non ci stanno: guarda settimane e cassa.")
+        self.build()
+
+    def cantieri(self) -> list:
+        out = []
+        for c in self.colloqui:
+            taglia = self.scelte.get(c["problema"].area)
+            if not taglia:
+                continue
+            out += [p for p in c["proposte"] if p.taglia == taglia]
+        return out
+
+    def settimane_usate(self) -> int:
+        return INV.impegnate(self.cantieri())
+
+    def soldi_usati(self) -> float:
+        return INV.costo_totale(self.cantieri())
+
+    def chiudi_inverno(self) -> None:
+        self.esiti_inverno = INV.chiudi_giocatore(self.gs, self.cantieri())
+        self.inverno = False
+        self.to_vote()
 
     def to_vote(self) -> None:
         self.step = "voto"
@@ -74,12 +141,15 @@ class OffseasonScene(Scene):
         gs = self.gs
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, 76))
         titles = {"riepilogo": f"FINE STAGIONE {gs.season - 1}",
+                  "inverno": f"RIUNIONE TECNICA - L'INVERNO {gs.season - 1}/{gs.season}",
                   "voto": "COMMISSIONE F1 - VOTAZIONI",
                   "esito": "ESITO DELLE VOTAZIONI"}
         T.text(surf, titles[self.step], (32, 22), 26, T.TEXT, bold=True)
 
         if self.step == "riepilogo":
             self._draw_summary(surf, w, h)
+        elif self.step == "inverno":
+            self._draw_inverno(surf, w, h)
         elif self.step == "voto":
             self._draw_vote(surf, w, h)
         else:
@@ -136,6 +206,52 @@ class OffseasonScene(Scene):
                 T.text(surf, f"{pos}o", (right.x + 44, y), 13, T.DIM, align="right")
                 T.text(surf, name, (right.x + 56, y), 13, T.TEXT if hl else T.DIM, bold=hl)
                 y += 19
+
+    def _draw_inverno(self, surf, w, h) -> None:
+        """La riunione di fine anno: chi ha in mano cosa dice cosa non andava.
+
+        A sinistra di ogni riga c'e' il responsabile e la frase, che esce dal
+        distacco misurato dal migliore della griglia in quell'area; a destra i
+        tre lavori che propone, con dentro settimane, soldi e quanto se la
+        sente. In fondo il conto: le settimane dell'inverno sono quelle e la
+        cassa e' quella.
+        """
+        gs, team = self.gs, self.gs.player
+        T.paragraph(surf, INV.parere_tecnico(gs, team), (32, 96), 14, T.GOLD, w - 64)
+        y0 = 150
+        for i, c in enumerate(self.colloqui):
+            p = c["problema"]
+            r = pygame.Rect(32, y0 + i * 104, w - 64, 94)
+            scelta = self.scelte.get(p.area)
+            T.panel(surf, r, T.PANEL, radius=10,
+                    border=T.GOLD if scelta else T.LINE)
+            T.text(surf, c["chi"], (r.x + 18, r.y + 12), 14, T.TEXT, bold=True)
+            T.text(surf, f"{p.label}  -  {p.distacco:.0f} punti dal migliore",
+                   (r.x + 18, r.y + 32), 12,
+                   T.BAD if p.gravita > 0.45 else (T.WARN if p.gravita > 0.2 else T.DIM))
+            T.paragraph(surf, f"\u201c{c['testo']}\u201d", (r.x + 18, r.y + 52), 12,
+                        T.DIM, r.w * 0.52)
+            # i numeri del lavoro scelto, sotto ai pulsanti
+            x = r.right - 2 - 4 * 124
+            for pr in c["proposte"]:
+                o = INV.odds(pr.fiducia, pr.taglia)
+                col = T.OK if pr.fiducia > 0.65 else (T.WARN if pr.fiducia > 0.45 else T.BAD)
+                T.text(surf, f"{pr.settimane}s  {pr.costo:.1f}M", (x + 4, r.y + 12), 11, T.DIM_2)
+                T.text(surf, f"+{pr.atteso:.1f}", (x + 4, r.y + 26), 11, T.TEXT, bold=True)
+                T.text(surf, f"fallisce {o['fallito']*100:.0f}%", (x + 46, r.y + 26), 11, col)
+                x += 124
+        # il conto dell'inverno
+        usate, totali = self.settimane_usate(), INV.capacita(team)
+        soldi = self.soldi_usati()
+        yb = y0 + len(self.colloqui) * 104 + 8
+        col_s = T.OK if usate <= totali else T.BAD
+        T.text(surf, f"Settimane di reparto: {usate} su {totali}", (32, yb), 14, col_s, bold=True)
+        col_c = T.OK if soldi <= team.cash else T.BAD
+        T.text(surf, f"Costo: {soldi:.1f} M$   (in cassa {team.cash:.1f})",
+               (300, yb), 14, col_c, bold=True)
+        T.text(surf, "Le settimane dell'inverno sono sedici, e tre reparti lavorano "
+                     "in parallelo: quello che non ci sta, non ci sta.",
+               (32, yb + 22), 12, T.DIM_2, maxw=w - 64)
 
     def _draw_vote(self, surf, w, h) -> None:
         gs = self.gs
