@@ -32,10 +32,14 @@ from .. import config as C
 # che rende l'inverno il momento in cui si cambia davvero qualcosa, e non un
 # aggiornamento un po' piu' grosso.
 SETTIMANE = 16
-# Quante di quelle settimane un reparto riesce a coprire in parallelo. Non e'
-# una sola coda: aerodinamica, progetto e powertrain lavorano insieme, ed e'
-# il motivo per cui d'inverno si sistemano tre cose e non una.
-SQUADRE_PARALLELE = 3
+# Quante di quelle settimane il reparto riesce a coprire in parallelo. Non e'
+# una sola coda, e non sono nemmeno tre: fra un anno e l'altro le modifiche
+# sono tante, perche' su alcune ci si lavora da mesi e d'inverno c'e' il tempo
+# di assemblarle e di svilupparle ancora. Soprattutto non c'e' la gara: niente
+# trasferte, niente pacchetti da mandare in pista per domenica, niente muretto
+# da seguire - tutto quello che in stagione porta via attenzione, risorse e
+# fatica qui non c'e', e si concentra tutto sulla macchina nuova.
+SQUADRE_PARALLELE = 5
 
 # I cantieri: quanto tempo chiedono e quanto costano, per taglia. Il conto e'
 # in settimane di una delle squadre parallele, e in milioni.
@@ -181,7 +185,7 @@ FRASI = {
 }
 
 
-def colloqui(gs, team, quanti: int = 4) -> list:
+def colloqui(gs, team, quanti: int = 7) -> list:
     """La riunione di fine stagione: chi ha in mano cosa dice cosa non andava.
 
     Non e' colore. Ogni frase esce da un numero della stagione appena finita -
@@ -320,6 +324,28 @@ def ci_sta(team, cantieri: list, nuovo: Cantiere) -> bool:
     return impegnate(cantieri) + nuovo.settimane <= capacita(team)
 
 
+# La rifinitura d'inverno: quello che il reparto tira fuori anche senza aprire
+# un cantiere. Non e' un lavoro mirato, e' che per quattro mesi non c'e' una
+# gara: nessuna trasferta, nessun pezzo da avere pronto per domenica, nessuno
+# che stacca gente dal progetto per risolvere il problema del weekend. Le
+# stesse persone, senza quel rumore attorno, rendono di piu' - ed e' il motivo
+# per cui una macchina di gennaio non e' la macchina di novembre con qualche
+# pezzo nuovo: e' un'altra macchina.
+RIFINITURA = 1.30          # punti su ogni componente, per un reparto medio
+RIFINITURA_FORBICE = 1.10  # e quanto la sposta la qualita' del reparto
+
+
+def rifinitura(gs, team) -> float:
+    """Punti che ogni componente guadagna per il solo fatto che e' inverno.
+
+    Vale per tutti, ma non uguale: con le stesse sedici settimane un reparto
+    forte assembla, prova e rimette mano; uno debole arriva a gennaio con
+    meta' delle cose ancora sul tavolo.
+    """
+    q = (qualita_reparto(team, "aero") + qualita_reparto(team, "progetto")) / 2.0
+    return RIFINITURA * (1.0 - RIFINITURA_FORBICE / 2.0 + RIFINITURA_FORBICE * q)
+
+
 # ------------------------------------------------------- chi sceglie da solo
 def ai_pianifica(gs, team, soldi: float | None = None) -> list:
     """I cantieri che apre una squadra del computer, e il criterio e' quello vero.
@@ -362,7 +388,12 @@ FIDUCIA_MINIMA = {"ritocco": 0.0, "revisione": 0.35, "concetto": 0.55}
 
 
 def _apri(gs, team, scelti: list) -> list:
-    """Paga e chiude i cantieri scelti."""
+    """Paga e chiude i cantieri scelti, e ci mette sopra la rifinitura."""
+    # prima quello che l'inverno da' comunque: quattro mesi senza gare in cui
+    # tutta la fabbrica sta sulla stessa macchina
+    quota = rifinitura(gs, team)
+    for p in team.car.parts.values():
+        p.perf = max(40.0, min(99.5, p.perf + quota))
     speso = {}
     for c in scelti:
         team.add_expense(f"Inverno: {c.label}", round(c.costo, 3), in_cap=True,
@@ -385,7 +416,7 @@ def stagione_finita(gs) -> list:
         if team.is_player and not team.auto_dev:
             team.inverno_aperto = True
             continue
-        news += _apri(gs, team, ai_pianifica(gs, team))
+        news += _apri(gs, team, ai_pianifica(gs, team))   # anche a mani vuote
     return news
 
 
