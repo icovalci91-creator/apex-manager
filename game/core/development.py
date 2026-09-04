@@ -111,8 +111,13 @@ def yield_factor(gs, perf: float, team=None) -> float:
 # Il metro pero' si aggiorna con calma, e resta sotto la media della griglia:
 # non e' il livello a cui si corre, e' quello oltre il quale ogni punto comincia
 # a costare piu' del precedente.
-INSEGUIMENTO_RIFERIMENTO = 0.25   # quanto del divario il riferimento recupera ogni anno
-SOTTO_MEDIA = 3.8                 # di quanto resta sotto la media della griglia
+# Il divario e' quello vero di inizio carriera fra la media dei componenti e il
+# riferimento: un paio di punti. Tarato piu' largo, il riferimento resta
+# congelato finche' la griglia non lo supera di quel tanto - misurato, quattro
+# stagioni ferme a 82.1 mentre le macchine arrivavano a 86 - e nel frattempo la
+# resa dello sviluppo scendeva da 0.98 a 0.84 per tutti.
+INSEGUIMENTO_RIFERIMENTO = 0.35   # quanto del divario il riferimento recupera ogni anno
+SOTTO_MEDIA = 1.8                 # di quanto resta sotto la media della griglia
 
 
 def livello_griglia(gs) -> float:
