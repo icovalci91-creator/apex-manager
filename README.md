@@ -1017,6 +1017,66 @@ da ricapire. Un terzo di quello che vale arriva alla seconda gara, non alla prim
 motivo per cui una squadra porta un fondo nuovo, va male un venerdi', e poi sparisce
 davanti.
 
+### L'inverno
+
+D'inverno non si sviluppa: si riprogetta. E' un lavoro diverso da quello che si fa fra una
+gara e l'altra, e la differenza e' il tempo. In stagione un pacchetto grande blocca
+cinquantadue persone per sei gare e quando arriva la macchina e' gia' un'altra; d'inverno
+ci sono **sedici settimane** in cui nessuno deve correre e **cinque gruppi lavorano in
+parallelo**, e quello che esce non e' un pezzo nuovo su una macchina vecchia: e' una
+macchina nuova che dovrebbe risolvere i problemi di quella vecchia.
+
+**La riunione di fine anno.** I responsabili si siedono e dicono cosa non ha funzionato, e
+non sono opinioni: ogni frase esce dal distacco misurato dal migliore della griglia in
+quell'area, e a dirla e' chi quel pezzo lo ha in mano davvero.
+
+> **Bruno Petrov** — *Gestione gomme, 53 punti dal migliore*
+> "Mangiamo le gomme: in gara siamo un'altra macchina rispetto al sabato, e sulle piste che
+> consumano non ci siamo."
+
+Su ogni problema il reparto mette tre proposte, e sotto ognuna ci sono le settimane, i
+soldi, quanto porta e quanto rischia di non funzionare:
+
+| | Settimane | Costo | Cosa vuol dire |
+|---|---|---|---|
+| Ritocco | 3 | 1,4 M$ | Si tocca quello che c'e' senza rimetterlo in discussione. |
+| Revisione | 7 | 4,2 M$ | Si rifa' il gruppo, tenendo il concetto. |
+| Concetto nuovo | 13 | 9,5 M$ | Si riparte dal foglio bianco. O si azzecca, o si perde l'anno. |
+
+Il vincolo e' doppio - le settimane dell'inverno e la cassa - e si legge mentre si sceglie:
+*"Settimane di reparto: 26 su 80. Costo: 19,0 M$ (in cassa 115,9)."* Quello che non ci sta
+non ci sta, e lo si scopre adesso, non a marzo.
+
+**E conta chi lo fa**, con lo stesso criterio di tutto il resto: **uomini per il 42%,
+strumenti per il 33%, soldi per il 25%**. Con le stesse sedici settimane la Ferrari apre un
+concetto nuovo con l'80% di fiducia e il 21% di rischio; la Cadillac lo stesso concetto lo
+vede al 37%, e il suo direttore tecnico glielo dice in faccia: *"con la galleria che
+abbiamo non sapremmo dire se funziona finche' non lo vediamo in pista."* Misurato su piu'
+stagioni, la meta' alta della griglia porta a casa **+4,2 punti a inverno** e la meta'
+bassa **+1,1**, con i tassi di riuscita che seguono i reparti - Red Bull chiude il 60% dei
+cantieri e ne sbaglia il 20%, la Haas non ne chiude nessuno e ne sbaglia meta'.
+
+**E poi c'e' quello che l'inverno da' comunque.** Non tutto passa da un cantiere: per
+quattro mesi non c'e' una gara, e quindi niente trasferte, niente pezzi da avere pronti per
+domenica, nessuno che stacca gente dal progetto per risolvere il problema del weekend. Le
+stesse persone, senza quel rumore attorno, rendono di piu': ogni componente guadagna
+qualcosa per il solo fatto che e' inverno. E' il motivo per cui una macchina di gennaio non
+e' quella di novembre con qualche pezzo nuovo. Il livello e' tarato contro l'invecchiamento
+- che si porta via mezzo punto a componente ogni stagione - quindi **un reparto medio sta in
+pari, uno forte guadagna, uno debole arretra anche stando fermo**: Ferrari +0,30 netti a
+componente, Haas -0,25.
+
+**Il riferimento si sposta con la griglia.** Se d'inverno tutti fanno un salto, il metro con
+cui si giudica una macchina si sposta anche lui: e' il mondo che va avanti, la stessa cosa
+che l'invecchiamento racconta dal lato della singola vettura. Senza questo le macchine
+scappavano via dal riferimento stagione dopo stagione e i rendimenti calanti finivano per
+schiacciare tutti - misurato, la resa dello sviluppo scendeva da 0,98 a 0,80 e continuava a
+calare. Adesso il riferimento insegue un terzo del divario ogni anno e il conto si chiude:
+in otto stagioni la griglia va da 83,9 a 88,2, il riferimento da 82,1 a 85,7, **il divario
+si stabilizza attorno a 2,5** e la resa dello sviluppo si assesta a 0,84 invece di
+continuare a scendere. La forbice fra la prima e l'ultima intanto cresce da 13,4 a 16,2:
+il livello non scappa, la differenza fra chi lavora bene e chi lavora male si'.
+
 **Contratti.** Rinnovi e acquisti passano da una trattativa vera, non da un si' o un no.
 Il pilota apre con una richiesta e si risponde con un'offerta su cinque voci: ingaggio
 fisso, durata, bonus vittoria, bonus podio, bonus per punto iridato e clausola
