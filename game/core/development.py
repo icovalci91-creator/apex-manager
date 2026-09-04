@@ -100,6 +100,42 @@ def yield_factor(gs, perf: float, team=None) -> float:
     return 1.0 / (1.0 + over ** 2.2 * 1.8)
 
 
+# Il riferimento del ciclo non e' un paletto piantato: e' il livello attorno a
+# cui gira la griglia, e se d'inverno tutti fanno un salto quel livello si
+# sposta. E' il mondo che va avanti - la stessa cosa che l'invecchiamento
+# racconta dal lato della singola macchina, letta dal lato del metro con cui la
+# si misura. Senza questo, dopo dieci stagioni ogni vettura sarebbe lontanissima
+# dal riferimento, i rendimenti calanti schiaccerebbero tutti e sviluppare non
+# renderebbe piu' niente a nessuno.
+#
+# Il metro pero' si aggiorna con calma, e resta sotto la media della griglia:
+# non e' il livello a cui si corre, e' quello oltre il quale ogni punto comincia
+# a costare piu' del precedente.
+INSEGUIMENTO_RIFERIMENTO = 0.25   # quanto del divario il riferimento recupera ogni anno
+SOTTO_MEDIA = 3.8                 # di quanto resta sotto la media della griglia
+
+
+def livello_griglia(gs) -> float:
+    """Il livello medio delle macchine che ci sono in pista adesso."""
+    livelli = [sum(p.perf for p in t.car.parts.values()) / max(1, len(t.car.parts))
+               for t in gs.teams.values() if t.car and t.car.parts]
+    return sum(livelli) / len(livelli) if livelli else cycle_base(gs)
+
+
+def aggiorna_riferimento(gs) -> float:
+    """Sposta il riferimento dietro a quello che la griglia ha fatto davvero.
+
+    Solo in avanti: il mondo non torna indietro. Quando un ciclo nuovo
+    rimescola le carte il riferimento lo rifissa il regolamento, e da li' si
+    ricomincia a inseguire.
+    """
+    base = cycle_base(gs)
+    bersaglio = livello_griglia(gs) - SOTTO_MEDIA
+    nuovo = base + (bersaglio - base) * INSEGUIMENTO_RIFERIMENTO
+    gs.regulations["cycle_base"] = round(max(base, nuovo), 2)
+    return round(gs.regulations["cycle_base"] - base, 2)
+
+
 def reference_level(gs) -> float:
     """Livello attorno a cui si legge la griglia: serve alle schermate."""
     return cycle_base(gs) + CYCLE_SPAN

@@ -431,6 +431,13 @@ def end_season(gs) -> dict:
     # arriva dopo la macchina nuova perche' e' su quella che si interviene
     from . import inverno
     report["progress"] += inverno.stagione_finita(gs)
+    # e adesso che tutti hanno fatto il loro inverno, il metro si aggiorna: il
+    # riferimento del ciclo insegue quello che la griglia ha davvero raggiunto
+    salito = development.aggiorna_riferimento(gs)
+    if salito > 0.05:
+        report["progress"].append(
+            f"Il riferimento tecnico sale di {salito:.1f}: quello che l'anno scorso "
+            f"era una buona macchina adesso e' la norma.")
     penalties.decay_points(gs)
     for d in gs.drivers.values():
         d.pu_used = 1
