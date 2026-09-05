@@ -30,8 +30,16 @@ TIPI = {
         "apporto": 1.25,
         # quanta parte dell'utile esce a fine anno
         "dividendo": 0.85,
-        # quanto stringe dopo una stagione in perdita
-        "stretta": 1.10,
+        # quanto stringe dopo una stagione in perdita. Poco: per un gruppo
+        # industriale il programma e' una voce di marketing e la perdita si
+        # assorbe. Un consiglio d'amministrazione non taglia il budget di un
+        # milione alla volta - o finanzia, o chiude tutto, come hanno chiuso
+        # Honda, BMW e Toyota. Con la stretta severa che aveva prima, unita al
+        # dividendo alto, era una tenaglia: l'utile usciva e quindi non si
+        # costruiva mai un cuscinetto, poi qualunque perdita stringeva. Misurato
+        # su sei stagioni, l'Audi arrivava a mezzo budget con la stretta che
+        # saliva di anno in anno senza tornare piu' giu'.
+        "stretta": 0.75,
     },
     "marchio": {
         "label": "Marchio",
