@@ -25,6 +25,7 @@ class Team:
     philosophy: str
     titles: dict
     pu_status: str = "customer"  # works = costruisce | partner = team ufficiale | customer
+    proprieta: str = "fondo"     # costruttore | marchio | fondo | padrone
     parent_team: str = ""        # squadra maggiore dello stesso gruppo
     pu_capable: bool = True     # puo' fondare un reparto motori proprio?
     pu_partner_races: int = 0   # gare passate a lavorare con questa casa

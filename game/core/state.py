@@ -118,6 +118,7 @@ class GameState:
                 facilities=dict(td["facilities"]), philosophy=td["philosophy"],
                 titles=dict(td["titles"]),
                 pu_status=td.get("pu_status", "works" if td["works"] else "customer"),
+                proprieta=td.get("proprieta", "fondo"),
                 parent_team=td.get("parent_team", ""),
                 pu_capable=td.get("pu_capable", True),
                 pu_reason=td.get("pu_reason", ""),
@@ -505,6 +506,7 @@ class GameState:
                     "cur_season": t.cur_season, "cur_month": t.cur_month,
                     "cur_round": t.cur_round,
                     "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
+                    "proprieta": t.proprieta,
                     "parent_team": t.parent_team,
                     "pu_partner_races": t.pu_partner_races,
                     "pu_partner_engine": t.pu_partner_engine,
@@ -612,6 +614,7 @@ class GameState:
             t.next_car_work = dict(td.get("next_car_work") or {})
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
+            t.proprieta = td.get("proprieta", t.proprieta)
             t.parent_team = td.get("parent_team", t.parent_team)
             t.pu_partner_races = td.get("pu_partner_races", 0)
             t.pu_partner_engine = td.get("pu_partner_engine", "")

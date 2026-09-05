@@ -52,8 +52,13 @@ class HQPage(Page):
         r, gs, team = self.rect, self.gs, self.team
         col = T.hex_rgb(team.colour)
         cw = (r.w - 48) / 4
+        # sotto la liquidita' c'e' di chi e' la squadra: decide da dove
+        # arrivano i soldi, dove vanno quelli che avanzano e quanto si e'
+        # disposti a perdere prima di tirare il freno
+        from ...core import proprieta as PROP
         card(surf, (r.x, r.y, cw, 86), "Liquidita'", T.fmt_money(team.cash),
-             f"budget annuo {team.budget_base:.0f} M$", accent=T.OK)
+             f"{PROP.etichetta(team).lower()}, budget {team.budget_base:.0f} M$",
+             accent=T.OK)
         card(surf, (r.x + cw + 16, r.y, cw, 86), "Valutazione vettura",
              f"{team.car.rating:.1f}", _car_rank_text(gs, team), accent=col)
         # il livello non ha piu' un tetto: quello che conta e' dove sta rispetto

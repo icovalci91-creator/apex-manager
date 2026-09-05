@@ -20,6 +20,7 @@ stessa strada.
 from __future__ import annotations
 
 from .. import config as C
+from . import proprieta as _prop
 from ..model.car import Car
 from ..model.team import Team
 
@@ -174,6 +175,9 @@ def create(gs, spec: dict) -> Team:
         philosophy=spec.get("philosophy", "balance"),
         titles={"drivers": 0, "constructors": 0},
         pu_status="customer", pu_capable=profilo["pu_capable"],
+        # e di chi e' la squadra: chi entra da garage e' padrone di se stesso,
+        # che e' il modo in cui in Formula 1 ci si e' sempre entrati
+        proprieta=_prop.DA_PROFILO.get(spec.get("profilo", "privato"), "fondo"),
         pu_reason=("Marchio dell'auto: il reparto motori si puo' fondare"
                    if profilo["pu_capable"] else
                    "Squadra cliente: la power unit si compra, non si costruisce"),

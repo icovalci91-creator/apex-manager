@@ -97,7 +97,8 @@
       "academy": [
         "ugochukwu",
         "dunne"
-      ]
+      ],
+      "proprieta": "fondo"
     },
     {
       "id": "ferrari",
@@ -154,7 +155,8 @@
         "camara",
         "taponen",
         "wharton"
-      ]
+      ],
+      "proprieta": "costruttore"
     },
     {
       "id": "redbull",
@@ -209,7 +211,8 @@
       "academy": [
         "goethe",
         "tramnitz"
-      ]
+      ],
+      "proprieta": "marchio"
     },
     {
       "id": "mercedes",
@@ -259,7 +262,8 @@
       "parent_team": "",
       "last_position": 2,
       "academy_name": "Mercedes-AMG Junior Programme",
-      "academy": []
+      "academy": [],
+      "proprieta": "costruttore"
     },
     {
       "id": "astonmartin",
@@ -309,7 +313,8 @@
       "parent_team": "",
       "last_position": 7,
       "academy_name": "Aston Martin Driver Development",
-      "academy": []
+      "academy": [],
+      "proprieta": "fondo"
     },
     {
       "id": "alpine",
@@ -361,7 +366,8 @@
       "academy_name": "Alpine Academy",
       "academy": [
         "meguetounif"
-      ]
+      ],
+      "proprieta": "costruttore"
     },
     {
       "id": "williams",
@@ -414,7 +420,8 @@
       "academy": [
         "browning",
         "voisin"
-      ]
+      ],
+      "proprieta": "fondo"
     },
     {
       "id": "racingbulls",
@@ -464,7 +471,8 @@
       "parent_team": "redbull",
       "last_position": 6,
       "academy_name": "",
-      "academy": []
+      "academy": [],
+      "proprieta": "marchio"
     },
     {
       "id": "haas",
@@ -514,7 +522,8 @@
       "parent_team": "",
       "last_position": 9,
       "academy_name": "",
-      "academy": []
+      "academy": [],
+      "proprieta": "padrone"
     },
     {
       "id": "audi",
@@ -564,7 +573,8 @@
       "parent_team": "",
       "last_position": 8,
       "academy_name": "Audi Driver Programme",
-      "academy": []
+      "academy": [],
+      "proprieta": "costruttore"
     },
     {
       "id": "cadillac",
@@ -614,7 +624,9 @@
       "parent_team": "",
       "last_position": 11,
       "academy_name": "",
-      "academy": []
+      "academy": [],
+      "proprieta": "costruttore"
     }
-  ]
+  ],
+  "_proprieta_note": "Di chi e' la squadra: costruttore (corre per vendere macchine, l'utile risale al gruppo), marchio (budget di marketing, nessun dividendo), fondo (ci ha messo soldi per rivederli, poco apporto e utile che esce), padrone (una persona sola, i suoi soldi)."
 }

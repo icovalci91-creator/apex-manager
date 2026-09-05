@@ -325,8 +325,10 @@ def owner_settlement(gs, team) -> list:
         # la stretta si somma a quella dell'anno prima, ma quella vecchia si
         # allenta comunque: altrimenti chi perde poco tutti gli anni finirebbe
         # per non spendere piu' niente, e sarebbe la fine e non una difficolta'
+        from . import proprieta
         team.austerity = min(1.0, team.austerity * 0.75
-                             + AUSTERITY_STEP * min(2.0, buco / max(1.0, ris)))
+                             + AUSTERITY_STEP * proprieta.stretta(team)
+                             * min(2.0, buco / max(1.0, ris)))
         if team.is_player:
             msgs.append(f"Il proprietario ha coperto {buco:.0f} M$ di perdite, ma per l'anno "
                         f"prossimo il budget e' stretto: si spende il "
@@ -345,7 +347,8 @@ def owner_settlement(gs, team) -> list:
         tenere = reserve_of(gs, team) + capex_limit(gs, team) * QUOTA_COSTRUZIONI
         eccesso = team.cash - tenere
         if eccesso > 0:
-            dividendo = round(eccesso * QUOTA_DIVIDENDO, 2)
+            from . import proprieta
+            dividendo = round(eccesso * QUOTA_DIVIDENDO * proprieta.dividendo(team), 2)
             if dividendo > 0.5:
                 team.add_expense("Dividendo ai soci", dividendo, in_cap=False,
                                  category="proprieta")
@@ -396,10 +399,19 @@ APPORTO_MIN = 0.12         # e per chi ce l'ha pieno
 APPORTO_RIF = 150.0        # sopra questi milioni di sponsor non serve piu' nessuno
 
 
-def quota_apporto(commerciale: float) -> float:
-    """Quanta parte del proprio budget dichiarato mette chi sta dietro."""
+def quota_apporto(commerciale: float, team=None) -> float:
+    """Quanta parte del proprio budget dichiarato mette chi sta dietro.
+
+    E dipende anche da chi e': una casa costruttrice mette quello che serve
+    perche' il programma e' suo, un fondo molto meno perche' i soldi ce li ha
+    messi per rivederli, e un padrone quello che ha in tasca.
+    """
     quota = max(0.0, min(1.0, commerciale / APPORTO_RIF))
-    return APPORTO_MAX - (APPORTO_MAX - APPORTO_MIN) * quota
+    base = APPORTO_MAX - (APPORTO_MAX - APPORTO_MIN) * quota
+    if team is None:
+        return base
+    from . import proprieta
+    return base * proprieta.apporto(team)
 
 
 def season_room(gs, team) -> float:
@@ -418,7 +430,7 @@ def season_room(gs, team) -> float:
     entrate = prize_money(gs, team.last_position, flatten, team)
     commerciale = sponsors.annual_income(team)
     entrate += commerciale
-    entrate += team.budget_base * quota_apporto(commerciale)
+    entrate += team.budget_base * quota_apporto(commerciale, team)
 
     # i danni non si scelgono ma si sanno: una stagione di gare li porta sempre,
     # e chi fa il budget senza metterli in conto sbaglia il budget
