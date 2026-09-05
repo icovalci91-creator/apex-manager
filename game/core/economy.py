@@ -265,6 +265,11 @@ RESERVE_STAGIONE = 0.35
 QUOTA_CAPITALE = 0.50
 AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
 AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
+# Quanto si tiene in cassa oltre la riserva di lavoro per poter costruire, e
+# quanta parte del resto esce ai soci a fine anno. Non tutto: un proprietario
+# lascia dentro di che partire l'anno dopo senza chiedere niente a nessuno.
+QUOTA_COSTRUZIONI = 1.20  # quante finestre di costruzioni si tengono da parte
+QUOTA_DIVIDENDO = 0.70    # e quanta parte dell'eccesso va ai soci
 
 
 def reserve(gs) -> float:
@@ -330,6 +335,24 @@ def owner_settlement(gs, team) -> list:
             msgs.append(f"{team.short}: perdite coperte dalla proprieta', stagione di magra.")
     else:
         team.austerity = max(0.0, team.austerity * AUSTERITY_EASE)
+        # e l'utile, oltre a quello che serve, esce. Una squadra di Formula 1
+        # non tiene mezzo miliardo fermo sul conto: quello che avanza dopo la
+        # riserva di lavoro e dopo il margine per costruire va ai soci - la
+        # Mercedes e la Red Bull staccano dividendi come qualunque azienda che
+        # guadagna. Senza questo, chi incassa piu' di quanto il tetto di spesa
+        # gli permetta di spendere accumulava contanti all'infinito: misurato,
+        # settecentosessanta milioni fermi in sei stagioni.
+        tenere = reserve_of(gs, team) + capex_limit(gs, team) * QUOTA_COSTRUZIONI
+        eccesso = team.cash - tenere
+        if eccesso > 0:
+            dividendo = round(eccesso * QUOTA_DIVIDENDO, 2)
+            if dividendo > 0.5:
+                team.add_expense("Dividendo ai soci", dividendo, in_cap=False,
+                                 category="proprieta")
+                if team.is_player:
+                    msgs.append(f"Utile distribuito ai soci: {dividendo:.0f} M$. In cassa "
+                                f"restano {team.cash:.0f} M$, che sono la riserva di "
+                                f"lavoro piu' il margine per costruire.")
         if team.is_player and war_chest(gs, team) > 0:
             msgs.append(f"Stagione chiusa in utile: {team.cash:.0f} M$ restano in cassa, "
                         f"{war_chest(gs, team):.0f} oltre la riserva di lavoro. Sono i "
@@ -356,6 +379,29 @@ def spending_room(gs, team) -> float:
 OWNER_INJECTION = 0.34
 
 
+# Quanto ci mette davvero chi sta dietro alla squadra. Non e' uno sponsor: e'
+# il costruttore o il proprietario che ha deciso di correre e paga perche' il
+# programma esista. E non e' una quota uguale per tutti, com'era: chi non ha il
+# commerciale se lo fa coprire da chi lo possiede - Audi non incassa come la
+# Mercedes e non le serve, il programma lo paga Audi - mentre chi ha la vetrina
+# piena dal costruttore prende molto meno, perche' non ne ha bisogno.
+#
+# Con il diciotto per cento fisso una squadra appena entrata incassava
+# diciannove milioni di sponsor e finiva la stagione in rosso, che e' la
+# fotografia dell'F1 di quindici anni fa. Da quando c'e' il tetto di spesa le
+# squadre stanno in piedi tutte, e la forbice dei ricavi fra la prima e
+# l'ultima e' di tre o quattro volte, non di dodici.
+APPORTO_MAX = 0.45         # quota del budget dichiarato per chi non ha commerciale
+APPORTO_MIN = 0.12         # e per chi ce l'ha pieno
+APPORTO_RIF = 150.0        # sopra questi milioni di sponsor non serve piu' nessuno
+
+
+def quota_apporto(commerciale: float) -> float:
+    """Quanta parte del proprio budget dichiarato mette chi sta dietro."""
+    quota = max(0.0, min(1.0, commerciale / APPORTO_RIF))
+    return APPORTO_MAX - (APPORTO_MAX - APPORTO_MIN) * quota
+
+
 def season_room(gs, team) -> float:
     """Quanto resta per lo sviluppo dopo i costi che non si possono evitare.
 
@@ -370,8 +416,9 @@ def season_room(gs, team) -> float:
     gare = max(1, len(gs.tracks))
     flatten = float(gs.regulations.get("prize_flatten", 0.0))
     entrate = prize_money(gs, team.last_position, flatten, team)
-    entrate += sponsors.annual_income(team)
-    entrate += team.budget_base * 0.18
+    commerciale = sponsors.annual_income(team)
+    entrate += commerciale
+    entrate += team.budget_base * quota_apporto(commerciale)
 
     # i danni non si scelgono ma si sanno: una stagione di gare li porta sempre,
     # e chi fa il budget senza metterli in conto sbaglia il budget
