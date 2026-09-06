@@ -66,6 +66,7 @@ GIRI_BLOCCO_BOX = 2       # da quanti giri si e' dietro allo stesso, per provarc
 ORDINE_PASSO = 0.40       # di quanto quella dietro dev'essere piu' veloce
 ORDINE_GIRI = 2           # e da quanti giri e' li' dietro senza venirne fuori
 ORDINE_PREDA = 5.0        # ci dev'essere qualcuno davanti da prendere, entro tanti secondi
+ORDINE_POSTI = 10         # e si fa solo dove i punti ci sono davvero
 ORDINE_FINE = 0.90        # negli ultimi giri non si scambia piu' niente
 ORDINE_ATTESA = 240.0     # e dopo uno scambio non ci si ripensa per un pezzo
 COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
@@ -1416,6 +1417,11 @@ class RaceSim:
             return False
         if dietro.lap >= self.laps * ORDINE_FINE:
             return False
+        # e si fa solo dove la posizione vale qualcosa: nessuno alza la radio
+        # per scambiarsi il quattordicesimo posto, e quello e' il motivo per cui
+        # in pista gli ordini si contano sulle dita di una stagione intera
+        if davanti.position > ORDINE_POSTI:
+            return False
         # va davvero piu' forte, e non e' il rumore di un giro
         if davanti.clean_lap - dietro.clean_lap < ORDINE_PASSO:
             return False
@@ -1430,7 +1436,7 @@ class RaceSim:
         if self._gap_secondi(preda, davanti) > ORDINE_PREDA:
             return False
         # il muretto deve anche essere di quelli che li danno, gli ordini
-        if self.rng.random() > 0.10 + 0.0035 * davanti.strategy_skill:
+        if self.rng.random() > 0.04 + 0.0022 * davanti.strategy_skill:
             return False
         davanti.dist, dietro.dist = dietro.dist, davanti.dist
         davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
