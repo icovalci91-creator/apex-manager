@@ -419,6 +419,7 @@ class Entrant:
     ritardi_sosta: int = 0        # quante volte ha gia' allungato lo stint
     sc_sfruttata: int = -1        # in quale neutralizzazione ha gia' approfittato
     ordine_cd: float = 0.0        # quanto manca prima di poter riscambiare
+    meteo_deciso: int = -1        # su quale previsione ha gia' deciso
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
@@ -1151,7 +1152,15 @@ class RaceSim:
         for giro, forza in self.meteo_prog:
             if forza < METEO_SOGLIA or giro - e.lap > METEO_FINESTRA:
                 continue
-            if self.rng.random() > 0.12 + 0.0070 * e.strategy_skill:
+            # la decisione si prende una volta sola: chi ha detto di no non ci
+            # ripensa il giro dopo, e chi ci ha creduto ci ha creduto. Senza
+            # questo il dado si ritirava a ogni giro della finestra e finivano
+            # per anticipare tutti - diciassette macchine su venti, e quando lo
+            # fanno tutti non e' piu' un vantaggio per nessuno
+            if e.meteo_deciso == giro:
+                return None
+            e.meteo_deciso = giro
+            if self.rng.random() > 0.04 + 0.0035 * e.strategy_skill:
                 return None
             e.plan.clear()
             self.log(f"{e.name} anticipa l'acqua: intermedie prima che arrivi", "pit")
