@@ -1047,7 +1047,7 @@ class WeekendScene(Scene):
         tornano tre come prima.
         """
         T.panel(surf, ev, T.PANEL, radius=10, border=T.LINE)
-        cols = {"pass": T.OK, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
+        cols = {"pass": T.OK, "team": T.ACCENT, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
                 "warn": T.WARN, "flag": T.WHITE, "pen": (255, 120, 90)}
         colonna = ev.h > 120
         y = ev.y + 8

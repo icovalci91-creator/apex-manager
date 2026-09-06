@@ -1487,7 +1487,10 @@ class RaceSim:
             return False
         davanti.dist, dietro.dist = dietro.dist, davanti.dist
         davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
-        self.log(f"Ordine di squadra: {davanti.code} lascia passare {dietro.code}", "pass")
+        # non e' un sorpasso e non va segnato come tale: e' una posizione che
+        # cambia senza che nessuno abbia passato nessuno, e contarlo fra i
+        # sorpassi gonfiava la media di gara di un paio di unita'
+        self.log(f"Ordine di squadra: {davanti.code} lascia passare {dietro.code}", "team")
         if davanti.is_player or dietro.is_player:
             self.radio_say(davanti, f"{dietro.code} e' piu' veloce: lascialo passare, "
                                     f"davanti c'e' da prendere.", "muretto")
