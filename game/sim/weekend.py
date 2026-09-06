@@ -53,6 +53,16 @@ QUOTA_OVERCUT = 0.86      # fin dove si allunga lo stint senza cadere nel gradin
 GIRI_UNDERCUT = 2.5       # su quanti giri si conta il vantaggio della gomma nuova
 PREZZO_RIENTRO = 0.85     # il giro di uscita con la gomma fredda si paga
 GIRI_BLOCCO_BOX = 2       # da quanti giri si e' dietro allo stesso, per provarci
+
+# Gli ordini di squadra. Due macchine della stessa scuderia non si giocano
+# niente fra loro: quello che si giocano e' il posto davanti, e se quella
+# dietro va piu' forte tenerla li' e' regalare secondi a un avversario. Al
+# muretto lo dicono con la frase piu' famosa della radio - "lascialo passare" -
+# e non e' generosita', e' aritmetica.
+ORDINE_PASSO = 0.22       # di quanto quella dietro dev'essere piu' veloce
+ORDINE_PREDA = 6.0        # ci dev'essere qualcuno davanti da prendere, entro tanti secondi
+ORDINE_FINE = 0.90        # negli ultimi giri non si scambia piu' niente
+ORDINE_ATTESA = 25.0      # e dopo uno scambio si aspetta prima di rifarlo
 COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
 
 # La sosta sotto safety car. E' la mossa piu' redditizia di tutta la strategia
@@ -390,6 +400,7 @@ class Entrant:
     pit_gap: float = 99.0         # e a quanti secondi era da quello davanti
     ritardi_sosta: int = 0        # quante volte ha gia' allungato lo stint
     sc_sfruttata: int = -1        # in quale neutralizzazione ha gia' approfittato
+    ordine_cd: float = 0.0        # quanto manca prima di poter riscambiare
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
@@ -632,6 +643,9 @@ class RaceSim:
         self.evo = max(0.9995, self.evo - dt * 0.0000030)
         self._meteo(dt)
         self._asciuga(dt)
+        for e in self.entrants:
+            if e.ordine_cd > 0:
+                e.ordine_cd = max(0.0, e.ordine_cd - dt)
         if self.safety_car > 0:
             self.safety_car = max(0.0, self.safety_car - dt)
             if self.safety_car == 0.0:
@@ -1384,6 +1398,39 @@ class RaceSim:
         return life * self.distance
 
     # --------------------------------------------------------------- duelli
+    def _ordine_di_squadra(self, davanti: Entrant, dietro: Entrant) -> bool:
+        """"Lascialo passare": la scuderia inverte le sue due macchine.
+
+        Si fa quando il conto torna, e il conto e' semplice: quella dietro va
+        piu' forte e davanti c'e' qualcuno da prendere. Se non c'e' nessuno da
+        prendere non si scambia niente - si tiene l'ordine e si evita di
+        buttare via i punti di tutte e due. Negli ultimi giri non si tocca piu'
+        niente per la stessa ragione.
+        """
+        if self.safety_car > 0 or dietro.ordine_cd > 0 or davanti.ordine_cd > 0:
+            return False
+        if dietro.lap >= self.laps * ORDINE_FINE:
+            return False
+        # va davvero piu' forte, e non e' il rumore di un giro
+        if davanti.clean_lap - dietro.clean_lap < ORDINE_PASSO:
+            return False
+        # e c'e' qualcosa da guadagnare: qualcuno davanti, a tiro
+        preda = self._chi_davanti(davanti)
+        if preda is None or preda.team_id == davanti.team_id:
+            return False
+        if self._gap_secondi(preda, davanti) > ORDINE_PREDA:
+            return False
+        # il muretto deve anche essere di quelli che li danno, gli ordini
+        if self.rng.random() > 0.35 + 0.0055 * davanti.strategy_skill:
+            return False
+        davanti.dist, dietro.dist = dietro.dist, davanti.dist
+        davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
+        self.log(f"Ordine di squadra: {davanti.code} lascia passare {dietro.code}", "pass")
+        if davanti.is_player or dietro.is_player:
+            self.radio_say(davanti, f"{dietro.code} e' piu' veloce: lascialo passare, "
+                                    f"davanti c'e' da prendere.", "muretto")
+        return True
+
     def _resolve_battles(self, dt: float) -> None:
         """Chi sta dietro prova a passare: una volta a giro, come in pista.
 
@@ -1402,6 +1449,9 @@ class RaceSim:
             gap_m = ahead.dist - behind.dist
             if gap_m > self.follow * 2.4 or gap_m < 0:
                 behind.dirty_air = max(0.0, behind.dirty_air - dt * 1.5)
+                continue
+            # fra compagni di squadra non si combatte: si conta
+            if ahead.team_id == behind.team_id and self._ordine_di_squadra(ahead, behind):
                 continue
             behind.dirty_air = min(1.0, behind.dirty_air + dt * 0.9) * (1.0 - 0.55 * ot_track)
             if (self.safety_car > 0 or behind.overtake_cd > 0
