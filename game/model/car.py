@@ -20,16 +20,22 @@ from .. import config as C
 # Un'altezza da terra sbagliata tocca tutte e due, perche' una macchina che
 # stanca il fondo non tiene in curva e non e' stabile in staccata.
 #
+# Il livello di tutti e cinque e' tarato perche' un assetto completamente
+# sbagliato costi quanto costava prima - un secondo e tre a Barcellona - e non
+# di piu': la forma cambia, la somma no. Senza questa taratura la forbice della
+# qualifica si allargava di quattro decimi fra il primo e il decimo, su una
+# metrica che era gia' piu' larga del vero.
+#
 # I numeri della frenata sono piu' grossi degli altri e non e' un errore: le
 # staccate sono una fetta piccola del giro, quindi per valere i due o tre
 # decimi che valgono in pista devono togliere parecchio dove agiscono. Con la
 # penalita' calibrata come le altre la ripartizione sbagliata costava quattro
 # centesimi, cioe' niente.
-PENA_GRIP_ALTEZZA = 0.030
-PENA_GRIP_RIGIDEZZA = 0.026
-PENA_GRIP_CAMPANATURA = 0.034
-PENA_FRENI_RIPARTIZIONE = 0.190
-PENA_FRENI_ALTEZZA = 0.055
+PENA_GRIP_ALTEZZA = 0.014
+PENA_GRIP_RIGIDEZZA = 0.012
+PENA_GRIP_CAMPANATURA = 0.015
+PENA_FRENI_RIPARTIZIONE = 0.085
+PENA_FRENI_ALTEZZA = 0.025
 
 SETUP_KEYS = {
     "wing":        "Carico alare",
