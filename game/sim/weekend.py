@@ -1120,8 +1120,13 @@ class RaceSim:
             return None
         if e.lap < 3 or e.lap > self.laps - 3:
             return None
-        # o la sosta era vicina, o la gomma e' comunque da cambiare
-        vicina = bool(e.plan) and e.plan[0][0] - e.lap <= FINESTRA_SC
+        # Chi una sosta la deve ancora fare, la fa adesso: e' quello che si
+        # vede in pista, con dieci macchine che entrano tutte insieme e la
+        # corsia box che sembra un ingorgo. La finestra stretta di prima -
+        # sosta entro dodici giri - lasciava fuori quasi tutti, e la quota di
+        # soste sotto neutralizzazione restava al sette per cento invece che a
+        # un quarto abbondante.
+        vicina = bool(e.plan)
         andata = e.compound_state() < GOMMA_SC
         if not (vicina or andata):
             return None
@@ -1130,9 +1135,13 @@ class RaceSim:
             comp = self._pick_compound(e)
         if comp == e.tyre and not andata:
             return None
-        # il muretto sveglio se ne accorge subito, quello lento ci pensa e
-        # intanto la corsia box si e' riaperta
-        if not self._vede_la_mossa(e):
+        # Sotto safety car vera non serve un genio per capirlo: si entra e
+        # basta, e chi non lo fa e' perche' ha appena cambiato gomme. Sotto
+        # virtual il regalo e' minore e la scelta torna a essere una scelta,
+        # quindi li' conta ancora chi sta al muretto.
+        soglia = (0.72 + 0.0030 * e.strategy_skill) if not self.vsc else \
+                 (0.20 + 0.0055 * e.strategy_skill)
+        if self.rng.random() > soglia:
             return None
         e.sc_sfruttata = self.sc_conta
         if e.plan and vicina:
