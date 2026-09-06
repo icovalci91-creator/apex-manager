@@ -59,10 +59,15 @@ GIRI_BLOCCO_BOX = 2       # da quanti giri si e' dietro allo stesso, per provarc
 # dietro va piu' forte tenerla li' e' regalare secondi a un avversario. Al
 # muretto lo dicono con la frase piu' famosa della radio - "lascialo passare" -
 # e non e' generosita', e' aritmetica.
-ORDINE_PASSO = 0.22       # di quanto quella dietro dev'essere piu' veloce
-ORDINE_PREDA = 6.0        # ci dev'essere qualcuno davanti da prendere, entro tanti secondi
+# Un ordine non lo si da' perche' due macchine si sono trovate affiancate un
+# istante: lo si da' quando il compagno piu' veloce e' bloccato li' dietro da
+# qualche giro e non ne esce. Senza quella condizione ne uscivano dieci a gara,
+# contro la manciata a stagione che si sente alla radio in pista.
+ORDINE_PASSO = 0.40       # di quanto quella dietro dev'essere piu' veloce
+ORDINE_GIRI = 2           # e da quanti giri e' li' dietro senza venirne fuori
+ORDINE_PREDA = 5.0        # ci dev'essere qualcuno davanti da prendere, entro tanti secondi
 ORDINE_FINE = 0.90        # negli ultimi giri non si scambia piu' niente
-ORDINE_ATTESA = 25.0      # e dopo uno scambio si aspetta prima di rifarlo
+ORDINE_ATTESA = 240.0     # e dopo uno scambio non ci si ripensa per un pezzo
 COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
 
 # La sosta sotto safety car. E' la mossa piu' redditizia di tutta la strategia
@@ -1414,6 +1419,10 @@ class RaceSim:
         # va davvero piu' forte, e non e' il rumore di un giro
         if davanti.clean_lap - dietro.clean_lap < ORDINE_PASSO:
             return False
+        # ed e' bloccato li' dietro da un pezzo: e' questo che fa alzare la
+        # radio al muretto, non un affiancamento di mezzo secondo
+        if dietro.bloccato_da != davanti.driver_id or dietro.bloccato_giri < ORDINE_GIRI:
+            return False
         # e c'e' qualcosa da guadagnare: qualcuno davanti, a tiro
         preda = self._chi_davanti(davanti)
         if preda is None or preda.team_id == davanti.team_id:
@@ -1421,7 +1430,7 @@ class RaceSim:
         if self._gap_secondi(preda, davanti) > ORDINE_PREDA:
             return False
         # il muretto deve anche essere di quelli che li danno, gli ordini
-        if self.rng.random() > 0.35 + 0.0055 * davanti.strategy_skill:
+        if self.rng.random() > 0.10 + 0.0035 * davanti.strategy_skill:
             return False
         davanti.dist, dietro.dist = dietro.dist, davanti.dist
         davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
