@@ -69,6 +69,18 @@ ORDINE_PREDA = 5.0        # ci dev'essere qualcuno davanti da prendere, entro ta
 ORDINE_POSTI = 10         # e si fa solo dove i punti ci sono davvero
 ORDINE_FINE = 0.90        # negli ultimi giri non si scambia piu' niente
 ORDINE_ATTESA = 240.0     # e dopo uno scambio non ci si ripensa per un pezzo
+
+# La pioggia che si vede arrivare. La previsione il muretto ce l'ha - e' la
+# stessa che il giocatore legge in alto - ma fino a ieri non la usava nessuno:
+# il piano dell'asciutto si stracciava solo quando l'acqua era gia' li'. In
+# pista e' il contrario, ed e' il momento in cui una gara bagnata si decide:
+# chi legge bene entra un giro prima e si ritrova mezzo minuto di vantaggio,
+# chi legge male entra un giro dopo e la gara e' finita. Entrare troppo presto
+# pero' e' anche peggio, perche' si girano due giri con le intermedie
+# sull'asciutto: per questo la finestra e' stretta e serve un muretto che ci
+# creda davvero.
+METEO_FINESTRA = 2        # entro quanti giri dall'acqua ci si muove
+METEO_SOGLIA = 0.22       # e quanto forte deve essere data, per rischiare
 COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
 
 # La sosta sotto safety car. E' la mossa piu' redditizia di tutta la strategia
@@ -1124,6 +1136,28 @@ class RaceSim:
         """Se il muretto se ne accorge. Un muretto distratto la sosta la fa quando c'era scritto."""
         return self.rng.random() < 0.30 + 0.0062 * e.strategy_skill
 
+    def _sosta_previsione(self, e: Entrant) -> str | None:
+        """Le intermedie prima che piova, per chi la previsione la sa leggere.
+
+        La finestra e' di un paio di giri e non di piu': con le intermedie
+        sull'asciutto si cuociono in mezzo giro, quindi anticipare troppo e'
+        peggio che arrivare tardi. Il muretto bravo lo azzecca, quello che
+        legge male il radar guarda gli altri passargli davanti.
+        """
+        if self.safety_car > 0 or e.tyre in ("inter", "wet"):
+            return None
+        if e.lap > self.laps - 4:
+            return None
+        for giro, forza in self.meteo_prog:
+            if forza < METEO_SOGLIA or giro - e.lap > METEO_FINESTRA:
+                continue
+            if self.rng.random() > 0.12 + 0.0070 * e.strategy_skill:
+                return None
+            e.plan.clear()
+            self.log(f"{e.name} anticipa l'acqua: intermedie prima che arrivi", "pit")
+            return "wet" if forza > 0.55 else "inter"
+        return None
+
     def _sosta_safety_car(self, e: Entrant) -> str | None:
         """La sosta che regala la neutralizzazione, se si e' nella finestra giusta.
 
@@ -1281,7 +1315,11 @@ class RaceSim:
         # l'occasione viene prima di qualunque piano scritto il venerdi': con
         # la safety car in pista la sosta costa un terzo di meno, e chi era
         # nella finestra giusta entra adesso
-        target = None if bagnato else self._sosta_safety_car(e)
+        # la previsione viene prima di tutto: se l'acqua sta per arrivare, il
+        # piano dell'asciutto non serve piu' a niente
+        target = None if bagnato else self._sosta_previsione(e)
+        if target is None and not bagnato:
+            target = self._sosta_safety_car(e)
         if target is None:
             target = self._sosta_pianificata(e, bagnato)
         if bagnato:
