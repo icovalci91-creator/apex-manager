@@ -423,7 +423,10 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
 ### Durante la gara
 
 - Velocità di simulazione: `II` pausa, `x1`, `x4`, `x12`, `x40`, oppure "Simula fino alla fine".
-- `BOX <pilota>`: chiama ai box al passaggio successivo.
+- **`BOX`, e con che gomma**: `BOX` chiama ai box al passaggio successivo con la mescola che
+  sceglie il muretto; i pulsanti accanto (`S` `M` `H`, e `I` `W` quando piove) la scelgono
+  loro. È un ordine e non una proposta: non viene rimandato perché al muretto sembrava che
+  convenisse l'overcut. Se si sbaglia il momento è un proprio errore, e si deve poterlo fare.
 - `-` `=` `+`: il passo. `-` conserva, `+` attacca — più passo ma più consumo di gomme e di
   benzina, e più rischio di errore. **`=` non vuol dire "normale": vuol dire "decidi tu"**,
   e da lì in poi lo gestisce il muretto, che guarda di quanti giri si è avanti o indietro
@@ -495,6 +498,41 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   più di lui. Il vantaggio di carica conta davvero nel tentativo: mezza batteria in più
   vale un terzo abbondante di possibilità, e altrettanto in meno a chi ce l'ha di meno.
   È la stessa energia spesa in un ordine diverso, ed è quello che scioglie i trenini.
+- **Gli ordini al pilota** (`LIB` `ATT` `GES` `DIF` `CASA`, nel pannello di ogni vettura):
+  è la cosa che alla radio si sente di più, ed è quella che mancava. Non "vai più forte", ma
+  come deve correre questo pezzo di gara. **Ognuno ha un prezzo**, e nessuno è un pulsante
+  che regala tempo:
+
+  | ordine | cosa chiede | cosa costa |
+  |---|---|---|
+  | `ATT` **Attacca** | passo 1,08, un tentativo di sorpasso in più al giro | gomma, benzina, il 20% di rischio di contatto in più e un motore tirato |
+  | `GES` **Gestisci** | passo 0,94, si allunga lo stint | si regala il posto a chi arriva |
+  | `DIF` **Difendi** | chiude la porta: passarlo costa il 18% in più | non ne prende un'altra, di posizione |
+  | `CASA` **Porta a casa** | passo 0,90, non si infila più | si perde terreno, ma la macchina arriva |
+  | `LIB` **Libero** | corre la sua gara, decide lui | — |
+
+  Il passo che l'ordine chiede **non scavalca la benzina**: chiedere di attaccare a chi non
+  ha di che arrivare in fondo non fa apparire i chili nel serbatoio, e il muretto lo dice.
+  Chiedere di gestire invece si può sempre. Lo stesso sistema lo usano gli avversari: il
+  loro muretto sceglie con le stesse regole e le stesse conseguenze, filtrate da quanto è
+  bravo. Non c'è niente che il giocatore possa fare e il computer no.
+- **`SCAMBIO` e `TIENI LE POSIZIONI`**: gli ordini che riguardano tutte e due le macchine.
+  "Lascialo passare" **si chiede, non si impone**: chi si fida della squadra lo fa subito,
+  chi è aggressivo di suo ci mette due o tre giri, e chi sta lottando per qualcosa può
+  rispondere alla radio che sta andando più forte lui — e tenersi il posto. Con le posizioni
+  ferme le due macchine non si attaccano più fra loro: è l'ordine che si dà quando i punti
+  sono già in cassa e l'unico modo di perderli è toccarsi.
+- **`PIANO`, il foglio strategia**: le soste scritte — a che giro e con che gomma — e da lì
+  si riscrivono, una per una, anche a gara in corso. C'è anche quello che resta nel camion,
+  senza il quale il foglio è un desiderio. **`PIANO BLOCCATO`** dice al muretto di non
+  spostarle più per undercut o overcut: la safety car e la pioggia restano sue, perché
+  rinunciarci sarebbe una trappola e non una scelta.
+- **La radio fa domande**: il pilota chiama — *"le gomme sono andate, entro?"*, *"sono più
+  veloce di lui e sono bloccato qui dietro"*, *"sta arrivando l'acqua, che gomma monto?"* —
+  e si hanno **due risposte e tre giri** per darne una. Passati quelli decide il muretto come
+  ha sempre fatto: è un'occasione, non un obbligo, e chi guarda la gara e basta non si trova
+  la corsa in mano senza averlo chiesto. Ne esce circa una e mezza a macchina per gara, e
+  ognuna nasce da un numero che sta succedendo davvero.
 - **Mappature del motore** (`CONS` `BASE` `SPIN`): l'altra manopola della power unit.
   `SPIN` vale fino a tre decimi al giro sui circuiti di potenza, beve il 6% di benzina in
   più e stressa il motore; `CONS` fa il contrario. Quanto lo si è tirato si legge nella
@@ -1774,7 +1812,8 @@ game/model/          track (geometria + modello di giro), car, people, team
 game/core/           state (mondo e salvataggi), economy, development,
                      powertrain, engineering, market, rules, season
 game/storage.py      salvataggi: file su desktop, localStorage nel browser
-game/sim/            weekend (motore gara), session (prove, qualifica, griglia)
+game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
+                     muretto (ordini al pilota e ordini di squadra)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
 data/                database JSON
 saves/               salvataggi

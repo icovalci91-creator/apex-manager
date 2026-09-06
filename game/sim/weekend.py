@@ -17,6 +17,7 @@ from . import energia as EN
 from . import freni as FR
 from . import benzina as BZ
 from . import gomme as GO
+from . import muretto as MU
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
 
@@ -96,7 +97,7 @@ COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una 
 PERDITA_SC = 0.55         # quanto costa la sosta con la safety car in pista
 PERDITA_VSC = 0.78        # con la virtual e' meno regalo: rallentano tutti uguale
 FINESTRA_SC = 12          # con la sosta entro tanti giri, si entra adesso
-GOMMA_SC = 0.55           # o comunque se la gomma e' sotto questo stato
+GOMMA_SC = 0.30           # o comunque se alla gomma resta meno di tanta vita
 ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
 # E sotto l'acqua stare attaccati e' un'altra cosa ancora: dalla macchina
 # davanti esce un muro di spruzzi e non si vede la staccata. Si perde di piu' e
@@ -419,6 +420,20 @@ class Entrant:
     ritardi_sosta: int = 0        # quante volte ha gia' allungato lo stint
     sc_sfruttata: int = -1        # in quale neutralizzazione ha gia' approfittato
     ordine_cd: float = 0.0        # quanto manca prima di poter riscambiare
+    # cosa gli ha chiesto il muretto: l'ordine sotto cui sta correndo, e da
+    # quando. Vale per tutti, non solo per le nostre due macchine
+    ordine: str = "libero"
+    ordine_da: int = -99
+    # "lascialo passare" chiesto a mano: a chi, da che giro lo fara', e se ha
+    # risposto di no
+    scambio_a: str = ""
+    scambio_giro: int = 0
+    scambio_rifiuto: bool = False
+    tieni_posizioni: bool = False   # fra le nostre due non si combatte
+    piano_bloccato: bool = False    # il piano l'ha scritto il giocatore
+    box_richiesto: str = ""         # "box questo giro": ordine, non proposta
+    domanda: dict = None            # la domanda aperta alla radio, se c'e'
+    domanda_cd: int = -99           # e da che giro se ne puo' fare un'altra
     meteo_deciso: int = -1        # su quale previsione ha gia' deciso
     grid: int = 1
     finished_time: float = 0.0
@@ -450,6 +465,20 @@ class Entrant:
         if x <= 1.0:
             return 1.0 - PERDITA_GOMMA * x ** ESPONENTE_GOMMA
         return max(0.35, (1.0 - PERDITA_GOMMA) - CADUTA_GOMMA * (x - 1.0))
+
+    def vita_gomma(self) -> float:
+        """Quanta vita resta a questa gomma: 1 nuova, 0 alla fine del suo.
+
+        Non e' la stessa cosa di `compound_state`, ed e' una distinzione che
+        conta. Quello e' quanto la gomma *rende adesso*, e dentro la sua vita
+        scende appena - undici centesimi in tutto, che sul giro sono un paio
+        di secondi. Questo e' quanto le manca, e va da uno a zero. Chiedersi
+        "la gomma e' finita?" guardando il rendimento voleva dire non trovare
+        mai una gomma finita: la soglia stava sotto al minimo raggiungibile, e
+        cosi' alla radio non si sentiva mai "sono andate" e il muretto non
+        approfittava mai della safety car per una gomma consumata.
+        """
+        return max(0.0, 1.0 - self.tyre_age / max(1.0, self.tyre_life))
 
 
 # ------------------------------------------------------------------ simulazione
@@ -963,6 +992,10 @@ class RaceSim:
         e.energy_delta = EN.passo_giro(self, e)
         EN.scegli_mappa(self, e, ga, gd)
         BZ.scegli_passo(self, e, ga, gd)
+        # e sopra al passo c'e' quello che la squadra ha chiesto: il muretto
+        # del computer lo sceglie da solo, il nostro lo sceglie il giocatore
+        MU.ai_ordine(self, e, avanti, dietro, ga, gd)
+        MU.applica_passo(self, e)
         EN.logora_motore(self, e)
         e.mappa_delta = EN.passo_mappa(self, e)
 
@@ -980,14 +1013,18 @@ class RaceSim:
             return
         prima = self._pos_prima.get(e.driver_id, e.position)
         self._pos_prima[e.driver_id] = e.position
-        if e.lap < self._radio_cd.get(e.driver_id, -9):
-            return
-        stato = e.compound_state()
         avanti = self._chi_davanti(e)
         dietro = self._chi_dietro(e)
         metri_s = max(20.0, self.track_len / max(30.0, giro))
         gap_a = (avanti.dist - e.dist) / metri_s if avanti else 99.0
         gap_d = (e.dist - dietro.dist) / metri_s if dietro else 99.0
+        # prima di raccontare com'e' andata, si guarda se c'e' qualcosa da
+        # chiedere: una domanda aperta vale piu' di un commento
+        self._scadenze_radio(e)
+        self._domanda(e, avanti, dietro, gap_a, gap_d)
+        if e.domanda or e.lap < self._radio_cd.get(e.driver_id, -9):
+            return
+        vita = e.vita_gomma()
         resta = self.laps - e.lap
         voci = []
         if e.damage > 25:
@@ -1011,9 +1048,9 @@ class RaceSim:
             elif marg > 1.6 and resta <= 12:
                 voci.append((6, "muretto", f"Hai {marg:.1f} giri di benzina d'avanzo: "
                                            f"non serve portarla al traguardo, spendila."))
-        if stato < 0.72:
+        if vita < 0.05:
             voci.append((8, "pilota", "Le gomme sono finite, sto scivolando dappertutto."))
-        elif stato < 0.82:
+        elif vita < 0.20:
             voci.append((5, "pilota", "Comincio a perdere il posteriore in trazione."))
         # e la gomma: adesso e' un numero che si muove, e alla radio si sente
         caldo = GO.fuori(e)
@@ -1095,6 +1132,117 @@ class RaceSim:
         self.radio_say(e, testo, chi)
         # piu' e' importante quello che c'e' da dire, prima si torna a parlare
         self._radio_cd[e.driver_id] = e.lap + max(2, 12 - peso)
+
+    # ------------------------------------------------------- la radio a due voci
+    # Ogni quanto il pilota puo' tornare a chiedere qualcosa, e quanti giri si
+    # ha per rispondere. Passati quelli decide il muretto come ha sempre fatto:
+    # la domanda e' un'occasione, non un obbligo, e chi guarda la gara e basta
+    # non deve trovarsi la corsa in mano senza averlo chiesto.
+    DOMANDA_ATTESA = 6
+    DOMANDA_SCADENZA = 3
+
+    def _domanda(self, e: Entrant, avanti, dietro, gap_a: float, gap_d: float) -> None:
+        """Quando il pilota alza la radio e chiede cosa fare.
+
+        Non e' colore nemmeno questa: ogni domanda nasce da un numero che sta
+        succedendo davvero, e ognuna ha due risposte che portano la gara da
+        due parti diverse. Nessuna delle due e' quella giusta.
+        """
+        if not e.is_player or e.status != "running" or e.domanda:
+            return
+        if e.lap < e.domanda_cd + self.DOMANDA_ATTESA:
+            return
+        resta = self.laps - e.lap
+        if resta <= 2:
+            return
+        vita = e.vita_gomma()
+        prossima = e.plan[0][0] if e.plan else self.laps
+        d = None
+        # la macchina rotta: e' la domanda che si fa una volta e cambia la gara
+        if e.damage > 30:
+            d = ("danni", f"Ho preso un colpo forte, la macchina non e' piu' dritta.",
+                 [("Porta a casa", "casa"), ("Vai avanti cosi'", "niente")])
+        # l'acqua che si vede arrivare: entrare un giro prima o un giro dopo
+        elif (e.tyre in ("soft", "medium", "hard") and self.bagnato < 0.10
+              and self._acqua_vicina(e)):
+            d = ("acqua", "Il cielo davanti e' nero, sta arrivando. Che gomma monto?",
+                 [("Intermedie subito", "inter"), ("Un altro giro", "niente")])
+        # la gomma finita con la sosta ancora lontana
+        elif vita < 0.12 and prossima - e.lap > 2 and resta > 4:
+            d = ("box", "Le gomme sono andate, sto scivolando dappertutto. Entro?",
+                 [("Box adesso", "box"), ("Resisti li'", "gestisci")])
+        # la benzina che non basta
+        elif not self.senza_benzina and BZ.margine_giri(self, e) < -0.6:
+            marg = abs(BZ.margine_giri(self, e))
+            d = ("benzina", f"Siamo {marg:.1f} giri sotto di benzina. Cosa faccio?",
+                 [("Gestisci", "gestisci"), ("Spingi lo stesso", "libero")])
+        # e il compagno davanti, che e' la domanda piu' famosa di tutte
+        elif (avanti is not None and avanti.team_id == e.team_id and gap_a < 1.6
+              and avanti.clean_lap - e.clean_lap > 0.30 and not avanti.scambio_a
+              and not e.tieni_posizioni and resta > 5):
+            d = ("scambio", f"Sono piu' veloce di {avanti.code} e sono bloccato qui dietro.",
+                 [("Fallo passare", "scambio"), ("Tenete le posizioni", "tieni")])
+        if d is None:
+            return
+        chiave, testo, opzioni = d
+        e.domanda = {"chiave": chiave, "testo": testo, "opzioni": opzioni,
+                     "scadenza": e.lap + self.DOMANDA_SCADENZA}
+        self.radio_say(e, testo, "pilota")
+        self._radio_cd[e.driver_id] = e.lap + 2
+
+    def _acqua_vicina(self, e: Entrant) -> bool:
+        """Se i radar danno acqua vera entro un paio di giri."""
+        for quota, forza in (self.weather.rain_forecast or []):
+            if forza < METEO_SOGLIA:
+                continue
+            giro = quota * self.laps
+            if 0 <= giro - e.lap <= METEO_FINESTRA:
+                return True
+        return False
+
+    def _scadenze_radio(self, e: Entrant) -> None:
+        """Una domanda senza risposta scade: da li' decide il muretto."""
+        if e.domanda and e.lap > e.domanda["scadenza"]:
+            e.domanda = None
+            e.domanda_cd = e.lap
+            self.radio_say(e, "Nessuna risposta dal muro: faccio come mi sembra.",
+                           "pilota")
+
+    def rispondi(self, driver_id: str, scelta: str) -> str:
+        """La risposta del muretto alla radio. Torna quello che si sente dire."""
+        e = next((x for x in self.entrants if x.driver_id == driver_id), None)
+        if e is None or not e.domanda:
+            return ""
+        e.domanda = None
+        e.domanda_cd = e.lap
+        if scelta in MU.ORDINI:
+            e.ordine = scelta
+            e.ordine_da = e.lap
+            detto = MU.ORDINI[scelta]["radio"]
+        elif scelta == "box":
+            e.box_richiesto = self._pick_compound(e)
+            detto = "Box questo giro, box."
+        elif scelta == "inter":
+            e.box_richiesto = "inter"
+            detto = "Box: montiamo le intermedie."
+        elif scelta == "tieni":
+            for x in self.entrants:
+                if x.team_id == e.team_id:
+                    x.tieni_posizioni = True
+            detto = "Tenete le posizioni tutti e due."
+        elif scelta == "scambio":
+            avanti = self._chi_davanti(e)
+            if avanti is None or avanti.team_id != e.team_id:
+                return ""
+            risposta = MU.chiedi_scambio(self, avanti, e)
+            self.radio_say(avanti, "Lascia passare il compagno.", "muretto")
+            if risposta:
+                self.radio_say(avanti, risposta, "pilota")
+            return risposta
+        else:
+            detto = "Ricevuto, resta cosi'."
+        self.radio_say(e, detto, "muretto")
+        return detto
 
     def _chi_dietro(self, e: Entrant):
         dietro = [x for x in self.entrants if x.status == "running" and x.dist < e.dist]
@@ -1190,7 +1338,7 @@ class RaceSim:
         # soste sotto neutralizzazione restava al sette per cento invece che a
         # un quarto abbondante.
         vicina = bool(e.plan)
-        andata = e.compound_state() < GOMMA_SC
+        andata = e.vita_gomma() < GOMMA_SC
         if not (vicina or andata):
             return None
         comp = e.plan[0][1] if e.plan else self._pick_compound(e)
@@ -1305,7 +1453,7 @@ class RaceSim:
         for lap, comp in list(e.plan):
             if e.lap < lap:
                 continue
-            if not bagnato and self._conviene_overcut(e):
+            if not bagnato and not e.piano_bloccato and self._conviene_overcut(e):
                 # quanti giri la gomma regge ancora prima del gradino
                 resta = int((e.tyre_life - e.tyre_age) / max(0.3, self._wear_rate(e)))
                 ritardo = max(1, min(RITARDO_MAX, resta, self.rng.randint(2, RITARDO_MAX)))
@@ -1321,6 +1469,15 @@ class RaceSim:
 
     def _check_pit(self, e: Entrant) -> None:
         bagnato = self.bagnato > 0.12
+        # "box, box, box" chiesto dal muretto nostro viene prima di tutto: e'
+        # un ordine e non una proposta, e non lo si rimanda perche' al muretto
+        # sembrava che conveniva l'overcut. Se il giocatore ha sbagliato il
+        # momento e' un suo errore, e deve poterlo fare
+        if e.box_richiesto:
+            comp, e.box_richiesto = e.box_richiesto, ""
+            if comp != e.tyre or self.bagnato > 0.12:
+                self._fai_sosta(e, comp)
+                return
         # l'occasione viene prima di qualunque piano scritto il venerdi': con
         # la safety car in pista la sosta costa un terzo di meno, e chi era
         # nella finestra giusta entra adesso
@@ -1335,7 +1492,7 @@ class RaceSim:
             e.plan.clear()
         # e la mossa in attacco: la sosta si anticipa quando la gomma nuova
         # scavalca chi non si riesce a passare in pista
-        if target is None and not bagnato:
+        if target is None and not bagnato and not e.piano_bloccato:
             target = self._sosta_reattiva(e)
         # sosta d'emergenza se la gomma e' andata
         if target is None and e.tyre_age > e.tyre_life * 1.35 and e.lap < self.laps - 2:
@@ -1354,6 +1511,10 @@ class RaceSim:
                 target = self._pick_compound(e)
         if target is None or target == e.tyre:
             return
+        self._fai_sosta(e, target)
+
+    def _fai_sosta(self, e: Entrant, target: str) -> None:
+        """La sosta vera e propria: il tempo fermi, la gomma nuova, la benzina."""
         # chi si aveva intorno entrando ai box: e' con questo che il muretto
         # degli altri capisce se quella sosta era una mossa su di loro
         vicino_a = self._chi_davanti(e)
@@ -1451,6 +1612,22 @@ class RaceSim:
         return life * self.distance
 
     # --------------------------------------------------------------- duelli
+    def _scambio_manuale(self, davanti: Entrant, dietro: Entrant) -> bool:
+        """Lo scambio chiesto dal muretto nostro, quando il pilota lo esegue.
+
+        La richiesta parte quando la fa il giocatore; qui si guarda solo se e'
+        arrivato il momento. Chi ha risposto di no non compare mai qui: la sua
+        risposta e' gia' andata in radio, e il posto se lo tiene.
+        """
+        if not MU.scambio_pronto(self, davanti, dietro):
+            return False
+        MU.chiudi_scambio(davanti)
+        davanti.dist, dietro.dist = dietro.dist, davanti.dist
+        davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
+        self.log(f"Ordine di squadra: {davanti.code} lascia passare {dietro.code}", "team")
+        self.radio_say(davanti, f"Fatto, {dietro.code} e' passato.", "pilota")
+        return True
+
     def _ordine_di_squadra(self, davanti: Entrant, dietro: Entrant) -> bool:
         """"Lascialo passare": la scuderia inverte le sue due macchine.
 
@@ -1516,8 +1693,15 @@ class RaceSim:
                 behind.dirty_air = max(0.0, behind.dirty_air - dt * 1.5)
                 continue
             # fra compagni di squadra non si combatte: si conta
-            if ahead.team_id == behind.team_id and self._ordine_di_squadra(ahead, behind):
-                continue
+            if ahead.team_id == behind.team_id:
+                if self._scambio_manuale(ahead, behind):
+                    continue
+                # "tenete le posizioni": l'ordine che si da' quando i punti
+                # sono gia' in cassa e l'unico modo di perderli e' toccarsi
+                if ahead.tieni_posizioni and behind.tieni_posizioni:
+                    continue
+                if self._ordine_di_squadra(ahead, behind):
+                    continue
             behind.dirty_air = min(1.0, behind.dirty_air + dt * 0.9) * (1.0 - 0.55 * ot_track)
             if (self.safety_car > 0 or behind.overtake_cd > 0
                     or gap_m > self.follow * 1.25):
@@ -1526,6 +1710,9 @@ class RaceSim:
             # dipende da quanti posti buoni ci sono: si sceglie il migliore e
             # si aspetta quello
             tetto = TENTATIVI_APERTA if ot_track > 0.65 else TENTATIVI_GIRO
+            # e quante volte ci prova davvero dipende da cosa gli hanno
+            # chiesto: chi deve portare a casa la macchina non si infila
+            tetto = MU.tentativi(behind, tetto)
             if behind.tentativi_giro >= tetto:
                 continue
             # e soprattutto: qui c'e' dove passare? Un sorpasso non capita in
@@ -1604,6 +1791,11 @@ class RaceSim:
             # difende con inventiva quel buco lo chiude prima che si apra
             p *= 0.82 + 0.36 * (behind.estro / 100.0)
             p /= max(0.75, 0.86 + 0.28 * (ahead.estro / 100.0))
+            # e infine quello che si sono detti alla radio: chi e' stato
+            # mandato ad attaccare ci mette del suo, chi difende chiude la
+            # porta prima che si apra
+            p *= MU.di(behind)["attacco"]
+            p /= max(0.60, MU.di(ahead)["difesa"])
             # e comunque, per quanto uno sia piu' veloce, il posto per passare
             # non lo inventa: e' il tetto che separa Monza da Monte Carlo
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot_track, p):
@@ -1619,7 +1811,8 @@ class RaceSim:
             ahead.riscossa = RISCOSSA_S
             ahead.riscossa_su = behind.driver_id
             self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
-            if self.rng.random() < 0.075 * (behind.aggression / 100.0) * (1.0 + self.weather.wet):
+            if self.rng.random() < (0.075 * (behind.aggression / 100.0)
+                                   * (1.0 + self.weather.wet) * MU.rischio(behind)):
                 dmg = self.rng.uniform(4, 26)
                 behind.damage = min(100.0, behind.damage + dmg)
                 ahead.damage = min(100.0, ahead.damage + dmg * 0.8)

@@ -11,6 +11,7 @@ from ...sim import hotlap as HOT
 from ...sim.weekend import Weather
 from ...sim import pace as PACE
 from ...sim import benzina
+from ...sim import muretto as MU
 from .. import theme as T
 from .. import bandiere, trackdraw
 from ..app import Scene
@@ -55,6 +56,9 @@ class WeekendScene(Scene):
         self.pts = None
         self.pts_rect = None
         self.applied = False
+        # il foglio strategia: aperto sopra alla gara, e di chi si sta guardando
+        self.piano_aperto = False
+        self.piano_di = ""
         self.sprint_pending = self.track.sprint
         # la scena resta viva anche se si esce a cambiare l'assetto: il weekend
         # non si ricomincia da capo solo per essere passati dalla pagina Vettura
@@ -193,28 +197,54 @@ class WeekendScene(Scene):
             b.on_click = (lambda i=i: self.set_speed(i))
             b.active = (i == self.speed_idx)
             self.widgets.append(b)
-        self.widgets.append(Button((bx + 5 * 62 + 16, by, 190, 34), "Simula fino alla fine",
+        x = bx + 5 * 62 + 16
+        self.widgets.append(Button((x, by, 176, 34), "Simula fino alla fine",
                                    self.skip_to_end, "ghost"))
+        x += 186
+        # il foglio strategia: e' la cosa che in gara si riapre di piu', e sta
+        # sopra a tutto perche' mentre la si guarda non si vuole cliccare altro
+        b = Button((x, by, 92, 34), "PIANO", self.apri_piano, "tab")
+        b.active = self.piano_aperto
+        self.widgets.append(b)
+        x += 100
+        # e gli ordini che riguardano tutte e due le macchine insieme
+        nostre = [e for e in self.sim.entrants
+                  if e.team_id == self.gs.player_team and e.status == "running"]
+        if len(nostre) >= 2:
+            self.widgets.append(Button((x, by, 100, 34), "SCAMBIO",
+                                       self.chiedi_scambio, "normal"))
+            x += 108
+            tieni = all(e.tieni_posizioni for e in nostre)
+            b = Button((x, by, 152, 34), "TIENI LE POSIZIONI",
+                       self.tieni_posizioni, "tab")
+            b.active = tieni
+            self.widgets.append(b)
+            x += 160
+        if self.piano_aperto:
+            # con il foglio aperto dietro non si clicca niente: e' un pannello
+            # sopra alla gara, non una finestra da cui sfuggono i click
+            self._build_piano(w, h)
+            return
         # i comandi dell'energia stanno dentro al pannello della vettura, che
         # e' dove si guardano i megajoule: non in fondo insieme a tutto il resto
         from ...sim import energia as EN
         for e, r in self._pannelli_barra(w, h):
-            x, xm, yy = self._comandi_barra(r)
+            px, xm, yy = self._comandi_barra(r)
             for modo in EN.MODI:
-                b = Button((x, yy, 46, 20), EN.ETICHETTA[modo][:3], style="tab")
+                b = Button((px, yy, 46, 20), EN.ETICHETTA[modo][:3], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=modo: self.set_energia(k, m))
                 b.active = (e.energy_mode == modo)
                 self.widgets.append(b)
-                x += 49
+                px += 49
             # i due modi di rimettere energia in cassa: alzando il piede o
             # tenendo il gas spalancato
             for chiave, lab, acceso in (("lift", "L&C", e.lift_coast),
                                         ("super", "SUP", e.superclip)):
-                b = Button((x, yy, 46, 20), lab, style="tab")
+                b = Button((px, yy, 46, 20), lab, style="tab")
                 b.on_click = (lambda k=e.driver_id, c=chiave: self.set_energia(k, c))
                 b.active = acceso
                 self.widgets.append(b)
-                x += 49
+                px += 49
             # e le mappature del motore, che sono l'altra manopola
             for mappa in EN.MAPPE:
                 b = Button((xm, yy, 54, 20), EN.CORTO_MAPPA[mappa], style="tab")
@@ -222,26 +252,258 @@ class WeekendScene(Scene):
                 b.active = (e.mappa == mappa)
                 self.widgets.append(b)
                 xm += 57
+            self._comandi_ordini(e, r)
 
-        px = bx + 5 * 62 + 226
-        for i, did in enumerate(self.gs.player.drivers):
-            d = self.gs.drivers.get(did)
-            if not d:
-                continue
-            self.widgets.append(Button((px, by, 90, 34), f"BOX {d.code}",
-                                       (lambda k=did: self.force_pit(k)), "normal"))
-            px += 96
-            # il passo: risparmia, lascia fare al muretto, attacca. Quello di
-            # mezzo non e' "normale", e' "decidi tu": il muretto guarda quanta
-            # benzina resta e chi si ha intorno, e stringe o allunga da solo
-            attuale = self._passo_di(did)
-            for lab, val in (("-", 0.90), ("=", None), ("+", 1.10)):
-                b = Button((px, by, 32, 34), lab, style="tab")
-                b.on_click = (lambda k=did, v=val, bb=None: self.set_push(k, v))
-                b.active = (val == attuale)
+    # --------------------------------------------------------------- ordini
+    def _comandi_ordini(self, e, r) -> None:
+        """La riga degli ordini dentro al pannello: cosa si chiede al pilota.
+
+        Sta li' e non in fondo insieme a tutto il resto perche' e' la cosa che
+        si guarda insieme a gomme, benzina e batteria: un ordine si sceglie
+        vedendo quanta gomma resta, non guardando l'orologio.
+        """
+        due = self.due_righe()
+        x = r.x + 16
+        y = r.y + 130
+        largo = (46 if r.w >= 430 else 40) if due else 38
+        for chiave in MU.ELENCO:
+            b = Button((x, y, largo, 20), MU.ORDINI[chiave]["corto"], style="tab",
+                       tip=MU.ORDINI[chiave]["nota"])
+            b.on_click = (lambda k=e.driver_id, o=chiave: self.set_ordine(k, o))
+            b.active = (e.ordine == chiave)
+            self.widgets.append(b)
+            x += largo + 3
+        # passo e sosta: sotto se c'e' spazio, di fianco se non ce n'e'
+        self._comandi_sosta(e, r, y if not due else r.y + 154,
+                            (x + 12) if not due else (r.x + 62), due)
+        # e se il pilota ha chiesto qualcosa alla radio, le due risposte
+        # stanno li' dove si legge la domanda: non in un menu da cercare
+        if e.domanda:
+            larghe = 104 if r.w >= 430 else 88
+            qx = r.right - 16
+            for k, (lab, chiave) in enumerate(reversed(e.domanda["opzioni"])):
+                qx -= larghe
+                stile = "normal" if k else "primary"
+                self.widgets.append(Button(
+                    (qx, r.bottom - 28, larghe, 24), lab,
+                    (lambda d=e.driver_id, c=chiave: self.rispondi(d, c)), stile))
+                qx -= 6
+
+    # -------------------------------------------------------- foglio strategia
+    # Le mescole fra cui gira il foglio, in ordine di durezza. Le due da acqua
+    # ci sono perche' una sosta programmata sotto la pioggia annunciata e' una
+    # cosa che si scrive prima, non un'emergenza da risolvere in corsa.
+    MESCOLE_PIANO = ("soft", "medium", "hard", "inter", "wet")
+    PIANO_W = 520
+    PIANO_RIGA = 30
+
+    def piano_rect(self, w: int, h: int):
+        alto = 150 + self.PIANO_RIGA * 5
+        return pygame.Rect((w - self.PIANO_W) // 2, max(70, (h - alto) // 2 - 30),
+                           self.PIANO_W, alto)
+
+    def apri_piano(self) -> None:
+        self.piano_aperto = not self.piano_aperto
+        if self.piano_aperto and not self.piano_di:
+            nostre = self._nostre()
+            self.piano_di = nostre[0].driver_id if nostre else ""
+        self.build()
+
+    def _nostre(self) -> list:
+        if not self.sim:
+            return []
+        return [e for e in self.sim.entrants if e.team_id == self.gs.player_team]
+
+    def _pilota_piano(self):
+        for e in self._nostre():
+            if e.driver_id == self.piano_di:
+                return e
+        return None
+
+    def _build_piano(self, w: int, h: int) -> None:
+        """I comandi del foglio: una riga per sosta, e si sposta a mano."""
+        r = self.piano_rect(w, h)
+        nostre = self._nostre()
+        e = self._pilota_piano()
+        if e is None:
+            return
+        x = r.x + 16
+        for n in nostre:
+            b = Button((x, r.y + 44, 118, 26), n.code + f"  P{n.position}", style="tab")
+            b.on_click = (lambda k=n.driver_id: self.piano_su(k))
+            b.active = (n.driver_id == self.piano_di)
+            self.widgets.append(b)
+            x += 126
+        b = Button((r.right - 16 - 150, r.y + 44, 150, 26), "PIANO BLOCCATO", style="tab",
+                   tip="Il muretto non sposta piu' le soste per undercut o overcut")
+        b.on_click = self.blocca_piano
+        b.active = e.piano_bloccato
+        self.widgets.append(b)
+        y = r.y + 92
+        for i, (giro, comp) in enumerate(list(e.plan)[:5]):
+            self.widgets.append(Button((r.x + 100, y, 28, 24), "-",
+                                       (lambda k=i: self.sposta_sosta(k, -1)), "tab"))
+            self.widgets.append(Button((r.x + 132, y, 28, 24), "+",
+                                       (lambda k=i: self.sposta_sosta(k, +1)), "tab"))
+            bx = r.x + 176
+            for m in self.MESCOLE_PIANO:
+                b = Button((bx, y, 26, 24), C.COMPOUNDS[m]["label"][0].upper(), style="tab")
+                b.on_click = (lambda k=i, mm=m: self.mescola_sosta(k, mm))
+                b.active = (m == comp)
                 self.widgets.append(b)
-                px += 34
-            px += 14
+                bx += 29
+            self.widgets.append(Button((r.right - 16 - 60, y, 60, 24), "TOGLI",
+                                       (lambda k=i: self.togli_sosta(k)), "ghost"))
+            y += self.PIANO_RIGA
+        if len(e.plan) < 5:
+            self.widgets.append(Button((r.x + 16, y + 4, 150, 26), "+ aggiungi sosta",
+                                       self.aggiungi_sosta, "normal"))
+        self.widgets.append(Button((r.right - 16 - 96, r.bottom - 42, 96, 30), "CHIUDI",
+                                   self.apri_piano, "primary"))
+
+    def piano_su(self, driver_id: str) -> None:
+        self.piano_di = driver_id
+        self.build()
+
+    def blocca_piano(self) -> None:
+        e = self._pilota_piano()
+        if e is not None:
+            e.piano_bloccato = not e.piano_bloccato
+        self.build()
+
+    def sposta_sosta(self, i: int, verso: int) -> None:
+        e = self._pilota_piano()
+        if e is None or i >= len(e.plan):
+            return
+        giro, comp = e.plan[i]
+        giro = max(e.lap + 1, min(self.sim.laps - 1, giro + verso))
+        e.plan[i] = (giro, comp)
+        e.plan.sort()
+        self.build()
+
+    def mescola_sosta(self, i: int, mescola: str) -> None:
+        e = self._pilota_piano()
+        if e is None or i >= len(e.plan):
+            return
+        e.plan[i] = (e.plan[i][0], mescola)
+        self.build()
+
+    def togli_sosta(self, i: int) -> None:
+        e = self._pilota_piano()
+        if e is None or i >= len(e.plan):
+            return
+        del e.plan[i]
+        self.build()
+
+    def aggiungi_sosta(self) -> None:
+        e = self._pilota_piano()
+        if e is None:
+            return
+        ultimo = e.plan[-1][0] if e.plan else e.lap
+        giro = max(e.lap + 1, min(self.sim.laps - 1, ultimo + 12))
+        e.plan.append((giro, self.sim._pick_compound(e)))
+        e.plan.sort()
+        self.build()
+
+    def _comandi_sosta(self, e, r, y: int, px: int, due: bool) -> None:
+        """Il passo e la sosta: le due manopole che si toccano di continuo.
+
+        Il passo e' risparmia, lascia fare al muretto, attacca. Quello di mezzo
+        non e' "normale", e' "decidi tu": il muretto guarda quanta benzina resta
+        e chi si ha intorno, e stringe o allunga da solo.
+        """
+        largo_p = 30 if due else 24
+        attuale = self._passo_di(e.driver_id)
+        for lab, val in (("-", 0.90), ("=", None), ("+", 1.10)):
+            b = Button((px, y, largo_p, 20), lab, style="tab")
+            b.on_click = (lambda k=e.driver_id, v=val: self.set_push(k, v))
+            b.active = (val == attuale)
+            self.widgets.append(b)
+            px += largo_p + 3
+        # e la sosta: il box e con che gomma. Sceglierla e' meta' dell'undercut,
+        # e fino a ieri la sceglieva il muretto da solo
+        mescole = self._mescole_box()
+        largo_m = 26 if due else 22
+        serve = 44 + 6 + len(mescole) * (largo_m + 3)
+        if r.right - 16 - serve < px + 20:
+            mescole = ()
+            serve = 44
+        bx = r.right - 16 - serve
+        self.widgets.append(Button(
+            (bx, y, 44, 20), "BOX", (lambda k=e.driver_id: self.force_pit(k)),
+            "normal", tip="Box al prossimo passaggio, gomma scelta dal muretto"))
+        bx += 50
+        for m in mescole:
+            resta = (e.stock or {}).get(m)
+            b = Button((bx, y, largo_m, 20), C.COMPOUNDS[m]["label"][0].upper(),
+                       style="tab",
+                       tip=f"Box con {C.COMPOUNDS[m]['label'].lower()}"
+                           + (f": {resta} set" if resta is not None else ""))
+            b.on_click = (lambda k=e.driver_id, mm=m: self.force_pit(k, mm))
+            b.active = (e.tyre == m)
+            self.widgets.append(b)
+            bx += largo_m + 3
+
+    def _mescole_box(self) -> tuple:
+        """Che gomme ha senso montare adesso: dipende da quanta acqua c'e'."""
+        bagnato = getattr(self.sim, "bagnato", 0.0)
+        if bagnato > 0.42:
+            return ("inter", "wet")
+        if bagnato > 0.06:
+            return ("medium", "inter", "wet")
+        return ("soft", "medium", "hard")
+
+    def set_ordine(self, driver_id: str, ordine: str) -> None:
+        """Cosa si chiede al pilota da qui in avanti."""
+        if not self.sim:
+            return
+        for e in self.sim.entrants:
+            if e.driver_id != driver_id:
+                continue
+            e.ordine = "libero" if e.ordine == ordine else ordine
+            e.ordine_da = e.lap
+            self.sim.radio_say(e, MU.ORDINI[e.ordine]["radio"], "muretto")
+        self.build()
+
+    def chiedi_scambio(self) -> None:
+        """"Lascialo passare": si chiede, e poi si vede cosa risponde."""
+        if not self.sim:
+            return
+        nostre = [e for e in self.sim.entrants
+                  if e.team_id == self.gs.player_team and e.status == "running"]
+        if len(nostre) < 2:
+            return
+        nostre.sort(key=lambda e: e.position)
+        davanti, dietro = nostre[0], nostre[1]
+        risposta = MU.chiedi_scambio(self.sim, davanti, dietro)
+        self.sim.radio_say(davanti, f"Lascia passare {dietro.code}.", "muretto")
+        if risposta:
+            self.sim.radio_say(davanti, risposta, "pilota")
+        self.app.toast(f"{davanti.name}: {risposta}" if risposta else "Ordine dato.")
+        self.build()
+
+    def tieni_posizioni(self) -> None:
+        """Le posizioni sono queste: fra le nostre due non si combatte piu'."""
+        if not self.sim:
+            return
+        nostre = [e for e in self.sim.entrants if e.team_id == self.gs.player_team]
+        acceso = not all(e.tieni_posizioni for e in nostre if e.status == "running")
+        for e in nostre:
+            e.tieni_posizioni = acceso
+            if acceso:
+                MU.chiudi_scambio(e)
+        for e in nostre:
+            self.sim.radio_say(e, "Tenete le posizioni." if acceso
+                               else "Siete liberi di correre.", "muretto")
+        self.app.toast("Ordine di tenere le posizioni." if acceso
+                       else "Piloti liberi di correre.")
+        self.build()
+
+    def rispondi(self, driver_id: str, scelta: str) -> None:
+        """La risposta alla domanda che il pilota ha fatto alla radio."""
+        if self.sim:
+            self.sim.rispondi(driver_id, scelta)
+        self.build()
 
     def _comandi_barra(self, r):
         """Dove stanno i pulsanti dentro al pannello: energia, mappature, riga."""
@@ -350,13 +612,21 @@ class WeekendScene(Scene):
             self.sim.fast_forward()
             self._on_race_end()
 
-    def force_pit(self, driver_id: str) -> None:
+    def force_pit(self, driver_id: str, mescola: str = "") -> None:
+        """Box al prossimo passaggio, con la gomma che si vuole.
+
+        Senza mescola la sceglie il muretto come ha sempre fatto; con la
+        mescola la sceglie il giocatore, ed e' li' che l'undercut smette di
+        essere una cosa che capita e diventa una cosa che si decide.
+        """
         if not self.sim:
             return
         for e in self.sim.entrants:
             if e.driver_id == driver_id and e.status == "running":
-                e.plan.insert(0, (e.lap, self.sim._pick_compound(e)))
-                self.app.toast(f"{e.name}: box al prossimo passaggio.")
+                comp = mescola or self.sim._pick_compound(e)
+                e.box_richiesto = comp
+                self.app.toast(f"{e.name}: box, {C.COMPOUNDS[comp]['label'].lower()}.")
+        self.build()
 
     def _passo_di(self, driver_id: str):
         """Come e' impostato il passo di quella vettura: None = lo fa il muretto."""
@@ -879,7 +1149,15 @@ class WeekendScene(Scene):
     BARRA_H = 134
     # in gara la barra ha una riga in piu' delle prove: quella della power
     # unit, con i modi della batteria e le mappature del motore
-    BARRA_GARA_H = 158
+    # la barra e' cresciuta: sotto ai comandi dell'energia adesso ci sono gli
+    # ordini - la cosa che si guarda di piu' - e il passo con la sosta. Stanno
+    # dentro al pannello della vettura e non in fondo insieme a tutto il resto
+    # perche' si scelgono guardando la gomma e la benzina, che sono li' sopra.
+    # Su una finestra bassa pero' l'altezza la vuole il tabellone, che ha
+    # ventidue righe da mostrare: li' i comandi si stringono su una riga sola.
+    BARRA_GARA_H = 212
+    BARRA_GARA_STRETTA = 186
+    ALTEZZA_DUE_RIGHE = 700
     CRONACA_H = 62
 
     def _draw_race(self, surf) -> None:
@@ -887,7 +1165,7 @@ class WeekendScene(Scene):
         sim = self.sim
         tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
-        barra_y = h - 84 - self.BARRA_GARA_H
+        barra_y = h - 84 - self.barra_h(h)
         # La mappa si prende tutta l'altezza fino alla barra dei comandi, e la
         # cronaca le sta di fianco invece che sotto. Prima erano un pannello
         # largo e schiacciato - due volte e mezza piu' largo che alto, mentre
@@ -909,7 +1187,9 @@ class WeekendScene(Scene):
             self._race_events(surf, pygame.Rect(vista.x, vista.y + alta + 8,
                                                 vista.w, self.CRONACA_H))
         self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
-        self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.BARRA_GARA_H))
+        self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.barra_h(h)))
+        if self.piano_aperto:
+            self._draw_piano(surf)
 
     def _auto_seguita(self):
         """Di chi si guarda l'ultimo giro: la propria macchina messa meglio.
@@ -1131,9 +1411,9 @@ class WeekendScene(Scene):
             pygame.draw.circle(surf, comp["colour"], (x_dot, int(y) + 8), 6)
             pygame.draw.circle(surf, (12, 16, 24), (x_dot, int(y) + 8), 6, 1)
             T.text(surf, f"{int(e.tyre_age)}", (x_age, y + 1), 11, T.DIM_2, align="right")
-            wear = e.compound_state()
-            T.bar(surf, (x_bar, y + 5, 30, 6), wear * 100, 100,
-                  T.OK if wear > 0.9 else (T.WARN if wear > 0.78 else T.BAD))
+            vita = e.vita_gomma()
+            T.bar(surf, (x_bar, y + 5, 30, 6), vita * 100, 100,
+                  T.OK if vita > 0.45 else (T.WARN if vita > 0.18 else T.BAD))
             vista = sim.sector_view(e)
             for k, (val, vivo) in enumerate(vista):
                 col = sim.sector_colour(e, k, val) if val > 0 else None
@@ -1163,6 +1443,59 @@ class WeekendScene(Scene):
             y += rh
 
     # ------------------------------------------------- la barra delle due auto
+    def _draw_piano(self, surf) -> None:
+        """Il foglio strategia: le soste scritte, e da qui si riscrivono.
+
+        E' quello che il muretto ha davanti per tutta la gara e che fino a ieri
+        il giocatore non vedeva: quando si entra, con che gomma, e cosa resta
+        nel camion per farlo.
+        """
+        w, h = surf.get_size()
+        velo = pygame.Surface((w, h), pygame.SRCALPHA)
+        velo.fill((6, 9, 14, 190))
+        surf.blit(velo, (0, 0))
+        r = self.piano_rect(w, h)
+        T.panel(surf, r, T.PANEL_2, radius=12, border=T.ACCENT)
+        e = self._pilota_piano()
+        T.text(surf, "FOGLIO STRATEGIA", (r.x + 16, r.y + 14), 17, T.TEXT, bold=True)
+        if e is None:
+            return
+        sim = self.sim
+        T.text(surf, f"giro {e.lap + 1}/{sim.laps}", (r.right - 16, r.y + 16), 13,
+               T.DIM_2, align="right")
+        y = r.y + 92
+        if not e.plan:
+            T.text(surf, "Nessuna sosta in programma: si va fino in fondo cosi'.",
+                   (r.x + 16, y + 4), 13, T.DIM)
+            y += self.PIANO_RIGA
+        for i, (giro, comp) in enumerate(list(e.plan)[:5]):
+            fatta = giro <= e.lap
+            col = T.WARN if fatta else T.TEXT
+            T.text(surf, f"{i + 1}a sosta", (r.x + 16, y + 4), 13, T.DIM_2)
+            T.text(surf, f"giro {giro}", (r.x + 176 - 12, y + 4), 14, col,
+                   mono=True, align="right")
+            pygame.draw.circle(surf, C.COMPOUNDS[comp]["colour"],
+                               (r.x + 176 + 5 * 29 + 12, y + 12), 6)
+            y += self.PIANO_RIGA
+        # cosa resta nel camion: senza quello il foglio e' un desiderio
+        if e.stock:
+            resta = "  ".join(f"{C.COMPOUNDS[m]['label'][0].upper()}{n}"
+                              for m, n in e.stock.items() if n > 0)
+            T.text(surf, f"nel camion: {resta}", (r.x + 16, r.bottom - 66), 12, T.DIM_2)
+        nota = ("Piano bloccato: il muretto non lo sposta piu' per undercut o "
+                "overcut. Safety car e pioggia restano sue."
+                if e.piano_bloccato else
+                "Il muretto puo' anticipare o allungare queste soste se conviene.")
+        T.text(surf, nota, (r.x + 16, r.bottom - 46), 12, T.DIM, maxw=r.w - 130)
+
+    def due_righe(self, h: int = 0) -> bool:
+        """Se c'e' altezza per tenere ordini e passo su due righe separate."""
+        h = h or self.app.screen.get_size()[1]
+        return h >= self.ALTEZZA_DUE_RIGHE
+
+    def barra_h(self, h: int = 0) -> int:
+        return self.BARRA_GARA_H if self.due_righe(h) else self.BARRA_GARA_STRETTA
+
     def _pannelli_barra(self, w: int, h: int) -> list:
         """Dove finisce il pannello di ognuna delle nostre due macchine."""
         gs = self.gs
@@ -1170,7 +1503,8 @@ class WeekendScene(Scene):
                   if e.team_id == gs.player_team]
         if not nostre:
             return []
-        barra = pygame.Rect(20, h - 84 - self.BARRA_GARA_H, w - 40, self.BARRA_GARA_H)
+        alta = self.barra_h(h)
+        barra = pygame.Rect(20, h - 84 - alta, w - 40, alta)
         larga = (barra.w - 12 * (len(nostre) - 1)) / len(nostre)
         return [(e, pygame.Rect(barra.x + i * (larga + 12), barra.y, larga, barra.h))
                 for i, e in enumerate(nostre)]
@@ -1216,9 +1550,12 @@ class WeekendScene(Scene):
         eta = int(e.tyre_age)
         T.text(surf, f"{comp['label'].upper()}  {eta} {'giro' if eta == 1 else 'giri'}",
                (r.x + 36, y), 12, T.DIM)
-        stato_g = e.compound_state()
-        T.bar(surf, (r.x + 150, y + 4, 74, 7), stato_g * 100, 100,
-              T.OK if stato_g > 0.9 else (T.WARN if stato_g > 0.78 else T.BAD))
+        # la barra dice quanta vita resta alla gomma, non quanto rende: il
+        # rendimento dentro allo stint scende di pochi centesimi e la barra
+        # sarebbe rimasta piena fino alla fine, che e' l'informazione sbagliata
+        vita = e.vita_gomma()
+        T.bar(surf, (r.x + 150, y + 4, 74, 7), vita * 100, 100,
+              T.OK if vita > 0.45 else (T.WARN if vita > 0.18 else T.BAD))
         giri_b = e.fuel / max(0.01, sim.burn_per_lap)
         restano = sim.laps - e.lap
         if getattr(sim, "senza_benzina", False):
@@ -1292,7 +1629,30 @@ class WeekendScene(Scene):
         T.bar(surf, (r.right - 100, y + 4, 44, 9), usura * 100, 100, cu)
         T.text(surf, f"{usura * 100:.0f}%", (r.right - 14, y), 12, cu, mono=True,
                align="right")
-        # ---- riga cinque: la radio
+        # ---- riga cinque: cosa gli e' stato chiesto, e se c'e' uno scambio
+        # in aria. I pulsanti li mette build(), qui va quello che raccontano
+        due = self.due_righe()
+        if due:
+            ox = r.x + 16 + 5 * ((46 if not stretto else 40) + 3) + 6
+            T.text(surf, "PASSO", (r.x + 16, r.y + 158), 11, T.DIM_2, bold=True)
+            T.text(surf, "SOSTA", (ox, r.y + 158), 11, T.DIM_2, bold=True)
+            if e.scambio_a and e.scambio_rifiuto:
+                T.text(surf, "NON CEDE", (ox, r.y + 134), 11, T.BAD, bold=True)
+            elif e.scambio_a:
+                T.text(surf, "CEDE", (ox, r.y + 134), 11, T.ACCENT, bold=True)
+            elif e.tieni_posizioni:
+                T.text(surf, "FERMI", (ox, r.y + 134), 11, T.WARN, bold=True)
+
+        # ---- riga sette: la radio, e quando c'e' una domanda aperta e' lei
+        if e.domanda:
+            resta = e.domanda["scadenza"] - e.lap
+            T.text(surf, e.code, (r.x + 16, r.bottom - 22), 11, T.GOLD, bold=True)
+            larghe = (104 if r.w >= 430 else 88) * 2 + 6
+            T.text(surf, e.domanda["testo"], (r.x + 56, r.bottom - 23), 13, T.TEXT,
+                   maxw=r.w - 92 - larghe)
+            T.text(surf, f"{max(0, resta)}", (r.right - 16 - larghe - 20, r.bottom - 23),
+                   12, T.WARN, mono=True, bold=True)
+            return
         m = sim.radio_of(e.driver_id)
         if m:
             chi = "MURETTO" if m["chi"] == "muretto" else e.code

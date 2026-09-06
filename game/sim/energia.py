@@ -227,8 +227,20 @@ def passo_mappa(sim, e) -> float:
 
 
 def logora_motore(sim, e) -> None:
-    """Segna sul libretto quanto gli si e' chiesto in questo giro."""
+    """Segna sul libretto quanto gli si e' chiesto in questo giro.
+
+    Non conta solo la mappatura: conta anche cosa gli hanno chiesto dal
+    muretto. A un pilota a cui e' stato detto di portare a casa la macchina il
+    motore dura, a uno a cui e' stato detto di andare a prenderlo no.
+    """
+    from .muretto import di as ordine_di
     quota = STRESS_MAPPA.get(e.mappa, 1.0) - 1.0
+    peso = ordine_di(e)["motore"]
+    # attenzione al segno: con la mappa smagrita la quota e' negativa, cioe' il
+    # motore si riposa. Moltiplicarla per un fattore piu' piccolo di uno lo
+    # farebbe riposare di meno, che e' il contrario di quello che si vuole -
+    # per questo sotto zero il fattore si rovescia
+    quota = quota * peso if quota >= 0 else quota / max(0.3, peso)
     e.motore_usura = max(0.0, e.motore_usura + quota / max(10.0, float(sim.laps)))
 
 
