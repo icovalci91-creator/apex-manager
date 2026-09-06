@@ -1200,13 +1200,30 @@ class RaceSim:
                 return True
         return False
 
+    # Per quanti giri resta in piedi un "lascialo passare" che non si e' potuto
+    # eseguire. Se nel frattempo i due si sono persi di vista l'ordine non ha
+    # piu' senso, e tenerlo li' vorrebbe dire uno scambio a sorpresa venti giri
+    # dopo, quando la gara e' un'altra.
+    SCAMBIO_SCADENZA = 8
+
     def _scadenze_radio(self, e: Entrant) -> None:
-        """Una domanda senza risposta scade: da li' decide il muretto."""
+        """Le cose che il muretto ha lasciato in sospeso, e che scadono."""
         if e.domanda and e.lap > e.domanda["scadenza"]:
             e.domanda = None
             e.domanda_cd = e.lap
             self.radio_say(e, "Nessuna risposta dal muro: faccio come mi sembra.",
                            "pilota")
+        if not e.scambio_a:
+            return
+        if e.scambio_rifiuto:
+            # il no si e' sentito, e dopo qualche giro si puo' tornare a
+            # chiedere: le cose in gara cambiano, e a volte cambia anche lui
+            if e.lap >= e.scambio_giro:
+                MU.chiudi_scambio(e)
+            return
+        if e.lap > e.scambio_giro + self.SCAMBIO_SCADENZA:
+            MU.chiudi_scambio(e)
+            self.radio_say(e, "Non me lo trovo piu' dietro, lascio stare.", "pilota")
 
     def rispondi(self, driver_id: str, scelta: str) -> str:
         """La risposta del muretto alla radio. Torna quello che si sente dire."""
