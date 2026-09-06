@@ -78,7 +78,8 @@ class EditorScene(Scene):
             elif E.is_scalar(valore):
                 self.campo = TextInput((px + 16, 210, pw - 32, 40),
                                        "" if valore is None else str(valore),
-                                       on_commit=self.scrivi_testo)
+                                       on_commit=self.scrivi_testo,
+                                       placeholder=etichetta)
                 self.widgets.append(self.campo)
                 self.widgets.append(Button((px + 16, 258, (pw - 44) / 2, 38), "Applica",
                                            lambda: self.scrivi_testo(self.campo.value),

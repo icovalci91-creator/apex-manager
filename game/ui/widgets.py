@@ -1,9 +1,14 @@
 """Widget di base: pulsanti, liste, tabelle, slider, tab, schede."""
 from __future__ import annotations
 
+import sys
+
 import pygame
 
 from . import theme as T
+
+# Nel browser la tastiera non la comanda il gioco: la comanda la pagina.
+IS_WEB = sys.platform == "emscripten"
 
 
 class Widget:
@@ -449,6 +454,27 @@ class TextInput(Widget):
     def focus(self) -> None:
         self.focused = True
         pygame.key.set_repeat(320, 34)
+        # Su un tablet la tastiera di sistema non si apre da sola: il gioco
+        # gira dentro a un canvas, e un canvas non e' un campo di testo, quindi
+        # il browser non ha niente da mettere a fuoco e nessun tasto arriva
+        # mai. Si chiede al browser di aprire lui la casella di scrittura, che
+        # e' l'unica cosa che su iPad fa comparire la tastiera per davvero.
+        if IS_WEB:
+            self._chiedi_al_browser()
+
+    def _chiedi_al_browser(self) -> None:
+        """Fa scrivere il testo al browser, che sa aprire la tastiera."""
+        try:
+            import platform          # iniettato da pygbag, non la stdlib
+            testo = platform.window.prompt(self.placeholder or "Scrivi qui:", self.value)
+        except Exception:
+            return                   # niente browser: si scrive come sempre
+        self.blur()
+        if testo is None:
+            return                   # annullato: si tiene quello che c'era
+        self.value = str(testo)
+        if self.on_commit:
+            self.on_commit(self.value)
 
     def blur(self) -> None:
         self.focused = False
