@@ -54,6 +54,21 @@ GIRI_UNDERCUT = 2.5       # su quanti giri si conta il vantaggio della gomma nuo
 PREZZO_RIENTRO = 0.85     # il giro di uscita con la gomma fredda si paga
 GIRI_BLOCCO_BOX = 2       # da quanti giri si e' dietro allo stesso, per provarci
 COPERTURA_S = 2.0         # entro quanti secondi la sosta di chi insegue e' una minaccia
+
+# La sosta sotto safety car. E' la mossa piu' redditizia di tutta la strategia
+# di gara, ed e' l'unica che non si sceglie: si subisce l'occasione. Con la
+# gara neutralizzata il gruppo si compatta e chi entra ai box perde molto meno
+# di quello che perderebbe a gara lanciata, quindi chi aveva una sosta in
+# programma nel giro di qualche giro la anticipa senza pensarci - quei secondi
+# non tornano piu'. E' anche il motivo per cui una safety car ribalta una gara:
+# non premia chi va forte, premia chi era nella finestra giusta quando e'
+# uscita. Prima nel modello non se ne accorgeva nessuno: su dieci gare, quattro
+# soste su duecentosettanta cadevano sotto safety car per puro caso, contro il
+# venticinque-trenta per cento che si vede in pista.
+PERDITA_SC = 0.55         # quanto costa la sosta con la safety car in pista
+PERDITA_VSC = 0.78        # con la virtual e' meno regalo: rallentano tutti uguale
+FINESTRA_SC = 12          # con la sosta entro tanti giri, si entra adesso
+GOMMA_SC = 0.55           # o comunque se la gomma e' sotto questo stato
 ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
 # E sotto l'acqua stare attaccati e' un'altra cosa ancora: dalla macchina
 # davanti esce un muro di spruzzi e non si vede la staccata. Si perde di piu' e
@@ -374,6 +389,7 @@ class Entrant:
     pit_dietro: str = ""          # e chi aveva dietro
     pit_gap: float = 99.0         # e a quanti secondi era da quello davanti
     ritardi_sosta: int = 0        # quante volte ha gia' allungato lo stint
+    sc_sfruttata: int = -1        # in quale neutralizzazione ha gia' approfittato
     grid: int = 1
     finished_time: float = 0.0
     is_player: bool = False
@@ -422,6 +438,7 @@ class RaceSim:
         self.safety_car = 0.0
         self.sc_laps = 0
         self.vsc = False
+        self.sc_conta = 0
         self.events: list = []
         self.finished = False
         self.classification: list = []
@@ -1087,6 +1104,42 @@ class RaceSim:
         """Se il muretto se ne accorge. Un muretto distratto la sosta la fa quando c'era scritto."""
         return self.rng.random() < 0.30 + 0.0062 * e.strategy_skill
 
+    def _sosta_safety_car(self, e: Entrant) -> str | None:
+        """La sosta che regala la neutralizzazione, se si e' nella finestra giusta.
+
+        Non e' una scelta strategica, e' un'occasione: con il gruppo compattato
+        la sosta costa un terzo di meno, e chi doveva fermarsi entro qualche
+        giro entra adesso perche' quei secondi non tornano. Chi si e' appena
+        fermato guarda e basta, e chi ha la gomma nuova non butta via un treno
+        per niente.
+
+        Una volta sola per neutralizzazione: la seconda sosta sotto la stessa
+        safety car non e' opportunismo, e' un errore.
+        """
+        if self.safety_car <= 0 or e.sc_sfruttata == self.sc_conta:
+            return None
+        if e.lap < 3 or e.lap > self.laps - 3:
+            return None
+        # o la sosta era vicina, o la gomma e' comunque da cambiare
+        vicina = bool(e.plan) and e.plan[0][0] - e.lap <= FINESTRA_SC
+        andata = e.compound_state() < GOMMA_SC
+        if not (vicina or andata):
+            return None
+        comp = e.plan[0][1] if e.plan else self._pick_compound(e)
+        if e.stock and e.stock.get(comp, 0) <= 0:
+            comp = self._pick_compound(e)
+        if comp == e.tyre and not andata:
+            return None
+        # il muretto sveglio se ne accorge subito, quello lento ci pensa e
+        # intanto la corsia box si e' riaperta
+        if not self._vede_la_mossa(e):
+            return None
+        e.sc_sfruttata = self.sc_conta
+        if e.plan and vicina:
+            e.plan.pop(0)
+        self.log(f"{e.name} ne approfitta: sosta con la safety car in pista", "pit")
+        return comp
+
     def _sosta_reattiva(self, e: Entrant) -> str | None:
         """L'undercut: fermarsi un giro prima per uscire davanti a chi non si passa.
 
@@ -1171,30 +1224,40 @@ class RaceSim:
                 return self._vede_la_mossa(e)
         return False
 
+    def _sosta_pianificata(self, e: Entrant, bagnato: bool) -> str | None:
+        """La sosta scritta sul foglio, quando arriva il suo giro.
+
+        E' anche il punto in cui si decide di non farla: se la gomma tiene
+        ancora e chi era davanti si e' gia' fermato, si allunga.
+        """
+        for lap, comp in list(e.plan):
+            if e.lap < lap:
+                continue
+            if not bagnato and self._conviene_overcut(e):
+                # quanti giri la gomma regge ancora prima del gradino
+                resta = int((e.tyre_life - e.tyre_age) / max(0.3, self._wear_rate(e)))
+                ritardo = max(1, min(RITARDO_MAX, resta, self.rng.randint(2, RITARDO_MAX)))
+                e.plan[0] = (min(self.laps - 3, e.lap + ritardo), comp)
+                e.ritardi_sosta += 1
+                self.log(f"{e.name} allunga lo stint: overcut", "pit")
+                return None
+            e.plan.remove((lap, comp))
+            # quando piove il piano dell'asciutto si straccia: il muretto non
+            # rimanda in pista una macchina con le slick sotto l'acqua
+            return None if bagnato else comp
+        return None
+
     def _check_pit(self, e: Entrant) -> None:
         bagnato = self.bagnato > 0.12
-        target = None
-        for lap, comp in list(e.plan):
-            if e.lap >= lap:
-                # l'overcut: il giro della sosta e' arrivato, ma la gomma tiene
-                # ancora e chi era davanti si e' gia' fermato. Si allunga
-                if not bagnato and self._conviene_overcut(e):
-                    # quanti giri la gomma regge ancora prima del gradino
-                    resta = int((e.tyre_life - e.tyre_age) / max(0.3, self._wear_rate(e)))
-                    ritardo = max(1, min(RITARDO_MAX, resta, self.rng.randint(2, RITARDO_MAX)))
-                    e.plan[0] = (min(self.laps - 3, e.lap + ritardo), comp)
-                    e.ritardi_sosta += 1
-                    self.log(f"{e.name} allunga lo stint: overcut", "pit")
-                    return
-                e.plan.remove((lap, comp))
-                # quando piove il piano dell'asciutto si straccia: il muretto
-                # non rimanda in pista una macchina con le slick sotto l'acqua
-                if not bagnato:
-                    target = comp
-                break
+        # l'occasione viene prima di qualunque piano scritto il venerdi': con
+        # la safety car in pista la sosta costa un terzo di meno, e chi era
+        # nella finestra giusta entra adesso
+        target = None if bagnato else self._sosta_safety_car(e)
+        if target is None:
+            target = self._sosta_pianificata(e, bagnato)
         if bagnato:
             e.plan.clear()
-        # e la mossa opposta: la sosta si anticipa quando la gomma nuova
+        # e la mossa in attacco: la sosta si anticipa quando la gomma nuova
         # scavalca chi non si riesce a passare in pista
         if target is None and not bagnato:
             target = self._sosta_reattiva(e)
@@ -1236,7 +1299,12 @@ class RaceSim:
             self.log(f"Sosta lenta per {e.name}!", "warn")
         if self.rng.random() < 0.012 + (100.0 - e.consistency) * 0.0004:
             self._investigate(e, "velocita_box")
-        loss = self.perdita_box * (0.62 if self.safety_car > 0 else 1.0)
+        # sotto safety car il gruppo si compatta e la sosta costa molto meno;
+        # sotto virtual rallentano tutti in proporzione e il regalo e' minore
+        if self.safety_car > 0:
+            loss = self.perdita_box * (PERDITA_VSC if self.vsc else PERDITA_SC)
+        else:
+            loss = self.perdita_box
         # la vettura resta ferma per tutta la durata della sosta mentre gli
         # altri avanzano: e' gia' l'intera perdita di tempo. Toglierle anche
         # la distanza equivalente la farebbe pagare due volte.
@@ -1511,6 +1579,7 @@ class RaceSim:
             vsc = self.rng.random() < 0.45
             self.vsc = vsc
             self.safety_car = self.rng.uniform(120.0, 260.0)
+            self.sc_conta += 1
             self.log("Virtual Safety Car" if vsc else "SAFETY CAR IN PISTA", "sc")
 
     # -------------------------------------------------------------- risultati
