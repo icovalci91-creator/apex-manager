@@ -14,6 +14,23 @@ from .. import config as C
 # chi ha il carico e non ha la potenza vince dove si curva e perde dove si tira.
 #
 # Assetto: ogni voce va da 0 a 100. L'ottimo dipende dalla pista.
+# Quanto costa, e dove, avere una manopola fuori finestra. Sono i canali per
+# cui quell'errore arriva alla fisica: l'aderenza meccanica - che il modello di
+# giro usa per il limite in curva e per la trazione in uscita - e la frenata.
+# Un'altezza da terra sbagliata tocca tutte e due, perche' una macchina che
+# stanca il fondo non tiene in curva e non e' stabile in staccata.
+#
+# I numeri della frenata sono piu' grossi degli altri e non e' un errore: le
+# staccate sono una fetta piccola del giro, quindi per valere i due o tre
+# decimi che valgono in pista devono togliere parecchio dove agiscono. Con la
+# penalita' calibrata come le altre la ripartizione sbagliata costava quattro
+# centesimi, cioe' niente.
+PENA_GRIP_ALTEZZA = 0.030
+PENA_GRIP_RIGIDEZZA = 0.026
+PENA_GRIP_CAMPANATURA = 0.034
+PENA_FRENI_RIPARTIZIONE = 0.190
+PENA_FRENI_ALTEZZA = 0.055
+
 SETUP_KEYS = {
     "wing":        "Carico alare",
     "ride_height": "Altezza da terra",
@@ -233,12 +250,17 @@ class Car:
         # sospensioni e telaio sono simili per tutti, il fondo no. Con la
         # forbice larga di prima un punto di sospensione valeva tre di fondo,
         # che e' il contrario di quello che succede.
-        return (0.981 + 0.060 * base) * self.reg_grip
+        # e quanto l'assetto toglie: campanatura, altezza e rigidezza fuori
+        # finestra si pagano qui, cioe' in curva e in trazione all'uscita
+        return ((0.981 + 0.060 * base) * self.reg_grip
+                * (1.0 - float(getattr(self, "_pena_grip", 0.0))))
 
     @property
     def braking(self) -> float:
         base = (0.70 * self.p("brakes") + 0.30 * self.p("suspension")) / 100.0
-        return (0.790 + 0.300 * base)
+        # la ripartizione sbagliata si paga tutta qui: in staccata, dove una
+        # delle due ruote arriva al limite molto prima dell'altra
+        return (0.790 + 0.300 * base) * (1.0 - float(getattr(self, "_pena_freni", 0.0)))
 
     @property
     def domain_bias(self) -> dict:
@@ -393,22 +415,46 @@ class Car:
             "gearing":     0.5 + 0.9 * t.get("power", 0.5),
             "brake_bias":  0.5 + 1.0 * t.get("braking", 0.5),
         }
-        tot = peso_tot = costo = peso_costo = 0.0
+        tot = peso_tot = 0.0
+        fuori_di = {}
         for k, ideale in opt.items():
             p = pesi.get(k, 1.0)
             fuori = min(1.0, (abs(self.setup.get(k, 50.0) - ideale) / 40.0) ** 1.4)
+            fuori_di[k] = fuori
             tot += p * fuori
             peso_tot += p
-            if k not in ("wing", "gearing"):
-                costo += p * fuori
-                peso_costo += p
         self.setup_quality = max(0.0, 1.0 - tot / max(1e-6, peso_tot))
-        self._setup_cost = costo / max(1e-6, peso_costo)
+        # E adesso il pezzo che conta: dove si paga. Sbagliare l'assetto non
+        # rende la macchina uniformemente piu' lenta, la rende peggiore in un
+        # posto preciso - e' questo che rende l'assetto un compromesso e non
+        # una tassa. La ripartizione di frenata sbagliata blocca una ruota in
+        # staccata e non toglie niente sul dritto; la campanatura sbagliata si
+        # sente in curva e sulla spalla della gomma; altezza e rigidezza si
+        # pagano dove la macchina deve appoggiarsi.
+        #
+        # Prima erano quattro manopole che finivano tutte in un numero solo,
+        # moltiplicato uniformemente su tutto il giro. Il modello di giro
+        # invece ha gia' i canali giusti - limite laterale per assale,
+        # trasferimento di carico, frenata - e adesso ci passano dentro.
+        self._pena_grip = (PENA_GRIP_ALTEZZA * fuori_di.get("ride_height", 0.0)
+                           + PENA_GRIP_RIGIDEZZA * fuori_di.get("stiffness", 0.0)
+                           + PENA_GRIP_CAMPANATURA * fuori_di.get("camber", 0.0))
+        self._pena_freni = (PENA_FRENI_RIPARTIZIONE * fuori_di.get("brake_bias", 0.0)
+                            + PENA_FRENI_ALTEZZA * fuori_di.get("ride_height", 0.0))
+        # e quello che resta e' il fastidio generico: la macchina fuori
+        # finestra e' scomoda, e una macchina scomoda non la si guida al limite
+        self._setup_cost = sum(fuori_di.get(k, 0.0) for k in
+                               ("ride_height", "stiffness", "camber", "brake_bias")) / 4.0
         return self.setup_quality
 
     def apply_setup_effects(self):
-        """Quanto si perde al giro per come e' regolata, da 0 a 1.8 per cento."""
-        return 1.0 - 0.018 * float(getattr(self, "_setup_cost", 0.0))
+        """Quanto si perde al giro per la sola scomodita', da 0 a 0.4 per cento.
+
+        Poco, adesso: il grosso di quello che costa un assetto sbagliato non
+        passa piu' di qui, passa dall'aderenza e dalla frenata, dove si sente
+        nel posto giusto del giro invece che dappertutto.
+        """
+        return 1.0 - 0.004 * float(getattr(self, "_setup_cost", 0.0))
 
     # --------------------------------------------------------------- usura
     def wear(self, amount: float, track) -> None:
