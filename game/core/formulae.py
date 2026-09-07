@@ -322,37 +322,6 @@ def piloti(gs, team) -> list:
     return scelti[:2]
 
 
-def campo(gs, team=None) -> list:
-    """Il campo partenti: le undici squadre, due macchine ognuna."""
-    from . import serie
-    g = stato_griglia(gs)
-    posti = []
-    for nome, liv in g.items():
-        for _ in range(2):
-            # i piloti degli altri sono professionisti veri, non ragazzi: si
-            # muovono attorno al livello normale della serie
-            pilota = gs.rng.gauss(PILOTA_RIF, 5.0)
-            forza = liv + PESO_PILOTA * (pilota - PILOTA_RIF)
-            posti.append(serie.Posto(
-                nome=f"{gs.rng.choice(serie.NOMI)} {gs.rng.choice(serie.COGNOMI)}",
-                forza=forza + gs.rng.gauss(0.0, 0.6), squadra=nome))
-    if team is not None and ha(team):
-        # la nostra squadra prende il posto della piu' debole: la griglia ha
-        # undici squadre e non dodici
-        peggiore = min(g, key=lambda n: g[n])
-        posti = [p for p in posti if p.squadra != peggiore]
-        nostri = piloti(gs, team)
-        for i in range(2):
-            d = nostri[i] if i < len(nostri) else None
-            # chi non sceglie non resta a piedi: il programma ingaggia un
-            # professionista della serie. Fa il suo, e non cresce
-            nome = d.short if d is not None else f"pilota ingaggiato {i + 1}"
-            posti.append(serie.Posto(nome=nome, forza=forza_macchina(gs, team, d),
-                                     squadra=team.fe_nome,
-                                     driver_id=d.id if d is not None else ""))
-    return posti
-
-
 def calendario(gs) -> list:
     """I circuiti su cui si corre questa stagione.
 
@@ -366,80 +335,195 @@ def calendario(gs) -> list:
     return [t for t in piste if int(debutti.get(t.id, 0) or 0) <= gs.season]
 
 
-def corri_stagione(gs, team=None):
-    """Una stagione di Formula E, gara per gara.
+# ------------------------------------------------------------ il campionato
+# Una stagione di Formula E non e' piu' un conto fatto tutto insieme a
+# dicembre: e' un calendario. Le gare che il giocatore corre valgono quelle,
+# quelle che non corre le simula il computer, e la classifica e' una sola. E'
+# la stessa cosa che fa la Formula 1, ed e' l'unico modo perche' vincere un
+# E-Prix serva a qualcosa.
+def nuovo_campionato(gs, team=None) -> dict:
+    """Apre la stagione: il campo partenti, il calendario, la classifica a zero.
 
-    I punti sono quelli del regolamento - venticinque al primo, la pole, il
-    giro veloce fra i primi dieci - e i due formati valgono uguale, come dice
-    il regolamento del 2026/27. Quello che qui non c'e' ancora e' la gara vista
-    da dentro: questa e' la stagione contata, non guardata.
+    Il campo si scrive una volta e resta: sono le stesse ventidue macchine per
+    tutta la stagione, con gli stessi nomi. Prima si inventavano a ogni gara, e
+    il campionato non era il campionato di nessuno.
+
+    Ed e' un campionato solo, non uno per squadra: chiunque abbia un programma -
+    noi o una scuderia del computer - corre in questa griglia e prende il posto
+    di una delle squadre storiche, perche' le macchine sono ventidue e non di
+    piu'.
     """
     from . import serie
-    reg = corrente()
-    tabella = list(reg.get("punti", {}).get("gara", [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]))
-    pole = float(reg.get("punti", {}).get("pole", 3))
-    veloce = float(reg.get("punti", {}).get("giro_veloce", 1))
-    entro = int(reg.get("punti", {}).get("giro_veloce_entro", 10))
-    posti = campo(gs, team)
-    # su quali circuiti si corre, e quante volte: il calendario ha piu' gare
-    # che citta' - meta' sono doppiette - quindi si gira sulle piste che ci
-    # sono finche' le gare non sono finite
+    g = dict(stato_griglia(gs))
+    nostre = [t for t in gs.teams.values() if ha(t)]
+    # ogni programma prende il posto di una squadra della serie, partendo dalla
+    # piu' debole: la griglia resta di undici squadre
+    for _ in nostre:
+        if not g:
+            break
+        del g[min(g, key=lambda k: g[k])]
+    campo = []
+    n = 0
+    for squadra, liv in g.items():
+        for _ in range(2):
+            pilota = gs.rng.gauss(PILOTA_RIF, 5.0)
+            campo.append({
+                "id": f"fe{n}", "nome": f"{gs.rng.choice(serie.NOMI)} "
+                                        f"{gs.rng.choice(serie.COGNOMI)}",
+                "squadra": squadra, "driver_id": "",
+                "forza": round(liv + PESO_PILOTA * (pilota - PILOTA_RIF)
+                               + gs.rng.gauss(0.0, 0.6), 2)})
+            n += 1
+    for t in nostre:
+        loro = piloti(gs, t)
+        for i in range(2):
+            d = loro[i] if i < len(loro) else None
+            campo.append({
+                "id": f"{t.id}{i}",
+                "nome": d.name if d is not None else f"pilota ingaggiato {i + 1}",
+                "squadra": t.fe_nome, "team_id": t.id,
+                "driver_id": d.id if d is not None else "",
+                "forza": round(forza_macchina(gs, t, d), 2)})
     piste = calendario(gs)
-    gare = int(reg.get("gare", 21))
-    giro_piste = [piste[i % len(piste)] for i in range(gare)] if piste else [None] * gare
-    for pista in giro_piste:
-        # in Formula E le macchine sono quasi uguali e le gare sono di gestione:
-        # il rumore e' piu' alto che in Formula 1, ed e' per questo che li' vince
-        # gente diversa quasi ogni domenica. E dipende da dove si corre: a
-        # Londra, dove non si passa, la griglia arriva com'era partita; a
-        # Portland, che e' un rettilineo lungo con la scia, vince chiunque
-        ot = float(pista.traits.get("overtaking", 0.5)) if pista is not None else 0.5
-        rumore = RUMORE_MIN + (RUMORE_MAX - RUMORE_MIN) * ot
-        ordine = sorted(posti, key=lambda p: -(p.forza + gs.rng.gauss(0.0, rumore)))
-        for i, p in enumerate(ordine):
-            if i < len(tabella):
-                p.punti += tabella[i]
-            if i == 0:
-                p.vittorie += 1
-            if i < 3:
-                p.podi += 1
-        # la pole e il giro veloce non vanno sempre a chi vince
-        qualifica = sorted(posti, key=lambda p: -(p.forza + gs.rng.gauss(0.0, 3.4)))
-        qualifica[0].punti += pole
-        veloci = [p for p in ordine[:entro]]
-        if veloci:
-            gs.rng.choice(veloci).punti += veloce
-    classifica = sorted(posti, key=lambda p: (-p.punti, -p.vittorie, -p.podi))
-    return serie.Campionato(serie="formulae", stagione=gs.season, ordine=classifica)
+    gare = int(corrente().get("gare", 21))
+    ids = [piste[i % len(piste)].id for i in range(gare)] if piste else []
+    # meta' del calendario sono gare corte, come nel vero: si alternano
+    formati = ["unleashed" if i % 3 == 2 else "eprix" for i in range(len(ids))]
+    return {"stagione": gs.season, "round": 0, "calendario": ids, "formati": formati,
+            "campo": campo, "punti": {c["id"]: 0.0 for c in campo},
+            "vittorie": {c["id"]: 0 for c in campo},
+            "podi": {c["id"]: 0 for c in campo}, "storia": []}
 
 
-def classifica_squadre(camp) -> list:
+def stato(gs, team=None) -> dict:
+    """Lo stato del campionato in corso, aperto se non c'e' o se e' vecchio."""
+    st = getattr(gs, "fe_stato", None)
+    # il campionato e' uno solo, e va riaperto anche se nel frattempo qualcuno
+    # ha aperto o chiuso un programma: la griglia ha ventidue macchine e chi
+    # entra prende il posto di qualcuno
+    quanti = sum(1 for t in gs.teams.values() if ha(t))
+    if (not st or st.get("stagione") != gs.season
+            or st.get("programmi") != quanti):
+        st = nuovo_campionato(gs)
+        st["programmi"] = quanti
+        gs.fe_stato = st
+    return st
+
+
+def prossima(gs, team=None) -> tuple:
+    """La prossima gara in calendario: (circuito, formato), o (None, "")."""
+    st = stato(gs, team)
+    i = int(st.get("round", 0))
+    cal = st.get("calendario") or []
+    if i >= len(cal):
+        return None, ""
+    piste = {t.id: t for t in getattr(gs, "fe_tracks", []) or []}
+    return piste.get(cal[i]), (st.get("formati") or ["eprix"])[i]
+
+
+def campo_di(gs, team=None) -> list:
+    """Le ventidue macchine di questa stagione, come sono scritte a registro."""
+    return list(stato(gs, team).get("campo") or [])
+
+
+def registra(gs, ordine: list, pole: str = "", veloce: str = "",
+             team=None) -> None:
+    """Segna il risultato di una gara e chiude il round.
+
+    `ordine` sono gli identificativi del campo, dal primo all'ultimo. Vale
+    uguale che la gara sia stata corsa dal giocatore o simulata: la classifica
+    non sa e non deve sapere la differenza.
+    """
+    st = stato(gs, team)
+    reg = corrente().get("punti", {}) or {}
+    tabella = list(reg.get("gara", [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]))
+    for i, chiave in enumerate(ordine):
+        if chiave not in st["punti"]:
+            continue
+        if i < len(tabella):
+            st["punti"][chiave] += tabella[i]
+        if i == 0:
+            st["vittorie"][chiave] += 1
+        if i < 3:
+            st["podi"][chiave] += 1
+    if pole and pole in st["punti"]:
+        st["punti"][pole] += float(reg.get("pole", 3))
+    entro = int(reg.get("giro_veloce_entro", 10))
+    if veloce and veloce in st["punti"] and veloce in ordine[:entro]:
+        st["punti"][veloce] += float(reg.get("giro_veloce", 1))
+    cal = st.get("calendario") or []
+    i = int(st.get("round", 0))
+    st["storia"].append({"round": i + 1, "track": cal[i] if i < len(cal) else "",
+                         "ordine": list(ordine)})
+    st["round"] = i + 1
+
+
+def simula_gara(gs, team=None) -> list:
+    """Una gara che il giocatore non corre: la fa il computer, e conta uguale.
+
+    Il rumore lo decide il circuito, come sempre: a Londra la griglia arriva
+    com'era partita, a Portland vince chiunque.
+    """
+    st = stato(gs, team)
+    pista, _formato = prossima(gs, team)
+    ot = float(pista.traits.get("overtaking", 0.5)) if pista is not None else 0.5
+    rumore = RUMORE_MIN + (RUMORE_MAX - RUMORE_MIN) * ot
+    campo = st["campo"]
+    ordine = sorted(campo, key=lambda c: -(c["forza"] + gs.rng.gauss(0.0, rumore)))
+    quali = sorted(campo, key=lambda c: -(c["forza"] + gs.rng.gauss(0.0, 3.4)))
+    entro = int((corrente().get("punti") or {}).get("giro_veloce_entro", 10))
+    veloce = gs.rng.choice(ordine[:entro])["id"] if ordine else ""
+    chiavi = [c["id"] for c in ordine]
+    registra(gs, chiavi, pole=quali[0]["id"] if quali else "", veloce=veloce, team=team)
+    return chiavi
+
+
+def classifica(gs, team=None) -> list:
+    """La classifica piloti: (riga del campo, punti, vittorie, podi)."""
+    st = stato(gs, team)
+    righe = [(c, st["punti"].get(c["id"], 0.0), st["vittorie"].get(c["id"], 0),
+              st["podi"].get(c["id"], 0)) for c in st["campo"]]
+    righe.sort(key=lambda x: (-x[1], -x[2], -x[3]))
+    return righe
+
+
+def classifica_squadre(gs, team=None) -> list:
     """Il mondiale costruttori: le due macchine di ognuna sommate."""
-    somma: dict = {}
-    for p in camp.ordine:
-        r = somma.setdefault(p.squadra, {"punti": 0.0, "vittorie": 0, "podi": 0})
-        r["punti"] += p.punti
-        r["vittorie"] += p.vittorie
-        r["podi"] += p.podi
-    return sorted(((n, v) for n, v in somma.items()), key=lambda x: -x[1]["punti"])
+    somma = {}
+    for c, punti, vitt, podi in classifica(gs, team):
+        r = somma.setdefault(c["squadra"], {"punti": 0.0, "vittorie": 0, "podi": 0})
+        r["punti"] += punti
+        r["vittorie"] += vitt
+        r["podi"] += podi
+    return sorted(somma.items(), key=lambda x: -x[1]["punti"])
 
 
 def stagione(gs) -> list:
-    """La stagione di Formula E di tutti, e cosa lascia. Ritorna le righe da mostrare."""
+    """Chiude il mondiale di Formula E e ne apre uno nuovo.
+
+    Le gare che il giocatore ha corso sono gia' a registro; quelle che restano
+    le simula il computer adesso. Poi si fanno i conti - quanto e' costato,
+    quanto ha portato, quanto e' cresciuto il programma - e i piloti si portano
+    a casa la stagione come da qualunque altra parte si corra.
+    """
+    from . import serie
     righe = []
     deriva_griglia(gs)
     for team in gs.teams.values():
         if not ha(team):
             continue
-        camp = corri_stagione(gs, team)
-        squadre = classifica_squadre(camp)
+        st = stato(gs, team)
+        # le gare che mancano: chi non e' andato a correrle le vede lo stesso
+        rimaste = len(st.get("calendario") or []) - int(st.get("round", 0))
+        for _ in range(max(0, rimaste)):
+            simula_gara(gs, team)
+        corse = sum(1 for x in st.get("storia", []) if x.get("corsa"))
+        squadre = classifica_squadre(gs, team)
         pos = next((i for i, (n, _) in enumerate(squadre, 1) if n == team.fe_nome), 0)
         team.fe_posizione = pos
-        team.fe_punti = round(next((v["punti"] for n, v in squadre if n == team.fe_nome), 0.0), 1)
+        team.fe_punti = round(next((v["punti"] for n, v in squadre
+                                    if n == team.fe_nome), 0.0), 1)
         vinte = next((v["vittorie"] for n, v in squadre if n == team.fe_nome), 0)
-        if pos == 1:
-            team.fe_titoli = int(getattr(team, "fe_titoli", 0)) + 1
-        # il conto della stagione: quello che e' costato e quello che ha portato
         costo = costo_stagione(gs, team)
         incasso = entrate(gs, team)
         team.add_expense(f"Formula E ({team.fe_nome})", costo, in_cap=False,
@@ -447,20 +531,37 @@ def stagione(gs) -> list:
         team.add_income(f"Formula E: sponsor e montepremi ({team.fe_nome})", incasso,
                         category="formulae")
         passo = sviluppa(gs, team)
-        gs.fe_ultimo = camp
+        dove = f", {corse} corse dal muretto" if corse else ""
         righe.append(f"{team.short} in Formula E: {pos}o su {len(squadre)}, "
-                     f"{team.fe_punti:.0f} punti, {vinte} vittorie. "
+                     f"{team.fe_punti:.0f} punti, {vinte} vittorie{dove}. "
                      f"Bilancio {incasso - costo:+.1f} M$, programma {passo:+.1f}")
-        # e i nostri piloti si portano a casa la stagione, come da qualunque
-        # altra parte si corra. Per un ragazzo del vivaio e' il vero motivo per
-        # mandarcelo: si cresce, ci si fa un nome, e i punti superlicenza della
-        # Formula E valgono quanto quelli della Formula 2
-        from . import serie
+        # e i nostri piloti si portano a casa la stagione: per un ragazzo del
+        # vivaio e' il vero motivo per mandarcelo, perche' i punti superlicenza
+        # della Formula E valgono quanto quelli della Formula 2
+        camp = _campionato_serie(gs, team)
         for d in piloti(gs, team):
             riga = serie.cresci(gs, d, camp, team)
             if riga:
                 righe.append(f"  {riga}")
+        team.fe_gara = 0
+    # la stagione e' chiusa: il prossimo campionato si apre da zero
+    gs.fe_stato = None
     return righe
+
+
+def _campionato_serie(gs, team):
+    """La classifica finale nel formato che il vivaio sa leggere."""
+    from . import serie
+    ordine = []
+    for c, punti, vitt, podi in classifica(gs, team):
+        ordine.append(serie.Posto(nome=c["nome"], forza=c["forza"],
+                                  squadra=c["squadra"], driver_id=c["driver_id"],
+                                  punti=punti, vittorie=vitt, podi=podi))
+    lic = list((serie.scheda("formulae") or {}).get("superlicenza") or [])
+    for i, p in enumerate(ordine):
+        if i < len(lic):
+            p.superlicenza = lic[i]
+    return serie.Campionato(serie="formulae", stagione=gs.season, ordine=ordine)
 
 
 # ------------------------------------------------------- il computer che decide

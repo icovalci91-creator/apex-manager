@@ -457,6 +457,10 @@ class GameState:
             # il livello delle squadre di Formula E: vive fra una stagione e
             # l'altra, come tutto il resto del mondo intorno
             "fe_griglia": getattr(self, "fe_griglia", {}) or {},
+            # il campionato di Formula E in corso: campo partenti, calendario,
+            # classifica e gare gia' corse. Senza questo, riaprendo il gioco a
+            # meta' stagione il mondiale ricomincerebbe da zero
+            "fe_stato": getattr(self, "fe_stato", None),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
                           "month": t.month} for t in self.tracks],
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
@@ -557,6 +561,7 @@ class GameState:
         gs.pu_program = data.get("pu_program", {})
         gs.pu_specs = data.get("pu_specs", {})
         gs.fe_griglia = dict(data.get("fe_griglia") or {})
+        gs.fe_stato = data.get("fe_stato") or None
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         from . import powertrain as _pt

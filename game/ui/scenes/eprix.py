@@ -55,6 +55,10 @@ class EPrixScene(Scene):
         self._etichette = []
         self.result_rows = []
         self.applicato = False
+        # la qualifica si guarda: prima i due gruppi, poi i duelli uno per uno
+        self.fase = "prep"          # prep | quali | gara | fine
+        self.q_passo = 0            # a che punto e' il racconto della qualifica
+        self.q_t = 0.0
         self.build()
 
     # ------------------------------------------------------------ costruzione
@@ -63,6 +67,8 @@ class EPrixScene(Scene):
         self.widgets = []
         if self.sim is None:
             self._build_prep(w, h)
+        elif self.fase == "quali":
+            self._build_quali(w, h)
         elif self.sim.finished:
             self._build_fine(w, h)
         else:
@@ -73,6 +79,16 @@ class EPrixScene(Scene):
                                    "VIA ALL'E-PRIX", self.via, "primary"))
         self.widgets.append(Button((40, h - 74, 140, 34), "Torna indietro",
                                    self.esci, "ghost"))
+
+    def _build_quali(self, w: int, h: int) -> None:
+        finita = self.q_passo >= len(self._passi_quali())
+        if finita:
+            self.widgets.append(Button((w // 2 - 110, h - 74, 220, 40),
+                                       "IN GRIGLIA", self.al_via, "primary"))
+        else:
+            self.widgets.append(Button((w // 2 - 110, h - 74, 220, 40),
+                                       "SALTA LA QUALIFICA", self.salta_quali,
+                                       "ghost"))
 
     def _build_fine(self, w: int, h: int) -> None:
         self.widgets.append(Button((w // 2 - 90, h - 74, 180, 40), "Chiudi",
@@ -97,6 +113,24 @@ class EPrixScene(Scene):
                    tip="La gara la gestisce lui: ordini, passo, Attack Mode, Boost")
         b.active = self.delegato()
         self.widgets.append(b)
+        x += (120 if corta else 176)
+        # gli ordini che riguardano tutte e due le macchine, come in Formula 1
+        vive = [e for e in sim.entrants if e.is_player and e.status == "running"]
+        if len(vive) >= 2:
+            delegata = self.delegato()
+            b = Button((x, by, 90 if corta else 100, 34), "SCAMBIO",
+                       self.chiedi_scambio, "normal",
+                       tip="Lascialo passare: si chiede, non si impone")
+            b.enabled = not delegata
+            self.widgets.append(b)
+            x += (98 if corta else 108)
+            b = Button((x, by, 78 if corta else 152, 34),
+                       "FERMI" if corta else "TIENI LE POSIZIONI",
+                       self.tieni_posizioni, "tab",
+                       tip="Fra le nostre due non si combatte piu'")
+            b.active = all(e.tieni_posizioni for e in vive)
+            b.enabled = not delegata
+            self.widgets.append(b)
         for e, r in self._pannelli(w, h):
             self._comandi(e, r)
 
@@ -179,6 +213,29 @@ class EPrixScene(Scene):
         self.sim = EP.make_eprix(self.gs, self.track, self.gs.player,
                                  formato=self.formato, weather=w)
         self.speed_idx = 2
+        self.fase = "quali"
+        self.q_passo = 0
+        self.q_t = 0.0
+        self.build()
+
+    # ------------------------------------------------------------- la qualifica
+    # Ogni quanto si scopre il duello successivo. E' lo spettacolo della
+    # Formula E: otto piloti a eliminazione diretta, uno contro uno, e chi
+    # perde e' fuori. Guardarlo scorrere tutto insieme non sarebbe guardarlo.
+    PASSO_QUALI = 1.5
+
+    def _passi_quali(self) -> list:
+        """Il racconto della qualifica: prima i gruppi, poi un duello per volta."""
+        if not self.sim or not hasattr(self.sim, "qualifica"):
+            return []
+        return ["gruppi"] + list(self.sim.qualifica["duelli"])
+
+    def salta_quali(self) -> None:
+        self.q_passo = len(self._passi_quali())
+        self.build()
+
+    def al_via(self) -> None:
+        self.fase = "gara"
         self.build()
 
     def esci(self) -> None:
@@ -218,6 +275,34 @@ class EPrixScene(Scene):
         capo = self.gs.player._s("head_of_strategy", "strategy", 60.0)
         self.app.toast(f"Gara al Team Principal. Capo strategia: {capo:.0f}."
                        if acceso else "Il muretto torna a te.")
+        self.build()
+
+    def chiedi_scambio(self) -> None:
+        """"Lascialo passare": si chiede, e poi si vede cosa risponde."""
+        vive = [e for e in self.sim.entrants if e.is_player and e.status == "running"]
+        if len(vive) < 2:
+            return
+        vive.sort(key=lambda e: e.position)
+        davanti, dietro = vive[0], vive[1]
+        risposta = MU.chiedi_scambio(self.sim, davanti, dietro)
+        self.sim.radio_say(davanti, f"Lascia passare {dietro.code}.", "muretto")
+        if risposta:
+            self.sim.radio_say(davanti, risposta, "pilota")
+        self.app.toast(f"{davanti.name}: {risposta}" if risposta else "Ordine dato.")
+        self.build()
+
+    def tieni_posizioni(self) -> None:
+        """Le posizioni sono queste: fra le nostre due non si combatte piu'."""
+        nostre = [e for e in self.sim.entrants if e.is_player]
+        acceso = not all(e.tieni_posizioni for e in nostre if e.status == "running")
+        for e in nostre:
+            e.tieni_posizioni = acceso
+            if acceso:
+                MU.chiudi_scambio(e)
+            self.sim.radio_say(e, "Tenete le posizioni." if acceso
+                               else "Siete liberi di correre.", "muretto")
+        self.app.toast("Ordine di tenere le posizioni." if acceso
+                       else "Piloti liberi di correre.")
         self.build()
 
     def set_ordine(self, driver_id: str, ordine: str) -> None:
@@ -260,7 +345,16 @@ class EPrixScene(Scene):
     # -------------------------------------------------------------------- loop
     def update(self, dt: float) -> None:
         super().update(dt)
-        if not self.sim or self.sim.finished:
+        if not self.sim:
+            return
+        if self.fase == "quali":
+            self.q_t += dt
+            if self.q_t >= self.PASSO_QUALI and self.q_passo < len(self._passi_quali()):
+                self.q_t = 0.0
+                self.q_passo += 1
+                self.build()
+            return
+        if self.sim.finished:
             return
         mult = SPEEDS[self.speed_idx]
         if not mult:
@@ -277,16 +371,32 @@ class EPrixScene(Scene):
             self.build()
 
     def _fine(self) -> None:
-        """La gara e' finita: si segna il risultato e si torna al gestionale."""
+        """La gara e' finita: il risultato entra nel campionato.
+
+        E' il pezzo che mancava. Prima la gara si correva e finiva li': la
+        classifica del mondiale la faceva un conto separato a dicembre, e
+        vincere un E-Prix non serviva a niente. Adesso la gara corsa vale come
+        quelle simulate, con gli stessi punti e nella stessa classifica.
+        """
         if self.applicato:
             return
         self.applicato = True
         sim = self.sim
+        ordine = sim.order()
         self.result_rows = [
             {"pos": i, "code": e.code, "name": e.name, "squadra": e.squadra,
              "status": e.status, "energia": e.carica(), "attack": e.attack_usi,
              "boost": e.boost_fatto}
-            for i, e in enumerate(sim.order(), 1)]
+            for i, e in enumerate(ordine, 1)]
+        # chi ha fatto la pole e chi il giro veloce: sono punti iridati anche
+        # quelli, e vanno segnati come in una gara simulata
+        pole = min(ordine, key=lambda e: e.grid).driver_id if ordine else ""
+        veloce = next((e.driver_id for e in ordine if e.code == sim.best_lap_by), "")
+        FE.registra(self.gs, [e.driver_id for e in ordine], pole=pole,
+                    veloce=veloce, team=self.gs.player)
+        st = FE.stato(self.gs, self.gs.player)
+        if st["storia"]:
+            st["storia"][-1]["corsa"] = True
         self.build()
 
     # ----------------------------------------------------------------- disegno
@@ -295,6 +405,8 @@ class EPrixScene(Scene):
         surf.fill(T.BG)
         if self.sim is None:
             self._draw_prep(surf, w, h)
+        elif self.fase == "quali":
+            self._draw_quali(surf, w, h)
         elif self.sim.finished:
             self._draw_fine(surf, w, h)
         else:
@@ -333,6 +445,81 @@ class EPrixScene(Scene):
             y += 24
         T.paragraph(surf, getattr(self.track, "nota", "") or "", (c.x + 20, y),
                     13, T.DIM, maxw=c.w - 40)
+
+    def _draw_quali(self, surf, w: int, h: int) -> None:
+        """I due gruppi e il tabellone dei duelli, che si riempie da solo."""
+        q = self.sim.qualifica
+        T.text(surf, f"{self.track.gp.upper()} - QUALIFICA", (40, 26), 24, T.TEXT,
+               bold=True)
+        T.text(surf, "Due gruppi, i primi quattro di ognuno passano ai duelli: "
+                     "uno contro uno, chi perde e' fuori.",
+               (40, 58), 13, T.DIM_2, maxw=w - 80)
+        passi = self._passi_quali()
+        fatti = min(self.q_passo, len(passi))
+        top = 92
+        alto = h - top - 100
+        # ---- i due gruppi
+        gw = int((w - 80) * 0.34)
+        for k, tabella in enumerate(q["gruppi"]):
+            c = pygame.Rect(40 + k * (gw // 2 + 8), top, gw // 2, alto)
+            T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+            T.text(surf, f"GRUPPO {chr(65 + k)}", (c.x + 12, c.y + 10), 12,
+                   T.DIM_2, bold=True)
+            if fatti < 1:
+                T.text(surf, "in pista...", (c.x + 12, c.y + 34), 13, T.DIM)
+                continue
+            y = c.y + 32
+            rh = min(22, (c.h - 44) / max(1, len(tabella)))
+            for i, (e, t) in enumerate(tabella, 1):
+                passa = i <= 4
+                col = T.TEXT if e.is_player else (T.DIM if passa else (60, 70, 88))
+                if e.is_player:
+                    T.panel(surf, (c.x + 6, y - 1, c.w - 12, rh - 1), T.PANEL_3,
+                            radius=4)
+                T.text(surf, str(i), (c.x + 26, y), 12,
+                       T.GOLD if passa else T.DIM_2, align="right")
+                T.text(surf, e.code, (c.x + 34, y), 12, col, mono=True,
+                       bold=e.is_player)
+                T.text(surf, f"{t:.3f}", (c.right - 12, y), 12, col, mono=True,
+                       align="right")
+                y += rh
+        # ---- il tabellone dei duelli
+        d = pygame.Rect(40 + gw + 24, top, w - 80 - gw - 24, alto)
+        T.panel(surf, d, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "DUELLI", (d.x + 14, d.y + 10), 12, T.DIM_2, bold=True)
+        fasi = ("quarti", "semifinali", "finale")
+        cw = (d.w - 40) / 3
+        for k, fase in enumerate(fasi):
+            cx = d.x + 20 + k * cw
+            T.text(surf, fase.upper(), (cx, d.y + 34), 11, T.DIM_2, bold=True)
+            miei = [x for x in q["duelli"] if x["fase"] == fase]
+            y = d.y + 56
+            for x in miei:
+                # si scopre solo quello che e' gia' successo
+                visto = (passi.index(x) < fatti) if x in passi else True
+                self._duello(surf, pygame.Rect(int(cx), int(y), int(cw - 16), 46),
+                             x, visto)
+                y += 54
+        if fatti >= len(passi) and q["griglia"]:
+            p = q["griglia"][0]
+            T.text(surf, f"POLE: {p.name} ({p.squadra})", (40, h - 88), 16,
+                   T.GOLD, bold=True)
+
+    def _duello(self, surf, r, x, visto: bool) -> None:
+        """Un duello: i due, i due tempi, e chi e' passato."""
+        T.panel(surf, r, T.PANEL_2, radius=6, border=T.LINE)
+        for k, (chi, tempo) in enumerate(((x["a"], x["ta"]), (x["b"], x["tb"]))):
+            y = r.y + 5 + k * 19
+            vince = visto and x["vince"] == chi.driver_id
+            col = T.OK if vince else (T.DIM if visto else (48, 58, 76))
+            if chi.is_player:
+                col = T.GOLD if not visto else (T.OK if vince else T.WARN)
+            T.text(surf, chi.code, (r.x + 10, y), 12, col, mono=True,
+                   bold=chi.is_player)
+            T.text(surf, chi.squadra, (r.x + 48, y + 1), 11,
+                   T.DIM_2 if visto else (48, 58, 76), maxw=r.w - 120)
+            T.text(surf, f"{tempo:.3f}" if visto else "--.---",
+                   (r.right - 10, y), 12, col, mono=True, align="right")
 
     def _draw_fine(self, surf, w: int, h: int) -> None:
         T.text(surf, f"{self.track.gp.upper()} - RISULTATO", (40, 30), 24, T.TEXT,
@@ -592,6 +779,15 @@ class EPrixScene(Scene):
             T.text(surf, "PASSO", (r.x + 16, r.y + 148), 11, T.DIM_2, bold=True)
         if e.delegato:
             T.text(surf, "TEAM PRINCIPAL", (r.right - 14, r.y + 96), 11, T.ACCENT,
+                   bold=True, align="right")
+        elif e.scambio_a and e.scambio_rifiuto:
+            T.text(surf, "NON CEDE", (r.right - 14, r.y + 96), 11, T.BAD,
+                   bold=True, align="right")
+        elif e.scambio_a:
+            T.text(surf, "CEDE IL POSTO", (r.right - 14, r.y + 96), 11, T.ACCENT,
+                   bold=True, align="right")
+        elif e.tieni_posizioni:
+            T.text(surf, "POSIZIONI FERME", (r.right - 14, r.y + 96), 11, T.WARN,
                    bold=True, align="right")
         # ---- la radio
         if e.domanda:

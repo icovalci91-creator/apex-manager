@@ -413,6 +413,25 @@ tutta a Londra finisce a **1,23 posti** dall'ordine di merito, una corsa tutta a
 **1,89**. È la ragione per cui certe gare di Formula E finiscono nell'ordine di partenza e
 altre le vince il quindicesimo.
 
+#### Il mondiale, gara per gara
+
+La stagione di Formula E **è un calendario, non un conto fatto a dicembre**: ventuno gare, un
+campo partenti scritto una volta e uguale per tutto l'anno, una classifica sola. Le gare che
+corri dal muretto valgono quelle; quelle che non corri le simula il computer, con lo stesso
+punteggio e nella stessa tabella. Nella scheda *Il mondiale* c'è la classifica piloti e
+costruttori; nel calendario, accanto a ogni gara già corsa, c'è chi ha vinto, e un asterisco
+segna quelle che hai corso tu.
+
+Prima non era così, ed era un difetto: potevi vincere un E-Prix e a fine anno il campionato
+veniva risimulato da zero come se non avessi mai guidato.
+
+#### La qualifica a duelli
+
+Si guarda. Prima i due gruppi con i tempi, poi il tabellone a eliminazione diretta che si
+riempie da solo — quarti, semifinali, finale — un duello ogni secondo e mezzo, con i due
+tempi che compaiono quando il duello è finito. È il formato che il pubblico della Formula E
+preferisce, e dal 2026/27 arrivare ai duelli dà punti iridati. Si può saltare.
+
 #### L'E-Prix dal muretto
 
 Da `CORRI L'E-PRIX` la gara si guarda come un gran premio, ma quello che si guarda è un'altra
@@ -439,8 +458,9 @@ cassa quello che gli altri hanno già speso. È il motivo per cui in Formula E l
 dieci volte in una gara.
 
 Il muretto è lo stesso della Formula 1 — gli stessi cinque ordini al pilota, lo stesso passo,
-lo stesso `TEAM PRINCIPAL` per lasciargli tutto — perché è lo stesso mestiere: si guarda cosa
-resta in cassa e si decide chi spende e quando.
+`SCAMBIO` e `TIENI LE POSIZIONI` fra le nostre due, e lo stesso `TEAM PRINCIPAL` per
+lasciargli tutto — perché è lo stesso mestiere: si guarda cosa resta in cassa e si decide chi
+spende e quando.
 
 **Misurato su tutti e dodici i circuiti, tre gare ognuno:** 49 sorpassi a gara (contro i 33
 della Formula 1 — in Formula E se ne contano molti di più, nel Monaco 2023 ne sono stati

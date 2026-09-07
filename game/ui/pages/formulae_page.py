@@ -13,13 +13,13 @@ import pygame
 from ...core import formulae as FE
 from .. import theme as T
 from ..scenes.shell import Page
-from ..widgets import Button, Slider, Toggle, card
+from ..widgets import Button, Slider, Tabs, Toggle, card
 
 
 class FormulaEPage(Page):
     def __init__(self, shell):
         super().__init__(shell)
-        self.tab = 0
+        self.tab = 0     # 0 = il programma, 1 = il mondiale
 
     # ------------------------------------------------------------ costruzione
     def build(self) -> None:
@@ -41,6 +41,16 @@ class FormulaEPage(Page):
             self.widgets.append(self.costruttore)
             return
         self.costruttore = None
+        self.tabs = Tabs((self.left.x + 12, self.left.y - 32, 260, 26),
+                         ("Il programma", "Il mondiale"), on_change=self._switch,
+                         w=126)
+        self.tabs.index = self.tab
+        for i, b in enumerate(self.tabs.buttons):
+            b.active = (i == self.tab)
+        self.widgets.append(self.tabs)
+        if self.tab == 1:
+            self._build_corri()
+            return
         massimo = FE.ingegneri_massimi(self.gs, team)
         self.slider = Slider((self.left.x + 16, self.left.y + 148, self.left.w - 32, 34),
                              "Ingegneri del programma", value=FE.ingegneri(team),
@@ -56,14 +66,24 @@ class FormulaEPage(Page):
                 (self.left.x + 16 + i * (larg + 12), y, larg, 32),
                 self._etichetta_sedile(i), (lambda k=i: self.gira_pilota(k)), "normal"))
         larg2 = (self.left.w - 44) / 2
-        b = Button((self.left.x + 16, self.left.bottom - 58, larg2, 40),
-                   "CORRI L'E-PRIX", self.corri, "primary",
-                   tip="La prossima gara del mondiale, dal muretto")
-        b.enabled = bool(FE.calendario(self.gs))
-        self.widgets.append(b)
+        self._build_corri(larg2)
         self.widgets.append(Button((self.left.x + 28 + larg2, self.left.bottom - 58,
                                     larg2, 40),
                                    "Chiudi il programma", self.chiudi, "danger"))
+
+    def _build_corri(self, larg: float = 0.0) -> None:
+        larg = larg or (self.left.w - 32)
+        pista, _ = FE.prossima(self.gs, self.team)
+        eti = ("CORRI L'E-PRIX" if pista is not None else "STAGIONE FINITA")
+        b = Button((self.left.x + 16, self.left.bottom - 58, larg, 40), eti,
+                   self.corri, "primary",
+                   tip="La prossima gara del mondiale, dal muretto")
+        b.enabled = pista is not None
+        self.widgets.append(b)
+
+    def _switch(self, i: int) -> None:
+        self.tab = i
+        self.shell.build()
 
     def _candidati(self) -> list:
         """Chi puo' guidare li': nessuno, le riserve, i ragazzi del vivaio."""
@@ -122,15 +142,12 @@ class FormulaEPage(Page):
         stagione, cosi' chi corre due E-Prix di fila non li corre nello stesso
         posto.
         """
-        piste = FE.calendario(self.gs)
-        if not piste:
+        pista, formato = FE.prossima(self.gs, self.team)
+        if pista is None:
+            self.app.toast("Il campionato di quest'anno e' finito.")
             return
-        i = int(getattr(self.team, "fe_gara", 0)) % len(piste)
-        self.team.fe_gara = i + 1
-        # meta' del calendario sono gare corte: si alternano, come nel vero
-        formato = "unleashed" if i % 3 == 2 else "eprix"
         from ..scenes.eprix import EPrixScene
-        self.app.push(EPrixScene(self.app, piste[i], formato))
+        self.app.push(EPrixScene(self.app, pista, formato))
 
     # ----------------------------------------------------------------- disegno
     def draw(self, surf) -> None:
@@ -150,11 +167,16 @@ class FormulaEPage(Page):
             nomi = ", ".join(t.gp.replace("E-Prix di ", "") for t in piste)
             T.text(surf, f"{len(piste)} sedi: {nomi}", (r.x + 4, r.y + 72), 12, T.DIM,
                    maxw=r.w - 20)
-        if FE.ha(self.team):
-            self._programma(surf)
-        else:
+        if not FE.ha(self.team):
             self._invito(surf)
-        self._regolamento(surf, self.right)
+        elif self.tab == 1:
+            self._mondiale(surf, self.left)
+        else:
+            self._programma(surf)
+        if FE.ha(self.team) and self.tab == 1:
+            self._calendario(surf, self.right)
+        else:
+            self._regolamento(surf, self.right)
         self.content_h = max(self.left.bottom, self.right.bottom) - r.y + 12
 
     def _invito(self, surf) -> None:
@@ -236,6 +258,84 @@ class FormulaEPage(Page):
         else:
             T.text(surf, "professionisti della serie", (c.right - 16, c.bottom - 128),
                    11, T.DIM, align="right")
+
+    # -------------------------------------------------------------- il mondiale
+    def _mondiale(self, surf, c) -> None:
+        """La classifica: piloti a sinistra, costruttori sotto."""
+        gs, team = self.gs, self.team
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        st = FE.stato(gs, team)
+        corse = int(st.get("round", 0))
+        totali = len(st.get("calendario") or [])
+        dal_muretto = sum(1 for x in st.get("storia", []) if x.get("corsa"))
+        T.text(surf, "CLASSIFICA PILOTI", (c.x + 16, c.y + 12), 14, T.TEXT, bold=True)
+        T.text(surf, f"{corse} gare su {totali}"
+                     + (f", {dal_muretto} corse dal muretto" if dal_muretto else ""),
+               (c.right - 16, c.y + 14), 12, T.DIM_2, align="right")
+        righe = FE.classifica(gs, team)
+        y = c.y + 38
+        rh = min(21, (c.h - 130) / max(1, len(righe)))
+        for i, (r, punti, vitt, podi) in enumerate(righe, 1):
+            mio = r["squadra"] == team.fe_nome
+            if mio:
+                T.panel(surf, (c.x + 8, y - 1, c.w - 16, rh - 1), T.PANEL_3, radius=4)
+            col = T.TEXT if mio else T.DIM
+            T.text(surf, str(i), (c.x + 34, y), 12, T.GOLD if i <= 3 else T.DIM_2,
+                   align="right")
+            T.text(surf, r["nome"], (c.x + 44, y), 12, col, bold=mio, maxw=150)
+            T.text(surf, r["squadra"], (c.x + 200, y + 1), 11, T.DIM_2, maxw=120)
+            if vitt:
+                T.text(surf, f"{vitt}v", (c.right - 74, y), 11, T.GOLD, mono=True,
+                       align="right")
+            T.text(surf, f"{punti:.0f}", (c.right - 16, y), 12, col, mono=True,
+                   align="right", bold=mio)
+            y += rh
+        # e i costruttori, che sono quelli che pagano
+        y = c.bottom - 96
+        T.text(surf, "COSTRUTTORI", (c.x + 16, y), 12, T.DIM_2, bold=True)
+        y += 20
+        for i, (nome, v) in enumerate(FE.classifica_squadre(gs, team)[:4], 1):
+            mio = nome == team.fe_nome
+            T.text(surf, f"{i}. {nome}", (c.x + 16, y), 12,
+                   T.TEXT if mio else T.DIM, bold=mio, maxw=c.w - 90)
+            T.text(surf, f"{v['punti']:.0f}", (c.right - 16, y), 12,
+                   T.TEXT if mio else T.DIM, mono=True, align="right")
+            y += 18
+
+    def _calendario(self, surf, c) -> None:
+        """Il calendario: dove si e' corso, dove si corre, e chi ha vinto."""
+        gs, team = self.gs, self.team
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "CALENDARIO", (c.x + 16, c.y + 12), 14, T.TEXT, bold=True)
+        st = FE.stato(gs, team)
+        cal = st.get("calendario") or []
+        formati = st.get("formati") or []
+        storia = {x["round"]: x for x in st.get("storia", [])}
+        campo = {x["id"]: x for x in st.get("campo") or []}
+        piste = {t.id: t for t in getattr(gs, "fe_tracks", []) or []}
+        y = c.y + 38
+        rh = min(20, (c.h - 60) / max(1, len(cal)))
+        for i, tid in enumerate(cal, 1):
+            t = piste.get(tid)
+            fatta = storia.get(i)
+            nome = (t.gp.replace("E-Prix di ", "") if t is not None else tid)
+            corta = (formati[i - 1] if i - 1 < len(formati) else "eprix") == "unleashed"
+            col = T.DIM if fatta else (60, 70, 88)
+            T.text(surf, str(i), (c.x + 30, y), 11, T.DIM_2, align="right")
+            T.text(surf, nome, (c.x + 40, y), 12, col, maxw=130)
+            if corta:
+                T.text(surf, "SPRINT", (c.x + 178, y + 1), 10, T.ACCENT
+                       if fatta else (60, 70, 88), bold=True)
+            if fatta:
+                primo = campo.get((fatta.get("ordine") or [""])[0], {})
+                mio = primo.get("squadra") == team.fe_nome
+                T.text(surf, primo.get("nome", ""), (c.right - 16, y), 12,
+                       T.GOLD if mio else T.DIM, align="right", maxw=c.w - 250,
+                       bold=mio)
+                if fatta.get("corsa"):
+                    T.text(surf, "*", (c.x + 24, y), 12, T.ACCENT)
+            y += rh
+        T.text(surf, "* corsa dal muretto", (c.x + 16, c.bottom - 26), 11, T.DIM_2)
 
     # ------------------------------------------------------------ il regolamento
     def _regolamento(self, surf, c) -> None:

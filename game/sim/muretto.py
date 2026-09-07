@@ -230,8 +230,11 @@ def voglia_di_obbedire(e, sim) -> float:
         v -= 0.20
     elif e.position <= 6:
         v -= 0.10
-    if sim.laps - e.lap <= 5:
-        v -= 0.15           # a cinque giri dalla fine si discute molto di piu'
+    # a cinque giri dalla fine si discute molto di piu'. Quanti ne mancano lo
+    # sa il campionato: in Formula 1 sono giri contati, in Formula E li dice il
+    # cronometro, e il muretto non ha bisogno di sapere quale dei due e'
+    if _lettura(sim, e)[0] <= 5:
+        v -= 0.15
     return max(0.05, min(0.95, v))
 
 

@@ -364,6 +364,19 @@ class EPrix:
             base *= 0.35
         return max(0.05, base)
 
+    def consumo_riferimento(self, e: Corridore) -> float:
+        """Quanto berrebbe a gara lanciata, che e' il numero su cui si fa il conto.
+
+        Sotto safety car si consuma un terzo, e usare quello per dire di quanti
+        giri si e' avanti farebbe leggere al muretto che ce n'e' d'avanzo per
+        ottanta giri. Il conto si fa sempre sul passo di gara.
+        """
+        vero, self.safety_car = self.safety_car, 0.0
+        try:
+            return self.consumo_di(e)
+        finally:
+            self.safety_car = vero
+
     def margine_energia(self, e: Corridore) -> float:
         """Di quanti giri si e' avanti o indietro sul bisogno.
 
@@ -380,13 +393,15 @@ class EPrix:
         in_cassa = e.energia
         if self.col_boost and not e.boost_fatto:
             in_cassa += self.boost_kwh
-        return in_cassa / max(0.01, self.consumo_di(e)) - restano
+        return in_cassa / max(0.01, self.consumo_riferimento(e)) - restano
 
     def giri_restanti(self, e: Corridore) -> int:
         """Quanti giri mancano, stimati sul tempo che resta."""
         if self.ultimo_giro:
             return 1
-        giro = e.last_lap or e.base_lap
+        # e il giro su cui si conta e' quello di gara, non quello dietro alla
+        # safety car: se no, neutralizzando, il muretto crede che manchi meta'
+        giro = e.base_lap if self.safety_car > 0 else (e.last_lap or e.base_lap)
         return max(1, int(round(self.tempo_restante() / max(20.0, giro))) + 1)
 
     def passo_necessario(self, e: Corridore) -> float:
@@ -688,10 +703,19 @@ class EPrix:
                 dietro.dirty_air = max(0.0, dietro.dirty_air - dt * 1.5)
                 dietro.bloccato_da = ""
                 continue
-            # fra compagni di squadra non si combatte, se il muretto l'ha detto
-            if (davanti.team_id == dietro.team_id and davanti.tieni_posizioni
-                    and dietro.tieni_posizioni):
-                continue
+            if davanti.team_id == dietro.team_id:
+                # "lascialo passare", quando il pilota ha deciso di farlo
+                if MU.scambio_pronto(self, davanti, dietro):
+                    MU.chiudi_scambio(davanti)
+                    davanti.dist, dietro.dist = dietro.dist, davanti.dist
+                    self.log(f"Ordine di squadra: {davanti.code} lascia passare "
+                             f"{dietro.code}", "team")
+                    self.radio_say(davanti, f"Fatto, {dietro.code} e' passato.",
+                                   "pilota")
+                    continue
+                # e "tenete le posizioni": fra le nostre due non si combatte
+                if davanti.tieni_posizioni and dietro.tieni_posizioni:
+                    continue
             dietro.dirty_air = min(1.0, dietro.dirty_air + dt * 0.9)
             if dietro.bloccato_da == davanti.driver_id:
                 pass
@@ -808,6 +832,14 @@ class EPrix:
             e.domanda = None
             e.domanda_cd = e.lap
             self.radio_say(e, "Nessuna risposta: faccio come mi sembra.", "pilota")
+        # uno scambio chiesto e non eseguito non resta li' per sempre
+        if e.scambio_a:
+            if e.scambio_rifiuto and e.lap >= e.scambio_giro:
+                MU.chiudi_scambio(e)
+            elif not e.scambio_rifiuto and e.lap > e.scambio_giro + 6:
+                MU.chiudi_scambio(e)
+                self.radio_say(e, "Non me lo trovo piu' dietro, lascio stare.",
+                               "pilota")
         self._domanda(e, avanti, ga, gd)
         if e.domanda or e.lap < self._radio_cd.get(e.driver_id, -9):
             return
@@ -931,60 +963,40 @@ def _colore(gs, team_id: str, squadra: str):
 def costruisci(gs, track, team=None, formato: str = "eprix") -> list:
     """Il campo partenti di un E-Prix: ventidue macchine, undici squadre.
 
-    Le nostre due sono quelle vere, con i piloti che ci abbiamo messo e il
-    livello del programma; le altre sono le squadre del mondiale, ognuna con il
-    suo livello, che si muove di anno in anno.
+    Non se le inventa qui: sono le stesse ventidue di tutta la stagione, con
+    gli stessi nomi e gli stessi valori, prese dal registro del campionato. E'
+    quello che fa la differenza fra correre una gara e correre un campionato.
     """
-    from ..core import serie
+    from ..ui import theme as _T
     reg = FE.corrente()
     e0 = _kwh_riferimento(reg)
     base = float(getattr(track, "ref_lap", 80.0))
-    griglia = FE.stato_griglia(gs)
     fuori = []
-    n = 1
-    escluse = set()
-    if team is not None and FE.ha(team):
-        escluse.add(min(griglia, key=lambda k: griglia[k]))
-    for squadra, liv in griglia.items():
-        if squadra in escluse:
-            continue
-        for _ in range(2):
-            pilota = gs.rng.gauss(FE.PILOTA_RIF, 5.0)
-            forza = liv + FE.PESO_PILOTA * (pilota - FE.PILOTA_RIF)
-            fuori.append(Corridore(
-                driver_id=f"fe_{squadra}_{n}", team_id=f"fe_{squadra}",
-                code=f"{squadra[:3].upper()}", squadra=squadra,
-                name=f"{gs.rng.choice(serie.NOMI)} {gs.rng.choice(serie.COGNOMI)}",
-                colour=_colore(gs, "", squadra), number=n,
-                base_lap=base + (85.0 - forza) * PILOTA_S,
-                skill=forza, consistency=pilota, racecraft=pilota,
-                aggression=gs.rng.uniform(55, 85), estro=gs.rng.uniform(45, 85),
-                wet_skill=pilota, tyre_skill=pilota, strategy_skill=liv,
-                energia=e0, energia_max=e0))
-            n += 1
-    if team is not None and FE.ha(team):
-        nostri = FE.piloti(gs, team)
-        from ..ui import theme as _T
-        for i in range(2):
-            d = nostri[i] if i < len(nostri) else None
-            forza = FE.forza_macchina(gs, team, d)
-            fuori.append(Corridore(
-                driver_id=d.id if d is not None else f"fe_ing_{i}",
-                team_id=team.id, code=d.code if d is not None else f"IN{i + 1}",
-                squadra=team.fe_nome,
-                name=d.name if d is not None else f"pilota ingaggiato {i + 1}",
-                colour=_T.hex_rgb(team.colour), number=n + i,
-                base_lap=base + (85.0 - forza) * PILOTA_S,
-                skill=forza,
-                consistency=float(getattr(d, "consistency", 78.0)) if d else 76.0,
-                racecraft=float(getattr(d, "racecraft", 78.0)) if d else 74.0,
-                aggression=float(getattr(d, "aggression", 70.0)) if d else 68.0,
-                estro=float(getattr(d, "estro", 60.0)) if d else 58.0,
-                wet_skill=float(getattr(d, "wet_skill", 78.0)) if d else 74.0,
-                tyre_skill=float(getattr(d, "tyre_skill", 78.0)) if d else 74.0,
-                confidence=float(getattr(d, "confidence", 65.0)) if d else 65.0,
-                strategy_skill=float(getattr(team, "strategy_strength", 70.0)),
-                energia=e0, energia_max=e0, is_player=True))
+    for n, c in enumerate(FE.campo_di(gs, team), 1):
+        nostro = team is not None and FE.ha(team) and c["squadra"] == team.fe_nome
+        d = gs.drivers.get(c.get("driver_id") or "")
+        forza = float(c["forza"])
+        colore = _T.hex_rgb(team.colour) if nostro else _colore(gs, "", c["squadra"])
+        codice = (d.code if d is not None
+                  else "".join(w[0] for w in c["nome"].split()[:2]).upper()[:3]
+                  or c["squadra"][:3].upper())
+        fuori.append(Corridore(
+            driver_id=c["id"], team_id=(team.id if nostro else f"fe_{c['squadra']}"),
+            code=codice, squadra=c["squadra"], name=c["nome"], colour=colore, number=n,
+            base_lap=base + (85.0 - forza) * PILOTA_S, skill=forza,
+            consistency=float(getattr(d, "consistency", 78.0)) if d else
+            min(95.0, forza + gs.rng.uniform(-4, 4)),
+            racecraft=float(getattr(d, "racecraft", 78.0)) if d else
+            min(95.0, forza + gs.rng.uniform(-4, 4)),
+            aggression=float(getattr(d, "aggression", 70.0)) if d else
+            gs.rng.uniform(55, 85),
+            estro=float(getattr(d, "estro", 60.0)) if d else gs.rng.uniform(45, 85),
+            wet_skill=float(getattr(d, "wet_skill", 78.0)) if d else forza,
+            tyre_skill=float(getattr(d, "tyre_skill", 78.0)) if d else forza,
+            confidence=float(getattr(d, "confidence", 65.0)) if d else 65.0,
+            strategy_skill=(float(getattr(team, "strategy_strength", 70.0)) if nostro
+                            else forza),
+            energia=e0, energia_max=e0, is_player=nostro))
     return fuori
 
 
@@ -997,17 +1009,20 @@ class Duello:
     fase: str = ""
 
 
-def qualifica(gs, track, corridori: list, rng=None) -> tuple:
+def qualifica(gs, track, corridori: list, rng=None) -> dict:
     """La qualifica di Formula E: due gruppi e poi i duelli.
 
     E' il formato che il pubblico preferisce e che il regolamento non tocca: si
     gira in due gruppi, i primi quattro di ognuno passano, e da li' si va a
     eliminazione diretta uno contro uno fino alla finale. Chi arriva ai duelli
     prende anche punti iridati, dal 2026/27.
+
+    Torna tutto quello che serve a raccontarla, non solo la griglia: i tempi
+    dei due gruppi e ogni singolo duello con i due tempi. E' uno spettacolo, e
+    fino a ieri lo si calcolava di nascosto.
     """
     rng = rng or gs.rng
-    reg = FE.corrente()
-    q = reg.get("qualifica") or {}
+    q = (FE.corrente().get("qualifica") or {})
     passano = int(q.get("passano_per_gruppo", 4))
     ordinati = sorted(corridori, key=lambda e: -e.skill)
     gruppi = [ordinati[0::2], ordinati[1::2]]
@@ -1018,25 +1033,27 @@ def qualifica(gs, track, corridori: list, rng=None) -> tuple:
             tempi[e.driver_id] = (track.ref_lap - (e.skill - 75.0) * PILOTA_S
                                   + rng.gauss(0.0, 0.35))
     ammessi = []
+    tabelle = []
     for g in gruppi:
         g = sorted(g, key=lambda e: tempi[e.driver_id])
+        tabelle.append([(e, tempi[e.driver_id]) for e in g])
         ammessi += g[:passano]
     resto = [e for e in corridori if e not in ammessi]
     resto.sort(key=lambda e: tempi[e.driver_id])
-    # i duelli: quarti, semifinali, finale
     ammessi.sort(key=lambda e: tempi[e.driver_id])
     duelli = []
-    fasi = ["quarti", "semifinali", "finale"]
     turno = list(ammessi)
     perdenti = []
-    for fase in fasi:
+    for fase in ("quarti", "semifinali", "finale"):
         prossimo = []
         for i in range(0, len(turno) - 1, 2):
-            a, b = turno[i], turno[-(i + 1)] if fase == "quarti" else turno[i + 1]
+            a = turno[i]
+            b = turno[-(i + 1)] if fase == "quarti" else turno[i + 1]
             ta = tempi[a.driver_id] + rng.gauss(0.0, 0.30)
             tb = tempi[b.driver_id] + rng.gauss(0.0, 0.30)
             vince, perde = (a, b) if ta <= tb else (b, a)
-            duelli.append(Duello(a=a.code, b=b.code, vince=vince.code, fase=fase))
+            duelli.append({"fase": fase, "a": a, "b": b, "ta": ta, "tb": tb,
+                           "vince": vince.driver_id})
             prossimo.append(vince)
             perdenti.insert(0, perde)
         turno = prossimo
@@ -1046,13 +1063,14 @@ def qualifica(gs, track, corridori: list, rng=None) -> tuple:
     for i, e in enumerate(griglia, 1):
         e.grid = i
         e.dist = -(i - 1) * 7.0
-    return griglia, duelli
+    return {"griglia": griglia, "gruppi": tabelle, "duelli": duelli, "tempi": tempi}
 
 
 def make_eprix(gs, track, team=None, formato: str = "eprix", weather=None) -> EPrix:
     """Prepara un E-Prix: griglia, meteo, energia in cassa."""
     w = weather or Weather.generate(track, gs.rng)
     corridori = costruisci(gs, track, team, formato)
-    griglia, _duelli = qualifica(gs, track, corridori)
-    sim = EPrix(gs, track, griglia, w, formato=formato, rng=gs.rng)
+    q = qualifica(gs, track, corridori)
+    sim = EPrix(gs, track, q["griglia"], w, formato=formato, rng=gs.rng)
+    sim.qualifica = q
     return sim
