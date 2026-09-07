@@ -149,8 +149,19 @@ SOGLIA_SCARSA = 1.15
 FORZA_SORPASSO = 0.45
 # Quanto puo' arrivare a valere un tentativo, per quanto grosso sia il divario
 # di passo: dove non c'e' spazio non si passa nemmeno con due secondi al giro.
-TETTO_BASE = 0.022
-TETTO_PISTA = 0.185
+# La pendenza e' piu' piatta di quanto sembrerebbe naturale, e c'e' un motivo
+# misurato: con una pendenza forte i circuiti da rettilineo lungo scappavano
+# via - Baku a settantaquattro sorpassi contro quarantacinque veri, Monza a
+# sessantaquattro contro quaranta - mentre quelli stretti ne facevano troppo
+# pochi. Nel mondo vero la forbice va da sei a cinquanta, non da otto a
+# settantaquattro: il circuito conta molto, ma non quanto il modello credeva.
+TETTO_BASE = 0.038
+TETTO_PISTA = 0.125
+# E quanto pesa lo spazio per stare affiancati, che e' l'altra meta' della
+# stessa cosa: la parte fissa e' quella che c'e' dappertutto, la parte
+# variabile e' quella che il circuito aggiunge.
+SPAZIO_A = 0.42
+SPAZIO_B = 0.58
 # Quanto pesa, sul tentativo, avere piu' energia in cassa dell'altro. Mezza
 # batteria di vantaggio - che e' tanto, ci vogliono due giri di ricarica per
 # farla - vale poco piu' di un terzo di possibilita' in piu'; e altrettanto in
@@ -1805,7 +1816,7 @@ class RaceSim:
                 p *= 1.0 + RISCOSSA_FORZA * margine
             # e poi ci vuole lo spazio per stare affiancati: e' quello che
             # separa Monte Carlo dal Red Bull Ring a parita' di staccata
-            p *= 0.20 + 0.80 * ot_track
+            p *= SPAZIO_A + SPAZIO_B * ot_track
             p *= 0.70 + 0.60 * (behind.racecraft / 100.0)
             p *= 0.85 + 0.35 * (behind.aggression / 100.0)
             p /= max(0.60, 0.65 + 0.55 * (ahead.racecraft / 100.0))
