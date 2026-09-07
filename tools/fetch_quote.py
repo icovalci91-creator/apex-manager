@@ -293,7 +293,7 @@ def main() -> None:
 
     dati = json.loads(TRACKS.read_text(encoding="utf-8"))
     tutti = []
-    for pool in ("tracks", "candidates", "private"):
+    for pool in ("tracks", "candidates", "private", "formulae"):
         tutti += [(pool, t) for t in dati.get(pool, [])]
 
     fonti = sorgenti(args.fonte)

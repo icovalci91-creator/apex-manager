@@ -376,11 +376,23 @@ di tenerlo aperto anche negli anni in cui non vince. Un costruttore paga l'ingre
 perché la casa madre ci mette la sua parte: un programma elettrico è quello che il consiglio
 vuole vedere.
 
-**Chi guida.** Se non scegli, il programma ingaggia due professionisti della serie: fanno il
-loro e non crescono. Se ci metti un ragazzo del vivaio paghi in risultati — contro gente che
-viene dalla Formula 1 un diciannovenne finisce a metà gruppo — ma quello **cresce**, si fa un
-nome, e i **punti superlicenza della Formula E valgono quanto quelli della Formula 2**: chi
-vince il mondiale elettrico ha il permesso di guidare in Formula 1.
+**Chi guida, e cosa costa.** Nella scheda *I piloti* c'è il mercato della serie:
+professionisti veri, gente che dalla Formula 1 ci è passata o ci è arrivata vicino, dai 0,35
+ai 2,6 M$ a stagione. E qui sta il punto: **nel tetto della Formula E gli ingaggi ci stanno
+dentro** — lo dice il regolamento finanziario — quindi due buoni piloti fanno scendere il
+massimo di ingegneri che puoi tenere da 90 a 64. Un campione sono ventitré ingegneri che non
+assumi.
+
+Se non scegli, il programma ingaggia due professionisti qualunque: fanno il loro e non
+crescono. Se ci metti un ragazzo del vivaio **non pesa sul tetto** e paghi in risultati —
+contro gente che viene dalla Formula 1 un diciannovenne finisce a metà gruppo — ma quello
+**cresce**, si fa un nome, e i **punti superlicenza della Formula E valgono quanto quelli
+della Formula 2**: chi vince il mondiale elettrico ha il permesso di guidare in Formula 1.
+
+Lo sviluppo del propulsore di chi se lo costruisce invece **sta fuori dal tetto della
+squadra**: ha un budget suo, venticinque milioni su due stagioni, ed è un conto della casa e
+non della squadra. È il motivo per cui un costruttore può permettersi sia gli ingegneri sia i
+piloti.
 
 Nella griglia ci sono i costruttori veri della GEN4 — Porsche, Jaguar, Nissan, Stellantis,
 Lola, Citroën, Mahindra, Opel — e ognuno ha un livello che si muove di anno in anno: chi
@@ -468,6 +480,39 @@ contati 116 sullo stesso tracciato dove un gran premio ne produce cinque), 1,3
 neutralizzazioni, 1,6 ritiri, e tutti al traguardo con **l'1,8% di batteria**, che è
 esattamente come finiscono le gare vere. Il Pit Boost lo fanno 21-22 macchine su 22, e
 l'Attack Mode si spende quasi tutto.
+
+### Il mondiale endurance
+
+Il terzo campionato della casa, e il più caro. Stessa struttura della Formula E — un programma
+che si apre accanto alla Formula 1, con la sua gente e il suo bilancio — ma quello che ci si
+gioca è un'altra cosa, e viene tutto da una riga: **qui le gare durano da sei a ventiquattro
+ore**. I regolamenti stanno in `data/wec.json`.
+
+- **Non si vince col giro secco, si vince arrivando.** Il *Balance of Performance* livella le
+  vetture gara per gara, quindi la velocità pura conta poco: quello che resta è quanto la
+  macchina dura, quanto consuma, e quanto sono bravi quelli che la rimettono insieme alle tre
+  di notte. Le ventiquattro ore mettono l'affidabilità alla prova **tre volte**: una macchina
+  fragile non le finisce.
+- **Non c'è un tetto di spesa.** C'è un mercato, e i numeri sono grossi in tutte e due le
+  direzioni — è il contrario esatto della Formula E, dove il tetto protegge anche chi va piano.
+- **Due modi di esserci.** Una **Hypercar** costa 28 M$ di struttura più gli ingegneri (i
+  trenta-quaranta milioni a stagione della categoria vera) ed è il posto dove si vince Le
+  Mans; una **LMGT3** ne costa un quinto, insegna la metà, ma ti mette in griglia lo stesso.
+- **Una gara vale più del campionato.** Le Mans paga una volta e mezza in punti, e chi la
+  vince firma contratti che ripagano la stagione — nel modello vale il 45% di sponsor in più
+  per un anno, e tre punti e mezzo di reputazione.
+
+**Cosa torna in Formula 1.** È il motivo vero per farlo, e non è velocità: un gran premio dura
+un'ora e mezza, e in un'ora e mezza non scopri cosa si rompe. L'endurance insegna
+**affidabilità** (nel motore di chi se lo costruisce, nella meccanica di chi lo compra),
+**efficienza** (nel motore) e **la squadra ai box** — chi cambia quattro gomme e mezza fiancata
+di notte lo fa anche di domenica pomeriggio. Quanto ne arriva dipende dalla classe, da quanto
+è grosso il programma e da come è andato.
+
+Misurato su otto stagioni: si parte ultimi e si risale in cinque o sei anni. Una Hypercar
+brucia **21 M$ l'anno** finché è in fondo, va vicino al pareggio quando arriva sul podio, e
+guadagna solo vincendo Le Mans — che è esattamente il conto che fanno le case vere. Una LMGT3
+perde 4 M$ all'inizio e ne guadagna 4 quando vince.
 
 ### Le gomme del weekend
 
@@ -1951,14 +1996,15 @@ game/config.py       costanti fisiche, gomme, componenti, strutture
 game/model/          track (geometria + modello di giro), car, people, team
 game/core/           state (mondo e salvataggi), economy, development,
                      powertrain, engineering, market, rules, season,
-                     serie (le categorie minori), formulae (il mondiale elettrico)
+                     serie (le categorie minori), formulae (il mondiale
+                     elettrico), wec (il mondiale endurance)
 game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
                      muretto (ordini al pilota e ordini di squadra),
                      eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
-data/                database JSON (regulations.json e formulae.json sono i due
-                     regolamenti: Formula 1 e Formula E)
+data/                database JSON (regulations.json, formulae.json e wec.json
+                     sono i tre regolamenti: Formula 1, Formula E, endurance)
 saves/               salvataggi
 ```
 

@@ -82,6 +82,16 @@ class Team:
     fe_posizione: int = 0        # come e' finito il mondiale costruttori
     fe_titoli: int = 0
     fe_gara: int = 0             # a che punto del calendario si e' arrivati
+    # Il mondiale endurance: il terzo campionato, e il piu' caro. Non ha un
+    # tetto di spesa, e quello che lascia non e' velocita': e' roba che dura
+    wec_nome: str = ""
+    wec_classe: str = ""         # hypercar | lmgt3
+    wec_ingegneri: int = 0
+    wec_livello: float = 0.0
+    wec_piloti: list = field(default_factory=list)   # tre per macchina
+    wec_punti: float = 0.0
+    wec_posizione: int = 0
+    wec_lemans: int = 0          # ha vinto Le Mans l'ultima stagione?
     deals: list = field(default_factory=list)    # accordi commerciali firmati
     ledger: list = field(default_factory=list)   # movimenti datati
     cur_season: int = 0                          # quando siamo, per datare i movimenti

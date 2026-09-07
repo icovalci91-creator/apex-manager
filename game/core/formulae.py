@@ -110,27 +110,49 @@ def costo_stagione(gs, team) -> float:
     """
     if not ha(team):
         return 0.0
-    fisso = GESTIONE_BASE
-    gente = ingegneri(team) * COSTO_INGEGNERE
-    if getattr(team, "fe_costruttore", False):
-        pu = COSTRUTTORE_COSTO
-    else:
-        pu = float(soldi().get("prezzo_powertrain_cliente_meur", 0.42)) * cambio() * 2
-    return round(fisso + gente + pu, 2)
+    return round(spesa_nel_tetto(gs, team) + fuori_tetto(team), 2)
+
+
+def spesa_nel_tetto(gs, team) -> float:
+    """Quanto di quella spesa conta contro il tetto della serie.
+
+    Il regolamento finanziario della Formula E mette sotto tetto la squadra -
+    struttura, gente, propulsore comprato a listino e gli ingaggi dei piloti,
+    che qui ci stanno dentro. Non ci mette lo sviluppo del propulsore di chi se
+    lo costruisce: quello ha un tetto suo, venticinque milioni su due stagioni,
+    ed e' un budget della casa e non della squadra.
+    """
+    if not ha(team):
+        return 0.0
+    listino = float(soldi().get("prezzo_powertrain_cliente_meur", 0.42)) * cambio() * 2
+    return round(GESTIONE_BASE + ingegneri(team) * COSTO_INGEGNERE + listino
+                 + monte_ingaggi(gs, team), 2)
+
+
+def fuori_tetto(team) -> float:
+    """Lo sviluppo del propulsore di chi se lo costruisce: budget della casa."""
+    if not ha(team) or not getattr(team, "fe_costruttore", False):
+        return 0.0
+    listino = float(soldi().get("prezzo_powertrain_cliente_meur", 0.42)) * cambio() * 2
+    return round(max(0.0, COSTRUTTORE_COSTO - listino), 2)
 
 
 def dentro_il_tetto(gs, team) -> tuple:
     """Se la spesa programmata sta dentro al tetto della serie."""
-    spesa = costo_stagione(gs, team)
+    spesa = spesa_nel_tetto(gs, team)
     t = tetto(gs)
     if spesa <= t:
         return True, f"{spesa:.1f} di {t:.1f} M$ di tetto"
-    return False, f"{spesa:.1f} M$ contro un tetto di {t:.1f}: la FIA non lo accetta"
+    # e quanto bisognerebbe tagliare per starci: dirlo e' meta' del lavoro
+    quanti = int((spesa - t) / COSTO_INGEGNERE) + 1
+    return False, (f"{spesa:.1f} M$ contro un tetto di {t:.1f}: la FIA non lo "
+                   f"accetta. Servirebbe togliere {quanti} ingegneri.")
 
 
 def ingegneri_massimi(gs, team) -> int:
     """Quanti se ne possono tenere restando dentro al tetto."""
-    resto = tetto(gs) - (costo_stagione(gs, team) - ingegneri(team) * COSTO_INGEGNERE)
+    resto = tetto(gs) - (spesa_nel_tetto(gs, team)
+                        - ingegneri(team) * COSTO_INGEGNERE)
     return max(INGEGNERI_MIN, min(INGEGNERI_MAX, int(resto / COSTO_INGEGNERE)))
 
 
@@ -544,6 +566,26 @@ def stagione(gs) -> list:
             if riga:
                 righe.append(f"  {riga}")
         team.fe_gara = 0
+    # i contratti scaduti liberano il pilota, e il mercato si rifornisce: e'
+    # un giro piccolo, dieci nomi, ma senza di quello dopo tre stagioni non
+    # resterebbe piu' nessuno da ingaggiare
+    for d in list(gs.drivers.values()):
+        if getattr(d, "seat", "") != "formulae":
+            continue
+        d.age += 1
+        if d.age > ETA_FE[1] + 2:
+            gs.drivers.pop(d.id, None)
+            for t in gs.teams.values():
+                if d.id in (getattr(t, "fe_piloti", None) or []):
+                    t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+            continue
+        if d.team and d.contract_until <= gs.season:
+            d.team = None
+            for t in gs.teams.values():
+                if d.id in (getattr(t, "fe_piloti", None) or []):
+                    t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+        d.salary = ingaggio_di(d.overall, d.age)
+    mercato(gs)
     # la stagione e' chiusa: il prossimo campionato si apre da zero
     gs.fe_stato = None
     return righe
@@ -562,6 +604,126 @@ def _campionato_serie(gs, team):
         if i < len(lic):
             p.superlicenza = lic[i]
     return serie.Campionato(serie="formulae", stagione=gs.season, ordine=ordine)
+
+
+# ----------------------------------------------------------- i piloti del giro
+# Chi guida in Formula E non e' un ragazzo: e' gente che dalla Formula 1 ci e'
+# passata, o ci e' arrivata vicino, e che li' ha trovato il suo posto. Sono
+# professionisti veri, hanno un ingaggio, e quell'ingaggio sta dentro al tetto
+# di spesa della serie insieme a tutto il resto - stipendi compresi, dice il
+# regolamento finanziario. Ed e' proprio quello a renderlo una scelta: un
+# campione da due milioni sono ventitre ingegneri che non assumi.
+PILOTI_LIBERI = 10         # quanti ne gira il mercato ogni stagione
+ETA_FE = (23, 39)
+INGAGGIO_MIN = 0.35
+INGAGGIO_MAX = 2.60
+
+
+def ingaggio_di(forza: float, eta: int) -> float:
+    """Quanto chiede un pilota di Formula E, in milioni.
+
+    La forbice e' quella vera della serie: si va da chi corre per farsi vedere
+    a chi ha vinto un mondiale e se lo fa pagare. Non e' la Formula 1, dove il
+    primo prende quaranta volte l'ultimo.
+    """
+    q = max(0.0, min(1.0, (forza - 62.0) / 22.0))
+    prezzo = INGAGGIO_MIN + (INGAGGIO_MAX - INGAGGIO_MIN) * q ** 1.7
+    # chi e' a fine carriera costa meno di quanto varrebbe, e lo sa
+    if eta >= 36:
+        prezzo *= 0.82
+    return round(prezzo, 2)
+
+
+def crea_professionisti(gs, quanti: int = PILOTI_LIBERI) -> list:
+    """Mette sul mercato i piloti che corrono in Formula E.
+
+    Non sono nel vivaio di nessuno e non arrivano dalla scala: sono gente che
+    quel mestiere lo fa gia'. Chi li prende ha una macchina competitiva subito,
+    e paga; chi ci mette un ragazzo paga in risultati ma cresce qualcuno.
+    """
+    from ..model.people import Driver
+    from .state import _load
+    pool = _load("staff.json")["name_pool"]
+    fuori = []
+    for _ in range(quanti):
+        first = gs.rng.choice(pool["first"])
+        last = gs.rng.choice(pool["last"])
+        base = gs.rng.gauss(PILOTA_RIF, 4.6)
+        eta = gs.rng.randint(*ETA_FE)
+        d = Driver(
+            id=f"fe_{last.lower()}{gs.rng.randrange(100, 999)}", first=first, last=last,
+            nat=gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL",
+                               "CH", "PT", "NZ"]),
+            age=eta, number=gs.rng.randint(2, 99), team=None,
+            pace=base + gs.rng.uniform(-2, 3), racecraft=base + gs.rng.uniform(-1, 5),
+            consistency=base + gs.rng.uniform(-3, 4),
+            # in Formula E la gestione e' meta' del mestiere, e questi la sanno
+            tyre_mgmt=base + gs.rng.uniform(1, 7),
+            wet=base + gs.rng.uniform(-3, 4), feedback=base + gs.rng.uniform(-2, 5),
+            aggression=gs.rng.uniform(58, 88), stamina=gs.rng.uniform(78, 94),
+            estro=gs.rng.uniform(50, 92),
+            potential=min(94.0, base + max(0.0, (32 - eta) * 0.5)),
+            marketability=gs.rng.uniform(30, 70), salary=0.0,
+            contract_until=gs.season)
+        d.salary = ingaggio_di(d.overall, eta)
+        d.seat = "formulae"
+        gs.drivers[d.id] = d
+        fuori.append(d)
+    return fuori
+
+
+def liberi(gs) -> list:
+    """I piloti di Formula E senza una squadra, dal piu' forte."""
+    quali = [d for d in gs.drivers.values()
+             if getattr(d, "seat", "") == "formulae" and not d.team]
+    quali.sort(key=lambda d: -d.overall)
+    return quali
+
+
+def mercato(gs) -> list:
+    """Il mercato della serie: se e' vuoto, lo si riempie."""
+    if len(liberi(gs)) < 4:
+        crea_professionisti(gs, PILOTI_LIBERI - len(liberi(gs)))
+    return liberi(gs)
+
+
+def monte_ingaggi(gs, team) -> float:
+    """Quanto pesano, sul tetto della serie, i piloti che abbiamo messo li'."""
+    return round(sum(d.salary for d in piloti(gs, team)), 2)
+
+
+def ingaggia(gs, team, d, posto: int) -> str:
+    """Mette un pilota su una delle due macchine, se il tetto lo permette."""
+    if not ha(team):
+        return "Non c'e' nessun programma di Formula E."
+    ids = list(getattr(team, "fe_piloti", []) or [])
+    while len(ids) < 2:
+        ids.append("")
+    prima = ids[posto]
+    ids[posto] = d.id
+    team.fe_piloti = ids
+    dentro, perche = dentro_il_tetto(gs, team)
+    if not dentro:
+        ids[posto] = prima            # non ci sta: si torna indietro
+        team.fe_piloti = ids
+        return f"Con {d.short} si sfonda il tetto della serie: {perche}"
+    if getattr(d, "seat", "") == "formulae":
+        d.team = team.id
+        d.contract_until = gs.season + gs.rng.randint(1, 3)
+    return f"{d.name} guidera' per {team.fe_nome}: {d.salary:.2f} M$ a stagione."
+
+
+def libera(gs, team, posto: int) -> str:
+    """Toglie il pilota da quel sedile: ci va un professionista qualunque."""
+    ids = list(getattr(team, "fe_piloti", []) or [])
+    while len(ids) < 2:
+        ids.append("")
+    vecchio = gs.drivers.get(ids[posto] or "")
+    ids[posto] = ""
+    team.fe_piloti = ids
+    if vecchio is not None and getattr(vecchio, "seat", "") == "formulae":
+        vecchio.team = None
+    return "Sedile libero: ci va un professionista ingaggiato dalla serie."
 
 
 # ------------------------------------------------------- il computer che decide
@@ -608,9 +770,47 @@ def _ai_gestisci(gs, team) -> list:
     if conto < CHIUDE_SOTTO and respiro < 10.0:
         righe.append(chiudi(gs, team) + " Non si reggeva piu'.")
         return righe
+    # i sedili: un professionista della serie vale piu' di un ingaggiato
+    # qualunque, e chi ha spazio sotto il tetto se lo prende
+    righe += _ai_piloti(gs, team)
+    n = ingegneri(team)
+    massimo = ingegneri_massimi(gs, team)
     # chi ha respiro cresce fino al tetto della serie, chi non ce l'ha taglia
     if respiro > 18.0 and n < massimo:
         team.fe_ingegneri = min(massimo, n + INGEGNERI_PASSO)
-    elif conto < -3.0 and n > INGEGNERI_MIN:
-        team.fe_ingegneri = max(INGEGNERI_MIN, n - INGEGNERI_PASSO)
+    elif (conto < -3.0 or n > massimo) and n > INGEGNERI_MIN:
+        team.fe_ingegneri = max(INGEGNERI_MIN, min(massimo,
+                                                   n - INGEGNERI_PASSO))
+    return righe
+
+
+def _ai_piloti(gs, team) -> list:
+    """Il computer riempie i sedili vuoti, se il tetto glielo permette.
+
+    Prima si guarda in casa - una riserva o un ragazzo del vivaio non costa
+    niente al tetto della serie - e poi si va sul mercato, dove pero' ogni
+    milione speso su un pilota e' un milione tolto agli ingegneri.
+    """
+    righe = []
+    ids = list(getattr(team, "fe_piloti", []) or [])
+    while len(ids) < 2:
+        ids.append("")
+    team.fe_piloti = ids
+    for i in range(2):
+        if ids[i] and ids[i] in gs.drivers:
+            continue
+        spazio = tetto(gs) - spesa_nel_tetto(gs, team)
+        adatti = [d for d in liberi(gs) if d.salary <= spazio - 0.4]
+        if not adatti:
+            continue
+        # chi ha un muretto bravo prende il migliore che si puo' permettere,
+        # chi non ce l'ha prende quello che gli capita
+        bravura = min(1.0, max(0.0, (team.strategy_strength - 55.0) / 40.0))
+        k = 0 if gs.rng.random() < 0.35 + 0.5 * bravura else gs.rng.randrange(
+            min(3, len(adatti)))
+        d = adatti[k]
+        detto = ingaggia(gs, team, d, i)
+        if d.team == team.id:
+            righe.append(f"{team.short}: {d.name} in Formula E "
+                         f"({d.salary:.2f} M$).")
     return righe

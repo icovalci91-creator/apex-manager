@@ -41,14 +41,17 @@ class FormulaEPage(Page):
             self.widgets.append(self.costruttore)
             return
         self.costruttore = None
-        self.tabs = Tabs((self.left.x + 12, self.left.y - 32, 260, 26),
-                         ("Il programma", "Il mondiale"), on_change=self._switch,
-                         w=126)
+        self.tabs = Tabs((self.left.x + 12, self.left.y - 32, 396, 26),
+                         ("Il programma", "I piloti", "Il mondiale"),
+                         on_change=self._switch, w=128)
         self.tabs.index = self.tab
         for i, b in enumerate(self.tabs.buttons):
             b.active = (i == self.tab)
         self.widgets.append(self.tabs)
         if self.tab == 1:
+            self._build_piloti()
+            return
+        if self.tab == 2:
             self._build_corri()
             return
         massimo = FE.ingegneri_massimi(self.gs, team)
@@ -170,13 +173,17 @@ class FormulaEPage(Page):
         if not FE.ha(self.team):
             self._invito(surf)
         elif self.tab == 1:
+            self._sedili(surf, self.left)
+        elif self.tab == 2:
             self._mondiale(surf, self.left)
         else:
             self._programma(surf)
-        if FE.ha(self.team) and self.tab == 1:
-            self._calendario(surf, self.right)
-        else:
+        if not FE.ha(self.team) or self.tab == 0:
             self._regolamento(surf, self.right)
+        elif self.tab == 1:
+            self._mercato(surf, self.right)
+        else:
+            self._calendario(surf, self.right)
         self.content_h = max(self.left.bottom, self.right.bottom) - r.y + 12
 
     def _invito(self, surf) -> None:
@@ -258,6 +265,117 @@ class FormulaEPage(Page):
         else:
             T.text(surf, "professionisti della serie", (c.right - 16, c.bottom - 128),
                    11, T.DIM, align="right")
+
+    # ---------------------------------------------------------------- i piloti
+    def _build_piloti(self) -> None:
+        """I due sedili a sinistra, il mercato della serie a destra."""
+        gs, team = self.gs, self.team
+        larg = (self.left.w - 44) / 2
+        for i in range(2):
+            self.widgets.append(Button(
+                (self.left.x + 16 + i * (larg + 12), self.left.y + 150, larg, 32),
+                "LIBERA IL SEDILE", (lambda k=i: self.libera(k)), "ghost"))
+        self.sel_btn = []
+        c = self.right
+        y = c.y + 44
+        for d in FE.mercato(gs)[:9]:
+            for i in range(2):
+                b = Button((c.right - 16 - (2 - i) * 46, y, 42, 22),
+                           f"M{i + 1}", (lambda dd=d, k=i: self.firma(dd, k)),
+                           "normal", tip=f"Metti {d.short} sulla macchina {i + 1}")
+                b.enabled = d.salary <= (FE.tetto(gs) - FE.spesa_nel_tetto(gs, team)
+                                         + self._costo_sedile(i)) 
+                self.widgets.append(b)
+            y += 26
+        self._build_corri()
+
+    def _costo_sedile(self, i: int) -> float:
+        """Quanto costa adesso chi occupa quel sedile: liberandolo, si recupera."""
+        ids = list(getattr(self.team, "fe_piloti", []) or [])
+        d = self.gs.drivers.get(ids[i] if i < len(ids) else "")
+        return float(getattr(d, "salary", 0.0)) if d is not None else 0.0
+
+    def firma(self, d, posto: int) -> None:
+        self.app.toast(FE.ingaggia(self.gs, self.team, d, posto))
+        self.shell.build()
+
+    def libera(self, posto: int) -> None:
+        self.app.toast(FE.libera(self.gs, self.team, posto))
+        self.shell.build()
+
+    def _sedili(self, surf, c) -> None:
+        """Chi guida le nostre due macchine, e cosa costa al tetto."""
+        gs, team = self.gs, self.team
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "LE NOSTRE DUE MACCHINE", (c.x + 16, c.y + 12), 14, T.TEXT,
+               bold=True)
+        T.paragraph(surf,
+                    "Nel tetto della Formula E ci stanno dentro anche gli ingaggi: "
+                    "un campione da due milioni sono ventitre ingegneri che non "
+                    "assumi. Un ragazzo del vivaio invece non pesa, paga in "
+                    "risultati - ma cresce.",
+                    (c.x + 16, c.y + 36), 12, T.DIM, maxw=c.w - 32)
+        ids = list(getattr(team, "fe_piloti", []) or [])
+        larg = (c.w - 44) / 2
+        for i in range(2):
+            r = pygame.Rect(c.x + 16 + i * (larg + 12), c.y + 90, larg, 54)
+            T.panel(surf, r, T.PANEL_2, radius=8, border=T.LINE)
+            d = gs.drivers.get(ids[i] if i < len(ids) else "")
+            T.text(surf, f"MACCHINA {i + 1}", (r.x + 12, r.y + 8), 11, T.DIM_2,
+                   bold=True)
+            if d is None:
+                T.text(surf, "professionista ingaggiato", (r.x + 12, r.y + 26), 13,
+                       T.DIM, maxw=r.w - 24)
+                continue
+            T.text(surf, d.name, (r.x + 12, r.y + 24), 14, T.TEXT, bold=True,
+                   maxw=r.w - 24)
+            casa = getattr(d, "seat", "") != "formulae"
+            T.text(surf, f"{d.overall:.0f} di valore, {d.age} anni - "
+                         + ("dal vivaio, non pesa sul tetto" if casa
+                            else f"{d.salary:.2f} M$"),
+                   (r.x + 12, r.y + 40), 11, T.OK if casa else T.WARN, maxw=r.w - 24)
+        # il conto del tetto, che e' la ragione per cui questa scelta esiste
+        y = c.y + 196
+        nel = FE.spesa_nel_tetto(gs, team)
+        t = FE.tetto(gs)
+        T.text(surf, "Ingaggi", (c.x + 16, y), 12, T.DIM_2)
+        T.text(surf, f"{FE.monte_ingaggi(gs, team):.2f} M$", (c.right - 16, y), 12,
+               T.TEXT, mono=True, align="right")
+        y += 20
+        T.text(surf, "Tutto il resto sotto tetto", (c.x + 16, y), 12, T.DIM_2)
+        T.text(surf, f"{nel - FE.monte_ingaggi(gs, team):.2f} M$",
+               (c.right - 16, y), 12, T.TEXT, mono=True, align="right")
+        y += 22
+        T.text(surf, "Tetto della serie", (c.x + 16, y), 13, T.TEXT, bold=True)
+        T.text(surf, f"{nel:.1f} di {t:.1f}", (c.right - 16, y), 13,
+               T.OK if nel <= t else T.BAD, mono=True, align="right", bold=True)
+        T.bar(surf, (c.x + 16, y + 24, c.w - 32, 8), min(nel, t * 1.2), t * 1.2,
+              T.OK if nel <= t else T.BAD)
+        y += 46
+        T.text(surf, f"Con questi ingaggi puoi tenere al massimo "
+                     f"{FE.ingegneri_massimi(gs, team)} ingegneri.",
+               (c.x + 16, y), 12, T.ACCENT, maxw=c.w - 32)
+
+    def _mercato(self, surf, c) -> None:
+        """Chi c'e' sul mercato della serie."""
+        gs, team = self.gs, self.team
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "IL MERCATO DELLA SERIE", (c.x + 16, c.y + 12), 14, T.TEXT,
+               bold=True)
+        T.text(surf, "professionisti, non ragazzi: gente che dalla Formula 1 ci e' "
+                     "passata o ci e' arrivata vicino",
+               (c.x + 16, c.y + 30), 11, T.DIM_2, maxw=c.w - 32)
+        y = c.y + 50
+        for d in FE.mercato(gs)[:9]:
+            T.text(surf, d.name, (c.x + 16, y), 13, T.TEXT, maxw=c.w - 220)
+            T.text(surf, f"{d.age}", (c.right - 210, y + 1), 11, T.DIM_2)
+            T.text(surf, f"{d.overall:.0f}", (c.right - 176, y), 12, T.DIM,
+                   mono=True)
+            T.text(surf, f"{d.salary:.2f}", (c.right - 116, y), 12, T.WARN,
+                   mono=True)
+            y += 26
+        T.text(surf, "eta' - valore - milioni a stagione", (c.x + 16, c.bottom - 26),
+               11, T.DIM_2)
 
     # -------------------------------------------------------------- il mondiale
     def _mondiale(self, surf, c) -> None:

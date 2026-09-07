@@ -3,6 +3,7 @@
     python tools/fetch_layouts.py                 # quelli che ancora non ce l'hanno
     python tools/fetch_layouts.py --only monza spa
     python tools/fetch_layouts.py --pool candidati  # solo i circuiti fuori calendario
+    python tools/fetch_layouts.py --pool formulae  # i circuiti veri di Formula E
     python tools/fetch_layouts.py --dry-run       # controlla senza scrivere
     python tools/fetch_layouts.py --force --only monza   # rifa' uno gia' scaricato
 
@@ -286,7 +287,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--only", nargs="*", help="id dei circuiti da aggiornare")
     ap.add_argument("--dry-run", action="store_true", help="non scrive nulla")
-    ap.add_argument("--pool", choices=("calendario", "candidati", "tutti"), default="tutti",
+    ap.add_argument("--pool", choices=("calendario", "candidati", "formulae", "tutti"),
+                    default="tutti",
                     help="quali circuiti guardare (default: tutti)")
     ap.add_argument("--force", action="store_true",
                     help="riscarica anche quelli che hanno gia' il tracciato")
@@ -298,6 +300,11 @@ def main() -> int:
         pools.append(("calendario", data.get("tracks", [])))
     if args.pool in ("candidati", "tutti"):
         pools.append(("candidato", data.get("candidates", [])))
+    if args.pool in ("formulae", "tutti"):
+        # i circuiti di Formula E: quelli veri hanno un tracciato da scaricare,
+        # quelli inventati no - e si riconoscono perche' hanno `debutto`
+        pools.append(("formula e", [t for t in data.get("formulae", [])
+                                    if not t.get("debutto")]))
 
     todo = []
     gia_fatti = 0

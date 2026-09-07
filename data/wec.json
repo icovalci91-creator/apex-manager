@@ -1,0 +1,139 @@
+{
+  "_nota": "Il regolamento del mondiale endurance, come quelli di Formula 1 e Formula E: numeri veri, editabili, e il gioco li legge da qui. E' il terzo campionato della casa, e il piu' caro dei tre.",
+  "_fonti": "Calendario e classi 2026 FIA WEC; costi di programma dalle stime pubbliche della categoria Hypercar e dai prezzi dichiarati delle vetture LMDh.",
+  "corrente": {
+    "stagione": 2026,
+    "etichetta": "Mondiale Endurance - era Hypercar",
+    "gare": 8,
+    "_calendario_nota": "Otto gare, e una vale piu' di tutte: la Ventiquattro Ore di Le Mans. Nel mondo vero c'e' chi fa tutta la stagione per quella, e chi si iscrive solo a quella.",
+    "classi": {
+      "hypercar": {
+        "nome": "Hypercar",
+        "sigla": "HY",
+        "vetture": 17,
+        "costruttori": 8,
+        "ingresso_meur": 3.2,
+        "gestione_meur": 26.0,
+        "costo_ingegnere_meur": 0.105,
+        "ingegneri": [
+          20,
+          130
+        ],
+        "muro": [
+          55,
+          96
+        ],
+        "premio_meur": 9.0,
+        "prestigio": 1.0,
+        "nota": "La classe regina: prototipi costruiti dalle case, otto marchi in pista, e un conto che va dai trenta ai quaranta milioni a stagione. Ci si va per vincere Le Mans, non per fare numero."
+      },
+      "lmgt3": {
+        "nome": "LMGT3",
+        "sigla": "GT",
+        "vetture": 18,
+        "costruttori": 9,
+        "ingresso_meur": 1.1,
+        "gestione_meur": 5.6,
+        "costo_ingegnere_meur": 0.072,
+        "ingegneri": [
+          8,
+          45
+        ],
+        "muro": [
+          50,
+          90
+        ],
+        "premio_meur": 1.5,
+        "prestigio": 0.32,
+        "nota": "Vetture derivate dalla serie, equipaggi misti con almeno un pilota non professionista. Costa un quinto della Hypercar e insegna meno, ma e' il modo di esserci a Le Mans senza rovinarsi."
+      }
+    },
+    "tecnico": {
+      "_nota": "Qui non si vince col giro secco: si vince arrivando. La finestra prestazionale la decide il Balance of Performance, che livella le vetture gara per gara, quindi quello che resta e' quanto consuma la macchina, quanto dura, e quanto e' bravo chi la ripara di notte.",
+      "balance_of_performance": true,
+      "equipaggio": 3,
+      "durata_gare_ore": [
+        6,
+        6,
+        6,
+        8,
+        24,
+        6,
+        6,
+        8
+      ],
+      "gara_regina": "Le Mans, 24 ore",
+      "cambio_pilota_max_ore": 4,
+      "hypercar_potenza_kw": 500,
+      "hypercar_peso_min_kg": 1030,
+      "ibrido": "trazione anteriore elettrica sopra i 190 km/h"
+    },
+    "punti": {
+      "gara": [
+        25,
+        18,
+        15,
+        12,
+        10,
+        8,
+        6,
+        4,
+        2,
+        1
+      ],
+      "endurance": [
+        38,
+        27,
+        23,
+        18,
+        15,
+        12,
+        9,
+        6,
+        3,
+        1.5
+      ],
+      "_endurance_nota": "Le gare lunghe - Le Mans, Bahrain, il Qatar - pagano una volta e mezza, ed e' il motivo per cui il mondiale si decide li'.",
+      "pole": 1,
+      "gare_endurance": [
+        "lemans",
+        "bahrain",
+        "qatar"
+      ]
+    },
+    "resa": {
+      "_nota": "Cosa lascia alla Formula 1 un programma endurance. Non e' il software elettrico come in Formula E: qui si impara a far durare le cose e a consumare poco, perche' una gara di ventiquattro ore la vince chi non si ferma. Sono i due assi su cui la Formula 1 non ha modo di provare, perche' un gran premio dura un'ora e mezza.",
+      "affidabilita": 0.55,
+      "efficienza": 0.3,
+      "meccanici": 0.25,
+      "reputazione_lemans": 3.5
+    },
+    "soldi": {
+      "sponsor_base_meur": 14.0,
+      "peso_nome": 1.1,
+      "peso_risultato": 0.85,
+      "_nota": "L'endurance non ha un tetto di spesa: ha un mercato, e i numeri sono grossi in tutte e due le direzioni. Un programma Hypercar che vince Le Mans firma contratti che ripagano i quaranta milioni e avanza; uno che arriva quinto di classe li brucia tutti. E' il contrario della Formula E, dove il tetto protegge anche chi va piano: qui non protegge niente e nessuno."
+    }
+  },
+  "costruttori": [
+    "Toyota",
+    "Ferrari",
+    "Porsche",
+    "Cadillac",
+    "Peugeot",
+    "BMW",
+    "Alpine",
+    "Aston Martin"
+  ],
+  "squadre_gt": [
+    "Manthey",
+    "Iron Lynx",
+    "United Autosports",
+    "TF Sport",
+    "Vista AF Corse",
+    "Akkodis ASP",
+    "Heart of Racing",
+    "Racing Spirit",
+    "Proton Competition"
+  ]
+}

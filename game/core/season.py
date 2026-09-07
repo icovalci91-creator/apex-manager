@@ -410,9 +410,11 @@ def end_season(gs) -> dict:
     # il mondiale di Formula E si chiude qui, prima che i conti si azzerino:
     # e' un campionato a parte, con il suo bilancio, e chi ce l'ha lo paga e lo
     # incassa in questa stagione
-    from . import formulae
+    from . import formulae, wec
     report["progress"] += formulae.stagione(gs)
     report["market"] += formulae.ai_programmi(gs)
+    report["progress"] += wec.stagione(gs)
+    report["market"] += wec.ai_programmi(gs)
     final_positions = {t.id: pos for pos, t in enumerate(gs.constructor_standings(), 1)}
     for t in gs.teams.values():
         t.last_position = final_positions[t.id]

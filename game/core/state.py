@@ -461,6 +461,8 @@ class GameState:
             # classifica e gare gia' corse. Senza questo, riaprendo il gioco a
             # meta' stagione il mondiale ricomincerebbe da zero
             "fe_stato": getattr(self, "fe_stato", None),
+            "wec_griglia": getattr(self, "wec_griglia", {}) or {},
+            "wec_stato": getattr(self, "wec_stato", None),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
                           "month": t.month} for t in self.tracks],
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
@@ -510,6 +512,11 @@ class GameState:
                     "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
                     "fe_posizione": t.fe_posizione, "fe_titoli": t.fe_titoli,
                     "fe_gara": t.fe_gara,
+                    "wec_nome": t.wec_nome, "wec_classe": t.wec_classe,
+                    "wec_ingegneri": t.wec_ingegneri, "wec_livello": t.wec_livello,
+                    "wec_piloti": list(t.wec_piloti or []),
+                    "wec_punti": t.wec_punti, "wec_posizione": t.wec_posizione,
+                    "wec_lemans": t.wec_lemans,
                     "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
@@ -562,6 +569,8 @@ class GameState:
         gs.pu_specs = data.get("pu_specs", {})
         gs.fe_griglia = dict(data.get("fe_griglia") or {})
         gs.fe_stato = data.get("fe_stato") or None
+        gs.wec_griglia = dict(data.get("wec_griglia") or {})
+        gs.wec_stato = data.get("wec_stato") or None
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         from . import powertrain as _pt
@@ -672,6 +681,14 @@ class GameState:
             t.fe_posizione = int(td.get("fe_posizione", 0))
             t.fe_titoli = int(td.get("fe_titoli", 0))
             t.fe_gara = int(td.get("fe_gara", 0))
+            t.wec_nome = td.get("wec_nome", "")
+            t.wec_classe = td.get("wec_classe", "")
+            t.wec_ingegneri = int(td.get("wec_ingegneri", 0))
+            t.wec_livello = float(td.get("wec_livello", 0.0))
+            t.wec_piloti = list(td.get("wec_piloti") or [])
+            t.wec_punti = float(td.get("wec_punti", 0.0))
+            t.wec_posizione = int(td.get("wec_posizione", 0))
+            t.wec_lemans = int(td.get("wec_lemans", 0))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()
