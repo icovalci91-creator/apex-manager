@@ -334,6 +334,58 @@ Da qui in avanti i ragazzi del vivaio **crescono solo correndo**: non ricevono p
 progressione generica di fine stagione, e l'anno in più se lo prendono dopo aver corso, così
 che la categoria decisa a ottobre sia ancora quella giusta quando si va in pista.
 
+### La Formula E
+
+Non è un gradino della scala verso la Formula 1 — quella porta da un'altra parte. È un
+**secondo programma della casa**: due macchine, un campionato, un bilancio suo. E soprattutto
+**non toglie niente alla Formula 1**: non sono gli stessi ingegneri, non è lo stesso tetto di
+spesa, non è la stessa fabbrica. Se vuoi andare più forte lì, assumi lì.
+
+I regolamenti stanno per esteso in `data/formulae.json` e la pagina li mostra, perché una
+gara di Formula E non si capisce senza. Sono quelli veri della **GEN4**, la generazione che
+debutta nella stagione 2026/27, cioè quella che corre accanto al 2026 della Formula 1:
+
+| | |
+|---|---|
+| potenza in gara | 450 kW |
+| Attack Mode | 600 kW, 8 minuti in tutto, 2-3 attivazioni decise dalla FIA un'ora prima |
+| recupero in frenata | 700 kW — più della potenza di gara: metà dell'energia di una gara si riprende frenando |
+| batteria | 55 kWh |
+| peso minimo | 950 kg con pilota |
+| trazione | integrale permanente |
+| gomme | Bridgestone scolpite, una mescola sola, Typhoon per l'acqua |
+| formati | **E-Prix** 45 minuti + 1 giro con Pit Boost, **E-Prix Unleashed** 30 minuti + 1 giro senza |
+| Pit Boost | 5,5 kWh a 600 kW in 30 secondi fermi, solo con la batteria fra il 40% e il 60% |
+| neutralizzazioni | **−1 kWh al minuto a tutti**: il contrario della Formula 1, dove la safety car regala tempo |
+| qualifica | due gruppi, i primi quattro di ognuno ai duelli a eliminazione diretta |
+| punti | 25-18-15-12-10-8-6-4-2-1, 3 alla pole, 1 al giro veloce fra i primi dieci |
+| tetto di spesa | 15 M€ a stagione, **stipendi dei piloti compresi** — un decimo della Formula 1 |
+
+**La manopola è una sola: quanti ingegneri ci lavorano.** Più ne assumi più performance porta
+il programma e più costa, con rendimento calante — i primi valgono tantissimo, gli ultimi
+quasi niente — e il tetto della serie dice fin dove ci si può spingere. La macchina non
+arriva l'anno dopo: ci si avvicina al proprio tetto un pezzo per volta, e ci vogliono due o
+tre stagioni. Chi si costruisce il propulsore invece di comprarlo spende molto di più e va
+molto più forte, ed è il motivo per cui in Formula E vincono i costruttori.
+
+**Il conto si sente.** Gli sponsor li porta il nome — un marchio noto firma contratti che una
+squadra sconosciuta non vede nemmeno — e li rinnovano i risultati. Un programma da campione
+lascia qualche milione l'anno, uno a metà classifica va in pari, uno in fondo brucia cinque o
+sei milioni a stagione. È per questo che non lo apre chi vuole: lo apre chi può permettersi
+di tenerlo aperto anche negli anni in cui non vince. Un costruttore paga l'ingresso scontato,
+perché la casa madre ci mette la sua parte: un programma elettrico è quello che il consiglio
+vuole vedere.
+
+**Chi guida.** Se non scegli, il programma ingaggia due professionisti della serie: fanno il
+loro e non crescono. Se ci metti un ragazzo del vivaio paghi in risultati — contro gente che
+viene dalla Formula 1 un diciannovenne finisce a metà gruppo — ma quello **cresce**, si fa un
+nome, e i **punti superlicenza della Formula E valgono quanto quelli della Formula 2**: chi
+vince il mondiale elettrico ha il permesso di guidare in Formula 1.
+
+Nella griglia ci sono i costruttori veri della GEN4 — Porsche, Jaguar, Nissan, Stellantis,
+Lola, Citroën, Mahindra, Opel — e ognuno ha un livello che si muove di anno in anno: chi
+investe sale, chi taglia scende. In tre stagioni la griglia non è più quella.
+
 ### Le gomme del weekend
 
 Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
@@ -1810,12 +1862,14 @@ main.py              avvio
 game/config.py       costanti fisiche, gomme, componenti, strutture
 game/model/          track (geometria + modello di giro), car, people, team
 game/core/           state (mondo e salvataggi), economy, development,
-                     powertrain, engineering, market, rules, season
+                     powertrain, engineering, market, rules, season,
+                     serie (le categorie minori), formulae (il mondiale elettrico)
 game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
                      muretto (ordini al pilota e ordini di squadra)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
-data/                database JSON
+data/                database JSON (regulations.json e formulae.json sono i due
+                     regolamenti: Formula 1 e Formula E)
 saves/               salvataggi
 ```
 

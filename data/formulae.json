@@ -1,0 +1,115 @@
+{
+  "_nota": "Il regolamento della Formula E, come quello di Formula 1 sta in regulations.json: numeri veri, editabili, e il gioco li legge da qui. La stagione che corre accanto al 2026 di Formula 1 e' la 2026/27, cioe' il debutto della GEN4. Dove il mondo vero cambia da una stagione all'altra - il numero di attivazioni dell'Attack Mode, la tabella di ricarica del Pit Boost - il numero e' quello tipico e si cambia qui.",
+  "_fonti": "Specifiche GEN4 e formato sportivo 2026/27 annunciati da FIA e Formula E; tetti di spesa dal regolamento finanziario della serie.",
+
+  "corrente": {
+    "stagione": "2026/27",
+    "etichetta": "GEN4 - prima stagione",
+    "generazione": "GEN4",
+    "gare": 21,
+    "sedi": 13,
+    "vetture": 22,
+    "squadre": 11,
+
+    "tecnico": {
+      "_nota": "La GEN4 e' la monoposto elettrica piu' potente mai costruita per un campionato: 600 kW di picco, quattro ruote motrici permanenti e un recupero da 700 kW, che e' piu' della potenza di gara. Meta' dell'energia che si spende in una gara si riprende frenando, ed e' per questo che qui la gestione non e' un contorno: e' il campionato.",
+      "potenza_gara_kw": 450,
+      "potenza_attack_kw": 600,
+      "potenza_qualifica_kw": 600,
+      "recupero_max_kw": 700,
+      "batteria_kwh": 55.0,
+      "peso_min_kg": 950,
+      "trazione": "integrale permanente",
+      "gomme": {
+        "fornitore": "Bridgestone",
+        "asciutto": "scolpita, una sola mescola",
+        "bagnato": "Typhoon",
+        "_nota": "Una gomma sola per l'asciutto e una per l'acqua: qui non si sceglie la mescola, si sceglie quanto farla durare."
+      },
+      "misure_mm": {"lunghezza": 5540, "larghezza": 1800, "altezza": 1025, "passo": 3080},
+      "liberta_costruttori": "Motore, inverter, cambio, software e raffreddamento sono di chi costruisce; telaio, batteria e sospensioni sono uguali per tutti.",
+      "propulsori_omologati_per_stagione": 1
+    },
+
+    "formati": {
+      "eprix": {
+        "nome": "E-Prix",
+        "durata_min": 45,
+        "giro_finale": true,
+        "pit_boost": true,
+        "_nota": "Il formato classico: quarantacinque minuti piu' un giro, con la sosta di ricarica obbligatoria. Si vince gestendo l'energia, non andando forte e basta."
+      },
+      "unleashed": {
+        "nome": "E-Prix Unleashed",
+        "durata_min": 30,
+        "giro_finale": true,
+        "pit_boost": false,
+        "_nota": "Lo sprint: mezz'ora senza sosta, si spinge e basta. E' il formato nuovo del 2026/27."
+      }
+    },
+
+    "attack_mode": {
+      "potenza_kw": 600,
+      "minuti_totali": 8,
+      "attivazioni": [2, 3],
+      "_attivazioni_nota": "Quante volte e per quanto lo si puo' prendere lo decide la FIA un'ora prima della gara, circuito per circuito: di solito due o tre.",
+      "obbligatorio": true,
+      "zona": "fuori traiettoria, come una scorciatoia al contrario: per prenderlo si perde tempo",
+      "vietato_primi_giri": 2,
+      "vietato_sotto_neutralizzazione": true,
+      "_nota": "Non e' un pulsante: per attivarlo bisogna passare fuori dalla traiettoria in un punto stabilito, e quel passaggio costa tempo subito per averne dopo. Da qui nasce meta' della strategia."
+    },
+
+    "pit_boost": {
+      "obbligatorio_in": ["eprix"],
+      "energia_kwh": 5.5,
+      "quota_energia": 0.10,
+      "potenza_ricarica_kw": 600,
+      "durata_s": 30,
+      "carica_min": 0.40,
+      "carica_max": 0.60,
+      "_nota": "Ricarica rapida a gara in corso: il dieci per cento dell'energia in trenta secondi fermi. Si puo' fare solo con la batteria fra il quaranta e il sessanta per cento, quindi non e' una sosta che si sceglie quando si vuole: e' una finestra, e ci si arriva dentro gestendo.",
+      "_tabella_nota": "La FIA pubblica prima della gara le quantita' di energia ricaricabili e il tempo minimo di sosta di ognuna; il pilota sceglie sul volante quanta prenderne."
+    },
+
+    "energia": {
+      "penale_neutralizzazione_kwh_min": 1.0,
+      "_nota": "Sotto full course yellow o safety car si toglie a tutti un chilowattora per ogni minuto di neutralizzazione. E' il contrario della Formula 1: li' la safety car regala tempo, qui toglie energia, e una gara neutralizzata a lungo diventa una gara di risparmio."
+    },
+
+    "qualifica": {
+      "formato": "gruppi e duelli",
+      "gruppi": 2,
+      "passano_per_gruppo": 4,
+      "fasi_duelli": ["quarti", "semifinali", "finale"],
+      "punti_duelli": {"_nota": "Dal 2026/27 chi arriva ai duelli prende punti iridati, tanti piu' quanto avanza.", "finale_vinta": 3, "finale_persa": 2, "semifinale": 1},
+      "_nota": "Due gruppi, i primi quattro di ognuno passano, e da li' si va a eliminazione diretta uno contro uno. E' il formato che il pubblico preferisce e non si tocca."
+    },
+
+    "punti": {
+      "gara": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      "pole": 3,
+      "giro_veloce": 1,
+      "giro_veloce_entro": 10,
+      "_nota": "Gli stessi punti nei due formati: uno sprint di mezz'ora vale come un E-Prix di quarantacinque minuti."
+    },
+
+    "soldi": {
+      "tetto_squadra_meur": 15.0,
+      "tetto_squadra_include_piloti": true,
+      "tetto_costruttore_meur": 25.0,
+      "tetto_costruttore_stagioni": 2,
+      "prezzo_powertrain_cliente_meur": 0.42,
+      "prezzo_vettura_meur": 1.0,
+      "_nota": "Il tetto di spesa di una squadra di Formula E e' un decimo di quello di una di Formula 1, e comprende gli stipendi dei piloti. Chi costruisce il propulsore ha un tetto suo: venticinque milioni su due stagioni per progetto, produzione e assistenza ai clienti. E' un campionato che costa poco per gli standard di chi corre in Formula 1, ma costa lo stesso, e va tenuto aperto ogni anno."
+    }
+  },
+
+  "costruttori": ["Porsche", "Nissan", "Stellantis", "Jaguar", "Lola", "Citroen", "Mahindra", "Opel"],
+
+  "circuiti": {
+    "_nota": "La Formula E corre in citta'. Dove il circuito esiste gia' nel gioco perche' ci va anche la Formula 1, si corre li'; gli altri hanno bisogno del loro tracciato.",
+    "condivisi": ["monaco", "miami", "mexico", "shanghai", "jeddah", "madrid", "interlagos"],
+    "propri": ["berlino", "londra", "tokyo", "giacarta", "portland", "citta_del_messico_foro", "montecarlo_corto"]
+  }
+}

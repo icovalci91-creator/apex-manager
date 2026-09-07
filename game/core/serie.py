@@ -50,8 +50,15 @@ def scheda(sid: str) -> dict:
 
 
 def scala() -> list:
-    """Le serie dal basso in alto, che e' l'ordine in cui si sale."""
-    return sorted(catalogo(), key=lambda s: catalogo()[s].get("livello", 0))
+    """Le serie dal basso in alto, che e' l'ordine in cui si sale.
+
+    Non tutte le serie sono gradini. La Formula E sta nel catalogo perche'
+    anche li' si corre, si cresce e si prendono punti superlicenza, ma non e'
+    un gradino verso la Formula 1: ci si va dal programma della scuderia, non
+    dal vivaio, e chi la marca `"scala": false` resta fuori da questa lista.
+    """
+    dentro = [s for s in catalogo() if catalogo()[s].get("scala", True)]
+    return sorted(dentro, key=lambda s: catalogo()[s].get("livello", 0))
 
 
 def sigla(sid: str) -> str:

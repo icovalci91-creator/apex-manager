@@ -407,6 +407,12 @@ def end_season(gs) -> dict:
 
     # reset della stagione: le posizioni vanno lette tutte prima di azzerare i
     # punti, altrimenti ogni squadra ripulita falsa la classifica di quelle dopo
+    # il mondiale di Formula E si chiude qui, prima che i conti si azzerino:
+    # e' un campionato a parte, con il suo bilancio, e chi ce l'ha lo paga e lo
+    # incassa in questa stagione
+    from . import formulae
+    report["progress"] += formulae.stagione(gs)
+    report["market"] += formulae.ai_programmi(gs)
     final_positions = {t.id: pos for pos, t in enumerate(gs.constructor_standings(), 1)}
     for t in gs.teams.values():
         t.last_position = final_positions[t.id]

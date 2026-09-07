@@ -449,6 +449,9 @@ class GameState:
             "founding": getattr(self, "founding", None),
             "pu_program": getattr(self, "pu_program", {}),
             "pu_specs": getattr(self, "pu_specs", {}),
+            # il livello delle squadre di Formula E: vive fra una stagione e
+            # l'altra, come tutto il resto del mondo intorno
+            "fe_griglia": getattr(self, "fe_griglia", {}) or {},
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
                           "month": t.month} for t in self.tracks],
             "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
@@ -493,6 +496,10 @@ class GameState:
                     "hired_this_season": t.hired_this_season or {},
                     "drivers": t.drivers, "reserves": t.reserves,
                     "academy": t.academy, "academy_name": t.academy_name,
+                    "fe_nome": t.fe_nome, "fe_ingegneri": t.fe_ingegneri,
+                    "fe_costruttore": t.fe_costruttore, "fe_livello": t.fe_livello,
+                    "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
+                    "fe_posizione": t.fe_posizione, "fe_titoli": t.fe_titoli,
                     "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
@@ -543,6 +550,7 @@ class GameState:
         gs.regulations = data["regulations"]
         gs.pu_program = data.get("pu_program", {})
         gs.pu_specs = data.get("pu_specs", {})
+        gs.fe_griglia = dict(data.get("fe_griglia") or {})
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         from . import powertrain as _pt
@@ -642,6 +650,16 @@ class GameState:
             t.auto_dev = bool(td.get("auto_dev", False))
             t.auto_setup = bool(td.get("auto_setup", True))
             t.vivaio_auto = bool(td.get("vivaio_auto", True))
+            # il programma di Formula E: e' un campionato a parte e si porta
+            # dietro il suo stato, dagli ingegneri ai titoli vinti
+            t.fe_nome = td.get("fe_nome", "")
+            t.fe_ingegneri = int(td.get("fe_ingegneri", 0))
+            t.fe_costruttore = bool(td.get("fe_costruttore", False))
+            t.fe_livello = float(td.get("fe_livello", 0.0))
+            t.fe_piloti = list(td.get("fe_piloti") or [])
+            t.fe_punti = float(td.get("fe_punti", 0.0))
+            t.fe_posizione = int(td.get("fe_posizione", 0))
+            t.fe_titoli = int(td.get("fe_titoli", 0))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()
