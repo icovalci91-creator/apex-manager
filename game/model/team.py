@@ -82,6 +82,7 @@ class Team:
     fe_posizione: int = 0        # come e' finito il mondiale costruttori
     fe_titoli: int = 0
     fe_gara: int = 0             # a che punto del calendario si e' arrivati
+    fe_gestione: float = 0.0     # quanto sappiamo spendere l'energia, dalla Formula E
     # Il mondiale endurance: il terzo campionato, e il piu' caro. Non ha un
     # tetto di spesa, e quello che lascia non e' velocita': e' roba che dura
     wec_nome: str = ""

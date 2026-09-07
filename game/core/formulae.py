@@ -191,6 +191,120 @@ def bilancio(gs, team) -> float:
     return round(entrate(gs, team) - costo_stagione(gs, team), 2)
 
 
+# ------------------------------------- cosa la Formula E lascia alla Formula 1
+# E' il motivo per cui una casa ci va davvero, e fino a ieri nel gioco non
+# c'era: il programma costava, rendeva, aveva il suo campionato, e alla
+# monoposto non dava niente.
+#
+# In Formula 1 la parte elettrica si sviluppa dentro al tetto di spesa e dentro
+# alle restrizioni di prova: ore di banco contate, niente collaudi veri, e un
+# gran premio che dura un'ora e mezza. In Formula E la stessa roba si sviluppa
+# in pista, ventuno volte l'anno, con un budget che non tocca quello della
+# monoposto e con una gara che non e' altro che gestione dell'energia. E' il
+# solo posto dove quel sapere si compra invece di aspettarlo.
+#
+# Tre cose, e non vanno tutte alla stessa gente:
+#
+#   software   la centralina, cioe' come si passano la palla il termico e
+#              l'elettrico e quanto di quello che hai in cassa riesci davvero
+#              a mettere a terra. E' l'asse piu' difficile della power unit e
+#              quello che oggi separa i motoristi. Lo prende solo chi il motore
+#              se lo costruisce: in una che compri non ci metti le mani.
+#   recupero   quanta energia si riprende frenando. Hardware, quindi si muove
+#              meno del software, e anche questo solo per chi costruisce.
+#   gestione   come la squadra la spende in gara: quando ricaricare, quando
+#              scaricare, dove chiedere l'override. Questo lo impara chiunque,
+#              anche chi il motore lo compra, perche' non e' la power unit -
+#              e' il muretto e gli ingegneri di pista.
+RESA_SOFTWARE = 0.85
+RESA_RECUPERO = 0.45
+RESA_GESTIONE = 0.90
+# Quanto di quel sapere resta l'anno dopo se il programma si chiude. Non si
+# dimentica quello che si e' imparato, ma il vantaggio si consuma: gli altri
+# arrivano, e quello che oggi e' un'idea fra due anni e' il minimo sindacale.
+GESTIONE_DECADE = 0.80
+GESTIONE_MAX = 8.0
+# Di quanto la Formula E puo' spingere la power unit oltre al tetto che la
+# fabbrica e le persone permettono. Poco, ma sopra a quel tetto: e' esattamente
+# il punto: il banco arriva dove arriva, e li' si ferma; in Formula E si corre,
+# e correndo si scopre roba che al banco non si scopre. Se non fosse cosi' il
+# programma non lo aprirebbe nessuno - basterebbe comprare un banco piu' grosso.
+OLTRE_IL_BANCO = 2.5
+
+
+def resa(gs, team) -> dict:
+    """Quanto sapere elettrico porta a casa il programma in una stagione.
+
+    Dipende da tre cose e sono quelle vere: quanto e' grosso il programma -
+    una macchina che va forte e' una macchina che ha imparato qualcosa -
+    quanto e' andato bene, e se il motore te lo costruisci o lo compri.
+    """
+    if not ha(team):
+        return {}
+    # quanto vale il programma, da 0 a 1 sopra la soglia in cui si impara
+    forza = max(0.0, min(1.3, (livello(team) - 58.0) / 32.0))
+    esito = 0.55 + 0.75 * forma(team)
+    peso = forza * esito
+    fuori = {"gestione": round(RESA_GESTIONE * peso, 3)}
+    if getattr(team, "fe_costruttore", False) and team.works:
+        # e chi il motore se lo fa in casa se lo porta dentro: sono le stesse
+        # persone, e in Formula E quel software gira in gara tutte le domeniche
+        fuori["software"] = round(RESA_SOFTWARE * peso, 3)
+        fuori["recupero"] = round(RESA_RECUPERO * peso, 3)
+    return fuori
+
+
+def applica_resa(gs, team) -> str:
+    """Porta il sapere della Formula E dentro alla monoposto."""
+    r = resa(gs, team)
+    if not r:
+        return ""
+    fatte = []
+    if r.get("gestione"):
+        vecchio = float(getattr(team, "fe_gestione", 0.0))
+        team.fe_gestione = round(min(GESTIONE_MAX, vecchio + r["gestione"]), 3)
+        fatte.append(f"gestione dell'energia in gara +{r['gestione']:.2f}")
+    m = gs.engine_makers.get(team.engine) if team.works else None
+    if m is not None and (r.get("software") or r.get("recupero")):
+        from . import powertrain
+        # il tetto e' quello del banco piu' un po': la Formula E fa scavalcare
+        # quel muro, ma di poco, se no diventerebbe una scorciatoia
+        soglia = min(powertrain.PU_MAX,
+                     powertrain.ceiling(gs, team) + OLTRE_IL_BANCO)
+        mossi = {}
+        for asse in ("software", "recupero"):
+            if not r.get(asse):
+                continue
+            prima = float(m.get(asse, 85.0))
+            dopo = min(soglia, prima + r[asse]) if prima < soglia else prima
+            if dopo > prima:
+                m[asse] = dopo
+                mossi[asse] = dopo - prima
+        if mossi:
+            powertrain.prepara(m)      # `ers` torna a essere la media dei due
+            gs.sync_engines()
+            fatte.append(f"centralina +{mossi.get('software', 0):.2f}, "
+                         f"recupero +{mossi.get('recupero', 0):.2f}")
+        else:
+            fatte.append("sulla power unit non c'e' piu' niente da imparare qui")
+    return ", ".join(fatte)
+
+
+def decadi_gestione(gs) -> None:
+    """Il vantaggio in gestione si consuma: gli altri arrivano.
+
+    Chi tiene aperto il programma lo rinnova ogni anno; chi lo chiude se lo
+    vede sciogliere in tre o quattro stagioni. Non si dimentica quello che si
+    e' imparato - si smette di essere gli unici a saperlo.
+    """
+    for team in gs.teams.values():
+        v = float(getattr(team, "fe_gestione", 0.0))
+        if v > 0.01:
+            team.fe_gestione = round(v * GESTIONE_DECADE, 3)
+        else:
+            team.fe_gestione = 0.0
+
+
 # ------------------------------------------------------------ la performance
 # Il tetto che si puo' raggiungere con la gente che si ha. Non e' lineare:
 # i primi ingegneri valgono tantissimo, gli ultimi molto meno, ed e' il motivo
@@ -201,6 +315,13 @@ INGEGNERI_RIF = 55.0       # quanti ne ha un programma di vertice
 PESO_COSTRUTTORE = 5.0     # quanto vale farsi il propulsore in casa
 PESO_STRUTTURE = 0.12      # e quanto vale avere una fabbrica seria dietro
 PASSO = 0.42               # quanto ci si avvicina al proprio muro in una stagione
+
+
+# E il verso opposto, che e' l'altra meta' della stessa cosa: una squadra che
+# in Formula 1 ha una centralina buona non riparte da zero in Formula E. Sono
+# le stesse persone, lo stesso software, la stessa fabbrica - ed e' per questo
+# che i costruttori che ci vanno ci vanno forte dal primo anno.
+PESO_CENTRALINA = 0.22
 
 
 def muro(gs, team) -> float:
@@ -214,6 +335,10 @@ def muro(gs, team) -> float:
     fab = (float(team.facilities.get("factory", 60.0))
            + float(team.facilities.get("simulator", 60.0))) / 2.0
     livello += PESO_STRUTTURE * (fab - 60.0)
+    # quello che si sa gia' di elettrico in Formula 1 vale anche qui
+    eng = (getattr(team.car, "engine", None) or {}) if team.car else {}
+    ers = float(eng.get("ers", 85.0))
+    livello += PESO_CENTRALINA * (ers - 85.0)
     return round(max(40.0, min(96.0, livello)), 1)
 
 
@@ -553,6 +678,7 @@ def stagione(gs) -> list:
         team.add_income(f"Formula E: sponsor e montepremi ({team.fe_nome})", incasso,
                         category="formulae")
         passo = sviluppa(gs, team)
+        imparato = applica_resa(gs, team)
         dove = f", {corse} corse dal muretto" if corse else ""
         righe.append(f"{team.short} in Formula E: {pos}o su {len(squadre)}, "
                      f"{team.fe_punti:.0f} punti, {vinte} vittorie{dove}. "
@@ -560,11 +686,18 @@ def stagione(gs) -> list:
         # e i nostri piloti si portano a casa la stagione: per un ragazzo del
         # vivaio e' il vero motivo per mandarcelo, perche' i punti superlicenza
         # della Formula E valgono quanto quelli della Formula 2
+        if imparato:
+            righe.append(f"  dalla Formula E alla monoposto: {imparato}")
         camp = _campionato_serie(gs, team)
         for d in piloti(gs, team):
             riga = serie.cresci(gs, d, camp, team)
             if riga:
                 righe.append(f"  {riga}")
+            # e una stagione elettrica insegna al pilota una cosa precisa:
+            # la mano sull'energia. E' la stessa che in Formula 1 serve a
+            # risparmiare benzina e a far durare la gomma
+            d.tyre_mgmt = min(99.0, d.tyre_mgmt + gs.rng.uniform(0.3, 1.1))
+            d.feedback = min(99.0, d.feedback + gs.rng.uniform(0.1, 0.6))
         team.fe_gara = 0
     # i contratti scaduti liberano il pilota, e il mercato si rifornisce: e'
     # un giro piccolo, dieci nomi, ma senza di quello dopo tre stagioni non
@@ -586,6 +719,9 @@ def stagione(gs) -> list:
                     t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
         d.salary = ingaggio_di(d.overall, d.age)
     mercato(gs)
+    # e il vantaggio in gestione si consuma per tutti, anche per chi il
+    # programma non ce l'ha piu': e' il vantaggio che si scioglie, non il sapere
+    decadi_gestione(gs)
     # la stagione e' chiusa: il prossimo campionato si apre da zero
     gs.fe_stato = None
     return righe

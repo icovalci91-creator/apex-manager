@@ -254,6 +254,28 @@ class FormulaEPage(Page):
             T.text(surf, "Un marchio noto firma contratti che una squadra sconosciuta "
                          "non vede, e vincere ne porta altri.",
                    (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
+        # e cosa torna in Formula 1, che e' il motivo vero per essere qui
+        r = FE.resa(gs, team)
+        if r:
+            y += 22
+            T.text(surf, "COSA TORNA IN FORMULA 1", (c.x + 16, y), 11, T.GOLD,
+                   bold=True)
+            y += 18
+            voci = [("Gestione energia in gara", r.get("gestione", 0.0))]
+            if r.get("software"):
+                voci += [("Centralina della power unit", r["software"]),
+                         ("Recupero in frenata", r["recupero"])]
+            for eti, val in voci:
+                if y > c.bottom - 140:
+                    break
+                T.text(surf, eti, (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 130)
+                T.text(surf, f"+{val:.2f} a stagione", (c.right - 16, y), 12,
+                       T.ACCENT, mono=True, align="right")
+                y += 17
+            if not r.get("software"):
+                T.text(surf, "il motore lo compriamo: la centralina non si tocca, "
+                             "ma imparare a spenderla si", (c.x + 16, y), 11,
+                       T.DIM_2, maxw=c.w - 32)
         # i sedili
         T.text(surf, "CHI GUIDA", (c.x + 16, c.bottom - 128), 11, T.DIM_2, bold=True)
         nostri = FE.piloti(gs, team)

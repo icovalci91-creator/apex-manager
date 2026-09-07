@@ -170,8 +170,14 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
                 reliability=_affidabile(team, d),
                 pit_time=pit, strategy_skill=team.strategy_strength,
                 vmax=float(punte.get(team.id, 330.0)),
+                # quanto bene questa squadra mette a terra l'energia che ha.
+                # Non e' solo la centralina: e' anche quello che il muretto ha
+                # imparato in Formula E, dove una gara e' gestione e basta. Chi
+                # il motore lo compra non puo' toccarlo, ma imparare a spenderlo
+                # meglio lo puo' fare, e li' e' l'unico posto dove si impara
                 ers_skill=float((team.car.engine or {}).get(
-                    "software", (team.car.engine or {}).get("ers", 85))),
+                    "software", (team.car.engine or {}).get("ers", 85)))
+                + float(getattr(team, "fe_gestione", 0.0)),
                 # quanta aria arriva ai freni: e' il pezzo "raffreddamento",
                 # che fino a ieri spostava solo qualche kilowatt e adesso
                 # decide anche se i dischi arrivano in fondo

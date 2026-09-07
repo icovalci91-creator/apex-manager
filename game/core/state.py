@@ -511,7 +511,7 @@ class GameState:
                     "fe_costruttore": t.fe_costruttore, "fe_livello": t.fe_livello,
                     "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
                     "fe_posizione": t.fe_posizione, "fe_titoli": t.fe_titoli,
-                    "fe_gara": t.fe_gara,
+                    "fe_gara": t.fe_gara, "fe_gestione": t.fe_gestione,
                     "wec_nome": t.wec_nome, "wec_classe": t.wec_classe,
                     "wec_ingegneri": t.wec_ingegneri, "wec_livello": t.wec_livello,
                     "wec_piloti": list(t.wec_piloti or []),
@@ -681,6 +681,7 @@ class GameState:
             t.fe_posizione = int(td.get("fe_posizione", 0))
             t.fe_titoli = int(td.get("fe_titoli", 0))
             t.fe_gara = int(td.get("fe_gara", 0))
+            t.fe_gestione = float(td.get("fe_gestione", 0.0))
             t.wec_nome = td.get("wec_nome", "")
             t.wec_classe = td.get("wec_classe", "")
             t.wec_ingegneri = int(td.get("wec_ingegneri", 0))

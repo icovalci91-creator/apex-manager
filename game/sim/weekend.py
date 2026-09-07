@@ -155,13 +155,24 @@ FORZA_SORPASSO = 0.45
 # sessantaquattro contro quaranta - mentre quelli stretti ne facevano troppo
 # pochi. Nel mondo vero la forbice va da sei a cinquanta, non da otto a
 # settantaquattro: il circuito conta molto, ma non quanto il modello credeva.
-TETTO_BASE = 0.038
-TETTO_PISTA = 0.125
+TETTO_BASE = 0.022
+TETTO_PISTA = 0.185
 # E quanto pesa lo spazio per stare affiancati, che e' l'altra meta' della
 # stessa cosa: la parte fissa e' quella che c'e' dappertutto, la parte
 # variabile e' quella che il circuito aggiunge.
-SPAZIO_A = 0.42
-SPAZIO_B = 0.58
+SPAZIO_A = 0.20
+SPAZIO_B = 0.80
+# La facilita' di sorpasso satura. Sotto la meta' della scala il modello e i
+# numeri veri vanno d'accordo: sei sorpassi a Monte Carlo, quindici a
+# Budapest, venticinque a Madrid. Sopra, no - e la ragione non e' un errore di
+# taratura ma una cosa vera: da un certo punto in poi il rettilineo in piu'
+# non aggiunge sorpassi in proporzione, perche' chi difende ha lo stesso
+# rettilineo per difendersi e il gruppo si allunga invece di compattarsi. Nel
+# mondo vero il Red Bull Ring ne fa cinquanta e Monza quaranta pur essendo
+# Monza il piu' veloce di tutti. Sopra meta' scala, quindi, la scala si
+# comprime: e' l'unico posto dove il modello sbagliava di sistema.
+SATURA_DA = 0.50
+SATURA_QUOTA = 0.62
 # Quanto pesa, sul tentativo, avere piu' energia in cassa dell'altro. Mezza
 # batteria di vantaggio - che e' tanto, ci vogliono due giri di ricarica per
 # farla - vale poco piu' di un terzo di possibilita' in piu'; e altrettanto in
@@ -192,6 +203,19 @@ COSTO_SORPASSO_MJ = 0.35
 RISCOSSA_S = 55.0           # per quanto resta aperta la finestra della risposta
 RISCOSSA_FORZA = 0.85       # e quanto pesa, sopra al vantaggio di carica
 RISPOSTA_ATTESA = 7.0       # chi e' stato passato puo' rispondere alla zona dopo
+
+
+def facilita(ot: float) -> float:
+    """Quanto e' facile passare qui, con la scala compressa in alto.
+
+    Il numero scritto nei dati dice quanto il circuito offre; questo dice
+    quanto se ne traduce in sorpassi. Sotto meta' scala sono la stessa cosa,
+    sopra no, perche' il rettilineo in piu' lo ha anche chi si difende.
+    """
+    ot = max(0.0, min(1.0, float(ot)))
+    if ot <= SATURA_DA:
+        return ot
+    return SATURA_DA + (ot - SATURA_DA) * SATURA_QUOTA
 
 
 def follow_gap(track) -> float:
@@ -1721,7 +1745,7 @@ class RaceSim:
         """
         live = [e for e in self.entrants if e.status == "running"]
         live.sort(key=lambda e: -e.dist)
-        ot_track = self.track.traits.get("overtaking", 0.5)
+        ot_track = facilita(self.track.traits.get("overtaking", 0.5))
         for i in range(1, len(live)):
             ahead, behind = live[i - 1], live[i]
             gap_m = ahead.dist - behind.dist

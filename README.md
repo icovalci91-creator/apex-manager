@@ -394,6 +394,52 @@ squadra**: ha un budget suo, venticinque milioni su due stagioni, ed è un conto
 non della squadra. È il motivo per cui un costruttore può permettersi sia gli ingegneri sia i
 piloti.
 
+#### Cosa torna in Formula 1
+
+È il motivo per cui una casa ci va davvero, e viene da una differenza di regolamento: in
+Formula 1 la parte elettrica si sviluppa **dentro al tetto di spesa e dentro alle restrizioni
+di prova** — ore di banco contate, niente collaudi veri, e un gran premio che dura un'ora e
+mezza. In Formula E la stessa roba si sviluppa **in pista, ventuno volte l'anno**, con un
+budget che non tocca quello della monoposto e con una gara che non è altro che gestione
+dell'energia. È il solo posto dove quel sapere si compra invece di aspettarlo.
+
+Tre cose, e non vanno tutte alla stessa gente:
+
+| | cosa è | a chi va |
+|---|---|---|
+| **centralina** | come si passano la palla il termico e l'elettrico, e quanto di quello che hai in cassa metti davvero a terra. È l'asse più difficile della power unit e quello che oggi separa i motoristi | solo a chi **il motore se lo costruisce**: in uno che compri non ci metti le mani |
+| **recupero** | quanta energia si riprende frenando. È hardware, quindi si muove meno | solo ai costruttori |
+| **gestione** | come la squadra la spende in gara: quando ricaricare, quando scaricare, dove chiedere l'override | **a chiunque**, anche a chi il motore lo compra — non è la power unit, è il muretto |
+
+**Quanto vale.** Una stagione di banco vale 2-4,5 punti di centralina; un programma di Formula
+E che vince il mondiale ne vale **1,1**, cioè un quarto di una stagione di banco — e ti costa
+15 M$ l'anno. Se il programma va male non vale quasi niente: si impara **essendo bravi**, non
+esserci e basta. Misurato: un costruttore che apre il programma da zero ci mette tre stagioni
+prima di portare a casa qualcosa di serio, e in sei stagioni porta la sua power unit da 87 a
+90 di parte ibrida.
+
+E c'è una cosa che il banco non fa: **la Formula E fa scavalcare il tetto della fabbrica**, di
+due punti e mezzo. Il banco arriva dove arrivano le persone e le strutture che hai, e lì si
+ferma; correndo si scopre roba che al banco non si scopre. Se non fosse così il programma non
+lo aprirebbe nessuno — basterebbe comprare un banco più grosso. È anche il motivo per cui a un
+motorista di seconda fascia conviene più che a uno di vertice: Audi con un tetto di banco a
+91,8 sale da 85 a 89,6 in cinque stagioni, Ferrari che è già al massimo non guadagna niente
+sulla power unit e porta a casa solo la gestione.
+
+**E il verso opposto.** Una squadra che in Formula 1 ha una centralina buona non riparte da
+zero in Formula E: sono le stesse persone, lo stesso software, la stessa fabbrica. Il livello
+ibrido della tua power unit alza il tetto del programma elettrico, ed è per questo che i
+costruttori che ci vanno ci vanno forte dal primo anno.
+
+**I piloti.** Una stagione elettrica insegna una cosa precisa: **la mano sull'energia**. È la
+stessa che in Formula 1 serve a risparmiare benzina e a far durare la gomma, e infatti chi
+corre in Formula E migliora la gestione gomme e il riscontro tecnico oltre alla crescita
+normale.
+
+**Il vantaggio si consuma.** Quello che hai imparato non lo dimentichi, ma smetti di essere
+l'unico a saperlo: chi chiude il programma se lo vede sciogliere del 20% all'anno. Chi lo
+tiene aperto lo rinnova.
+
 Nella griglia ci sono i costruttori veri della GEN4 — Porsche, Jaguar, Nissan, Stellantis,
 Lola, Citroën, Mahindra, Opel — e ognuno ha un livello che si muove di anno in anno: chi
 investe sale, chi taglia scende. In tre stagioni la griglia non è più quella.
