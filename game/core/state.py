@@ -505,6 +505,7 @@ class GameState:
                     "fe_costruttore": t.fe_costruttore, "fe_livello": t.fe_livello,
                     "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
                     "fe_posizione": t.fe_posizione, "fe_titoli": t.fe_titoli,
+                    "fe_gara": t.fe_gara,
                     "last_position": t.last_position,
                     "resource_alloc": t.resource_alloc, "upgrades_done": t.upgrades_done,
                     "upgrade_log": list(t.upgrade_log or [])[-120:],
@@ -665,6 +666,7 @@ class GameState:
             t.fe_punti = float(td.get("fe_punti", 0.0))
             t.fe_posizione = int(td.get("fe_posizione", 0))
             t.fe_titoli = int(td.get("fe_titoli", 0))
+            t.fe_gara = int(td.get("fe_gara", 0))
             t.setups = {k: dict(v) for k, v in (td.get("setups") or {}).items()}
 
         gs.sync_engines()

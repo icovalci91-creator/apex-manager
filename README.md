@@ -413,6 +413,42 @@ tutta a Londra finisce a **1,23 posti** dall'ordine di merito, una corsa tutta a
 **1,89**. È la ragione per cui certe gare di Formula E finiscono nell'ordine di partenza e
 altre le vince il quindicesimo.
 
+#### L'E-Prix dal muretto
+
+Da `CORRI L'E-PRIX` la gara si guarda come un gran premio, ma quello che si guarda è un'altra
+cosa. Non ci sono gomme che si consumano né benzina da caricare: c'è **una batteria che si
+svuota**, e tre numeri che decidono la corsa.
+
+- **L'energia.** In alto non c'è il numero del giro, c'è **quanto tempo manca**: la gara dura
+  45 minuti più un giro, e quanti giri vengono fuori dipende da quanto forte si va. Nel
+  pannello di ogni macchina, accanto ai chilowattora, c'è **di quanti giri si è avanti o
+  indietro sul bisogno** — verde sopra lo zero, rosso sotto. È l'unico numero che conta, e
+  dentro ci sta anche il Pit Boost che si deve ancora fare.
+- **L'Attack Mode.** Non è un pulsante: si chiede, e si prende **al passaggio successivo
+  andando fuori traiettoria**, il che costa un secondo e mezzo subito per averne due al giro
+  dopo. Ce ne sono 8 minuti in tutto, in due o tre attivazioni decise prima della gara, e
+  vanno usati: quello che avanza è buttato. Chi ce l'ha acceso si vede sulla mappa, con
+  l'alone viola, e sul dritto non lo tiene dietro nessuno.
+- **Il Pit Boost.** Obbligatorio, e con una finestra: si può fare **solo con la batteria fra
+  il 40% e il 60%**. Il pannello dice se siamo in finestra, se manca, o se la finestra è
+  passata — e se è passata la gara è finita lì, perché chi non lo fa non è classificato.
+
+E poi c'è il **piano energia**, che è la cosa che decide le gare vere: chi risparmia
+all'inizio va piano mentre gli altri spingono e si ritrova dietro, e negli ultimi giri ha in
+cassa quello che gli altri hanno già speso. È il motivo per cui in Formula E l'ordine cambia
+dieci volte in una gara.
+
+Il muretto è lo stesso della Formula 1 — gli stessi cinque ordini al pilota, lo stesso passo,
+lo stesso `TEAM PRINCIPAL` per lasciargli tutto — perché è lo stesso mestiere: si guarda cosa
+resta in cassa e si decide chi spende e quando.
+
+**Misurato su tutti e dodici i circuiti, tre gare ognuno:** 49 sorpassi a gara (contro i 33
+della Formula 1 — in Formula E se ne contano molti di più, nel Monaco 2023 ne sono stati
+contati 116 sullo stesso tracciato dove un gran premio ne produce cinque), 1,3
+neutralizzazioni, 1,6 ritiri, e tutti al traguardo con **l'1,8% di batteria**, che è
+esattamente come finiscono le gare vere. Il Pit Boost lo fanno 21-22 macchine su 22, e
+l'Attack Mode si spende quasi tutto.
+
 ### Le gomme del weekend
 
 Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
@@ -1898,7 +1934,8 @@ game/core/           state (mondo e salvataggi), economy, development,
                      serie (le categorie minori), formulae (il mondiale elettrico)
 game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
-                     muretto (ordini al pilota e ordini di squadra)
+                     muretto (ordini al pilota e ordini di squadra),
+                     eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
 data/                database JSON (regulations.json e formulae.json sono i due
                      regolamenti: Formula 1 e Formula E)

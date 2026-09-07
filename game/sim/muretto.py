@@ -76,13 +76,32 @@ def di(e) -> dict:
     return ORDINI.get(getattr(e, "ordine", "libero"), ORDINI["libero"])
 
 
+def _tetto_passo(sim, e) -> float:
+    """Il passo massimo che l'energia a bordo permette, qualunque sia la gara.
+
+    In Formula 1 e' la benzina, in Formula E e' la batteria: il conto e' lo
+    stesso - quanto c'e' diviso quanto manca - e il muretto non ha bisogno di
+    sapere di che campionato si tratta.
+    """
+    proprio = getattr(sim, "passo_necessario", None)
+    if callable(proprio):
+        return proprio(e)
+    return BZ.passo_necessario(sim, e)
+
+
+def _forbice(sim) -> tuple:
+    """Fin dove si stringe e fin dove si allunga, in questo campionato."""
+    return (getattr(sim, "PASSO_MIN", None) or BZ.PASSO_MIN,
+            getattr(sim, "PASSO_MAX", None) or BZ.PASSO_MAX)
+
+
 def applica_passo(sim, e) -> None:
     """L'ordine sopra al passo scelto dal muretto.
 
-    Non scavalca la benzina: chiedere di attaccare a chi non ha di che
-    arrivare in fondo non fa apparire i chili nel serbatoio. Chiedere di
-    gestire invece si puo' sempre - alzare il piede e' un ordine che si esegue
-    anche quando non serve.
+    Non scavalca l'energia che c'e' a bordo: chiedere di attaccare a chi non ha
+    di che arrivare in fondo non fa apparire i chili nel serbatoio ne' i
+    chilowattora nella batteria. Chiedere di gestire invece si puo' sempre -
+    alzare il piede e' un ordine che si esegue anche quando non serve.
     """
     if e.passo_manuale is not None:
         return
@@ -91,12 +110,13 @@ def applica_passo(sim, e) -> None:
     if voluto is None:
         return
     if voluto > 1.0:
-        tetto = BZ.passo_necessario(sim, e)
-        e.push_mode = max(e.push_mode, min(voluto, tetto))
+        e.push_mode = max(e.push_mode, min(voluto, _tetto_passo(sim, e)))
     else:
         e.push_mode = min(e.push_mode, voluto)
-    e.push_mode = max(BZ.PASSO_MIN, min(BZ.PASSO_MAX, e.push_mode))
-    e.passo_benzina = round(e.push_mode - 1.0, 3)
+    lo, hi = _forbice(sim)
+    e.push_mode = max(lo, min(hi, e.push_mode))
+    if hasattr(e, "passo_benzina"):
+        e.passo_benzina = round(e.push_mode - 1.0, 3)
 
 
 def tentativi(e, base: int) -> int:
@@ -124,6 +144,28 @@ ADDOSSO = 1.1
 VITA_SCARICA = 0.25
 
 
+def _lettura(sim, e) -> tuple:
+    """Quello che il muretto ha davanti, tradotto uguale per i due campionati.
+
+    Quattro numeri e sono sempre quelli: quanti giri mancano, quanta vita resta
+    alla gomma, di quanti giri si e' avanti o indietro sull'energia, e a che
+    giro c'e' la prossima sosta. In Formula E la gomma non finisce mai e la
+    sosta e' una sola e obbligatoria, ma le domande che il muretto si fa sono
+    le stesse.
+    """
+    if hasattr(sim, "margine_energia"):          # Formula E
+        resta = sim.giri_restanti(e)
+        margine = sim.margine_energia(e)
+        prossima = e.lap if (sim.col_boost and not e.boost_fatto
+                             and sim.finestra_boost(e)) else 10 ** 6
+        return resta, 1.0, margine, prossima
+    resta = sim.laps - e.lap
+    vita = e.vita_gomma()
+    margine = 9.9 if sim.senza_benzina else BZ.margine_giri(sim, e)
+    prossima = e.plan[0][0] if e.plan else sim.laps
+    return resta, vita, margine, prossima
+
+
 def ai_ordine(sim, e, avanti, dietro, gap_a: float, gap_d: float) -> None:
     """Che ordine da' il muretto del computer alle sue macchine.
 
@@ -139,10 +181,9 @@ def ai_ordine(sim, e, avanti, dietro, gap_a: float, gap_d: float) -> None:
     if e.lap < e.ordine_da + GIRI_ORDINE:
         return
     e.ordine_da = e.lap
-    resta = sim.laps - e.lap
-    vita = e.vita_gomma()
+    resta, vita, margine, prossima = _lettura(sim, e)
     # una macchina rotta si porta a casa, e non c'e' molto da decidere
-    if e.damage > 30 or e.motore_usura > 0.88:
+    if e.damage > 30 or getattr(e, "motore_usura", 0.0) > 0.88:
         e.ordine = "casa"
         return
     # e negli ultimi giri, chi e' nei punti e non ha nessuno intorno li porta a
@@ -156,12 +197,11 @@ def ai_ordine(sim, e, avanti, dietro, gap_a: float, gap_d: float) -> None:
     if sim.rng.random() > 0.25 + 0.0070 * e.strategy_skill:
         e.ordine = "libero"
         return
-    prossima = e.plan[0][0] if e.plan else sim.laps
     # la gomma non arriva alla sosta: si gestisce, ed e' la decisione che
     # separa un muretto che sa leggere da uno che scopre il problema dopo
     if vita < VITA_SCARICA and prossima - e.lap > 4:
         e.ordine = "gestisci"
-    elif not sim.senza_benzina and BZ.margine_giri(sim, e) < -0.3:
+    elif margine < -0.3:
         e.ordine = "gestisci"
     elif avanti and gap_a < TIRO and vita > VITA_SCARICA:
         e.ordine = "attacca"

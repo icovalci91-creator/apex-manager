@@ -81,6 +81,7 @@ class Team:
     fe_punti: float = 0.0
     fe_posizione: int = 0        # come e' finito il mondiale costruttori
     fe_titoli: int = 0
+    fe_gara: int = 0             # a che punto del calendario si e' arrivati
     deals: list = field(default_factory=list)    # accordi commerciali firmati
     ledger: list = field(default_factory=list)   # movimenti datati
     cur_season: int = 0                          # quando siamo, per datare i movimenti

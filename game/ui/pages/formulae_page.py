@@ -55,8 +55,14 @@ class FormulaEPage(Page):
             self.widgets.append(Button(
                 (self.left.x + 16 + i * (larg + 12), y, larg, 32),
                 self._etichetta_sedile(i), (lambda k=i: self.gira_pilota(k)), "normal"))
-        self.widgets.append(Button((self.left.x + 16, self.left.bottom - 58,
-                                    self.left.w - 32, 40),
+        larg2 = (self.left.w - 44) / 2
+        b = Button((self.left.x + 16, self.left.bottom - 58, larg2, 40),
+                   "CORRI L'E-PRIX", self.corri, "primary",
+                   tip="La prossima gara del mondiale, dal muretto")
+        b.enabled = bool(FE.calendario(self.gs))
+        self.widgets.append(b)
+        self.widgets.append(Button((self.left.x + 28 + larg2, self.left.bottom - 58,
+                                    larg2, 40),
                                    "Chiudi il programma", self.chiudi, "danger"))
 
     def _candidati(self) -> list:
@@ -108,6 +114,23 @@ class FormulaEPage(Page):
     def chiudi(self) -> None:
         self.app.toast(FE.chiudi(self.gs, self.team))
         self.shell.build()
+
+    def corri(self) -> None:
+        """Il prossimo E-Prix, corso dal muretto invece che contato.
+
+        Quale gara sia lo dice il calendario: si gira su di esso stagione dopo
+        stagione, cosi' chi corre due E-Prix di fila non li corre nello stesso
+        posto.
+        """
+        piste = FE.calendario(self.gs)
+        if not piste:
+            return
+        i = int(getattr(self.team, "fe_gara", 0)) % len(piste)
+        self.team.fe_gara = i + 1
+        # meta' del calendario sono gare corte: si alternano, come nel vero
+        formato = "unleashed" if i % 3 == 2 else "eprix"
+        from ..scenes.eprix import EPrixScene
+        self.app.push(EPrixScene(self.app, piste[i], formato))
 
     # ----------------------------------------------------------------- disegno
     def draw(self, surf) -> None:
