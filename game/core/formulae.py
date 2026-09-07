@@ -280,6 +280,11 @@ DERIVA = 2.2
 # ripetono. Un pilota dieci punti migliore vale quattro punti e mezzo di
 # macchina, che nel mondiale sono qualche posizione.
 PESO_PILOTA = 0.45
+# Quanto e' lotteria una gara, dal circuito dove non si passa a quello dove si
+# passa sempre. Non e' un numero a caso: e' la ragione per cui certe gare di
+# Formula E finiscono nell'ordine di partenza e altre le vince il quindicesimo
+RUMORE_MIN = 2.6
+RUMORE_MAX = 6.4
 # Quanto vale un pilota normale di Formula E: gente che viene dalla Formula 1
 # o ci e' arrivata vicino, non ragazzi. E' il riferimento attorno a cui il
 # pilota sposta la macchina in su o in giu'
@@ -348,6 +353,19 @@ def campo(gs, team=None) -> list:
     return posti
 
 
+def calendario(gs) -> list:
+    """I circuiti su cui si corre questa stagione.
+
+    Quelli veri ci sono da sempre; quelli inventati entrano dalla stagione
+    scritta nei dati. Non e' colore: un campionato che corre sempre negli
+    stessi tredici posti per vent'anni non somiglia a niente, e la Formula E
+    in particolare cambia meta' calendario ogni due anni.
+    """
+    piste = list(getattr(gs, "fe_tracks", []) or [])
+    debutti = getattr(gs, "fe_debutti", {}) or {}
+    return [t for t in piste if int(debutti.get(t.id, 0) or 0) <= gs.season]
+
+
 def corri_stagione(gs, team=None):
     """Una stagione di Formula E, gara per gara.
 
@@ -363,11 +381,21 @@ def corri_stagione(gs, team=None):
     veloce = float(reg.get("punti", {}).get("giro_veloce", 1))
     entro = int(reg.get("punti", {}).get("giro_veloce_entro", 10))
     posti = campo(gs, team)
-    for _ in range(int(reg.get("gare", 21))):
+    # su quali circuiti si corre, e quante volte: il calendario ha piu' gare
+    # che citta' - meta' sono doppiette - quindi si gira sulle piste che ci
+    # sono finche' le gare non sono finite
+    piste = calendario(gs)
+    gare = int(reg.get("gare", 21))
+    giro_piste = [piste[i % len(piste)] for i in range(gare)] if piste else [None] * gare
+    for pista in giro_piste:
         # in Formula E le macchine sono quasi uguali e le gare sono di gestione:
         # il rumore e' piu' alto che in Formula 1, ed e' per questo che li' vince
-        # gente diversa quasi ogni domenica
-        ordine = sorted(posti, key=lambda p: -(p.forza + gs.rng.gauss(0.0, 4.6)))
+        # gente diversa quasi ogni domenica. E dipende da dove si corre: a
+        # Londra, dove non si passa, la griglia arriva com'era partita; a
+        # Portland, che e' un rettilineo lungo con la scia, vince chiunque
+        ot = float(pista.traits.get("overtaking", 0.5)) if pista is not None else 0.5
+        rumore = RUMORE_MIN + (RUMORE_MAX - RUMORE_MIN) * ot
+        ordine = sorted(posti, key=lambda p: -(p.forza + gs.rng.gauss(0.0, rumore)))
         for i, p in enumerate(ordine):
             if i < len(tabella):
                 p.punti += tabella[i]
@@ -375,7 +403,6 @@ def corri_stagione(gs, team=None):
                 p.vittorie += 1
             if i < 3:
                 p.podi += 1
-        ordine[0].punti += 0.0
         # la pole e il giro veloce non vanno sempre a chi vince
         qualifica = sorted(posti, key=lambda p: -(p.forza + gs.rng.gauss(0.0, 3.4)))
         qualifica[0].punti += pole

@@ -131,7 +131,10 @@ def ai_ordine(sim, e, avanti, dietro, gap_a: float, gap_d: float) -> None:
     ha un muretto bravo le indovina piu' spesso: legge prima che la gomma sia
     finita, capisce quando difendere basta e quando serve provarci.
     """
-    if e.is_player or e.status != "running":
+    # le nostre macchine le gestisce il giocatore, a meno che non abbia
+    # lasciato la gara al Team Principal: allora decide questo, con le stesse
+    # regole degli altri e la competenza di chi si e' messo al muretto
+    if (e.is_player and not e.delegato) or e.status != "running":
         return
     if e.lap < e.ordine_da + GIRI_ORDINE:
         return

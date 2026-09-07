@@ -432,6 +432,10 @@ class Entrant:
     tieni_posizioni: bool = False   # fra le nostre due non si combatte
     piano_bloccato: bool = False    # il piano l'ha scritto il giocatore
     box_richiesto: str = ""         # "box questo giro": ordine, non proposta
+    # la gara la gestisce il muretto nostro o la si lascia al Team Principal.
+    # Delegando, decide lui tutto quello che decideresti tu - ordini, soste,
+    # passo, energia - e quanto lo fa bene dipende da chi hai messo li'
+    delegato: bool = False
     domanda: dict = None            # la domanda aperta alla radio, se c'e'
     domanda_cd: int = -99           # e da che giro se ne puo' fare un'altra
     meteo_deciso: int = -1        # su quale previsione ha gia' deciso
@@ -1149,6 +1153,10 @@ class RaceSim:
         due parti diverse. Nessuna delle due e' quella giusta.
         """
         if not e.is_player or e.status != "running" or e.domanda:
+            return
+        # con la gara in mano al Team Principal non si chiede niente: decide
+        # lui, ed e' esattamente per questo che gli si e' lasciata
+        if e.delegato:
             return
         if e.lap < e.domanda_cd + self.DOMANDA_ATTESA:
             return

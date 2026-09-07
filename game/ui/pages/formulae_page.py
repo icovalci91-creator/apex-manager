@@ -119,7 +119,14 @@ class FormulaEPage(Page):
                (r.x + 4, r.y + 34), 13, T.DIM)
         T.text(surf, "Un campionato a parte: gente sua, tetto di spesa suo, bilancio suo. "
                      "Non toglie niente alla Formula 1.",
-               (r.x + 4, r.y + 56), 12, T.DIM_2, maxw=r.w - 20)
+               (r.x + 4, r.y + 54), 12, T.DIM_2, maxw=r.w - 20)
+        # il calendario: quello che cambia da una stagione all'altra, ed e' la
+        # ragione per cui il campionato non e' sempre lo stesso
+        piste = FE.calendario(self.gs)
+        if piste:
+            nomi = ", ".join(t.gp.replace("E-Prix di ", "") for t in piste)
+            T.text(surf, f"{len(piste)} sedi: {nomi}", (r.x + 4, r.y + 72), 12, T.DIM,
+                   maxw=r.w - 20)
         if FE.ha(self.team):
             self._programma(surf)
         else:

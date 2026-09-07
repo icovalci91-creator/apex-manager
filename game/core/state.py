@@ -89,6 +89,11 @@ class GameState:
         # le piste di proprieta' stanno fuori dal calendario e fuori dai
         # candidati: non correranno mai un gran premio, servono per provare
         gs.private_tracks = {t["id"]: Track.from_dict(t) for t in tdata.get("private", [])}
+        # e i circuiti di Formula E, che sono un campionato a parte: quelli
+        # veri corrono da subito, quelli inventati entrano dalla stagione
+        # scritta nei dati, cosi' il calendario non resta sempre lo stesso
+        gs.fe_tracks = [Track.from_dict(t) for t in tdata.get("formulae", [])]
+        gs.fe_debutti = {t["id"]: int(t.get("debutto", 0)) for t in tdata.get("formulae", [])}
 
         regs = _load("regulations.json")
         gs.regulations = regs["current"]

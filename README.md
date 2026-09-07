@@ -386,6 +386,33 @@ Nella griglia ci sono i costruttori veri della GEN4 — Porsche, Jaguar, Nissan,
 Lola, Citroën, Mahindra, Opel — e ognuno ha un livello che si muove di anno in anno: chi
 investe sale, chi taglia scende. In tre stagioni la griglia non è più quella.
 
+**I circuiti** stanno in `data/tracks.json`, nella lista `formulae`. Otto sono veri e sono
+**disegnati a mano dalle misure ufficiali** — lunghezza e numero di curve sono quelli
+pubblicati, la sequenza segue la forma nota del tracciato — perché i tracciati GPS di questi
+posti non si riescono a scaricare:
+
+| | km | curve | com'è |
+|---|---|---|---|
+| Berlino Tempelhof | 2,374 | 15 | le piste dell'aeroporto: cemento abrasivo e il degrado peggiore del campionato |
+| Londra ExCeL | 2,250 | 22 | metà dentro al padiglione: sul cemento non c'è aderenza e non si passa |
+| Tokyo | 2,582 | 18 | un rettilineo lungo e poi una fila di novanta gradi fra i muri |
+| Giacarta Ancol | 2,370 | 18 | caldo e umido: la gomma lavora sempre sopra la sua finestra |
+| Portland | 3,190 | 12 | un autodromo vero: scia enorme, gruppo unico, più sorpassi di tutti |
+| San Paolo Anhembi | 2,933 | 11 | due rettilinei lunghissimi e l'asfalto sconnesso della città |
+| Madrid Jarama | 3,934 | 14 | un permanente all'antica, stretto e tutto curve collegate |
+| Diriyah | 2,495 | 21 | di notte fra i muri di pietra: ventuno curve e nessuno spazio |
+
+Altri quattro sono **inventati** e si vede dal nome — Genova Porto Antico, Osaka Nanko,
+Città del Messico Reforma, Helsinki Kalasatama — ed entrano in calendario dalla stagione
+scritta nei dati (2028, 2029, 2030, 2031). Servono perché un campionato che corre sempre
+negli stessi posti per vent'anni non somiglia a niente, e la Formula E in particolare cambia
+mezzo calendario ogni due anni.
+
+**Dove si corre conta.** Il circuito decide quanto è lotteria una gara: una stagione corsa
+tutta a Londra finisce a **1,23 posti** dall'ordine di merito, una corsa tutta a Portland a
+**1,89**. È la ragione per cui certe gare di Formula E finiscono nell'ordine di partenza e
+altre le vince il quindicesimo.
+
 ### Le gomme del weekend
 
 Il weekend comincia prima di scendere in pista. Il fornitore nomina tre mescole della sua
@@ -579,6 +606,11 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   senza il quale il foglio è un desiderio. **`PIANO BLOCCATO`** dice al muretto di non
   spostarle più per undercut o overcut: la safety car e la pioggia restano sue, perché
   rinunciarci sarebbe una trappola e non una scelta.
+- **`TEAM PRINCIPAL`**: la gara la gestisce lui — ordini, soste, passo, energia, mappature —
+  e i comandi si spengono, perché o la gara è tua o è sua: mezzo delegare vuol dire non
+  capire più di chi è la colpa. Quanto la gestisce bene **dipende da chi hai messo lì**: il
+  muretto delegato usa la forza di strategia della squadra, cioè il capo strategia e il team
+  principal che hai assunto. Si riprende in mano quando si vuole, anche a metà gara.
 - **La radio fa domande**: il pilota chiama — *"le gomme sono andate, entro?"*, *"sono più
   veloce di lui e sono bloccato qui dietro"*, *"sta arrivando l'acqua, che gomma monto?"* —
   e si hanno **due risposte e tre giri** per darne una. Passati quelli decide il muretto come

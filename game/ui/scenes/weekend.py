@@ -197,29 +197,39 @@ class WeekendScene(Scene):
             b.on_click = (lambda i=i: self.set_speed(i))
             b.active = (i == self.speed_idx)
             self.widgets.append(b)
+        # I comandi della squadra, in fondo. Su una finestra stretta le
+        # etichette si accorciano invece di uscire dal bordo: sono cinque
+        # pulsanti e devono starci tutti, perche' toglierne uno vuol dire
+        # togliere una cosa che si puo' fare
         x = bx + 5 * 62 + 16
-        self.widgets.append(Button((x, by, 176, 34), "Simula fino alla fine",
-                                   self.skip_to_end, "ghost"))
-        x += 186
-        # il foglio strategia: e' la cosa che in gara si riapre di piu', e sta
-        # sopra a tutto perche' mentre la si guarda non si vuole cliccare altro
-        b = Button((x, by, 92, 34), "PIANO", self.apri_piano, "tab")
-        b.active = self.piano_aperto
-        self.widgets.append(b)
-        x += 100
-        # e gli ordini che riguardano tutte e due le macchine insieme
+        corta = w < 1180
         nostre = [e for e in self.sim.entrants
                   if e.team_id == self.gs.player_team and e.status == "running"]
+        delegata = self.delegato()
+        comandi = [
+            ("FINE" if corta else "Simula fino alla fine", 78 if corta else 176,
+             self.skip_to_end, "ghost", False, True, ""),
+            ("PIANO", 80 if corta else 92, self.apri_piano, "tab",
+             self.piano_aperto, True, "Il foglio strategia: le soste, e da li' si "
+                                      "riscrivono"),
+            ("TEAM PR." if corta else "TEAM PRINCIPAL", 112 if corta else 168,
+             self.delega, "tab", delegata, True,
+             "La gara la gestisce lui: ordini, soste, passo, energia"),
+        ]
         if len(nostre) >= 2:
-            self.widgets.append(Button((x, by, 100, 34), "SCAMBIO",
-                                       self.chiedi_scambio, "normal"))
-            x += 108
-            tieni = all(e.tieni_posizioni for e in nostre)
-            b = Button((x, by, 152, 34), "TIENI LE POSIZIONI",
-                       self.tieni_posizioni, "tab")
-            b.active = tieni
+            comandi.append(("SCAMBIO", 90 if corta else 100, self.chiedi_scambio,
+                            "normal", False, not delegata,
+                            "Lascialo passare: si chiede, non si impone"))
+            comandi.append(("FERMI" if corta else "TIENI LE POSIZIONI",
+                            78 if corta else 152, self.tieni_posizioni, "tab",
+                            all(e.tieni_posizioni for e in nostre), not delegata,
+                            "Fra le nostre due non si combatte piu'"))
+        for lab, larg, cb, stile, attivo, acceso, tip in comandi:
+            b = Button((x, by, larg, 34), lab, cb, stile, tip=tip)
+            b.active = attivo
+            b.enabled = acceso
             self.widgets.append(b)
-            x += 160
+            x += larg + 8
         if self.piano_aperto:
             # con il foglio aperto dietro non si clicca niente: e' un pannello
             # sopra alla gara, non una finestra da cui sfuggono i click
@@ -230,10 +240,12 @@ class WeekendScene(Scene):
         from ...sim import energia as EN
         for e, r in self._pannelli_barra(w, h):
             px, xm, yy = self._comandi_barra(r)
+            mia = not e.delegato
             for modo in EN.MODI:
                 b = Button((px, yy, 46, 20), EN.ETICHETTA[modo][:3], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=modo: self.set_energia(k, m))
                 b.active = (e.energy_mode == modo)
+                b.enabled = mia
                 self.widgets.append(b)
                 px += 49
             # i due modi di rimettere energia in cassa: alzando il piede o
@@ -243,6 +255,7 @@ class WeekendScene(Scene):
                 b = Button((px, yy, 46, 20), lab, style="tab")
                 b.on_click = (lambda k=e.driver_id, c=chiave: self.set_energia(k, c))
                 b.active = acceso
+                b.enabled = mia
                 self.widgets.append(b)
                 px += 49
             # e le mappature del motore, che sono l'altra manopola
@@ -250,6 +263,7 @@ class WeekendScene(Scene):
                 b = Button((xm, yy, 54, 20), EN.CORTO_MAPPA[mappa], style="tab")
                 b.on_click = (lambda k=e.driver_id, m=mappa: self.set_mappa(k, m))
                 b.active = (e.mappa == mappa)
+                b.enabled = mia
                 self.widgets.append(b)
                 xm += 57
             self._comandi_ordini(e, r)
@@ -263,6 +277,7 @@ class WeekendScene(Scene):
         vedendo quanta gomma resta, non guardando l'orologio.
         """
         due = self.due_righe()
+        mia = not e.delegato
         x = r.x + 16
         y = r.y + 130
         largo = (46 if r.w >= 430 else 40) if due else 38
@@ -271,6 +286,7 @@ class WeekendScene(Scene):
                        tip=MU.ORDINI[chiave]["nota"])
             b.on_click = (lambda k=e.driver_id, o=chiave: self.set_ordine(k, o))
             b.active = (e.ordine == chiave)
+            b.enabled = mia
             self.widgets.append(b)
             x += largo + 3
         # passo e sosta: sotto se c'e' spazio, di fianco se non ce n'e'
@@ -413,11 +429,13 @@ class WeekendScene(Scene):
         e chi si ha intorno, e stringe o allunga da solo.
         """
         largo_p = 30 if due else 24
+        mia = not e.delegato
         attuale = self._passo_di(e.driver_id)
         for lab, val in (("-", 0.90), ("=", None), ("+", 1.10)):
             b = Button((px, y, largo_p, 20), lab, style="tab")
             b.on_click = (lambda k=e.driver_id, v=val: self.set_push(k, v))
             b.active = (val == attuale)
+            b.enabled = mia
             self.widgets.append(b)
             px += largo_p + 3
         # e la sosta: il box e con che gomma. Sceglierla e' meta' dell'undercut,
@@ -429,9 +447,10 @@ class WeekendScene(Scene):
             mescole = ()
             serve = 44
         bx = r.right - 16 - serve
-        self.widgets.append(Button(
-            (bx, y, 44, 20), "BOX", (lambda k=e.driver_id: self.force_pit(k)),
-            "normal", tip="Box al prossimo passaggio, gomma scelta dal muretto"))
+        b = Button((bx, y, 44, 20), "BOX", (lambda k=e.driver_id: self.force_pit(k)),
+                   "normal", tip="Box al prossimo passaggio, gomma scelta dal muretto")
+        b.enabled = mia
+        self.widgets.append(b)
         bx += 50
         for m in mescole:
             resta = (e.stock or {}).get(m)
@@ -441,6 +460,7 @@ class WeekendScene(Scene):
                            + (f": {resta} set" if resta is not None else ""))
             b.on_click = (lambda k=e.driver_id, mm=m: self.force_pit(k, mm))
             b.active = (e.tyre == m)
+            b.enabled = mia
             self.widgets.append(b)
             bx += largo_m + 3
 
@@ -463,6 +483,42 @@ class WeekendScene(Scene):
             e.ordine = "libero" if e.ordine == ordine else ordine
             e.ordine_da = e.lap
             self.sim.radio_say(e, MU.ORDINI[e.ordine]["radio"], "muretto")
+        self.build()
+
+    def delegato(self) -> bool:
+        """Se la gara e' in mano al Team Principal."""
+        if not self.sim:
+            return False
+        nostre = [e for e in self.sim.entrants if e.is_player]
+        return bool(nostre) and all(e.delegato for e in nostre)
+
+    def delega(self) -> None:
+        """Passa la gara al Team Principal, o se la riprende il giocatore.
+
+        Delegando si molla tutto: gli ordini, le soste, il passo, l'energia e
+        le mappature tornano al muretto, e le manopole che si erano toccate si
+        rimettono su "decide lui". Non e' mezzo delegare: o la gara e' tua o e'
+        sua, se no non si capisce piu' di chi e' la colpa.
+        """
+        if not self.sim:
+            return
+        acceso = not self.delegato()
+        for e in self.sim.entrants:
+            if not e.is_player:
+                continue
+            e.delegato = acceso
+            if acceso:
+                e.passo_manuale = None
+                e.energy_manual = False
+                e.mappa_manuale = False
+                e.domanda = None
+                e.ordine = "libero"
+                e.ordine_da = -99
+        capo = self.gs.player._s("head_of_strategy", "strategy", 60.0)
+        if acceso:
+            self.app.toast(f"Gara al Team Principal. Capo strategia: {capo:.0f}.")
+        else:
+            self.app.toast("Il muretto torna a te.")
         self.build()
 
     def chiedi_scambio(self) -> None:
@@ -1632,6 +1688,9 @@ class WeekendScene(Scene):
         # ---- riga cinque: cosa gli e' stato chiesto, e se c'e' uno scambio
         # in aria. I pulsanti li mette build(), qui va quello che raccontano
         due = self.due_righe()
+        if e.delegato:
+            T.text(surf, "TEAM PRINCIPAL", (r.right - 16, r.y + 134), 11, T.ACCENT,
+                   bold=True, align="right")
         if due:
             ox = r.x + 16 + 5 * ((46 if not stretto else 40) + 3) + 6
             T.text(surf, "PASSO", (r.x + 16, r.y + 158), 11, T.DIM_2, bold=True)

@@ -26550,5 +26550,384 @@
    ]
   }
  ],
- "_start_note": "start: coordinate della linea del traguardo; senso: da che parte si corre (orario/antiorario). Il tracciato di OpenStreetMap comincia dove capita e va nel verso in cui l'hanno disegnato: con questi due campi viene ruotato e girato al momento di costruirlo. Li scrive tools/anchor_tracks.py. settori: dove tagliano i due intertempi, in frazione di giro dal traguardo; se manca, i settori si dividono in tre parti di uguale durata."
+ "_start_note": "start: coordinate della linea del traguardo; senso: da che parte si corre (orario/antiorario). Il tracciato di OpenStreetMap comincia dove capita e va nel verso in cui l'hanno disegnato: con questi due campi viene ruotato e girato al momento di costruirlo. Li scrive tools/anchor_tracks.py. settori: dove tagliano i due intertempi, in frazione di giro dal traguardo; se manca, i settori si dividono in tre parti di uguale durata.",
+ "_formulae_note": "I circuiti di Formula E. Non entrano nel calendario di Formula 1: stanno qui perche' un circuito e' un circuito, e il gioco li legge dalla loro lista. Quelli con le misure ufficiali sono disegnati a mano - lunghezza e numero di curve sono quelli veri, la sequenza segue la forma nota - perche' i tracciati GPS di questi posti non si riescono a scaricare. Quelli con `debutto` sono inventati: entrano in calendario da quella stagione in poi, cosi' il campionato non resta sempre lo stesso.",
+ "formulae": [
+  {
+   "id": "tempelhof",
+   "name": "Tempelhof Airport Street Circuit",
+   "gp": "E-Prix di Berlino",
+   "country": "Germania",
+   "flag": "DE",
+   "length_km": 2.374,
+   "laps": 44,
+   "corners": 15,
+   "pit_loss": 17.5,
+   "ref_lap": 64.0,
+   "month": 5,
+   "altitude": 48,
+   "night": false,
+   "traits": {
+    "downforce": 0.45,
+    "power": 0.6,
+    "tyre_wear": 0.95,
+    "braking": 0.7,
+    "overtaking": 0.7,
+    "bumpiness": 0.3
+   },
+   "climate": {
+    "temp": 17,
+    "swing": 6,
+    "rain": 0.3,
+    "wind": 16
+   },
+   "nota": "Le piste dell'aeroporto: cemento abrasivo, niente muri, e il degrado peggiore del campionato. Si vince gestendo la gomma, non spingendo.",
+   "layout": "S860 L93:2 S130 R45:3 S90 L62:2 S180 L114:1 S620 R70:3 S110 L83:2 S90 R55:3 S150 L93:2 S80 R70:2 S190 L78:4 S120 L67:3 S100 R90:2 S90 L83:3 S160 R60:3 S110 L78:2"
+  },
+  {
+   "id": "excel",
+   "name": "ExCeL London Circuit",
+   "gp": "E-Prix di Londra",
+   "country": "Regno Unito",
+   "flag": "GB",
+   "length_km": 2.25,
+   "laps": 39,
+   "corners": 22,
+   "pit_loss": 18.0,
+   "ref_lap": 76.0,
+   "month": 7,
+   "altitude": 5,
+   "night": false,
+   "traits": {
+    "downforce": 0.8,
+    "power": 0.3,
+    "tyre_wear": 0.35,
+    "braking": 0.6,
+    "overtaking": 0.12,
+    "bumpiness": 0.45
+   },
+   "climate": {
+    "temp": 20,
+    "swing": 5,
+    "rain": 0.35,
+    "wind": 12
+   },
+   "nota": "Meta' dentro al padiglione e meta' fuori: l'unico circuito coperto del mondiale. Sul cemento interno non c'e' aderenza e non si passa.",
+   "layout": "S430 R70:2 S55 R70:2 S50 R60:2 S110 L60:3 S60 R60:2 S90 L45:3 S70 R45:3 S80 L50:3 S60 R50:2 S100 L55:3 S65 R55:2 S380 R60:2 S55 R50:2 S50 R50:2 S120 L55:3 S60 R55:2 S90 L45:4 S70 R45:3 S80 L60:2 S65 R60:3 S100 L50:3 S60 R50:2"
+  },
+  {
+   "id": "tokyobs",
+   "name": "Tokyo Street Circuit",
+   "gp": "E-Prix di Tokyo",
+   "country": "Giappone",
+   "flag": "JP",
+   "length_km": 2.582,
+   "laps": 38,
+   "corners": 18,
+   "pit_loss": 19.0,
+   "ref_lap": 72.0,
+   "month": 5,
+   "altitude": 4,
+   "night": false,
+   "traits": {
+    "downforce": 0.7,
+    "power": 0.45,
+    "tyre_wear": 0.45,
+    "braking": 0.75,
+    "overtaking": 0.25,
+    "bumpiness": 0.5
+   },
+   "climate": {
+    "temp": 19,
+    "swing": 5,
+    "rain": 0.3,
+    "wind": 13
+   },
+   "nota": "Attorno al Tokyo Big Sight, fra i muri del quartiere fieristico: un lungo rettilineo e poi una successione di novanta gradi.",
+   "layout": "S620 R90:2 S110 L134:2 S150 R75:2 S90 L90:3 S200 R90:1 S130 L119:2 S90 R55:3 S170 L134:2 S110 R70:2 S140 L67:4 S90 R90:2 S120 L97:3 S80 R80:2 S160 L134:2 S100 R60:3 S110 L104:2 S90 R45:4 S130 L134:2"
+  },
+  {
+   "id": "ancol",
+   "name": "Jakarta International e-Prix Circuit",
+   "gp": "E-Prix di Giacarta",
+   "country": "Indonesia",
+   "flag": "ID",
+   "length_km": 2.37,
+   "laps": 40,
+   "corners": 18,
+   "pit_loss": 17.0,
+   "ref_lap": 70.0,
+   "month": 6,
+   "altitude": 3,
+   "night": false,
+   "traits": {
+    "downforce": 0.6,
+    "power": 0.5,
+    "tyre_wear": 0.7,
+    "braking": 0.6,
+    "overtaking": 0.45,
+    "bumpiness": 0.35
+   },
+   "climate": {
+    "temp": 31,
+    "swing": 3,
+    "rain": 0.45,
+    "wind": 9
+   },
+   "nota": "Costruito apposta sul lungomare di Ancol. Fa caldissimo e la gomma lavora sempre sopra la sua finestra.",
+   "layout": "S620 R90:2 S110 L111:2 S90 R60:3 S150 L133:2 S70 R45:4 S120 L103:2 S480 R85:2 S90 L81:3 S130 R90:1 S100 L118:2 S70 R50:4 S140 L133:2 S90 R65:3 S70 L66:4 S110 R75:2 S80 L133:2 S60 R60:3 S100 L103:2"
+  },
+  {
+   "id": "portland",
+   "name": "Portland International Raceway",
+   "gp": "E-Prix di Portland",
+   "country": "Stati Uniti",
+   "flag": "US",
+   "length_km": 3.19,
+   "laps": 33,
+   "corners": 12,
+   "pit_loss": 19.5,
+   "ref_lap": 62.0,
+   "month": 6,
+   "altitude": 15,
+   "night": false,
+   "traits": {
+    "downforce": 0.35,
+    "power": 0.85,
+    "tyre_wear": 0.4,
+    "braking": 0.5,
+    "overtaking": 0.95,
+    "bumpiness": 0.25
+   },
+   "climate": {
+    "temp": 22,
+    "swing": 7,
+    "rain": 0.3,
+    "wind": 11
+   },
+   "nota": "Un autodromo vero, veloce e largo, con una scia enorme: e' la gara con piu' sorpassi del campionato, un gruppo solo per tutta la corsa.",
+   "layout": "S980 R84:4 S220 R105:3 S340 L45:5 S420 R126:2 S180 L70:3 S260 R77:4 S300 L60:4 S200 R112:2 S240 L50:4 S180 R91:3 S280 L75:2 S200 R63:5"
+  },
+  {
+   "id": "anhembi",
+   "name": "São Paulo Street Circuit",
+   "gp": "E-Prix di San Paolo",
+   "country": "Brasile",
+   "flag": "BR",
+   "length_km": 2.933,
+   "laps": 35,
+   "corners": 11,
+   "pit_loss": 18.5,
+   "ref_lap": 78.0,
+   "month": 12,
+   "altitude": 760,
+   "night": false,
+   "traits": {
+    "downforce": 0.4,
+    "power": 0.8,
+    "tyre_wear": 0.5,
+    "braking": 0.65,
+    "overtaking": 0.8,
+    "bumpiness": 0.6
+   },
+   "climate": {
+    "temp": 24,
+    "swing": 5,
+    "rain": 0.4,
+    "wind": 10
+   },
+   "nota": "Attorno al Sambodromo dell'Anhembi: due rettilinei lunghissimi e poche curve, con l'asfalto sconnesso delle strade di citta'.",
+   "layout": "S1050 L149:2 S180 R60:3 S760 L124:2 S200 R45:4 S240 L149:1 S160 R70:3 S320 L91:4 S180 R85:2 S220 L99:3 S200 R75:2 S280 L83:4"
+  },
+  {
+   "id": "jarama",
+   "name": "Circuito del Jarama-RACE",
+   "gp": "E-Prix di Madrid",
+   "country": "Spagna",
+   "flag": "ES",
+   "length_km": 3.934,
+   "laps": 30,
+   "corners": 14,
+   "pit_loss": 20.0,
+   "ref_lap": 88.0,
+   "month": 3,
+   "altitude": 680,
+   "night": false,
+   "traits": {
+    "downforce": 0.7,
+    "power": 0.5,
+    "tyre_wear": 0.6,
+    "braking": 0.55,
+    "overtaking": 0.2,
+    "bumpiness": 0.4
+   },
+   "climate": {
+    "temp": 13,
+    "swing": 7,
+    "rain": 0.3,
+    "wind": 14
+   },
+   "nota": "Un permanente all'antica, stretto e tutto curve collegate: il posto dove si prova d'inverno e dove passare e' un problema.",
+   "layout": "S620 R128:3 S180 L60:3 S240 R154:2 S150 L45:4 S320 R120:3 S200 L80:2 S260 R94:4 S180 L65:3 S300 R145:2 S160 L50:4 S220 R103:3 S190 L90:1 S280 R77:5 S210 L70:3"
+  },
+  {
+   "id": "diriyah",
+   "name": "Riyadh Street Circuit",
+   "gp": "E-Prix di Diriyah",
+   "country": "Arabia Saudita",
+   "flag": "SA",
+   "length_km": 2.495,
+   "laps": 39,
+   "corners": 21,
+   "pit_loss": 18.0,
+   "ref_lap": 74.0,
+   "month": 1,
+   "altitude": 700,
+   "night": true,
+   "traits": {
+    "downforce": 0.75,
+    "power": 0.45,
+    "tyre_wear": 0.55,
+    "braking": 0.8,
+    "overtaking": 0.3,
+    "bumpiness": 0.5
+   },
+   "climate": {
+    "temp": 17,
+    "swing": 6,
+    "rain": 0.05,
+    "wind": 12
+   },
+   "nota": "Fra i muri di pietra della citta' vecchia, di notte sotto i riflettori: ventuno curve in due chilometri e mezzo e nessuno spazio per sbagliare.",
+   "layout": "S520 R129:2 S80 L75:2 S70 R86:3 S110 L90:2 S60 R65:4 S90 L70:2 S130 R122:2 S440 L90:1 S70 R115:2 S90 L50:4 S60 R129:2 S120 L65:3 S80 R65:4 S100 L75:2 S70 R129:2 S110 L60:3 S60 R100:2 S90 L80:2 S70 R79:3 S130 L90:2 S60 R86:3"
+  },
+  {
+   "id": "genova",
+   "name": "Circuito del Porto Antico",
+   "gp": "E-Prix di Genova",
+   "country": "Italia",
+   "flag": "IT",
+   "length_km": 2.28,
+   "laps": 41,
+   "corners": 19,
+   "pit_loss": 17.5,
+   "ref_lap": 73.0,
+   "month": 6,
+   "altitude": 8,
+   "night": true,
+   "debutto": 2028,
+   "traits": {
+    "downforce": 0.8,
+    "power": 0.35,
+    "tyre_wear": 0.45,
+    "braking": 0.75,
+    "overtaking": 0.15,
+    "bumpiness": 0.7
+   },
+   "climate": {
+    "temp": 24,
+    "swing": 5,
+    "rain": 0.25,
+    "wind": 15
+   },
+   "nota": "Fra le banchine e i magazzini del porto vecchio, di sera, con il basolato sotto l'asfalto e i muri a un metro. Stretto e sconnesso.",
+   "layout": "S470 L130:2 S80 R75:2 S60 L87:3 S110 R90:1 S70 L116:2 S330 R55:3 S60 L130:2 S100 R70:2 S80 L65:4 S130 R85:2 S60 L94:3 S90 R90:2 S70 L72:4 S110 R60:3 S55 L109:2 S80 R90:2 S90 L101:2 S60 R45:4 S100 L116:2"
+  },
+  {
+   "id": "osaka",
+   "name": "Nanko Bayside Circuit",
+   "gp": "E-Prix di Osaka",
+   "country": "Giappone",
+   "flag": "JP",
+   "length_km": 2.66,
+   "laps": 37,
+   "corners": 14,
+   "pit_loss": 18.5,
+   "ref_lap": 68.0,
+   "month": 4,
+   "altitude": 3,
+   "night": false,
+   "debutto": 2029,
+   "traits": {
+    "downforce": 0.45,
+    "power": 0.75,
+    "tyre_wear": 0.5,
+    "braking": 0.55,
+    "overtaking": 0.75,
+    "bumpiness": 0.3
+   },
+   "climate": {
+    "temp": 18,
+    "swing": 6,
+    "rain": 0.3,
+    "wind": 18
+   },
+   "nota": "Sulle strade larghe del porto artificiale, con il vento del mare che arriva di traverso sui due rettilinei lunghi.",
+   "layout": "S820 R60:4 S260 L154:2 S180 R45:5 S620 L128:2 S200 R70:3 S150 L94:4 S240 R90:2 S170 L103:3 S200 R80:2 S140 L77:5 S260 R65:3 S180 L145:2 S150 R50:4 S220 L120:3"
+  },
+  {
+   "id": "reforma",
+   "name": "Circuito Paseo de la Reforma",
+   "gp": "E-Prix di Città del Messico",
+   "country": "Messico",
+   "flag": "MX",
+   "length_km": 3.05,
+   "laps": 33,
+   "corners": 16,
+   "pit_loss": 19.0,
+   "ref_lap": 80.0,
+   "month": 1,
+   "altitude": 2240,
+   "night": false,
+   "debutto": 2030,
+   "traits": {
+    "downforce": 0.55,
+    "power": 0.7,
+    "tyre_wear": 0.6,
+    "braking": 0.7,
+    "overtaking": 0.55,
+    "bumpiness": 0.55
+   },
+   "climate": {
+    "temp": 20,
+    "swing": 8,
+    "rain": 0.15,
+    "wind": 10
+   },
+   "nota": "Sul viale piu' famoso della citta', a duemiladuecento metri: l'aria sottile toglie carico e raffreddamento, e i freni non ne vogliono sapere.",
+   "layout": "S900 R90:2 S220 L92:3 S340 R75:2 S180 L69:4 S420 R85:2 S160 L107:3 S240 R55:4 S200 L137:1 S180 R65:3 S260 L122:2 S140 R50:4 S220 L114:2 S190 R60:3 S170 L137:2 S200 R45:5 S150 L107:3"
+  },
+  {
+   "id": "kalasatama",
+   "name": "Kalasatama Harbour Circuit",
+   "gp": "E-Prix di Helsinki",
+   "country": "Finlandia",
+   "flag": "FI",
+   "length_km": 2.52,
+   "laps": 38,
+   "corners": 17,
+   "pit_loss": 17.5,
+   "ref_lap": 71.0,
+   "month": 8,
+   "altitude": 6,
+   "night": false,
+   "debutto": 2031,
+   "traits": {
+    "downforce": 0.65,
+    "power": 0.5,
+    "tyre_wear": 0.3,
+    "braking": 0.6,
+    "overtaking": 0.35,
+    "bumpiness": 0.4
+   },
+   "climate": {
+    "temp": 13,
+    "swing": 6,
+    "rain": 0.4,
+    "wind": 17
+   },
+   "nota": "Il quartiere nuovo sull'acqua, a nord di tutto: l'asfalto e' freddo tutto l'anno e le gomme non si accendono mai davvero.",
+   "layout": "S680 L75:2 S130 R144:2 S90 L60:3 S160 R72:4 S120 L85:2 S90 R112:3 S420 L55:4 S110 R144:1 S80 L65:3 S140 R128:2 S100 L50:4 S120 R120:2 S90 L90:2 S150 R96:3 S100 L45:5 S110 R136:2 S80 L70:3"
+  }
+ ]
 }
