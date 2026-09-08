@@ -262,7 +262,6 @@ def ai_plan(gs) -> None:
         # piu' giornate restano rispetto alle gare che mancano, piu' spesso si esce:
         # nessuno arriva a dicembre con meta' del pacchetto ancora in mano
         gare_restanti = max(1, len(gs.tracks) - gs.round)
-        from . import economy
         if economy.room_left(gs, team) < 1.0:
             continue                     # non e' aria di giornate di prove
         voglia = (days_left(gs, team) / (gare_restanti * 1.6)

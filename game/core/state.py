@@ -313,7 +313,6 @@ class GameState:
         for team in self.teams.values():
             have = named.get(team.id, [])
             team.staff.extend(have)
-            filled = {s.role for s in have}
             level = 44.0 + team.reputation * 0.42
             for role, meta in self.staff_roles.items():
                 slots = meta.get("slots", 1)

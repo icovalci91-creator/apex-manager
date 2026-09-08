@@ -1,7 +1,6 @@
 """Bilancio: ricavi, costi, premi FOM e tetto di spesa."""
 from __future__ import annotations
 
-from .. import config as C
 
 # Il montepremi non e' una scala sola. Nella realta' ha due colonne: una parte
 # uguale per tutte le squadre che ne hanno diritto, e una legata al piazzamento

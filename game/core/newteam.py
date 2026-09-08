@@ -319,13 +319,13 @@ def drift_reputation(gs) -> list:
 
 def welcome(gs, team) -> None:
     """Le righe che dicono al patron dove si e' cacciato."""
-    gs.push(f"Dal promoter, quest'anno, non arrivera' niente: il piatto si "
-            f"divide fra chi si e' classificato nei campionati scorsi. Si vive "
-            f"di capitale e di sponsor, e gli sponsor vanno trovati.", "soldi")
-    gs.push(f"Galleria del vento in affitto, niente simulatore, una fabbrica da "
-            f"tirare su. Si hanno pero' tutte le ore aerodinamiche che il "
-            f"regolamento concede all'ultima della classe: e' l'unico vantaggio "
-            f"che c'e', e va speso.", "tecnico")
+    gs.push("Dal promoter, quest'anno, non arrivera' niente: il piatto si "
+            "divide fra chi si e' classificato nei campionati scorsi. Si vive "
+            "di capitale e di sponsor, e gli sponsor vanno trovati.", "soldi")
+    gs.push("Galleria del vento in affitto, niente simulatore, una fabbrica da "
+            "tirare su. Si hanno pero' tutte le ore aerodinamiche che il "
+            "regolamento concede all'ultima della classe: e' l'unico vantaggio "
+            "che c'e', e va speso.", "tecnico")
     gs.push(f"Cassa: {team.cash:.0f} M$. Costruire non passa dal tetto di spesa, "
             f"e a chi entra il regolamento concede {CAPEX_INGRESSO:.0f} M$ in "
             f"piu' in conto capitale per mettersi in pari.", "soldi")

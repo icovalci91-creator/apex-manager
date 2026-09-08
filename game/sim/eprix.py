@@ -30,13 +30,12 @@ stesso mestiere: si guarda cosa resta in cassa e si decide chi spende e quando.
 """
 from __future__ import annotations
 
-import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ..core import formulae as FE
 from . import muretto as MU
-from .weekend import Weather, follow_gap, _mmss
+from .weekend import Weather, follow_gap
 
 # ------------------------------------------------------------------ costanti
 # Quanto vale, sul giro, un punto di valutazione del pilota. In Formula E pesa

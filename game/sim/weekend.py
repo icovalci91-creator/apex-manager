@@ -6,7 +6,6 @@ risultato provengono dalla stessa simulazione.
 """
 from __future__ import annotations
 
-import math
 import random
 from dataclasses import dataclass, field
 
@@ -1242,7 +1241,7 @@ class RaceSim:
         d = None
         # la macchina rotta: e' la domanda che si fa una volta e cambia la gara
         if e.damage > 30:
-            d = ("danni", f"Ho preso un colpo forte, la macchina non e' piu' dritta.",
+            d = ("danni", "Ho preso un colpo forte, la macchina non e' piu' dritta.",
                  [("Porta a casa", "casa"), ("Vai avanti cosi'", "niente")])
         # l'acqua che si vede arrivare: entrare un giro prima o un giro dopo
         elif (e.tyre in ("soft", "medium", "hard") and self.bagnato < 0.10

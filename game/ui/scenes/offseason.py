@@ -157,7 +157,7 @@ class OffseasonScene(Scene):
         super().draw(surf)
 
     def _draw_summary(self, surf, w, h) -> None:
-        gs, rep = self.gs, self.report
+        rep = self.report
         left = pygame.Rect(32, 100, w * 0.46, h - 210)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "CAMPIONI", (left.x + 20, left.y + 16), 12, T.DIM_2, bold=True)

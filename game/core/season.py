@@ -1,8 +1,6 @@
 """Progressione della stagione: risultati, fine gara, fine anno."""
 from __future__ import annotations
 
-from .. import config as C
-from ..model.car import Part
 from . import (academy, architetture, calendar, departments, development, economy,
                facilities, market, nextcar, penalties,
                powertrain, rules, setup, sponsors, testing)

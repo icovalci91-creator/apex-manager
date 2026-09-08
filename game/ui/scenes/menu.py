@@ -1,7 +1,6 @@
 """Menu principale e scelta della scuderia."""
 from __future__ import annotations
 
-import json
 import math
 import pygame
 

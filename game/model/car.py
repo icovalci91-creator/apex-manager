@@ -1,7 +1,6 @@
 """Vettura: componenti, usura, assetto e statistiche derivate."""
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
 from .. import config as C

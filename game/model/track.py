@@ -1259,13 +1259,7 @@ class Track:
         t, vmax_kmh, v, vlim, classi = self._solve(car, wet, grip, rho, bias)
         n = len(v)
         ds = self.ds
-        scala = (t / self.calibration) if self.calibration else 1.0
         tempi = {d: 0.0 for d in DOMINI}
-        mass = car.mass_base + car.mass_extra
-        power = (getattr(car, "potenza_max_w", C.POWER_W) * car.power
-                 * getattr(car, "potenza_reg", 1.0))
-        mu = C.MU_LAT * car.mech_grip * grip * (1.0 - 0.30 * wet)
-        aero = (C.RHO if rho is None else rho) * C.CLA_BASE * car.downforce / (2.0 * mass)
         vmax = vmax_kmh / 3.6
         pieno = 0.0
         frenate = 0

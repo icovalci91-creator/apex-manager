@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import random
 from dataclasses import dataclass, field
 
 from .. import config as C
@@ -10,7 +9,7 @@ from . import benzina as BZ
 from . import pace
 from ..model import track as TK
 from . import weekend as W
-from .weekend import BURN_KG_PER_LAP, DRIVER_S_PER_POINT, Entrant, RaceSim, Weather
+from .weekend import BURN_KG_PER_LAP, Entrant, RaceSim, Weather
 
 
 @dataclass
@@ -132,7 +131,6 @@ def _quote_settori(gs, team, track, cond) -> tuple:
 
 def build_entrants(gs, track, cond, quali: bool = False) -> list:
     """Chi scende in pista, con che passo e in che condizioni."""
-    from ..core import penalties
     from ..core.driving import FIDUCIA_BASE
     from ..core import engineering
     aff = pace.affinities(gs, track)
@@ -417,7 +415,9 @@ def auto_setup(gs, team, track, quality: float | None = None, driver=None) -> No
 # ---------------------------------------------------------------- qualifica
 # I tre turni stanno in sim.hotlap insieme al turno che li gioca: qui resta il
 # nome con cui li chiamano le schermate.
-from .hotlap import SEGMENTI, LapSession    # noqa: E402
+# SEGMENTI si riesporta di proposito: l'interfaccia del weekend lo legge
+# da qui, che e' il modulo con cui parla
+from .hotlap import SEGMENTI, LapSession    # noqa: E402,F401
 
 
 def run_qualifying(gs, ws: WeekendState, kind: str = "gp") -> list:

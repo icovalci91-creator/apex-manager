@@ -645,7 +645,6 @@ def standard(gs, part: str) -> bool:
 
 def start_project(gs, team, part: str, size: str, focus: str = "") -> tuple:
     """Apre un pacchetto. Non si paga tutto subito: si paga gara per gara."""
-    from . import departments
     if standard(gs, part):
         return False, (f"{C.CAR_PARTS[part]['label']} e' di fornitura unica: "
                        f"arriva uguale a tutti e non c'e' niente da sviluppare.")
@@ -695,7 +694,6 @@ def deliver(gs, team, pr: Project) -> list:
     reparto, e la fiducia dipende da chi ha disegnato il pezzo, con che
     strumenti l'ha validato e quanto quegli strumenti dicono la verita'.
     """
-    part = team.car.parts[pr.part]
     nome = C.CAR_PARTS[pr.part]["label"]
     band = roll_outcome(gs, outcome_odds(pr.confidence, pr.size))
     lo, hi = BANDS[band]

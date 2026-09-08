@@ -23,9 +23,8 @@ di piu'.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from .. import config as C
 
 # Quante settimane di lavoro vero ha un inverno, e quante ne ha un reparto.
 # Sono il doppio abbondante di quelle che si trovano fra due gare: e' questo
@@ -214,7 +213,6 @@ def parere_tecnico(gs, team) -> str:
     settimane ci sono, quanto vale il reparto che le usera', e se conviene
     concentrare o spargere.
     """
-    from . import development
     td = team.role("technical_director")
     chi = td.name if td else "Il direttore tecnico"
     aero = qualita_reparto(team, "aero")

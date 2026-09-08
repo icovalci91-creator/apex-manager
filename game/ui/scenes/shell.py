@@ -1,7 +1,6 @@
 """Schermata principale del gioco: barra superiore, navigazione e pagine."""
 from __future__ import annotations
 
-import time
 import pygame
 
 from ... import storage

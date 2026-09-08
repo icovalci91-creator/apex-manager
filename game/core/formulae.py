@@ -1386,7 +1386,7 @@ def _ai_piloti(gs, team) -> list:
         k = 0 if gs.rng.random() < 0.35 + 0.5 * bravura else gs.rng.randrange(
             min(3, len(adatti)))
         d = adatti[k]
-        detto = ingaggia(gs, team, d, i)
+        ingaggia(gs, team, d, i)
         if d.team == team.id:
             righe.append(f"{team.short}: {d.name} in Formula E "
                          f"({d.salary:.2f} M$).")

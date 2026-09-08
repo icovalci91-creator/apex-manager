@@ -9,7 +9,7 @@ from ...model.people import STAFF_ATTRS
 from .. import bandiere
 from .. import theme as T
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, Slider, card
+from ..widgets import Button, ScrollList, Slider
 
 
 def _dove(gs, d) -> str:
@@ -724,7 +724,7 @@ class StaffPage(Page):
         y += 6
         if self.sel_from == "mine":
             resta = max(1, s.contract_until - gs.season)
-            for riga in (f"Mandarlo via costa la buonuscita di quello che resta di",
+            for riga in ("Mandarlo via costa la buonuscita di quello che resta di",
                          f"contratto: {s.salary * max(0.5, resta):.2f} M$, fuori dal tetto di spesa.",
                          "Il rinnovo si fa lasciandolo scadere e riassumendolo dal mercato."):
                 T.text(surf, riga, (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
@@ -753,7 +753,7 @@ class StaffPage(Page):
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:
-        r, gs, team = self.rect, self.gs, self.team
+        team = self.team
         for col in (self.colA, self.colB, self.colC):
             T.panel(surf, col, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "ORGANIGRAMMA", (self.colA.x + 16, self.colA.y + 12), 12,

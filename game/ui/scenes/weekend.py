@@ -1218,7 +1218,6 @@ class WeekendScene(Scene):
 
     def _draw_race(self, surf) -> None:
         w, h = surf.get_size()
-        sim = self.sim
         tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
         barra_y = h - 84 - self.barra_h(h)

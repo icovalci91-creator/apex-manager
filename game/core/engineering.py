@@ -1,7 +1,6 @@
 """Analisi tecnica comparata e dialogo con gli ingegneri."""
 from __future__ import annotations
 
-import math
 
 from .. import config as C
 
@@ -103,7 +102,7 @@ def grid_domains(gs, track, cond=None) -> dict:
         salva, benzina = dict(car.setup), car.fuel_kg
         car.setup = car.optimal_setup(track, cond=cond)
         car.fuel_kg = 0.0
-        out[team.id] = car_telemetry = track.telemetry(
+        out[team.id] = track.telemetry(
             car, wet=cond.wet, grip=grip, rho=cond.rho, bias=car.domain_bias)
         car.setup, car.fuel_kg = salva, benzina
     _MEMO.clear() if len(_MEMO) > 24 else None

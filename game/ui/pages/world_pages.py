@@ -9,7 +9,7 @@ from ...core import (architetture, calendar as CAL, economy, engineering,
 from .. import theme as T
 from .. import bandiere, trackdraw
 from ..scenes.shell import Page
-from ..widgets import Button, ScrollList, Tabs, card
+from ..widgets import Button, Tabs, card
 
 
 facility_cost = facilities.cost

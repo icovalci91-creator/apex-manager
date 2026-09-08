@@ -127,7 +127,6 @@ class CommissionScene(Scene):
     def tally(self) -> None:
         self.results = rules.close_meeting(self.gs, self.votes)
         if rules.talks(self.gs):
-            st = rules.talks(self.gs)
             if self.spinta is None:
                 aree, forza = rules.team_position(self.gs, self.gs.player)
                 self.spinta = max(aree, key=aree.get)

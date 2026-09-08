@@ -7,7 +7,7 @@ perdono.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 
 # Quanti accordi si reggono contemporaneamente, per fascia.
 SLOTS = {"title": 1, "primary": 2, "secondary": 3, "technical": 3}

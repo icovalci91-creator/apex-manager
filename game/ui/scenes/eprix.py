@@ -552,7 +552,6 @@ class EPrixScene(Scene):
 
     # ------------------------------------------------------------- la gara viva
     def _draw_gara(self, surf, w: int, h: int) -> None:
-        sim = self.sim
         self._header(surf, w)
         barra_y = h - 84 - self.barra_h(h)
         tower_w = max(300, min(420, int(w * 0.28)))
