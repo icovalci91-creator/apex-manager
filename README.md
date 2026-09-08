@@ -389,17 +389,39 @@ contro gente che viene dalla Formula 1 un diciannovenne finisce a metà gruppo �
 **cresce**, si fa un nome, e i **punti superlicenza della Formula E valgono quanto quelli
 della Formula 2**: chi vince il mondiale elettrico ha il permesso di guidare in Formula 1.
 
-**E quel permesso adesso serve a qualcosa.** I due campionati si scambiano gente nelle due
-direzioni. Chi vince in Formula E ed è ancora in età finisce **svincolato sul mercato della
-Formula 1**: lo trovi nell'elenco dei liberi come chiunque altro, e le scuderie del computer
-se lo giocano insieme agli altri — chi ha vinto lo prendono anche sotto contratto, si paga
-la penale ed è sempre finita così. Chi in Formula 1 un sedile non ce l'ha più fa la strada
-opposta e va a correre lì, che è il giro di Ricciardo, Vandoorne, Buemi, di Grassi. Il
-mondiale elettrico si chiude *prima* che si apra il mercato della monoposto, se no chi era
-appena passato resterebbe un anno fermo a guardare. Su ottanta stagioni: **circa un
-passaggio verso la Formula 1 ogni dieci anni e uno verso la Formula E ogni due**. Raro come
-nella realtà, ma non impossibile — ed è la strada con cui un pilota che avevi lasciato
-andare può tornare a bussare.
+**Le altre squadre della serie sono squadre vere.** Non sono comparse con un nome
+inventato a gennaio e buttato via a dicembre: la Porsche, la Jaguar, la Nissan e le altre
+otto hanno **due piloti ciascuna, con un'età, un contratto di uno-tre anni e uno
+stipendio**, li rinnovano o li lasciano andare, e quando un sedile si libera scelgono in
+ordine di forza — la squadra più forte per prima, come succede dappertutto. È il motivo per
+cui in fondo alla griglia ci si ritrova con chi è avanzato, e per cui un pilota che cresce
+cambia squadra.
+
+**E stanno nella lista di tutti gli altri piloti.** Nella scheda *Piloti e mercato*, filtro
+*tutti*, ci sono anche loro, con accanto il nome della squadra elettrica invece di
+"svincolato". Trattarli funziona esattamente come trattare il pilota di un'altra scuderia di
+Formula 1: si apre la trattativa, si discute l'ingaggio, e **se è sotto contratto si paga
+l'indennizzo** — la stessa formula che vale fra due team di Formula 1, cioè lo stipendio per
+0,55 più 0,45 per ogni anno che manca, o la clausola rescissoria se c'è. Quello che cambia è
+la risposta: **la Formula 1 ha un altro appeal, e chi corre in Formula E lo sa**. A parità
+di offerta un pilota elettrico dice di sì molto più facilmente di uno che un volante di
+Formula 1 ce l'ha già — la telefonata è metà del sì.
+
+**Nelle due direzioni.** Chi in Formula E il contratto non ce l'ha più può scegliere di
+presentarsi svincolato al mercato della monoposto; chi in Formula 1 un sedile non ce l'ha
+più fa la strada opposta e va a correre lì, che è il giro di Ricciardo, Vandoorne, Buemi, di
+Grassi. E le scuderie del computer guardano in Formula E anche loro: non spesso — costa
+l'indennizzo — e solo per uno che valga chiaramente più di chi è già libero, con **il
+campionato appena vinto che pesa nove punti di valutazione**. Il mondiale elettrico si
+chiude *prima* che si apra il mercato della monoposto, se no chi era appena passato
+resterebbe un anno fermo a guardare.
+
+Misurato su ottanta stagioni: **circa un pilota di Formula E ogni tre anni finisce con un
+volante di Formula 1** (poco più di metà comprati pagando l'indennizzo, il resto arrivati da
+svincolati), e più della metà di quelli comprati erano in testa al campionato elettrico. Sul
+lungo periodo si ritrovano **due o tre ex piloti di Formula E** su una griglia di ventidue.
+Nell'altro senso passa mezzo pilota a stagione. Ed è la strada con cui un pilota che avevi
+lasciato andare può tornare a bussare.
 
 Lo sviluppo del propulsore di chi se lo costruisce invece **sta fuori dal tetto della
 squadra**: ha un budget suo, venticinque milioni su due stagioni, ed è un conto della casa e

@@ -12,6 +12,21 @@ from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Slider, card
 
 
+def _dove(gs, d) -> str:
+    """Dove corre uno che non ha una scuderia di Formula 1.
+
+    Puo' essere svincolato davvero, oppure avere un volante in Formula E: in
+    quel caso il nome della squadra ci va, che e' la differenza fra uno che
+    puoi chiamare domani e uno per cui devi pagare.
+    """
+    fe = getattr(d, "fe_squadra", "")
+    if fe:
+        return fe
+    if getattr(d, "seat", "") == "formulae":
+        return "Formula E, libero"
+    return "svincolato"
+
+
 class DriversPage(Page):
     """I nostri piloti, il mercato e la scheda di chiunque sia selezionato.
 
@@ -117,13 +132,12 @@ class DriversPage(Page):
         elif self.filter == "liberi":
             items = list(gs.free_agents)
         elif self.filter == "giovani":
-            items = [d for d in list(gs.drivers.values()) + gs.free_agents
-                     if d.age <= 23 and d.seat != "formulae"]
+            items = [d for d in list(gs.drivers.values()) + gs.free_agents if d.age <= 23]
         else:
-            # chi ha un contratto in Formula E non e' sul mercato della
-            # Formula 1: ci arriva quando quel campionato lo lascia andare
-            items = ([d for d in gs.drivers.values()
-                      if d.team != self.team.id and d.seat != "formulae"]
+            # e chi corre in Formula E sta in questa lista come tutti gli
+            # altri: e' un pilota sotto contratto con una squadra vera, e come
+            # da chiunque altro lo si porta via pagando l'indennizzo
+            items = ([d for d in gs.drivers.values() if d.team != self.team.id]
                      + list(gs.free_agents))
         items.sort(key=lambda d: -d.overall)
         self.list.items = items
@@ -208,7 +222,7 @@ class DriversPage(Page):
             return
         # in cassa serve solo l'indennizzo per portarlo via: l'ingaggio si paga
         # gara per gara, non in un colpo alla firma
-        fee = market.buyout_cost(gs, d) if d.team and d.team != team.id else 0.0
+        fee = market.indennizzo(gs, d, team)
         if fee > 0:
             ok, why = economy.can_afford(team, fee, gs, check_cap=False)
             if not ok:
@@ -270,7 +284,7 @@ class DriversPage(Page):
         larga = bandiere.disegna(surf, d.nat, (rect.x + 16, rect.y + 8), 10)
         T.text(surf, d.name, (rect.x + 16 + (larga + 6 if larga else 0), rect.y + 4),
                14, T.TEXT, maxw=rect.w - 96 - (larga + 6 if larga else 0))
-        T.text(surf, f"{d.age}a  -  {team.short if team else 'svincolato'}",
+        T.text(surf, f"{d.age}a  -  {team.short if team else _dove(self.gs, d)}",
                (rect.x + 16, rect.y + 23), 11, T.DIM, maxw=rect.w - 96)
         T.text(surf, f"{d.overall:.0f}", (rect.right - 12, rect.y + 4), 16,
                T.stat_colour(d.overall, 70, 90), bold=True, align="right")
@@ -295,9 +309,11 @@ class DriversPage(Page):
         posto = ""
         if squadra is not None:
             posto = "  -  terzo pilota" if d.seat == "riserva" else "  -  titolare"
+        if d.seat == "formulae":
+            posto = "  -  Formula E"
         larga = bandiere.disegna(surf, d.nat, (c.x + 16, c.y + 63), 11)
         T.text(surf, f"{d.age} anni  -  {d.nat}  -  "
-                     f"{squadra.name if squadra else 'svincolato'}{posto}",
+                     f"{squadra.name if squadra else _dove(gs, d)}{posto}",
                (c.x + 16 + (larga + 8 if larga else 0), c.y + 60), 13, T.DIM,
                maxw=c.w - 32 - (larga + 8 if larga else 0))
         pygame.draw.line(surf, T.LINE, (c.x + 16, c.y + 84), (c.right - 16, c.y + 84))

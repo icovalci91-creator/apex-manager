@@ -58,6 +58,11 @@ class Driver:
     # tengono tutti - per le prove libere, per i test e per il giorno in cui
     # un titolare non e' in condizione di salire in macchina
     seat: str = "titolare"        # titolare | riserva | academy
+    # La squadra di Formula E che lo ha sotto contratto, per nome. Non e' un
+    # `team`: quelle squadre non sono scuderie di Formula 1 e non stanno in
+    # `gs.teams`. Ma il contratto e' un contratto vero, e per portarlo via da
+    # li' si paga l'indennizzo come si pagherebbe a chiunque altro.
+    fe_squadra: str = ""
 
     # voci del contratto oltre all'ingaggio fisso
     bonus_win: float = 0.0        # M$ per vittoria

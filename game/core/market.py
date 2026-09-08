@@ -17,11 +17,31 @@ def seat_quality(gs, team) -> float:
                     + 0.25 * (team.car.rating / 100.0))
 
 
+# Quanto vale, agli occhi di un pilota, il sedile che ha adesso in Formula E.
+# E' un sedile vero - si corre, si vince, si viene pagati - ma la Formula 1 e'
+# un'altra cosa, e chi corre in Formula E lo sa meglio di chiunque.
+QUALITA_SEDILE_FE = 0.34
+# E quanto pesa la telefonata in se'. Non e' il contratto: e' il fatto che a
+# chiamare sia una scuderia di Formula 1. Meta' del si' e' gia' li'.
+LUSINGATO = 0.50
+
+
+def in_formula_e(driver: Driver) -> bool:
+    """Se il suo volante e' in Formula E, con noi o con una squadra della serie."""
+    return getattr(driver, "seat", "") == "formulae"
+
+
 def driver_interest(gs, driver: Driver, team, salary: float, years: int) -> float:
     """0..1: quanto il pilota gradisce l'offerta."""
     q = seat_quality(gs, team) / 100.0
     cur = gs.teams.get(driver.team)
-    cur_q = seat_quality(gs, cur) / 100.0 if cur else 0.18
+    elettrico = in_formula_e(driver)
+    if cur is not None and not elettrico:
+        cur_q = seat_quality(gs, cur) / 100.0
+    elif elettrico:
+        cur_q = QUALITA_SEDILE_FE
+    else:
+        cur_q = 0.18
     money = salary / max(0.4, driver.market_value)
     ambition = 0.5 + 0.5 * max(0.0, (driver.potential - driver.overall)) / 20.0
     score = 0.0
@@ -31,8 +51,10 @@ def driver_interest(gs, driver: Driver, team, salary: float, years: int) -> floa
     score += 0.12 * (3 - abs(years - 3))
     if driver.age > 34:
         score += 0.30 * (money - 1.0)          # i veterani guardano piu' al portafoglio
-    if cur is None:
+    if cur is None and not elettrico:
         score += 0.55                          # uno svincolato accetta piu' facilmente
+    if elettrico:
+        score += LUSINGATO
     score -= 0.20 * max(0, driver.contract_until - gs.season)
     return max(0.0, min(1.0, 0.5 + score * 0.42))
 
@@ -47,6 +69,32 @@ def buyout_cost(gs, driver: Driver) -> float:
         return round(float(driver.release_clause), 2)
     years = max(0, driver.contract_until - gs.season)
     return round(driver.salary * (0.55 + 0.45 * years), 2)
+
+
+# Quante volte, riempiendo un sedile, una scuderia del computer si mette a
+# guardare in Formula E. Poche: e' un mercato a parte, costa l'indennizzo e a
+# quel telefono si arriva solo per un nome che vale la pena.
+SGUARDO_ELETTRICO = 0.09
+# E quanto conta, per chi guarda, aver vinto quel campionato invece di
+# arrivare ultimo. Vale piu' di quanto la scheda del pilota dica da sola.
+PESO_TITOLO_FE = 9.0
+# E di quanto deve essere meglio del miglior svincolato, per giustificare
+# l'indennizzo: uno uguale a uno gratis non lo compra nessuno.
+MARGINE_ELETTRICO = 2.5
+
+
+def indennizzo(gs, driver: Driver, team) -> float:
+    """Quanto costa portarlo via a chi ce l'ha adesso, zero se e' gia' nostro.
+
+    Un contratto e' un contratto anche quando e' firmato con una squadra di
+    Formula E: quella squadra il pilota lo ha pagato, lo ha fatto crescere e
+    non lo regala. E' lo stesso conto che si fa fra due scuderie di Formula 1.
+    """
+    if driver.team and driver.team != team.id:
+        return buyout_cost(gs, driver)
+    if getattr(driver, "fe_squadra", ""):
+        return buyout_cost(gs, driver)
+    return 0.0
 
 
 def tetto_ingaggi(gs) -> float:
@@ -86,8 +134,9 @@ def offer_contract(gs, team, driver: Driver, salary: float, years: int) -> tuple
                             f"su {tetto_ingaggi(gs):.0f} per il monte piloti.")
     # solo l'indennizzo va pagato subito: lo stipendio e' un impegno annuale
     # che il bilancio spalma sulle gare
-    if driver.team and driver.team != team.id:
-        ok, why = economy.can_afford(team, buyout_cost(gs, driver), gs, check_cap=False)
+    fee = indennizzo(gs, driver, team)
+    if fee > 0:
+        ok, why = economy.can_afford(team, fee, gs, check_cap=False)
         if not ok:
             return "rejected", why
     interest = driver_interest(gs, driver, team, salary, years)
@@ -128,6 +177,10 @@ def can_offer_seat(gs, team, driver, seat: str) -> tuple:
         if altra is not None and driver.id in altra.drivers:
             return False, (f"{driver.short} ha un volante da titolare in "
                            f"{altra.short}: non lo lascia per fare la riserva.")
+        fe_nome = getattr(driver, "fe_squadra", "")
+        if fe_nome:
+            return False, (f"{driver.short} corre in Formula E con la {fe_nome}: "
+                           f"un volante ce l'ha, e non lo lascia per la panchina.")
         if driver.id in team.drivers:
             return False, "E' un nostro titolare: per retrocederlo va prima liberato."
     return True, ""
@@ -136,6 +189,7 @@ def can_offer_seat(gs, team, driver, seat: str) -> tuple:
 def _sign(gs, team, driver: Driver, salary: float, years: int,
           seat: str = "titolare") -> None:
     old = gs.teams.get(driver.team)
+    pagato = False
     if old is not None:
         for lista in (old.drivers, old.reserves, old.academy):
             if driver.id in lista:
@@ -145,6 +199,30 @@ def _sign(gs, team, driver: Driver, salary: float, years: int,
                     team.add_expense(f"Buyout {driver.last}", fee, in_cap=False,
                                      category="cessioni")
                     old.add_income(f"Buyout {driver.last}", fee, category="cessioni")
+                    pagato = True
+    # Il volante di Formula E. Quello di una squadra della serie e' un
+    # contratto vero e si paga; il posto in un programma nostro si libera e
+    # basta, che i soldi resterebbero in tasca a noi. In tutti e due i casi
+    # quel sedile lo si lascia: la stessa domenica non si corre in due
+    # campionati.
+    fe_nome = getattr(driver, "fe_squadra", "")
+    if fe_nome:
+        from . import formulae
+        formulae.togli_da_rosa(gs, driver)
+        if not pagato:
+            fee = buyout_cost(gs, driver)
+            team.add_expense(f"Indennizzo {driver.last} ({fe_nome})", fee,
+                             in_cap=False, category="cessioni")
+            pagato = True
+    for t in gs.teams.values():
+        if driver.id in (getattr(t, "fe_piloti", None) or []):
+            t.fe_piloti = [x if x != driver.id else "" for x in t.fe_piloti]
+            if t.id != team.id and not pagato:
+                fee = buyout_cost(gs, driver)
+                team.add_expense(f"Indennizzo {driver.last}", fee, in_cap=False,
+                                 category="cessioni")
+                t.add_income(f"Indennizzo {driver.last}", fee, category="cessioni")
+                pagato = True
     if driver in gs.free_agents:
         gs.free_agents.remove(driver)
     gs.drivers[driver.id] = driver
@@ -281,6 +359,29 @@ def run_transfer_window(gs) -> list:
             continue
         while len(team.drivers) < 2 and gs.free_agents:
             pool = sorted(gs.free_agents, key=lambda d: -(d.overall + d.potential * 0.35))
+            # e ogni tanto si guarda anche in Formula E. Non spesso: costa
+            # l'indennizzo, e un direttore sportivo di Formula 1 il telefono
+            # lo alza per quel campionato solo quando li' c'e' qualcuno che
+            # vale davvero piu' di chi e' rimasto libero
+            if gs.rng.random() < SGUARDO_ELETTRICO:
+                from . import formulae
+                merito = formulae.merito(gs)
+
+                def valore(d):
+                    # chi ha vinto in Formula E vale piu' della sua scheda: e'
+                    # il campionato che ha appena fatto a parlare per lui
+                    return (d.overall + d.potential * 0.35
+                            + PESO_TITOLO_FE * merito.get(d.id, 0.0))
+
+                # e deve valerne la pena: pagare l'indennizzo per uno che
+                # vale come chi e' gia' libero non lo fa nessuno
+                misura = (valore(pool[0]) if pool else 0.0) + MARGINE_ELETTRICO
+                fuori = [d for d in gs.drivers.values()
+                         if in_formula_e(d) and d.age <= 33 and valore(d) > misura
+                         and economy.can_afford(team, buyout_cost(gs, d), gs,
+                                                check_cap=False)[0]]
+                if fuori:
+                    pool = sorted(pool + fuori, key=lambda d: -valore(d))
             pick = None
             fame = economy.spending_appetite(gs, team)
             for cand in pool[:6]:
@@ -508,7 +609,9 @@ def open_negotiation(gs, team, driver, seat: str = "titolare") -> Negotiation:
     demand = opening_demand(gs, team, driver, seat)
     neg = Negotiation(driver_id=driver.id, team_id=team.id,
                       offer=demand.copy(), demand=demand, seat=seat,
-                      patience=3 + int(driver.consistency > 85) + int(driver.team is None))
+                      patience=3 + int(driver.consistency > 85)
+                               + int(driver.team is None
+                                     and not getattr(driver, "fe_squadra", "")))
     tot = offer_value(gs, team, driver, demand)
     posto = "da titolare" if seat == "titolare" else "da riserva"
     neg.last = (f"{driver.name} apre a {demand.salary:.1f} M$ di fisso per "

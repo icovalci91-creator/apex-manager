@@ -455,6 +455,92 @@ def deriva_griglia(gs) -> None:
         g[nome] = round(max(62.0, min(94.0, g[nome] + gs.rng.gauss(0.0, DERIVA))), 1)
 
 
+# ------------------------------------------------------------ le rose
+# Le squadre di questo campionato non sono comparse: hanno due piloti veri,
+# con un nome, un'eta', un contratto e uno stipendio, esattamente come le
+# scuderie di Formula 1. Prima erano nomi inventati a inizio stagione e
+# buttati via a dicembre, e il campionato non era di nessuno.
+def rose(gs) -> dict:
+    """Chi corre per ogni squadra della serie: {nome squadra: [id, id]}."""
+    if not hasattr(gs, "fe_rose") or gs.fe_rose is None:
+        gs.fe_rose = {}
+    return gs.fe_rose
+
+
+def rosa(gs, squadra: str) -> list:
+    """I piloti di quella squadra, come schede."""
+    ids = rose(gs).get(squadra) or []
+    return [gs.drivers[i] for i in ids if i in gs.drivers]
+
+
+def squadra_di(gs, d) -> str:
+    """La squadra di Formula E che ce l'ha sotto contratto, se ce n'e' una."""
+    return getattr(d, "fe_squadra", "") or ""
+
+
+def togli_da_rosa(gs, d) -> str:
+    """Lo toglie dalla sua squadra della serie. Ritorna da dove l'ha tolto."""
+    nome = squadra_di(gs, d)
+    if not nome:
+        return ""
+    ids = rose(gs).get(nome) or []
+    rose(gs)[nome] = [x for x in ids if x != d.id]
+    d.fe_squadra = ""
+    return nome
+
+
+def assesta_rose(gs) -> None:
+    """Riempie i sedili vuoti della serie, dal migliore al peggiore.
+
+    L'ordine conta: la squadra piu' forte sceglie per prima, come succede
+    dappertutto. E' il motivo per cui in fondo alla griglia ci si ritrova con
+    chi e' avanzato, e per cui un pilota che cresce cambia squadra.
+    """
+    g = stato_griglia(gs)
+    nostre = {t.fe_nome for t in gs.teams.values() if ha(t)}
+    tavolo = rose(gs)
+    # le squadre che quest'anno non corrono - il loro posto lo ha preso un
+    # nostro programma - restano com'erano: non si sciolgono, aspettano
+    for squadra in sorted(g, key=lambda k: -g[k]):
+        if squadra in nostre:
+            continue
+        tavolo.setdefault(squadra, [])
+        tavolo[squadra] = [i for i in tavolo[squadra] if i in gs.drivers]
+        while len(tavolo[squadra]) < 2:
+            scelta = liberi(gs)
+            if not scelta:
+                scelta = crea_professionisti(gs, PILOTI_LIBERI)
+            d = scelta[0]
+            d.fe_squadra = squadra
+            d.team = None
+            d.seat = "formulae"
+            d.contract_until = gs.season + gs.rng.randint(1, 3)
+            d.salary = ingaggio_di(d.overall, d.age)
+            tavolo[squadra].append(d.id)
+
+
+def scadenze_rose(gs) -> None:
+    """I contratti della serie che scadono: chi non e' rinnovato torna libero."""
+    for squadra, ids in list(rose(gs).items()):
+        resta = []
+        for did in ids:
+            d = gs.drivers.get(did)
+            if d is None:
+                continue
+            if d.contract_until > gs.season:
+                resta.append(did)
+                continue
+            # rinnovare conviene quasi sempre: cambiare pilota costa, e in
+            # Formula E il pilota che conosce la macchina vale doppio
+            if gs.rng.random() < 0.62:
+                d.contract_until = gs.season + gs.rng.randint(1, 3)
+                d.salary = ingaggio_di(d.overall, d.age)
+                resta.append(did)
+            else:
+                d.fe_squadra = ""
+        rose(gs)[squadra] = resta
+
+
 def forza_macchina(gs, team, d=None) -> float:
     """Quanto vale una nostra macchina: il programma, spostato dal pilota."""
     pilota = float(getattr(d, "overall", PILOTA_INGAGGIATO)) if d is not None \
@@ -500,7 +586,6 @@ def nuovo_campionato(gs, team=None) -> dict:
     di una delle squadre storiche, perche' le macchine sono ventidue e non di
     piu'.
     """
-    from . import serie
     g = dict(stato_griglia(gs))
     nostre = [t for t in gs.teams.values() if ha(t)]
     # ogni programma prende il posto di una squadra della serie, partendo dalla
@@ -509,15 +594,18 @@ def nuovo_campionato(gs, team=None) -> dict:
         if not g:
             break
         del g[min(g, key=lambda k: g[k])]
+    assesta_rose(gs)
     campo = []
     n = 0
     for squadra, liv in g.items():
-        for _ in range(2):
-            pilota = gs.rng.gauss(PILOTA_RIF, 5.0)
+        loro = rosa(gs, squadra)
+        for i in range(2):
+            d = loro[i] if i < len(loro) else None
+            pilota = d.overall if d is not None else PILOTA_RIF
             campo.append({
-                "id": f"fe{n}", "nome": f"{gs.rng.choice(serie.NOMI)} "
-                                        f"{gs.rng.choice(serie.COGNOMI)}",
-                "squadra": squadra, "driver_id": "",
+                "id": f"fe{n}",
+                "nome": d.name if d is not None else "pilota da ingaggiare",
+                "squadra": squadra, "driver_id": d.id if d is not None else "",
                 "forza": round(liv + PESO_PILOTA * (pilota - PILOTA_RIF)
                                + gs.rng.gauss(0.0, 0.6), 2)})
             n += 1
@@ -700,8 +788,10 @@ def stagione(gs) -> list:
             d.feedback = min(99.0, d.feedback + gs.rng.uniform(0.1, 0.6))
         team.fe_gara = 0
     # come e' finita, prima che il campionato si chiuda: serve per sapere chi
-    # in Formula 1 andranno a guardare
+    # in Formula 1 andranno a guardare, e serve anche dopo, quando il mercato
+    # della monoposto si mette a sfogliare questa classifica
     merito = _merito(gs)
+    gs.fe_merito = dict(merito)
     # i contratti scaduti liberano il pilota, e il mercato si rifornisce: e'
     # un giro piccolo, dieci nomi, ma senza di quello dopo tre stagioni non
     # resterebbe piu' nessuno da ingaggiare
@@ -720,6 +810,7 @@ def stagione(gs) -> list:
             for t in gs.teams.values():
                 if d.id in (getattr(t, "fe_piloti", None) or []):
                     t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+            togli_da_rosa(gs, d)
             d.team = None
             if d.id.startswith("fe_"):
                 # gente nata per questo campionato: quando smette, sparisce
@@ -738,7 +829,13 @@ def stagione(gs) -> list:
                 if d.id in (getattr(t, "fe_piloti", None) or []):
                     t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
         d.salary = ingaggio_di(d.overall, d.age)
+    # i contratti della serie scadono come tutti gli altri: chi non e'
+    # rinnovato torna sul mercato, e i sedili rimasti vuoti si riempiono
+    scadenze_rose(gs)
     righe += _passaggi(gs, merito)
+    # prima le squadre della serie riempiono i loro sedili, poi si rifornisce
+    # il mercato: se no chi cerca un pilota a gennaio non trova piu' nessuno
+    assesta_rose(gs)
     mercato(gs)
     # e il vantaggio in gestione si consuma per tutti, anche per chi il
     # programma non ce l'ha piu': e' il vantaggio che si scioglie, non il sapere
@@ -835,9 +932,14 @@ def crea_professionisti(gs, quanti: int = PILOTI_LIBERI) -> list:
 
 
 def liberi(gs) -> list:
-    """I piloti di Formula E senza una squadra, dal piu' forte."""
+    """I piloti di Formula E senza contratto, dal piu' forte.
+
+    Senza contratto vuol dire senza: ne' con un nostro programma, ne' con una
+    delle squadre della serie, che adesso i piloti se li tengono anche loro.
+    """
     quali = [d for d in gs.drivers.values()
-             if getattr(d, "seat", "") == "formulae" and not d.team]
+             if getattr(d, "seat", "") == "formulae" and not d.team
+             and not getattr(d, "fe_squadra", "")]
     quali.sort(key=lambda d: -d.overall)
     return quali
 
@@ -902,8 +1004,19 @@ def libera(gs, team, posto: int) -> str:
 # lo ha perso preferisce correre li' che stare a casa a guardare.
 SOGLIA_SALTO = 84.0       # sotto questa valutazione in Formula 1 non ti guardano
 ETA_SALTO = 32            # e passata questa eta' non ti guardano lo stesso
-SALTO_MAX = 2             # quanti ne passano al massimo, per parte, in un anno
+SALTO_MAX = 1             # quanti ne passano al massimo, per parte, in un anno
+SCESI_MAX = 2             # verso la Formula E se ne muovono un po' di piu'
 VOGLIA_DI_SCENDERE = 0.30
+
+
+def merito(gs) -> dict:
+    """Come e' finito l'ultimo mondiale elettrico: 1 il primo, 0 l'ultimo.
+
+    Lo legge il mercato della Formula 1, che si apre quando il campionato e'
+    gia' chiuso: senza questa fotografia un direttore sportivo guarderebbe
+    una classifica azzerata e non saprebbe chi ha vinto.
+    """
+    return dict(getattr(gs, "fe_merito", None) or {})
 
 
 def _merito(gs) -> dict:
@@ -927,11 +1040,14 @@ def _passaggi(gs, merito: dict) -> list:
     """
     righe = []
     saliti = 0
-    # chi ha vinto lo vengono a prendere anche se ha un contratto: e' sempre
-    # finita cosi', si paga la penale e lo si porta via
+    # Qui passa solo chi in Formula E un contratto non ce l'ha piu': e' lui a
+    # scegliere di provarci, e si presenta al mercato della monoposto da
+    # svincolato. Chi un contratto ce l'ha non se ne va da solo: se lo vengono
+    # a prendere, e chi lo prende paga l'indennizzo alla sua squadra come si
+    # paga a chiunque. Quello succede piu' avanti, a mercato aperto.
     candidati = [d for d in gs.drivers.values()
                  if getattr(d, "seat", "") == "formulae" and d.age <= ETA_SALTO
-                 and (not d.team or merito.get(d.id, 0.0) >= 0.90)]
+                 and not d.team and not squadra_di(gs, d)]
     candidati.sort(key=lambda d: -(d.overall + 6.0 * merito.get(d.id, 0.0)))
     for d in candidati:
         if saliti >= SALTO_MAX:
@@ -947,6 +1063,7 @@ def _passaggi(gs, merito: dict) -> list:
         for t in gs.teams.values():
             if d.id in (getattr(t, "fe_piloti", None) or []):
                 t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+        togli_da_rosa(gs, d)
         gs.drivers.pop(d.id, None)
         d.seat = "titolare"
         d.team = None
@@ -969,7 +1086,7 @@ def scendono(gs) -> list:
     scesi = sorted((d for d in gs.free_agents
                     if ETA_FE[0] <= d.age <= ETA_FE[1] and d.overall < SOGLIA_SALTO),
                    key=lambda d: -d.overall)
-    for d in scesi[:SALTO_MAX]:
+    for d in scesi[:SCESI_MAX]:
         if gs.rng.random() > VOGLIA_DI_SCENDERE:
             continue
         gs.free_agents.remove(d)
