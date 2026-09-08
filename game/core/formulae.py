@@ -541,6 +541,100 @@ def scadenze_rose(gs) -> None:
         rose(gs)[squadra] = resta
 
 
+# ------------------------------------------------------ il nucleo tecnico
+# Anche gli uomini sono uomini. Ogni squadra della serie ha le tre teste che
+# in Formula E decidono qualcosa: chi progetta, chi fa il propulsore - che li'
+# e' quasi tutto - e chi decide come si spende l'energia. Sono gente vera, con
+# un contratto, e valgono qualcosa anche in Formula 1: e' per questo che
+# rubarli si puo', e che rubarli fa male a chi li perde.
+NUCLEO = ("technical_director", "head_of_powertrain", "head_of_strategy")
+# Da che livello di squadra si passa a che livello di tecnico. Una squadra di
+# Formula E sta un gradino sotto una di Formula 1 anche negli uomini, ma il
+# suo capo progettista un direttore sportivo di Formula 1 lo guarda eccome.
+def livello_tecnico(base: float) -> float:
+    return 56.0 + (float(base) - 72.0) * 1.25
+
+
+# Quanto sposta il nucleo tecnico il livello della squadra. Perdere il capo
+# progettista e sostituirlo con uno peggiore si paga in pista, ed e' il senso
+# di poterlo portare via.
+PESO_NUCLEO = 0.30
+
+
+def staff_serie(gs) -> list:
+    """Tutti i tecnici sotto contratto con le squadre della serie."""
+    if not hasattr(gs, "fe_staff") or gs.fe_staff is None:
+        gs.fe_staff = []
+    return gs.fe_staff
+
+
+def nucleo(gs, squadra: str) -> list:
+    """Le teste tecniche di quella squadra."""
+    return [s for s in staff_serie(gs) if getattr(s, "fe_squadra", "") == squadra]
+
+
+def togli_da_nucleo(gs, s) -> str:
+    """Lo toglie dalla sua squadra della serie. Ritorna da dove l'ha tolto."""
+    nome = getattr(s, "fe_squadra", "") or ""
+    if not nome:
+        return ""
+    gs.fe_staff = [x for x in staff_serie(gs) if x.id != s.id]
+    s.fe_squadra = ""
+    return nome
+
+
+def assesta_nuclei(gs) -> None:
+    """Riempie i posti tecnici vuoti delle squadre della serie."""
+    from ..model.people import generate_staff
+    from .state import _load
+    pool = _load("staff.json")["name_pool"]
+    g = stato_griglia(gs)
+    for squadra, base in g.items():
+        avuti = {s.role for s in nucleo(gs, squadra)}
+        for ruolo in NUCLEO:
+            if ruolo in avuti:
+                continue
+            liv = max(42.0, min(88.0, gs.rng.gauss(livello_tecnico(base), 5.0)))
+            s = generate_staff(ruolo, liv, gs.rng, pool, gs.season, None,
+                               uid=f"fes_{squadra.lower()[:4]}_{ruolo[:4]}"
+                                   f"_{gs.rng.randrange(1000, 9999)}")
+            s.fe_squadra = squadra
+            s.contract_until = gs.season + gs.rng.randint(1, 4)
+            staff_serie(gs).append(s)
+
+
+def scadenze_nuclei(gs) -> None:
+    """I contratti tecnici della serie che scadono: quasi tutti si rinnovano."""
+    for s in list(staff_serie(gs)):
+        if s.contract_until > gs.season:
+            continue
+        s.age += 1
+        if s.age > 66 or gs.rng.random() > 0.82:
+            togli_da_nucleo(gs, s)
+            continue
+        s.contract_until = gs.season + gs.rng.randint(1, 4)
+        s.salary = s.market_value
+
+
+def livello_serie(gs, squadra: str) -> float:
+    """Quanto vale quella squadra quest'anno, uomini compresi.
+
+    La base e' la struttura - la fabbrica, i soldi, la casa che c'e' dietro -
+    e sopra ci sta il nucleo tecnico. Una squadra a cui hanno portato via il
+    capo progettista, e che lo ha rimpiazzato con uno peggiore, scende: non
+    per finta, proprio nella classifica.
+    """
+    base = float(stato_griglia(gs).get(squadra, 75.0))
+    teste = nucleo(gs, squadra)
+    if not teste:
+        return round(base - PESO_NUCLEO * 8.0, 2)
+    from . import market
+    medio = sum(market.role_score(gs, s, s.role) for s in teste) / len(teste)
+    # quello che una squadra cosi' dovrebbe avere: se ce l'ha, sta alla sua base
+    atteso = livello_tecnico(base)
+    return round(base + PESO_NUCLEO * (medio - atteso), 2)
+
+
 def forza_macchina(gs, team, d=None) -> float:
     """Quanto vale una nostra macchina: il programma, spostato dal pilota."""
     pilota = float(getattr(d, "overall", PILOTA_INGAGGIATO)) if d is not None \
@@ -595,9 +689,11 @@ def nuovo_campionato(gs, team=None) -> dict:
             break
         del g[min(g, key=lambda k: g[k])]
     assesta_rose(gs)
+    assesta_nuclei(gs)
     campo = []
     n = 0
-    for squadra, liv in g.items():
+    for squadra in g:
+        liv = livello_serie(gs, squadra)
         loro = rosa(gs, squadra)
         for i in range(2):
             d = loro[i] if i < len(loro) else None
@@ -832,10 +928,12 @@ def stagione(gs) -> list:
     # i contratti della serie scadono come tutti gli altri: chi non e'
     # rinnovato torna sul mercato, e i sedili rimasti vuoti si riempiono
     scadenze_rose(gs)
+    scadenze_nuclei(gs)
     righe += _passaggi(gs, merito)
     # prima le squadre della serie riempiono i loro sedili, poi si rifornisce
     # il mercato: se no chi cerca un pilota a gennaio non trova piu' nessuno
     assesta_rose(gs)
+    assesta_nuclei(gs)
     mercato(gs)
     # e il vantaggio in gestione si consuma per tutti, anche per chi il
     # programma non ce l'ha piu': e' il vantaggio che si scioglie, non il sapere

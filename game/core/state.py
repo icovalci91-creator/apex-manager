@@ -458,6 +458,7 @@ class GameState:
             # l'altra, come tutto il resto del mondo intorno
             "fe_griglia": getattr(self, "fe_griglia", {}) or {},
             "fe_rose": getattr(self, "fe_rose", {}) or {},
+            "fe_staff": [s.to_dict() for s in (getattr(self, "fe_staff", None) or [])],
             # il campionato di Formula E in corso: campo partenti, calendario,
             # classifica e gare gia' corse. Senza questo, riaprendo il gioco a
             # meta' stagione il mondiale ricomincerebbe da zero
@@ -570,6 +571,7 @@ class GameState:
         gs.pu_specs = data.get("pu_specs", {})
         gs.fe_griglia = dict(data.get("fe_griglia") or {})
         gs.fe_rose = {k: list(v) for k, v in (data.get("fe_rose") or {}).items()}
+        gs.fe_staff = [Staff.from_dict(x) for x in (data.get("fe_staff") or [])]
         gs.fe_stato = data.get("fe_stato") or None
         gs.wec_griglia = dict(data.get("wec_griglia") or {})
         gs.wec_stato = data.get("wec_stato") or None

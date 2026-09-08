@@ -407,6 +407,24 @@ la risposta: **la Formula 1 ha un altro appeal, e chi corre in Formula E lo sa**
 di offerta un pilota elettrico dice di sì molto più facilmente di uno che un volante di
 Formula 1 ce l'ha già — la telefonata è metà del sì.
 
+**E hanno anche i loro uomini.** Ogni squadra della serie ha un nucleo tecnico di tre
+teste — **direttore tecnico, responsabile powertrain, capo strategia**, che in Formula E
+sono i tre mestieri che decidono qualcosa — con un contratto e uno stipendio come chiunque
+altro. Compaiono nel mercato dello staff sotto la voce *sotto contratto*, con accanto il
+nome della squadra elettrica, e si portano via pagando l'indennizzo esattamente come si fa
+con un ingegnere di un'altra scuderia di Formula 1. Anche loro sono lusingati dalla
+telefonata.
+
+E soprattutto **quel nucleo conta**: il livello di una squadra della serie è la sua
+struttura più quello che valgono le sue tre teste. Portare via il capo strategia della
+Nissan non è un dispetto, è due punti e mezzo di livello che quella squadra perde per la
+stagione dopo — e li riprende solo se trova qualcuno che valga altrettanto, che non è
+detto. Nel senso opposto la porta è quasi sempre chiusa, e non per finta: un tecnico di
+Formula E vale in media 65 nel suo ruolo, dove una scuderia di Formula 1 ne ha già uno da
+73-80 in casa e sul mercato libero se ne trovano da 84-93. Le scuderie del computer, che
+guardano dove sono messe peggio, di norma trovano di meglio senza pagare niente. Il colpo
+in Formula E lo fa il giocatore, quando sa perché.
+
 **Nelle due direzioni.** Chi in Formula E il contratto non ce l'ha più può scegliere di
 presentarsi svincolato al mercato della monoposto; chi in Formula 1 un sedile non ce l'ha
 più fa la strada opposta e va a correre lì, che è il giro di Ricciardo, Vandoorne, Buemi, di

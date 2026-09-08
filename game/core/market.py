@@ -81,6 +81,10 @@ PESO_TITOLO_FE = 9.0
 # E di quanto deve essere meglio del miglior svincolato, per giustificare
 # l'indennizzo: uno uguale a uno gratis non lo compra nessuno.
 MARGINE_ELETTRICO = 2.5
+# Per gli uomini si guarda piu' spesso, ma passa molto meno gente: un tecnico
+# di Formula E deve essere migliore di quello che si ha gia' in casa, e quasi
+# sempre non lo e'. Il filtro lo fa la bravura, non il caso.
+SGUARDO_ELETTRICO_STAFF = 0.40
 
 
 def indennizzo(gs, driver: Driver, team) -> float:
@@ -255,15 +259,28 @@ def staff_interest(gs, team, person: Staff, salary: float) -> float:
 
     Contano quanto si offre rispetto a quello che vale e il nome della
     squadra: a parita' di stipendio nessuno lascia un posto in cima per
-    andare in fondo alla griglia.
+    andare in fondo alla griglia. E vale anche al contrario: chi lavora in
+    Formula E, quando lo chiama una scuderia di Formula 1, e' lusingato
+    esattamente come lo sarebbe un pilota.
     """
     v = (0.42 + 0.30 * (team.reputation / 100.0)
          + 0.42 * (salary / max(0.2, person.market_value) - 1.0))
+    if getattr(person, "fe_squadra", ""):
+        v += LUSINGATO * 0.6
     return max(0.05, min(0.95, v))
 
 
+def indennizzo_staff(gs, person: Staff, team) -> float:
+    """Quanto costa portarlo via a chi ce l'ha adesso, di Formula 1 o di Formula E."""
+    if person.team and person.team != team.id:
+        return round(person.salary * 0.8, 2)
+    if getattr(person, "fe_squadra", ""):
+        return round(person.salary * 0.8, 2)
+    return 0.0
+
+
 def hire_staff(gs, team, person: Staff, salary: float, years: int) -> tuple:
-    ok, why = economy.can_afford(team, salary, gs)
+    ok, why = economy.can_afford(team, salary + indennizzo_staff(gs, person, team), gs)
     if not ok:
         return False, why
     if gs.rng.random() > staff_interest(gs, team, person, salary):
@@ -275,6 +292,18 @@ def hire_staff(gs, team, person: Staff, salary: float, years: int) -> tuple:
                 old.staff.remove(s)
         fee = round(person.salary * 0.8, 2)
         team.add_expense(f"Indennizzo {person.last}", fee, in_cap=True,
+                         category="personale")
+    # e chi arrivava dal nucleo tecnico di una squadra di Formula E: quel
+    # contratto e' un contratto, e portarlo via costa. Da quella parte si
+    # sente: la squadra che lo perde scende di livello finche' non trova
+    # qualcuno che valga altrettanto, e qualcuno che valga altrettanto non
+    # e' detto che ci sia
+    fe_nome = getattr(person, "fe_squadra", "")
+    if fe_nome:
+        from . import formulae
+        formulae.togli_da_nucleo(gs, person)
+        fee = round(person.salary * 0.8, 2)
+        team.add_expense(f"Indennizzo {person.last} ({fe_nome})", fee, in_cap=True,
                          category="personale")
     if person in gs.free_staff:
         gs.free_staff.remove(person)
@@ -473,6 +502,13 @@ def ai_staff_market(gs) -> list:
             continue
         role = min(voti, key=voti.get)
         candidati = [p for p in gs.free_staff if p.role == role]
+        # e ogni tanto si guarda nel nucleo tecnico delle squadre di Formula E,
+        # dove per il capo progettista giusto vale la pena pagare l'indennizzo
+        if gs.rng.random() < SGUARDO_ELETTRICO_STAFF:
+            candidati += [p for p in (getattr(gs, "fe_staff", None) or [])
+                          if p.role == role
+                          and economy.can_afford(team, indennizzo_staff(gs, p, team),
+                                                 gs, check_cap=False)[0]]
         if not candidati:
             continue
         best = max(candidati, key=lambda p: role_score(gs, p, role))

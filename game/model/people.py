@@ -195,6 +195,10 @@ class Staff:
     contract_until: int = 2027
     morale: float = 70.0
     assigned_driver: str | None = None
+    # come per i piloti: la squadra di Formula E che ce l'ha sotto contratto.
+    # Non e' una scuderia di Formula 1 e non sta in `gs.teams`, ma il
+    # contratto e' vero e per portarlo via si paga l'indennizzo
+    fe_squadra: str = ""
 
     @property
     def name(self) -> str:

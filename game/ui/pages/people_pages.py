@@ -533,7 +533,11 @@ class StaffPage(Page):
         ordine = list(gs.staff_roles)
         self.mine.items = sorted(self.team.staff, key=lambda s: ordine.index(s.role))
         liberi = list(gs.free_staff)
+        # sotto contratto vuol dire sotto contratto con chiunque: anche le
+        # squadre di Formula E hanno le loro teste tecniche, e anche quelle
+        # si portano via pagando
         altrui = [s for t in gs.teams.values() if t.id != self.team.id for s in t.staff]
+        altrui += list(getattr(gs, "fe_staff", None) or [])
         pool = {"liberi": liberi, "altre": altrui, "tutti": liberi + altrui}[self.filtro]
         pool.sort(key=lambda s: -market.role_score(gs, s, s.role))
         self.market_list.items = pool
@@ -617,7 +621,8 @@ class StaffPage(Page):
         col = T.hex_rgb(t.colour) if t else T.DIM_2
         pygame.draw.rect(surf, col, (rect.x + 6, rect.y + 8, 3, rect.h - 16))
         T.text(surf, s.name, (rect.x + 16, rect.y + 4), 14, T.TEXT, maxw=rect.w - 90)
-        T.text(surf, f"{self._label(s.role)} - {t.short if t else 'svincolato'}",
+        T.text(surf, f"{self._label(s.role)} - "
+                     f"{t.short if t else (getattr(s, 'fe_squadra', '') or 'svincolato')}",
                (rect.x + 16, rect.y + 23), 11, T.DIM, maxw=rect.w - 90)
         voto = market.role_score(self.gs, s, s.role)
         T.text(surf, f"{voto:.0f}", (rect.right - 12, rect.y + 5), 16,
@@ -637,8 +642,10 @@ class StaffPage(Page):
         T.text(surf, s.name, (c.x + 16, c.y + 34), 20, T.TEXT, bold=True, maxw=c.w - 32)
         T.text(surf, f"{self._label(s.role)}", (c.x + 16, c.y + 60), 14, T.ACCENT,
                maxw=c.w - 32)
-        T.text(surf, f"{s.age} anni  -  {s.nat}  -  "
-                     f"{squadra.short if squadra else 'svincolato'}",
+        fe_nome = getattr(s, "fe_squadra", "")
+        dove = squadra.short if squadra else (f"{fe_nome} (Formula E)" if fe_nome
+                                              else "svincolato")
+        T.text(surf, f"{s.age} anni  -  {s.nat}  -  {dove}",
                (c.x + 16, c.y + 80), 13, T.DIM, maxw=c.w - 32)
         pygame.draw.line(surf, T.LINE, (c.x + 16, c.y + 104), (c.right - 16, c.y + 104))
 
@@ -649,10 +656,12 @@ class StaffPage(Page):
             righe.append(("Contratto", f"fino al {s.contract_until}", T.TEXT))
         else:
             righe.append(("Quanto vale", f"{s.market_value:.2f} M$ all'anno", T.GOLD))
-            if squadra:
-                righe.append(("Sotto contratto", f"{squadra.short} fino al {s.contract_until}",
+            fee = market.indennizzo_staff(gs, s, team)
+            if squadra or fe_nome:
+                chi = squadra.short if squadra else f"{fe_nome}, Formula E"
+                righe.append(("Sotto contratto", f"{chi} fino al {s.contract_until}",
                               T.WARN))
-                righe.append(("Indennizzo alla squadra", f"{s.salary * 0.8:.2f} M$", T.DIM))
+                righe.append(("Indennizzo alla squadra", f"{fee:.2f} M$", T.DIM))
             else:
                 righe.append(("Situazione", "libero, nessun indennizzo", T.OK))
         y = c.y + 114
