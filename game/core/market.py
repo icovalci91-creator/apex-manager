@@ -270,6 +270,23 @@ def staff_interest(gs, team, person: Staff, salary: float) -> float:
     return max(0.05, min(0.95, v))
 
 
+def valore_staff(gs, person: Staff, role: str) -> float:
+    """Quanto vale agli occhi di chi lo sta guardando, non sulla carta.
+
+    E' lo stesso metro che si usa per i piloti: chi ha appena vinto vale piu'
+    della sua scheda. Un pilota lo si giudica dalla sua classifica, un capo
+    strategia da quella della squadra per cui lavora - e la squadra campione
+    di Formula E quel titolo non lo ha vinto da sola. Sulla scheda non cambia
+    niente: chi lo prende si porta a casa esattamente gli attributi che ha.
+    """
+    v = role_score(gs, person, role)
+    nome = getattr(person, "fe_squadra", "")
+    if nome:
+        from . import formulae
+        v += PESO_TITOLO_FE * formulae.merito_squadre(gs).get(nome, 0.0)
+    return v
+
+
 def indennizzo_staff(gs, person: Staff, team) -> float:
     """Quanto costa portarlo via a chi ce l'ha adesso, di Formula 1 o di Formula E."""
     if person.team and person.team != team.id:
@@ -503,7 +520,7 @@ def ai_staff_market(gs) -> list:
         role = min(voti, key=voti.get)
         candidati = [p for p in gs.free_staff if p.role == role]
         # e ogni tanto si guarda nel nucleo tecnico delle squadre di Formula E,
-        # dove per il capo progettista giusto vale la pena pagare l'indennizzo
+        # dove per la testa giusta vale la pena pagare l'indennizzo
         if gs.rng.random() < SGUARDO_ELETTRICO_STAFF:
             candidati += [p for p in (getattr(gs, "fe_staff", None) or [])
                           if p.role == role
@@ -511,8 +528,8 @@ def ai_staff_market(gs) -> list:
                                                  gs, check_cap=False)[0]]
         if not candidati:
             continue
-        best = max(candidati, key=lambda p: role_score(gs, p, role))
-        if role_score(gs, best, role) < voti[role] + 3.0:
+        best = max(candidati, key=lambda p: valore_staff(gs, p, role))
+        if valore_staff(gs, best, role) < voti[role] + 3.0:
             continue                     # cambiare per cambiare non serve
         salario = round(best.market_value * (1.05 + 0.35 * fame), 2)
         ok, _msg = hire_staff(gs, team, best, salario, gs.rng.randint(2, 4))

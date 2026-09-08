@@ -416,14 +416,17 @@ con un ingegnere di un'altra scuderia di Formula 1. Anche loro sono lusingati da
 telefonata.
 
 E soprattutto **quel nucleo conta**: il livello di una squadra della serie è la sua
-struttura più quello che valgono le sue tre teste. Portare via il capo strategia della
-Nissan non è un dispetto, è due punti e mezzo di livello che quella squadra perde per la
-stagione dopo — e li riprende solo se trova qualcuno che valga altrettanto, che non è
-detto. Nel senso opposto la porta è quasi sempre chiusa, e non per finta: un tecnico di
-Formula E vale in media 65 nel suo ruolo, dove una scuderia di Formula 1 ne ha già uno da
-73-80 in casa e sul mercato libero se ne trovano da 84-93. Le scuderie del computer, che
-guardano dove sono messe peggio, di norma trovano di meglio senza pagare niente. Il colpo
-in Formula E lo fa il giocatore, quando sa perché.
+struttura più quello che valgono le sue tre teste. Portare via il direttore tecnico della
+Porsche non è un dispetto, è un punto e mezzo di livello che quella squadra perde per la
+stagione dopo — e lo riprende solo se trova qualcuno che valga altrettanto, che non è detto.
+
+**E vale lo stesso metro dei piloti: chi ha appena vinto vale più della sua scheda.** Un
+pilota lo si giudica dalla sua classifica, un capo strategia da quella della squadra per cui
+lavora, perché quel titolo non lo ha vinto lei da sola. Il direttore tecnico della campione
+di Formula E, che sulla carta vale 90 nel ruolo, agli occhi di chi lo sta guardando ne vale
+99 — e nella scheda c'è scritto in che posizione ha chiuso la sua squadra, così si vede
+perché. Sugli attributi non cambia niente: chi lo prende si porta a casa esattamente quello
+che c'è scritto.
 
 **Nelle due direzioni.** Chi in Formula E il contratto non ce l'ha più può scegliere di
 presentarsi svincolato al mercato della monoposto; chi in Formula 1 un sedile non ce l'ha

@@ -888,6 +888,7 @@ def stagione(gs) -> list:
     # della monoposto si mette a sfogliare questa classifica
     merito = _merito(gs)
     gs.fe_merito = dict(merito)
+    gs.fe_merito_squadre = _merito_squadre(gs)
     # i contratti scaduti liberano il pilota, e il mercato si rifornisce: e'
     # un giro piccolo, dieci nomi, ma senza di quello dopo tre stagioni non
     # resterebbe piu' nessuno da ingaggiare
@@ -1115,6 +1116,25 @@ def merito(gs) -> dict:
     una classifica azzerata e non saprebbe chi ha vinto.
     """
     return dict(getattr(gs, "fe_merito", None) or {})
+
+
+def merito_squadre(gs) -> dict:
+    """Lo stesso, per le squadre: {nome: 1 la campione, 0 l'ultima}.
+
+    Serve agli uomini. Un pilota lo si giudica dalla sua classifica, un capo
+    strategia dalla classifica della squadra per cui lavora: e' l'unico modo
+    che ha, chi guarda da fuori, di sapere che quel titolo lo ha fatto anche
+    lui.
+    """
+    return dict(getattr(gs, "fe_merito_squadre", None) or {})
+
+
+def _merito_squadre(gs) -> dict:
+    righe = classifica_squadre(gs)
+    fuori = {}
+    for i, (nome, _v) in enumerate(righe):
+        fuori[nome] = round(1.0 - i / max(1.0, len(righe) - 1.0), 3)
+    return fuori
 
 
 def _merito(gs) -> dict:

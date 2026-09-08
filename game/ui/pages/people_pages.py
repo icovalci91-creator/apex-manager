@@ -664,6 +664,15 @@ class StaffPage(Page):
                 righe.append(("Indennizzo alla squadra", f"{fee:.2f} M$", T.DIM))
             else:
                 righe.append(("Situazione", "libero, nessun indennizzo", T.OK))
+            # e come e' andata la squadra per cui lavora: il capo strategia
+            # della campione di Formula E non e' un capo strategia qualunque
+            if fe_nome:
+                from ...core import formulae as FE
+                pos = [n for n, _v in FE.classifica_squadre(gs)]
+                if fe_nome in pos:
+                    righe.append(("In Formula E", f"{pos.index(fe_nome) + 1}o su "
+                                                  f"{len(pos)} nel mondiale squadre",
+                                  T.OK if pos.index(fe_nome) < 3 else T.DIM))
         y = c.y + 114
         for lab, val, col in righe:
             T.text(surf, lab, (c.x + 16, y), 13, T.DIM)
