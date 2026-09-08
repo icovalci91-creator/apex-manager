@@ -36,10 +36,15 @@ CYCLE_SPAN = 18.0    # punti oltre il riferimento prima che diventi durissima
 CYCLE_STEP = 2.2     # di quanto sale il riferimento a ogni nuovo ciclo
 CYCLE_DEFAULT = 82.0
 # Di quanti punti si sposta quel riferimento fra la squadra peggio attrezzata
-# della griglia e quella meglio attrezzata. Meta' della forbice del ciclo: e'
-# tanto, ed e' voluto - e' la ragione per cui si spendono anni e centinaia di
-# milioni in una galleria del vento nuova.
-MURO_STRUMENTI = 9.0
+# della griglia e quella meglio attrezzata. E' tanto, ed e' voluto: e' la
+# ragione per cui si spendono anni e centinaia di milioni in una galleria del
+# vento nuova. A nove la leva c'era ma il recupero regolamentare se la mangiava
+# quasi tutta: le quattro squadre meglio attrezzate rendevano nello sviluppo il
+# venti per cento meno delle quattro peggio attrezzate, cioe' costruire una
+# galleria nuova era un modo per svilupparsi peggio. A diciotto quel divario si
+# dimezza: chi arriva da dietro recupera ancora - deve, se no la griglia si
+# congela - ma chi ha investito non ci rimette piu'.
+MURO_STRUMENTI = 18.0
 
 
 def cycle_base(gs) -> float:
