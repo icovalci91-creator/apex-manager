@@ -1724,6 +1724,23 @@ almeno due per ogni ruolo, con qualche pezzo pregiato da 78-88 in mezzo a tanta 
 onesta. Ogni inverno ne arrivano altri quattordici e cinque-nove giovani salgono dalle
 minori; il mercato tiene i migliori centocinquanta e lascia andare la coda.
 
+**E qualcuno smette.** Prima no: chi perdeva il volante restava svincolato per sempre,
+invecchiando sul mercato. Dopo sei stagioni fra i liberi c'era gente di quaranta,
+quarantacinque e cinquant'anni, e l'elenco cresceva di una quindicina di nomi l'anno senza
+che ne uscisse mai uno: 154 svincolati alla decima stagione, con i quarantenni ancora li'
+ad aspettare una chiamata. Adesso si appende il casco al chiodo. **Da 34 anni in su** la
+probabilita' cresce ogni stagione ed e' certa a 42, ma chi e' ancora forte tira avanti piu'
+a lungo - i campioni smettono quando lo decidono loro. E **chi non trova un volante per tre
+stagioni** cambia mestiere: a ventisette anni piu' facilmente, a ventiquattro un po' meno,
+perche' di ragazzi dalle minori ne salgono una decina l'anno e i volanti sono venti. La
+scheda non si butta - i risultati vecchi cercano ancora quel nome, e un campione che ha
+smesso deve restare nell'albo d'oro - esce dal mercato e basta, e non fa piu' media quando
+si guarda dove sta il livello della griglia.
+
+Misurato su otto stagioni: gli svincolati si assestano fra i **30 e i 68** invece di
+crescere all'infinito, l'eta' massima resta sotto i 35, e a fine corsa quarantacinque
+piloti hanno smesso.
+
 **Il terzo pilota.** Ogni contratto ha un posto: titolare o riserva. Una riserva costa il
 30% di un titolare, ma chi un volante ce l'ha non firma per stare fermo, e piu' uno vale
 piu' vuole essere pagato per aspettare. Serve davvero: quando un titolare sconta una
