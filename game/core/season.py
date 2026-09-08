@@ -334,6 +334,11 @@ def end_season(gs) -> dict:
             # loro stagione si gioca piu' avanti (game.core.serie). Anche
             # l'anno in piu' se lo prendono li', dopo aver corso
             continue
+        if d.seat == "formulae":
+            # e nemmeno chi corre in Formula E: la sua stagione la chiude il
+            # suo campionato, piu' avanti. Passando anche di qui compiva due
+            # anni per stagione e a trentanove ne aveva vissuti venti
+            continue
         quality = 0.5
         if team:
             quality = (0.38 * (team.facilities.get("simulator", 60) / 100.0)
@@ -353,7 +358,16 @@ def end_season(gs) -> dict:
         if t.is_player:
             report["finance"] += msgs_sp
     sponsors.ai_fill(gs)
-    report["market"] = market.run_transfer_window(gs)
+    # Il mondiale di Formula E si chiude prima che si apra il mercato, non
+    # dopo: chi ha vinto li' dev'essere sul tavolo mentre le scuderie
+    # scelgono, se no resta un anno fermo e il ponte fra i due campionati e'
+    # solo scritto. Anche i conti del programma vanno fatti adesso, che sono
+    # soldi che pesano su quello che ci si puo' permettere di offrire.
+    from . import formulae
+    report["progress"] += formulae.stagione(gs)
+    report["market"] += market.run_transfer_window(gs)
+    # e chi in Formula 1 il posto non l'ha trovato lo cerca altrove
+    report["market"] += formulae.scendono(gs)
     market.new_talents(gs)
 
     # ultima riunione dell'anno: le altre si sono tenute durante la stagione
@@ -407,11 +421,11 @@ def end_season(gs) -> dict:
 
     # reset della stagione: le posizioni vanno lette tutte prima di azzerare i
     # punti, altrimenti ogni squadra ripulita falsa la classifica di quelle dopo
-    # il mondiale di Formula E si chiude qui, prima che i conti si azzerino:
-    # e' un campionato a parte, con il suo bilancio, e chi ce l'ha lo paga e lo
-    # incassa in questa stagione
-    from . import formulae, wec
-    report["progress"] += formulae.stagione(gs)
+    # il mondiale endurance si chiude qui, prima che i conti si azzerino: e'
+    # un campionato a parte, con il suo bilancio, e chi ce l'ha lo paga e lo
+    # incassa in questa stagione. Quello di Formula E si e' gia' chiuso piu'
+    # su, che li' c'e' anche un mercato da tenere aperto
+    from . import wec
     report["market"] += formulae.ai_programmi(gs)
     report["progress"] += wec.stagione(gs)
     report["market"] += wec.ai_programmi(gs)

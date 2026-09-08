@@ -699,18 +699,38 @@ def stagione(gs) -> list:
             d.tyre_mgmt = min(99.0, d.tyre_mgmt + gs.rng.uniform(0.3, 1.1))
             d.feedback = min(99.0, d.feedback + gs.rng.uniform(0.1, 0.6))
         team.fe_gara = 0
+    # come e' finita, prima che il campionato si chiuda: serve per sapere chi
+    # in Formula 1 andranno a guardare
+    merito = _merito(gs)
     # i contratti scaduti liberano il pilota, e il mercato si rifornisce: e'
     # un giro piccolo, dieci nomi, ma senza di quello dopo tre stagioni non
     # resterebbe piu' nessuno da ingaggiare
+    nostri = {d.id for t in gs.teams.values() if ha(t) for d in piloti(gs, t)}
     for d in list(gs.drivers.values()):
         if getattr(d, "seat", "") != "formulae":
             continue
-        d.age += 1
-        if d.age > ETA_FE[1] + 2:
-            gs.drivers.pop(d.id, None)
+        if d.id in nostri:
+            # la stagione l'hanno gia' corsa qui sopra: resta l'anno in piu'
+            d.age += 1
+        else:
+            # gli altri la loro stagione la fanno lo stesso, solo che non la
+            # guardiamo: crescono, calano e compiono gli anni come chiunque
+            d.progress(0.55, gs.rng)
+        if d.age > ETA_FE[1]:
             for t in gs.teams.values():
                 if d.id in (getattr(t, "fe_piloti", None) or []):
                     t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+            d.team = None
+            if d.id.startswith("fe_"):
+                # gente nata per questo campionato: quando smette, sparisce
+                gs.drivers.pop(d.id, None)
+            else:
+                # ma chi ci era arrivato dalla Formula 1 la sua scheda ce l'ha
+                # da prima, e i risultati vecchi la cercano ancora: torna
+                # svincolato, con l'eta' che ha
+                d.seat = "titolare"
+                if d not in gs.free_agents:
+                    gs.free_agents.append(d)
             continue
         if d.team and d.contract_until <= gs.season:
             d.team = None
@@ -718,6 +738,7 @@ def stagione(gs) -> list:
                 if d.id in (getattr(t, "fe_piloti", None) or []):
                     t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
         d.salary = ingaggio_di(d.overall, d.age)
+    righe += _passaggi(gs, merito)
     mercato(gs)
     # e il vantaggio in gestione si consuma per tutti, anche per chi il
     # programma non ce l'ha piu': e' il vantaggio che si scioglie, non il sapere
@@ -750,7 +771,7 @@ def _campionato_serie(gs, team):
 # regolamento finanziario. Ed e' proprio quello a renderlo una scelta: un
 # campione da due milioni sono ventitre ingegneri che non assumi.
 PILOTI_LIBERI = 10         # quanti ne gira il mercato ogni stagione
-ETA_FE = (23, 39)
+ETA_FE = (21, 38)
 INGAGGIO_MIN = 0.35
 INGAGGIO_MAX = 2.60
 
@@ -785,7 +806,9 @@ def crea_professionisti(gs, quanti: int = PILOTI_LIBERI) -> list:
         first = gs.rng.choice(pool["first"])
         last = gs.rng.choice(pool["last"])
         base = gs.rng.gauss(PILOTA_RIF, 4.6)
-        eta = gs.rng.randint(*ETA_FE)
+        # il grosso del mercato e' gente giovane: i veterani ci sono, ma sono
+        # pochi, se no dopo qualche stagione il campionato e' una casa di riposo
+        eta = int(gs.rng.triangular(ETA_FE[0], ETA_FE[1], 26))
         d = Driver(
             id=f"fe_{last.lower()}{gs.rng.randrange(100, 999)}", first=first, last=last,
             nat=gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL",
@@ -798,7 +821,10 @@ def crea_professionisti(gs, quanti: int = PILOTI_LIBERI) -> list:
             wet=base + gs.rng.uniform(-3, 4), feedback=base + gs.rng.uniform(-2, 5),
             aggression=gs.rng.uniform(58, 88), stamina=gs.rng.uniform(78, 94),
             estro=gs.rng.uniform(50, 92),
-            potential=min(94.0, base + max(0.0, (32 - eta) * 0.5)),
+            # e uno o due, fra tutti, sono davvero forti: sono quelli che dopo
+            # tre stagioni la Formula 1 va a guardare
+            potential=min(94.0, base + max(0.0, (32 - eta) * 0.9)
+                          + gs.rng.uniform(0.0, 4.5)),
             marketability=gs.rng.uniform(30, 70), salary=0.0,
             contract_until=gs.season)
         d.salary = ingaggio_di(d.overall, eta)
@@ -817,9 +843,16 @@ def liberi(gs) -> list:
 
 
 def mercato(gs) -> list:
-    """Il mercato della serie: se e' vuoto, lo si riempie."""
-    if len(liberi(gs)) < 4:
-        crea_professionisti(gs, PILOTI_LIBERI - len(liberi(gs)))
+    """Il mercato della serie, tenuto sempre pieno.
+
+    Non e' un dettaglio: se ci si limita a riempirlo quando si svuota, dopo
+    dieci stagioni sono sempre gli stessi dieci nomi con dieci anni in piu' e
+    il campionato diventa una casa di riposo. Ogni anno qualcuno smette e
+    qualcun altro arriva, come in qualunque serie vera.
+    """
+    manca = PILOTI_LIBERI - len(liberi(gs))
+    if manca > 0:
+        crea_professionisti(gs, manca)
     return liberi(gs)
 
 
@@ -860,6 +893,93 @@ def libera(gs, team, posto: int) -> str:
     if vecchio is not None and getattr(vecchio, "seat", "") == "formulae":
         vecchio.team = None
     return "Sedile libero: ci va un professionista ingaggiato dalla serie."
+
+
+# ------------------------------------------- fra la Formula E e la Formula 1
+# La Formula E non e' un binario morto e non e' nemmeno un'anticamera: e' un
+# campionato, e come tutti i campionati scambia gente con quelli vicini. Chi
+# ci vince viene guardato dai direttori sportivi, e chi in Formula 1 il sedile
+# lo ha perso preferisce correre li' che stare a casa a guardare.
+SOGLIA_SALTO = 84.0       # sotto questa valutazione in Formula 1 non ti guardano
+ETA_SALTO = 32            # e passata questa eta' non ti guardano lo stesso
+SALTO_MAX = 2             # quanti ne passano al massimo, per parte, in un anno
+VOGLIA_DI_SCENDERE = 0.30
+
+
+def _merito(gs) -> dict:
+    """Come e' finito il campionato, per ognuno dei nostri: 1 il primo, 0 l'ultimo."""
+    fuori = {}
+    righe = classifica(gs)
+    for i, (c, _punti, _vitt, _podi) in enumerate(righe):
+        did = c.get("driver_id") or ""
+        if did:
+            fuori[did] = round(1.0 - i / max(1.0, len(righe) - 1.0), 3)
+    return fuori
+
+
+def _passaggi(gs, merito: dict) -> list:
+    """Chi sale in Formula 1 e chi ci scende. Il mercato non e' a compartimenti.
+
+    Sale chi ha vinto ed e' ancora in eta': una stagione da primo in Formula E
+    e' un biglietto da visita che in Formula 1 leggono, e chi passa ci arriva
+    da svincolato, sul mercato come tutti gli altri. Scende chi in Formula 1
+    un sedile non ce l'ha piu': meglio correre altrove che non correre.
+    """
+    righe = []
+    saliti = 0
+    # chi ha vinto lo vengono a prendere anche se ha un contratto: e' sempre
+    # finita cosi', si paga la penale e lo si porta via
+    candidati = [d for d in gs.drivers.values()
+                 if getattr(d, "seat", "") == "formulae" and d.age <= ETA_SALTO
+                 and (not d.team or merito.get(d.id, 0.0) >= 0.90)]
+    candidati.sort(key=lambda d: -(d.overall + 6.0 * merito.get(d.id, 0.0)))
+    for d in candidati:
+        if saliti >= SALTO_MAX:
+            break
+        q = merito.get(d.id, 0.0)
+        if d.overall < SOGLIA_SALTO - 6.0:
+            continue
+        # la porta si spalanca per chi ha vinto e resta socchiusa per gli altri
+        quanto = (0.16 + 0.85 * q ** 2
+                  + 0.40 * max(0.0, (d.overall - SOGLIA_SALTO) / 8.0))
+        if gs.rng.random() > min(0.85, quanto):
+            continue
+        for t in gs.teams.values():
+            if d.id in (getattr(t, "fe_piloti", None) or []):
+                t.fe_piloti = [x if x != d.id else "" for x in t.fe_piloti]
+        gs.drivers.pop(d.id, None)
+        d.seat = "titolare"
+        d.team = None
+        d.contract_until = gs.season
+        d.salary = round(max(0.8, d.market_value), 1)
+        gs.free_agents.append(d)
+        saliti += 1
+        righe.append(f"{d.name} lascia la Formula E: e' sul mercato della Formula 1.")
+    return righe
+
+
+def scendono(gs) -> list:
+    """La strada opposta: chi in Formula 1 il sedile non ce l'ha piu'.
+
+    Si guarda a mercato chiuso, quando si sa davvero chi e' rimasto a piedi.
+    Un nome vero al posto di uno inventato vale per tutti: il campionato
+    elettrico ci guadagna gente conosciuta e il pilota ci guadagna un volante.
+    """
+    righe = []
+    scesi = sorted((d for d in gs.free_agents
+                    if ETA_FE[0] <= d.age <= ETA_FE[1] and d.overall < SOGLIA_SALTO),
+                   key=lambda d: -d.overall)
+    for d in scesi[:SALTO_MAX]:
+        if gs.rng.random() > VOGLIA_DI_SCENDERE:
+            continue
+        gs.free_agents.remove(d)
+        d.seat = "formulae"
+        d.team = None
+        d.contract_until = gs.season
+        d.salary = ingaggio_di(d.overall, d.age)
+        gs.drivers[d.id] = d
+        righe.append(f"{d.name} va a correre in Formula E.")
+    return righe
 
 
 # ------------------------------------------------------- il computer che decide

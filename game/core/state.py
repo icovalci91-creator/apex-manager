@@ -590,7 +590,13 @@ class GameState:
         gs.results = [RaceResult(**r) for r in data.get("results", [])]
 
         gs.drivers = {k: Driver.from_dict(v) for k, v in data["drivers"].items()}
-        gs.free_agents = [Driver.from_dict(d) for d in data.get("free_agents", [])]
+        # Uno svincolato resta nell'anagrafe generale, se non altro perche' i
+        # risultati vecchi lo cercano li' per nome. Ricostruendolo due volte
+        # pero' diventavano due persone diverse con lo stesso nome: si
+        # rinnovava il contratto a una e sul mercato restava l'altra. Qui il
+        # mercato punta alle stesse schede dell'anagrafe.
+        gs.free_agents = [gs.drivers.get(d["id"]) or Driver.from_dict(d)
+                          for d in data.get("free_agents", [])]
         gs.free_staff = [Staff.from_dict(s) for s in data.get("free_staff", [])]
 
         for tid, td in data["teams"].items():

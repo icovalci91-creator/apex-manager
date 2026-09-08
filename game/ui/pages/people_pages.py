@@ -117,9 +117,13 @@ class DriversPage(Page):
         elif self.filter == "liberi":
             items = list(gs.free_agents)
         elif self.filter == "giovani":
-            items = [d for d in list(gs.drivers.values()) + gs.free_agents if d.age <= 23]
+            items = [d for d in list(gs.drivers.values()) + gs.free_agents
+                     if d.age <= 23 and d.seat != "formulae"]
         else:
-            items = ([d for d in gs.drivers.values() if d.team != self.team.id]
+            # chi ha un contratto in Formula E non e' sul mercato della
+            # Formula 1: ci arriva quando quel campionato lo lascia andare
+            items = ([d for d in gs.drivers.values()
+                      if d.team != self.team.id and d.seat != "formulae"]
                      + list(gs.free_agents))
         items.sort(key=lambda d: -d.overall)
         self.list.items = items
