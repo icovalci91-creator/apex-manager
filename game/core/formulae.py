@@ -67,7 +67,15 @@ GESTIONE_BASE = 6.4
 # dice fin dove ti puoi spingere.
 COSTO_INGEGNERE = 0.088
 INGEGNERI_MIN = 12
-INGEGNERI_MAX = 90
+# E il tetto non e' quello della Formula 1, nemmeno lontanamente. Una squadra
+# di Formula 1 mette in campo trecento fra ingegneri e tecnici solo fra i
+# cinque reparti tecnici; qui il programma piu' grosso della griglia ne ha
+# sessanta. Non e' pigrizia di taratura: in Formula E il telaio e' uguale per
+# tutti, l'aerodinamica e' congelata dal regolamento e la galleria del vento
+# non si usa. Restano il propulsore, il software e l'energia, e per quelli
+# sessanta persone bastano - tenerne novanta non era solo generoso, era piu'
+# di quanta gente ci sia in tutta la serie.
+INGEGNERI_MAX = 62
 # Chi si costruisce il propulsore invece di comprarlo: costa molto di piu' e
 # rende molto di piu', ed e' il motivo per cui in Formula E i costruttori
 # vincono e i clienti no
@@ -559,6 +567,77 @@ def livello_tecnico(base: float) -> float:
 # progettista e sostituirlo con uno peggiore si paga in pista, ed e' il senso
 # di poterlo portare via.
 PESO_NUCLEO = 0.30
+# E quanto sposta l'organico. Dal minimo della griglia al massimo sono circa
+# sei punti: meno di quello che pesa in Formula 1, perche' qui c'e' molta meno
+# macchina su cui lavorare.
+PESO_ORGANICO = 8.0
+
+
+# ------------------------------------------------------------- l'organico
+# Quanta gente ci lavora davvero. E' l'altra meta' del nucleo tecnico: tre
+# teste brave senza nessuno sotto non fanno una macchina, e sessanta persone
+# guidate male nemmeno.
+#
+# I numeri sono quelli della Formula E, non quelli della Formula 1, e la
+# differenza e' enorme apposta: un reparto aerodinamico di Formula 1 da solo
+# vale novanta persone e una squadra di vertice ne mette in campo quasi
+# trecento fra i cinque reparti. Qui il programma piu' grosso ne ha
+# cinquantacinque in tutto. Non e' pigrizia di taratura: in Formula E il
+# telaio e' uguale per tutti, l'aerodinamica e' congelata dal regolamento e
+# la galleria del vento non si usa. Restano il propulsore, il software e
+# l'energia - e per quelli sessanta persone bastano.
+ORGANICO_MIN = 10
+ORGANICO_MAX = 62
+
+
+def organico_atteso(base: float) -> int:
+    """Quanta gente tiene una squadra della serie che vale cosi'.
+
+    Fra le due punte della griglia ci sono meno di cinquanta persone di
+    differenza: e' il campionato a essere piccolo, non le squadre a essere
+    trascurate.
+    """
+    q = (float(base) - 72.0) / 16.0
+    n = ORGANICO_MIN + (INGEGNERI_RIF - ORGANICO_MIN) * max(0.0, min(1.15, q))
+    return int(round(max(ORGANICO_MIN, min(ORGANICO_MAX, n))))
+
+
+def organici(gs) -> dict:
+    """Quanti ingegneri ha ogni squadra della serie."""
+    if not hasattr(gs, "fe_organico") or gs.fe_organico is None:
+        gs.fe_organico = {}
+    g = stato_griglia(gs)
+    for nome, base in g.items():
+        if nome not in gs.fe_organico:
+            gs.fe_organico[nome] = max(
+                ORGANICO_MIN, organico_atteso(base) + int(gs.rng.gauss(0, 3)))
+    return gs.fe_organico
+
+
+def organico(gs, squadra: str) -> int:
+    return int(organici(gs).get(squadra, ORGANICO_MIN))
+
+
+def assumono(gs) -> None:
+    """Un anno di assunzioni e di tagli, per le squadre della serie.
+
+    Chi ha vinto assume, chi e' arrivato in fondo taglia: e' la stessa storia
+    del tetto di spesa in Formula 1, solo su numeri dieci volte piu' piccoli.
+    Nessuno pero' raddoppia in un inverno - le persone brave sono poche - e
+    nessuno scende sotto il minimo per far girare la baracca.
+    """
+    voti = merito_squadre(gs)
+    for nome, base in stato_griglia(gs).items():
+        ora = organico(gs, nome)
+        # meta' della spinta la da' il risultato, meta' quanto e' grossa la casa
+        spinta = (voti.get(nome, 0.5) - 0.45) * 6.0 + (organico_atteso(base) - ora) * 0.35
+        nuovo = ora + int(round(spinta + gs.rng.gauss(0.0, 1.4)))
+        organici(gs)[nome] = max(ORGANICO_MIN, min(ORGANICO_MAX, nuovo))
+
+
+def resa_organico(n: float) -> float:
+    """Quanto rende quella gente: rendimento calante, come per il nostro muro."""
+    return (max(0.0, float(n)) / INGEGNERI_RIF) ** 0.62
 
 
 def staff_serie(gs) -> list:
@@ -625,14 +704,19 @@ def livello_serie(gs, squadra: str) -> float:
     per finta, proprio nella classifica.
     """
     base = float(stato_griglia(gs).get(squadra, 75.0))
+    # la gente che ci lavora: piu' o meno di quella che una squadra cosi'
+    # dovrebbe avere, con lo stesso rendimento calante del nostro programma
+    n = organico(gs, squadra)
+    dovuto = organico_atteso(base)
+    passo = PESO_ORGANICO * (resa_organico(n) - resa_organico(dovuto))
     teste = nucleo(gs, squadra)
     if not teste:
-        return round(base - PESO_NUCLEO * 8.0, 2)
+        return round(base - PESO_NUCLEO * 8.0 + passo, 2)
     from . import market
     medio = sum(market.role_score(gs, s, s.role) for s in teste) / len(teste)
     # quello che una squadra cosi' dovrebbe avere: se ce l'ha, sta alla sua base
     atteso = livello_tecnico(base)
-    return round(base + PESO_NUCLEO * (medio - atteso), 2)
+    return round(base + PESO_NUCLEO * (medio - atteso) + passo, 2)
 
 
 def forza_macchina(gs, team, d=None) -> float:
@@ -690,6 +774,7 @@ def nuovo_campionato(gs, team=None) -> dict:
         del g[min(g, key=lambda k: g[k])]
     assesta_rose(gs)
     assesta_nuclei(gs)
+    organici(gs)
     campo = []
     n = 0
     for squadra in g:
@@ -935,6 +1020,7 @@ def stagione(gs) -> list:
     # il mercato: se no chi cerca un pilota a gennaio non trova piu' nessuno
     assesta_rose(gs)
     assesta_nuclei(gs)
+    assumono(gs)
     mercato(gs)
     # e il vantaggio in gestione si consuma per tutti, anche per chi il
     # programma non ce l'ha piu': e' il vantaggio che si scioglie, non il sapere

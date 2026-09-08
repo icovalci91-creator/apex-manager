@@ -437,7 +437,11 @@ class FormulaEPage(Page):
         for i, (nome, v) in enumerate(FE.classifica_squadre(gs, team)[:4], 1):
             mio = nome == team.fe_nome
             T.text(surf, f"{i}. {nome}", (c.x + 16, y), 12,
-                   T.TEXT if mio else T.DIM, bold=mio, maxw=c.w - 90)
+                   T.TEXT if mio else T.DIM, bold=mio, maxw=c.w - 150)
+            # quanta gente ci lavora: e' il numero che spiega la classifica
+            n = FE.ingegneri(team) if mio else FE.organico(gs, nome)
+            T.text(surf, f"{n} ing.", (c.right - 58, y), 11, T.DIM_2, mono=True,
+                   align="right")
             T.text(surf, f"{v['punti']:.0f}", (c.right - 16, y), 12,
                    T.TEXT if mio else T.DIM, mono=True, align="right")
             y += 18

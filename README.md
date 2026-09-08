@@ -361,9 +361,16 @@ debutta nella stagione 2026/27, cioè quella che corre accanto al 2026 della For
 | punti | 25-18-15-12-10-8-6-4-2-1, 3 alla pole, 1 al giro veloce fra i primi dieci |
 | tetto di spesa | 15 M€ a stagione, **stipendi dei piloti compresi** — un decimo della Formula 1 |
 
-**La manopola è una sola: quanti ingegneri ci lavorano.** Più ne assumi più performance porta
-il programma e più costa, con rendimento calante — i primi valgono tantissimo, gli ultimi
-quasi niente — e il tetto della serie dice fin dove ci si può spingere. La macchina non
+**La manopola è una sola: quanti ingegneri ci lavorano.** Da 12 a 62, e sessantadue non è
+un numero timido: è quanta gente ha la squadra più grossa della griglia. Per confronto una
+scuderia di Formula 1 ne mette in campo **più di trecento** solo fra i cinque reparti
+tecnici, e la sola aerodinamica ne vale novanta. La differenza è voluta e non è pigrizia di
+taratura: in Formula E il telaio è uguale per tutti, l'aerodinamica è congelata dal
+regolamento e **la galleria del vento non si usa**. Restano il propulsore, il software e
+l'energia, e per quelli sessanta persone bastano — le strutture non sono al livello della
+Formula 1 perché non devono esserlo. Più ne assumi più performance porta il programma e più
+costa, con rendimento calante — i primi valgono tantissimo, gli ultimi quasi niente — e il
+tetto della serie dice fin dove ci si può spingere. La macchina non
 arriva l'anno dopo: ci si avvicina al proprio tetto un pezzo per volta, e ci vogliono due o
 tre stagioni. Chi si costruisce il propulsore invece di comprarlo spende molto di più e va
 molto più forte, ed è il motivo per cui in Formula E vincono i costruttori.
@@ -379,15 +386,24 @@ vuole vedere.
 **Chi guida, e cosa costa.** Nella scheda *I piloti* c'è il mercato della serie:
 professionisti veri, gente che dalla Formula 1 ci è passata o ci è arrivata vicino, dai 0,35
 ai 2,6 M$ a stagione. E qui sta il punto: **nel tetto della Formula E gli ingaggi ci stanno
-dentro** — lo dice il regolamento finanziario — quindi due buoni piloti fanno scendere il
-massimo di ingegneri che puoi tenere da 90 a 64. Un campione sono ventitré ingegneri che non
-assumi.
+dentro** — lo dice il regolamento finanziario — quindi ogni milione speso su un pilota è un
+milione tolto agli ingegneri. Un campione da due milioni sono ventitré ingegneri che non
+assumi, cioè più di un terzo dell'organico massimo.
 
 Se non scegli, il programma ingaggia due professionisti qualunque: fanno il loro e non
 crescono. Se ci metti un ragazzo del vivaio **non pesa sul tetto** e paghi in risultati —
 contro gente che viene dalla Formula 1 un diciannovenne finisce a metà gruppo — ma quello
 **cresce**, si fa un nome, e i **punti superlicenza della Formula E valgono quanto quelli
 della Formula 2**: chi vince il mondiale elettrico ha il permesso di guidare in Formula 1.
+
+**E le altre squadre hanno il loro organico.** Fra le due punte della griglia ci sono meno
+di cinquanta persone di differenza — dai 10 dell'ERT ai 55 della Porsche — perché è il
+campionato a essere piccolo, non le squadre a essere trascurate. Quel numero pèsa: dal
+minimo al massimo sono circa sei punti di livello, con lo stesso rendimento calante del
+programma nostro. E si muove da solo, ogni inverno: **chi ha vinto assume, chi è arrivato in
+fondo taglia**, nessuno raddoppia in una stagione e nessuno scende sotto il minimo per far
+girare la baracca. Nella classifica costruttori, accanto ai punti, c'è scritto quanti
+ingegneri ha ognuna: è il numero che spiega quella classifica.
 
 **Le altre squadre della serie sono squadre vere.** Non sono comparse con un nome
 inventato a gennaio e buttato via a dicembre: la Porsche, la Jaguar, la Nissan e le altre
