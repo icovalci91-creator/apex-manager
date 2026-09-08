@@ -14,7 +14,9 @@ def medie(piloti, attrs=None) -> dict:
     stanno gli altri. Chi la chiama la tiene da parte, che rifarla a ogni
     fotogramma per sessanta piloti sarebbe uno spreco.
     """
-    lista = list(piloti)
+    # chi ha smesso non fa piu' media: resta a registro per l'albo
+    # d'oro, non per dire dove sta il livello di adesso
+    lista = [d for d in piloti if not getattr(d, "ritirato", False)]
     if not lista:
         return {}
     voci = attrs or DRIVER_ATTRS
@@ -62,6 +64,10 @@ class Driver:
     # `gs.teams`. Ma il contratto e' un contratto vero, e per portarlo via da
     # li' si paga l'indennizzo come si pagherebbe a chiunque altro.
     fe_squadra: str = ""
+    # Quante stagioni di fila e' rimasto senza un volante. A un certo punto si
+    # smette: non si passa la vita ad aspettare una chiamata.
+    stagioni_fermo: int = 0
+    ritirato: bool = False
 
     # voci del contratto oltre all'ingaggio fisso
     bonus_win: float = 0.0        # M$ per vittoria

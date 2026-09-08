@@ -230,6 +230,7 @@ def _sign(gs, team, driver: Driver, salary: float, years: int,
     if driver in gs.free_agents:
         gs.free_agents.remove(driver)
     gs.drivers[driver.id] = driver
+    driver.stagioni_fermo = 0
     driver.team = team.id
     driver.salary = salary
     driver.contract_until = gs.season + years
@@ -476,6 +477,63 @@ def run_transfer_window(gs) -> list:
     gs.free_staff.sort(key=lambda x: -x.market_value)
     del gs.free_staff[150:]
     news += ai_staff_market(gs)
+    news += ritiri(gs)
+    return news
+
+
+# ------------------------------------------------------------------ i ritiri
+# Prima non smetteva nessuno. Chi perdeva il volante restava svincolato per
+# sempre, invecchiando sul mercato: dopo sei stagioni fra i liberi c'era gente
+# di quaranta, quarantacinque e cinquant'anni, e l'elenco cresceva di una
+# quindicina di nomi l'anno senza che ne uscisse mai uno.
+RITIRO_DA = 34            # da qui in poi si comincia a smettere
+RITIRO_CERTO = 42         # e a quest'eta' ha smesso chiunque
+ANNI_FERMO = 3            # e chi non trova un volante per tre anni cambia mestiere
+
+
+def _smette(gs, d) -> bool:
+    """Se questa e' l'estate in cui appende il casco al chiodo."""
+    if d.age >= RITIRO_CERTO:
+        return True
+    fermo = getattr(d, "stagioni_fermo", 0)
+    if fermo >= ANNI_FERMO and d.age >= 27:
+        # a ventisette anni, senza volante da tre stagioni, non si e' piu' una
+        # promessa: si e' uno che quel treno l'ha perso
+        return gs.rng.random() < 0.55
+    if fermo >= ANNI_FERMO and d.age >= 24:
+        # e anche fra i ragazzi: di quelli che salgono dalle categorie minori
+        # ne arriva una decina l'anno e i volanti sono venti. Chi a
+        # ventiquattro anni non ne ha ancora trovato uno va a correre altrove,
+        # se no il mercato si riempie di promesse che non lo sono piu'
+        return gs.rng.random() < 0.35
+    if d.age < RITIRO_DA:
+        return False
+    q = (d.age - RITIRO_DA) / float(RITIRO_CERTO - RITIRO_DA)
+    # chi e' ancora forte tira avanti piu' a lungo, ed e' giusto cosi': i
+    # campioni smettono quando lo decidono loro
+    q *= 1.30 - 0.60 * max(0.0, min(1.0, (d.overall - 74.0) / 12.0))
+    return gs.rng.random() < max(0.0, min(1.0, q))
+
+
+def ritiri(gs) -> list:
+    """Chi smette di correre, a mercato chiuso.
+
+    La scheda non si butta via: i risultati vecchi cercano ancora quel nome, e
+    un campione che ha smesso deve restare nell'albo d'oro. Esce dal mercato
+    e basta.
+    """
+    news = []
+    for d in list(gs.free_agents):
+        d.stagioni_fermo = getattr(d, "stagioni_fermo", 0) + 1
+        if not _smette(gs, d):
+            continue
+        gs.free_agents.remove(d)
+        d.ritirato = True
+        d.team = None
+        d.seat = "ritirato"
+        gs.drivers[d.id] = d
+        if d.age >= RITIRO_DA or d.career_points > 0:
+            news.append(f"{d.name} smette di correre a {d.age} anni.")
     return news
 
 

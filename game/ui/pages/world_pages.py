@@ -31,7 +31,7 @@ class FacilitiesPage(Page):
         r = self.rect
         self.widgets = []
         self.buttons = {}
-        y = r.y + 112
+        y = r.y + 130
         bx, _fine = self._colonne(r)
         for k in C.FACILITIES:
             lab = "Potenzia" if facilities.is_built(self.team, k) else "Costruisci"
@@ -74,12 +74,29 @@ class FacilitiesPage(Page):
              f"{fresche} strutture su {len(costruite)} all'avanguardia",
              colour=T.OK if obs < 0.2 else T.BAD, accent=T.BAD if obs >= 0.2 else T.OK)
 
-        panel = pygame.Rect(r.x, r.y + 80, r.w * self._quota(r) + 10, r.h - 80)
+        # I due pannelli finiscono dove finisce quello che hanno dentro. A
+        # sinistra le righe si contano; a destra si misurano prima anche i tre
+        # paragrafi in fondo, che a larghezze diverse vanno a capo un numero
+        # diverso di volte. Cosi' non restano scatole mezze vuote e le due
+        # colonne si chiudono insieme.
+        note = self._note(gs, team)
+        quota = self._quota(r)
+        larga_d = r.w * (1 - quota) - 26
+        alto_s = 32 + 42 * len(C.FACILITIES) + 16
+        alto_d = 40 + 28 * len(gs.teams) + 12
+        for testo, _col in note:
+            alto_d += len(T.wrap(testo, 12, int(larga_d) - 32)) * T.line_h(12) + 10
+        # non si taglia sull'altezza della finestra: se il contenuto e' piu'
+        # alto il pannello scende sotto il bordo e la pagina scorre, che e'
+        # esattamente a cosa serve lo scorrimento. Tagliando qui invece la
+        # pagina si accorciava da sola e l'ultimo paragrafo non si leggeva piu'
+        alto = max(alto_s, alto_d)
+        panel = pygame.Rect(r.x, r.y + 98, r.w * quota + 10, alto)
         T.panel(surf, panel, T.PANEL, radius=10, border=T.LINE)
         # la gestione sta dentro il tetto tecnico: si dice qui, sopra l'elenco
         T.text(surf, f"gestione {team.facility_upkeep:.1f} M$ l'anno, quella dentro il cap",
                (panel.x + 16, panel.y + 10), 12, T.DIM_2, maxw=panel.w - 32)
-        y = r.y + 112
+        y = r.y + 130
         # dove comincia il pulsante, e fin dove puo' arrivare la riga
         bx, fine = self._colonne(r)
         for k, meta in C.FACILITIES.items():
@@ -122,9 +139,7 @@ class FacilitiesPage(Page):
                    (fine, y + 20), 12, T.OK if perdita <= 0.01 else T.BAD, align="right")
             y += 42
 
-        quota = self._quota(r)
-        right = pygame.Rect(r.x + r.w * quota + 26, r.y + 80, r.w * (1 - quota) - 26,
-                            r.h - 80)
+        right = pygame.Rect(r.x + r.w * quota + 26, r.y + 98, larga_d, alto)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "CONFRONTO CON LA GRIGLIA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         y = right.y + 40
@@ -142,23 +157,30 @@ class FacilitiesPage(Page):
             T.text(surf, f"{a:.0f}", (right.right - 16, y + 2), 13, T.TEXT, bold=True, align="right")
             y += 28
         y += 12
-        y += T.paragraph(surf, f"Una struttura appena rifatta resta di riferimento per "
-                               f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo "
-                               f"non perde nulla. Poi comincia a restare indietro, sempre "
-                               f"piu' in fretta.",
-                         (right.x + 16, y), 12, T.GOLD, right.w - 32) + 10
-        y += T.paragraph(surf, "Le strutture agiscono su sviluppo, assetto, soste e "
-                               "crescita dei giovani. Ogni anno invecchiano: quello che non "
-                               "si rinnova arretra, e nessuno puo' permettersi di tenerle "
-                               "tutte al passo.",
-                         (right.x + 16, y), 12, T.DIM_2, right.w - 32) + 10
-        T.paragraph(surf, f"Costruire non passa dal tetto di spesa: ha un limite suo, "
-                          f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro "
-                          f"in classifica ne ha di piu' - serve a lasciargli modo di "
-                          f"rimettersi in pari. Nel tetto tecnico resta la gestione di "
-                          f"quello che si e' costruito.",
-                    (right.x + 16, y), 12, T.GOLD, right.w - 32)
+        for testo, col in note:
+            y += T.paragraph(surf, testo, (right.x + 16, y), 12, col, right.w - 32) + 10
+        self.content_h = max(panel.bottom, right.bottom) - r.y + 12
         super().draw(surf)
+
+    def _note(self, gs, team) -> list:
+        """Le spiegazioni in fondo alla colonna destra, testo e colore.
+
+        Stanno qui e non dentro al disegno perche' vanno misurate prima: e'
+        la loro altezza a dire dove finisce il pannello.
+        """
+        return [
+            (f"Una struttura appena rifatta resta di riferimento per "
+             f"{facilities.GRACE_SEASONS:.0f} stagioni: in quel periodo non perde "
+             f"nulla. Poi comincia a restare indietro, sempre piu' in fretta.", T.GOLD),
+            ("Le strutture agiscono su sviluppo, assetto, soste e crescita dei "
+             "giovani. Ogni anno invecchiano: quello che non si rinnova arretra, e "
+             "nessuno puo' permettersi di tenerle tutte al passo.", T.DIM_2),
+            (f"Costruire non passa dal tetto di spesa: ha un limite suo, "
+             f"{economy.CAPEX_WINDOW} stagioni alla volta, e chi e' indietro in "
+             f"classifica ne ha di piu' - serve a lasciargli modo di rimettersi in "
+             f"pari. Nel tetto tecnico resta la gestione di quello che si e' "
+             f"costruito.", T.GOLD),
+        ]
 
 
 def _infra_rank(gs, team) -> str:
@@ -563,9 +585,8 @@ class StandingsPage(Page):
         # una pagina fatta di scatole mezze vuote sembra un gioco non finito.
         piloti = gs.driver_standings()
         squadre = gs.constructor_standings()
-        alt_s = min(r.h, 40 + 32 * len(squadre) + 14)
-        left = pygame.Rect(r.x, r.y, r.w * 0.52,
-                           min(r.h, 40 + 27 * len(piloti) + 14))
+        alt_s = 40 + 32 * len(squadre) + 14
+        left = pygame.Rect(r.x, r.y, r.w * 0.52, 40 + 27 * len(piloti) + 14)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, f"CAMPIONATO PILOTI {gs.season}", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
@@ -607,28 +628,24 @@ class StandingsPage(Page):
             y += 32
         # e sotto, nello spazio che avanza, quello che un direttore sportivo
         # guarda subito dopo la classifica: com'e' finita l'ultima volta
-        self._ultime(surf, pygame.Rect(right.x, right.bottom + 12, right.w,
-                                       max(0, r.bottom - right.bottom - 12)))
-        self.content_h = max(left.bottom, right.bottom) - r.y + 12
+        fondo = self._ultime(surf, right.x, right.bottom + 12, right.w)
+        self.content_h = max(left.bottom, fondo) - r.y + 12
         super().draw(surf)
 
     ULTIME = 6
 
-    def _ultime(self, surf, c) -> None:
-        """Le ultime gare corse: chi ha vinto, dove, e con che tempo."""
-        if c.h < 90:
-            return
+    def _ultime(self, surf, x, y, w) -> int:
+        """Le ultime gare corse: dove, e chi ha vinto. Ritorna dove finisce."""
         gs = self.gs
         gare = [x for x in gs.results if x.season == gs.season and x.kind == "gp"]
         gare = gare[-self.ULTIME:][::-1]
-        alt = min(c.h, 40 + 26 * max(1, len(gare)) + 14)
-        c = pygame.Rect(c.x, c.y, c.w, alt)
+        c = pygame.Rect(x, y, w, 40 + 26 * max(1, len(gare)) + 14)
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "LE ULTIME GARE", (c.x + 16, c.y + 12), 12, T.DIM_2, bold=True)
         if not gare:
             T.text(surf, "La stagione non e' ancora cominciata.",
                    (c.x + 16, c.y + 44), 13, T.DIM_2, maxw=c.w - 32)
-            return
+            return c.bottom
         piste = {t.id: t for t in gs.tracks}
         y = c.y + 40
         for res in gare:
@@ -643,6 +660,7 @@ class StandingsPage(Page):
             T.text(surf, vinc.name if vinc else "-", (c.right - 16, y + 1), 13,
                    T.TEXT, align="right", maxw=c.w * 0.42)
             y += 26
+        return c.bottom
 
 
 class CalendarPage(Page):

@@ -332,6 +332,10 @@ def end_season(gs) -> dict:
             # loro stagione si gioca piu' avanti (game.core.serie). Anche
             # l'anno in piu' se lo prendono li', dopo aver corso
             continue
+        if getattr(d, "ritirato", False):
+            # chi ha smesso non cresce e non cala: la sua scheda
+            # resta quella dell'ultima stagione che ha corso
+            continue
         if d.seat == "formulae":
             # e nemmeno chi corre in Formula E: la sua stagione la chiude il
             # suo campionato, piu' avanti. Passando anche di qui compiva due
