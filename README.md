@@ -389,6 +389,18 @@ contro gente che viene dalla Formula 1 un diciannovenne finisce a metà gruppo �
 **cresce**, si fa un nome, e i **punti superlicenza della Formula E valgono quanto quelli
 della Formula 2**: chi vince il mondiale elettrico ha il permesso di guidare in Formula 1.
 
+**E quel permesso adesso serve a qualcosa.** I due campionati si scambiano gente nelle due
+direzioni. Chi vince in Formula E ed è ancora in età finisce **svincolato sul mercato della
+Formula 1**: lo trovi nell'elenco dei liberi come chiunque altro, e le scuderie del computer
+se lo giocano insieme agli altri — chi ha vinto lo prendono anche sotto contratto, si paga
+la penale ed è sempre finita così. Chi in Formula 1 un sedile non ce l'ha più fa la strada
+opposta e va a correre lì, che è il giro di Ricciardo, Vandoorne, Buemi, di Grassi. Il
+mondiale elettrico si chiude *prima* che si apra il mercato della monoposto, se no chi era
+appena passato resterebbe un anno fermo a guardare. Su ottanta stagioni: **circa un
+passaggio verso la Formula 1 ogni dieci anni e uno verso la Formula E ogni due**. Raro come
+nella realtà, ma non impossibile — ed è la strada con cui un pilota che avevi lasciato
+andare può tornare a bussare.
+
 Lo sviluppo del propulsore di chi se lo costruisce invece **sta fuori dal tetto della
 squadra**: ha un budget suo, venticinque milioni su due stagioni, ed è un conto della casa e
 non della squadra. È il motivo per cui un costruttore può permettersi sia gli ingegneri sia i
@@ -1069,9 +1081,25 @@ facendo una mossa, sta facendo la sua sosta. **L'overcut**: il giro della sosta 
 ma la gomma tiene ancora e chi era davanti si e' gia' fermato, e allora si allunga di due o
 cinque giri per girare da soli sull'asfalto libero mentre lui scalda le sue. In una stagione
 si contano circa **ottanta undercut, sessanta coperture e sessanta overcut** — tre mosse a
-gara, non una a stagione — e il numero di soste per gara non si e' mosso: lo scarto sulle
-soste vere resta **0,64**. Un muretto distratto la sosta la fa quando c'era scritto: la
+gara, non una a stagione. Un muretto distratto la sosta la fa quando c'era scritto: la
 mossa la vede chi ha lo *strategy* per vederla.
+
+**Quante soste si fanno, e perché.** Non lo decide una tabella per circuito. Il muretto
+guarda quanti giri regge un treno di gomme *qui dentro* — l'abrasività dell'asfalto, la
+mescola che il fornitore ha portato, la temperatura, la mano del pilota — e lo confronta con
+due cose: quanto è lunga la gara e quanto costa perdere la posizione. È per questo che Spa e
+l'Ungheria, che consumano uguale, non fanno lo stesso numero di soste — a Spa la gara
+finisce ventisei giri prima — ed è per questo che Monaco viene fuori a una sosta sola senza
+che nessuno gliel'abbia scritto: lì la gomma non è mai il problema, passare lo è. Ai box non
+si va con la gomma finita: si va quando il treno nuovo comincia a rendere più di quello
+vecchio, che arriva a poco più di due terzi della vita utile. E la mescola di partenza si
+sceglie **per il tratto che deve coprire**: partire con la morbida a Monaco, dove dura
+quindici giri, con la sosta scritta al trentasettesimo, è il modo più rapido di ritrovarsi a
+farne due dove se ne fa una.
+
+Misurato su dodici circuiti, cinque gare ciascuno, contro le soste medie vere: scarto
+assoluto **0,21 soste**. Losail 2,7 contro 3,0, il Bahrain 3,0 contro 2,5, Monaco 0,9 contro
+1,1, Monza 1,0 contro 1,2.
 
 **La benzina, che prima non esisteva.** Il serbatoio partiva sempre con il dieci per cento
 di margine e quel margine bastava dappertutto: nessuno risparmiava, nessuno restava a piedi,
