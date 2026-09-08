@@ -557,12 +557,20 @@ class StandingsPage(Page):
 
     def draw(self, surf) -> None:
         r, gs = self.rect, self.gs
-        left = pygame.Rect(r.x, r.y, r.w * 0.52, r.h)
+        # I pannelli finiscono dove finiscono le righe. Prima arrivavano in
+        # fondo alla finestra comunque: undici costruttori in una scatola alta
+        # ottocento pixel sono undici righe e quattrocento pixel di niente, e
+        # una pagina fatta di scatole mezze vuote sembra un gioco non finito.
+        piloti = gs.driver_standings()
+        squadre = gs.constructor_standings()
+        alt_s = min(r.h, 40 + 32 * len(squadre) + 14)
+        left = pygame.Rect(r.x, r.y, r.w * 0.52,
+                           min(r.h, 40 + 27 * len(piloti) + 14))
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, f"CAMPIONATO PILOTI {gs.season}", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
         y = left.y + 40
-        for i, d in enumerate(gs.driver_standings(), 1):
+        for i, d in enumerate(piloti, 1):
             t = gs.teams.get(d.team)
             col = T.hex_rgb(t.colour) if t else T.DIM_2
             hl = (t and t.id == gs.player_team)
@@ -579,13 +587,13 @@ class StandingsPage(Page):
             y += 27
         T.text(surf, "V  P", (left.x + 380, left.y + 22), 11, T.DIM_2, bold=True)
 
-        right = pygame.Rect(r.x + r.w * 0.54, r.y, r.w * 0.46 - 4, r.h)
+        right = pygame.Rect(r.x + r.w * 0.54, r.y, r.w * 0.46 - 4, alt_s)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, f"CAMPIONATO COSTRUTTORI {gs.season}", (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)
         y = right.y + 40
         maxp = max([t.points for t in gs.teams.values()] + [1])
-        for i, t in enumerate(gs.constructor_standings(), 1):
+        for i, t in enumerate(squadre, 1):
             col = T.hex_rgb(t.colour)
             hl = (t.id == gs.player_team)
             if hl:
@@ -597,7 +605,44 @@ class StandingsPage(Page):
             T.text(surf, f"{t.points:.0f}", (right.right - 16, y + 3), 15, T.TEXT, bold=True,
                    align="right")
             y += 32
+        # e sotto, nello spazio che avanza, quello che un direttore sportivo
+        # guarda subito dopo la classifica: com'e' finita l'ultima volta
+        self._ultime(surf, pygame.Rect(right.x, right.bottom + 12, right.w,
+                                       max(0, r.bottom - right.bottom - 12)))
+        self.content_h = max(left.bottom, right.bottom) - r.y + 12
         super().draw(surf)
+
+    ULTIME = 6
+
+    def _ultime(self, surf, c) -> None:
+        """Le ultime gare corse: chi ha vinto, dove, e con che tempo."""
+        if c.h < 90:
+            return
+        gs = self.gs
+        gare = [x for x in gs.results if x.season == gs.season and x.kind == "gp"]
+        gare = gare[-self.ULTIME:][::-1]
+        alt = min(c.h, 40 + 26 * max(1, len(gare)) + 14)
+        c = pygame.Rect(c.x, c.y, c.w, alt)
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "LE ULTIME GARE", (c.x + 16, c.y + 12), 12, T.DIM_2, bold=True)
+        if not gare:
+            T.text(surf, "La stagione non e' ancora cominciata.",
+                   (c.x + 16, c.y + 44), 13, T.DIM_2, maxw=c.w - 32)
+            return
+        piste = {t.id: t for t in gs.tracks}
+        y = c.y + 40
+        for res in gare:
+            pista = piste.get(res.track_id)
+            vinc = gs.drivers.get(res.order[0]["driver"]) if res.order else None
+            squadra = gs.teams.get(res.order[0].get("team")) if res.order else None
+            col = T.hex_rgb(squadra.colour) if squadra else T.DIM_2
+            T.text(surf, str(res.round), (c.x + 28, y + 2), 13, T.DIM_2, align="right")
+            pygame.draw.rect(surf, col, (c.x + 36, y + 3, 3, 15))
+            T.text(surf, pista.name if pista else res.track_id, (c.x + 48, y + 1), 13,
+                   T.DIM, maxw=c.w * 0.42)
+            T.text(surf, vinc.name if vinc else "-", (c.right - 16, y + 1), 13,
+                   T.TEXT, align="right", maxw=c.w * 0.42)
+            y += 26
 
 
 class CalendarPage(Page):

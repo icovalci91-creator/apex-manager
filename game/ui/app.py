@@ -82,7 +82,7 @@ class App:
         non nell'avvio della pagina.
         """
         try:
-            self.screen.fill(T.BG)
+            T.sfondo(self.screen)
             T.text(self.screen, f"{C.GAME_TITLE} - caricamento...",
                    (self.screen.get_width() // 2, self.screen.get_height() // 2 - 20),
                    32, T.TEXT, bold=True, align="center")
@@ -141,7 +141,7 @@ class App:
                     self.scene.handle(ev)
             if self.scene:
                 self.scene.update(dt)
-                self.screen.fill(T.BG)
+                T.sfondo(self.screen)
                 self.scene.draw(self.screen)
             if self.toast_t > 0:
                 self.toast_t -= dt

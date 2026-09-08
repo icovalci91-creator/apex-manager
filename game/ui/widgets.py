@@ -75,9 +75,14 @@ class Button(Widget):
             # senza il bordo un pulsante spento sparisce dentro il pannello,
             # e non si capisce che c'e' qualcosa che non si puo' fare
             bg, fg, border = T.PANEL, T.DIM_2, T.LINE
-        T.panel(surf, self.rect, bg, radius=8, border=border)
+        # niente filo di luce sui pulsanti: il rilievo serve alle lastre
+        # grandi, su quindici voci di menu in fila diventa una grata
+        T.panel(surf, self.rect, bg, radius=8, border=border, rilievo=False)
         if self.style == "tab" and self.active:
-            pygame.draw.rect(surf, T.ACCENT, (self.rect.x, self.rect.bottom - 3, self.rect.w, 3),
+            # la voce aperta la segna il colore della scuderia: e' l'unico
+            # posto della schermata che dice sempre per chi si sta lavorando
+            pygame.draw.rect(surf, T.squadra_viva(),
+                             (self.rect.x, self.rect.bottom - 3, self.rect.w, 3),
                              border_radius=2)
         lbl = (self.icon + "  " if self.icon else "") + self.label
         f = T.font(15, self.style == "primary")

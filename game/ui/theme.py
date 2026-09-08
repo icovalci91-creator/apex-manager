@@ -228,11 +228,107 @@ def line_h(size: int, bold: bool = False) -> int:
     return int(round(size * INTERLINEA))
 
 
-def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1):
+# Quanto si schiarisce il bordo superiore di un pannello. E' poco, ed e' il
+# punto: un pannello piatto su un fondo piatto non ha spessore, e venti
+# rettangoli uguali diventano una parete. Il filo di luce in alto - dove
+# batterebbe una luce di studio - basta a far capire che sono lastre appoggiate
+# una sull'altra, senza aggiungere una riga di bordo che chiuderebbe tutto in
+# gabbie.
+RILIEVO = 0.16
+
+
+def _schiarisci(colour, q: float) -> tuple:
+    return tuple(min(255, int(c + (255 - c) * q)) for c in colour[:3])
+
+
+def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1,
+          rilievo: bool = True):
     _ink(rect[1] + rect[3])
     pygame.draw.rect(surf, colour, rect, border_radius=radius)
+    if rilievo and rect[3] >= 12 and rect[2] >= 24:
+        luce = _schiarisci(colour, RILIEVO)
+        pygame.draw.line(surf, luce, (rect[0] + radius, rect[1]),
+                         (rect[0] + rect[2] - radius - 1, rect[1]))
     if border:
         pygame.draw.rect(surf, border, rect, width, border_radius=radius)
+
+
+# --- il colore della squadra ----------------------------------------------
+# Una partita con la Ferrari e una con la Williams si vedevano identiche: il
+# colore della scuderia compariva in un filo di sei pixel e basta. Qui lo si
+# tiene da parte una volta - con una versione schiarita per quando deve
+# reggere del testo, che un blu notte su fondo scuro non si legge - e lo usano
+# la barra in alto, la voce di menu aperta e i segni di appartenenza.
+_SQUADRA = [ACCENT, ACCENT]
+
+
+def _luminanza(c) -> float:
+    """Luminanza relativa sRGB: quella con cui si misura davvero il contrasto."""
+    v = []
+    for x in c[:3]:
+        x /= 255.0
+        v.append(x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+
+
+def contrasto(a, b) -> float:
+    """Rapporto di contrasto fra due colori, da 1 (uguali) a 21."""
+    la, lb = _luminanza(a), _luminanza(b)
+    lo, hi = sorted((la, lb))
+    return (hi + 0.05) / (lo + 0.05)
+
+
+# Sotto questo rapporto contro il fondo una scritta grande non si legge piu'.
+# Il rosso Ferrari sta a 3,7 e va benissimo com'e'; un blu notte sta a 1,4 e
+# va alzato, se no il nome della squadra sparisce nel nero.
+CONTRASTO_MIN = 3.2
+
+
+def set_squadra(colour) -> None:
+    """Registra il colore della scuderia del giocatore."""
+    c = tuple(colour[:3])
+    _SQUADRA[0] = c
+    # lo si alza solo se serve davvero, e quel tanto che basta: schiarire un
+    # colore che si legge gia' vuol dire buttare via l'identita' della squadra
+    vivo = c
+    for _ in range(12):
+        if contrasto(vivo, BG) >= CONTRASTO_MIN:
+            break
+        vivo = _schiarisci(vivo, 0.12)
+    _SQUADRA[1] = vivo
+
+
+def squadra() -> tuple:
+    """Il colore della scuderia, come'e'."""
+    return _SQUADRA[0]
+
+
+def squadra_viva() -> tuple:
+    """Lo stesso colore, ma sempre leggibile su fondo scuro."""
+    return _SQUADRA[1]
+
+
+# --- il fondo ---------------------------------------------------------------
+# Un fondo a tinta unita su tutta la finestra e' una parete. Una sfumatura
+# appena percettibile dall'alto in basso da' profondita' e non si nota: si
+# nota quando non c'e'.
+_FONDO: dict = {}
+FONDO_GIU = (6, 8, 13)
+
+
+def sfondo(surf) -> None:
+    """Riempie la finestra con la sfumatura di fondo, disegnata una volta sola."""
+    w, h = surf.get_size()
+    img = _FONDO.get((w, h))
+    if img is None:
+        img = pygame.Surface((1, h))
+        for y in range(h):
+            q = y / max(1.0, h - 1.0)
+            img.set_at((0, y), mix(BG, FONDO_GIU, q))
+        img = pygame.transform.scale(img, (w, h))
+        _FONDO.clear()
+        _FONDO[(w, h)] = img
+    surf.blit(img, (0, 0))
 
 
 # Il segno del riferimento sulla barra: la tacca che dice dov'e' la media

@@ -280,15 +280,22 @@ class GameShell(Scene):
         gs = self.app.gs
         team = gs.player
         col = T.hex_rgb(team.colour)
+        T.set_squadra(col)
+        vivo = T.squadra_viva()
 
         # barra laterale
         pygame.draw.rect(surf, T.PANEL, (0, TOPBAR_H, NAV_W, h - TOPBAR_H))
         pygame.draw.line(surf, T.LINE, (NAV_W, TOPBAR_H), (NAV_W, h))
 
-        # barra superiore
+        # Barra superiore. Il colore della scuderia non e' piu' un filo di sei
+        # pixel in un angolo: tinge il blocco del nome e corre lungo tutto il
+        # bordo di sotto, che e' la riga che separa il gioco da chi lo gioca.
+        # Una partita con la Ferrari e una con la Williams si devono
+        # riconoscere da lontano.
         pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, TOPBAR_H))
-        pygame.draw.rect(surf, col, (0, 0, 6, TOPBAR_H))
-        T.text(surf, team.short.upper(), (22, 12), 21, T.TEXT, bold=True)
+        pygame.draw.rect(surf, T.mix(T.PANEL_2, col, 0.16), (0, 0, NAV_W, TOPBAR_H))
+        pygame.draw.rect(surf, col, (0, 0, 5, TOPBAR_H))
+        T.text(surf, team.short.upper(), (22, 12), 21, vivo, bold=True)
         T.text(surf, f"Stagione {gs.season}", (22, 38), 13, T.DIM)
 
         spent, limit, frac = economy.cap_usage(gs, team)
@@ -311,6 +318,7 @@ class GameShell(Scene):
             largo = min(330, w - 1106)
             _kv(surf, w - largo - 16, "PILOTI", names, T.TEXT, maxw=largo)
         pygame.draw.line(surf, T.LINE, (0, TOPBAR_H), (w, TOPBAR_H))
+        pygame.draw.rect(surf, col, (0, TOPBAR_H - 2, w, 2))
 
         # la pagina si disegna dentro la sua finestra: se e' piu' alta, quello
         # che esce sopra e sotto viene tagliato invece di finire sulla barra
