@@ -25,8 +25,11 @@ class FormulaEPage(Page):
     def build(self) -> None:
         r = self.rect
         self.widgets = []
-        self.left = pygame.Rect(r.x, r.y + 92, r.w * 0.50, r.h - 92)
-        self.right = pygame.Rect(r.x + r.w * 0.52, r.y + 92, r.w * 0.48 - 4, r.h - 92)
+        # sotto l'intestazione ci va la riga delle linguette, e i pannelli
+        # cominciano sotto di quella: prima le linguette finivano sopra al
+        # testo di apertura e non si leggeva ne' l'uno ne' le altre
+        self.left = pygame.Rect(r.x, r.y + 124, r.w * 0.50, r.h - 124)
+        self.right = pygame.Rect(r.x + r.w * 0.52, r.y + 124, r.w * 0.48 - 4, r.h - 124)
         team = self.team
         if not FE.ha(team):
             b = Button((self.left.x + 16, self.left.y + 250, self.left.w - 32, 44),
@@ -185,6 +188,9 @@ class FormulaEPage(Page):
         else:
             self._calendario(surf, self.right)
         self.content_h = max(self.left.bottom, self.right.bottom) - r.y + 12
+        # e i comandi sopra a tutto: senza questa riga la pagina si
+        # disegnava intera ma cursori e pulsanti restavano invisibili
+        super().draw(surf)
 
     def _invito(self, surf) -> None:
         c = self.left
@@ -380,7 +386,7 @@ class FormulaEPage(Page):
 
     def _mercato(self, surf, c) -> None:
         """Chi c'e' sul mercato della serie."""
-        gs, team = self.gs, self.team
+        gs = self.gs
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "IL MERCATO DELLA SERIE", (c.x + 16, c.y + 12), 14, T.TEXT,
                bold=True)

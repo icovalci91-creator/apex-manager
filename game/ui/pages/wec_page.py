@@ -89,6 +89,9 @@ class WecPage(Page):
             self._invito(surf, self.left)
             self._classi(surf, self.right)
         self.content_h = max(self.left.bottom, self.right.bottom) - r.y + 12
+        # e i comandi sopra a tutto: senza questa riga la pagina si
+        # disegnava intera ma cursori e pulsanti restavano invisibili
+        super().draw(surf)
 
     def _invito(self, surf, c) -> None:
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
