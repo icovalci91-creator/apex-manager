@@ -7047,7 +7047,7 @@
    "traits": {
     "downforce": 0.8,
     "power": 0.55,
-    "tyre_wear": 0.85,
+    "tyre_wear": 0.74,
     "braking": 0.55,
     "overtaking": 0.35,
     "bumpiness": 0.2

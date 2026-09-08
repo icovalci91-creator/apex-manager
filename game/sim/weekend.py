@@ -125,6 +125,45 @@ BURN_KG_PER_LAP = 1.18    # settanta chili per una gara: il consumo del 2026
 PUSH_S_PER_LAP = 7.5      # 0.1 di push_mode = 0.75 s sul giro
 PUSH_WEAR_EXP = 2.5       # attaccare consuma circa il 27% di gomma in piu'
 PUSH_FUEL_EXP = 2.5       # e altrettanta benzina
+
+# Giri che una mescola nuova regge sulla pista di riferimento, prima di
+# tener conto di asfalto, temperatura e pilota.
+VITA_BASE = {"soft": 17.0, "medium": 26.0, "hard": 37.0, "inter": 22.0, "wet": 26.0}
+
+
+def abrasivita(track) -> float:
+    """Quanto in fretta questo asfalto consuma la gomma, contro la media."""
+    return 0.55 + 0.90 * float(track.traits.get("tyre_wear", 0.6))
+
+
+def tenuta(track) -> float:
+    """Quanto a lungo la gomma resta in vita qui, contro la media.
+
+    Non e' l'inverso dell'abrasivita': una pista dolce non consuma poco e
+    basta, allunga anche la finestra in cui la gomma lavora. E' il motivo per
+    cui a Monaco si fa mezza gara con lo stesso treno e in Qatar no.
+    """
+    return 1.50 - 0.78 * float(track.traits.get("tyre_wear", 0.6))
+
+
+def stint_atteso(track, tyre_skill: float, track_temp: float,
+                 distance: float = 1.0, comp: str = "medium") -> float:
+    """Giri che regge un treno di gomme qui: il conto che il muretto fa prima
+    di scrivere il piano gara.
+
+    E' lo stesso conto della simulazione - vita diviso consumo al giro - senza
+    quello che in gara si scopre soltanto correndo: il traffico, la safety
+    car, la pioggia, quanto forte si e' deciso di andare.
+    """
+    from ..core import tyres
+    vita = (VITA_BASE[comp] * tyres.life_scale(tyres.nomination(track)[comp])
+            * tenuta(track) * (0.78 + 0.42 * tyre_skill / 100.0) * distance)
+    caldo = max(0.72, min(1.55, 1.0 + 0.020 * (track_temp - 35.0)))
+    tasso = (C.COMPOUNDS[comp]["wear"] * abrasivita(track)
+             * (1.30 - 0.55 * tyre_skill / 100.0) * caldo)
+    return vita / max(0.05, tasso)
+
+
 DRY_TANK_PENALTY = 8.0    # secondi al giro quando il serbatoio e' vuoto
 
 # Quanto spesso si rompe qualcosa. E' la probabilita' per giro di una vettura
@@ -918,7 +957,7 @@ class RaceSim:
 
     def _wear_rate(self, e: Entrant) -> float:
         comp = C.COMPOUNDS[e.tyre]
-        base = comp["wear"] * self.tyre_deg * (0.55 + 0.9 * self.track.traits.get("tyre_wear", 0.6))
+        base = comp["wear"] * self.tyre_deg * abrasivita(self.track)
         skill = 1.30 - 0.55 * (e.tyre_skill / 100.0)
         push = e.push_mode ** PUSH_WEAR_EXP
         sc = 0.45 if self.safety_car > 0 else 1.0
@@ -1401,6 +1440,14 @@ class RaceSim:
         andata = e.vita_gomma() < GOMMA_SC
         if not (vicina or andata):
             return None
+        if not vicina:
+            # una sosta che non era in programma si paga in posizione, e dove
+            # non si passa quella posizione non torna piu' indietro. E' il
+            # motivo per cui a Monaco, con la safety car, chi la sua sosta
+            # l'ha gia' fatta resta fuori anche con le gomme finite
+            passa = self.track.traits.get("overtaking", 0.5)
+            if self.rng.random() > 0.15 + 0.85 * passa:
+                return None
         comp = e.plan[0][1] if e.plan else self._pick_compound(e)
         if e.stock and e.stock.get(comp, 0) <= 0:
             comp = self._pick_compound(e)
@@ -1535,9 +1582,8 @@ class RaceSim:
         # momento e' un suo errore, e deve poterlo fare
         if e.box_richiesto:
             comp, e.box_richiesto = e.box_richiesto, ""
-            if comp != e.tyre or self.bagnato > 0.12:
-                self._fai_sosta(e, comp)
-                return
+            self._fai_sosta(e, comp)
+            return
         # l'occasione viene prima di qualunque piano scritto il venerdi': con
         # la safety car in pista la sosta costa un terzo di meno, e chi era
         # nella finestra giusta entra adesso
@@ -1546,8 +1592,14 @@ class RaceSim:
         target = None if bagnato else self._sosta_previsione(e)
         if target is None and not bagnato:
             target = self._sosta_safety_car(e)
+        # una sosta e' una sosta anche quando rimonta la stessa mescola: quello
+        # che si va a prendere e' un treno nuovo, non una gomma diversa. Senza
+        # questa distinzione il secondo pit di un piano hard-hard - cioe' quasi
+        # tutti quelli delle piste che mangiano le gomme - spariva in silenzio
+        stessa_vale = False
         if target is None:
             target = self._sosta_pianificata(e, bagnato)
+            stessa_vale = target is not None
         if bagnato:
             e.plan.clear()
         # e la mossa in attacco: la sosta si anticipa quando la gomma nuova
@@ -1557,6 +1609,7 @@ class RaceSim:
         # sosta d'emergenza se la gomma e' andata
         if target is None and e.tyre_age > e.tyre_life * 1.35 and e.lap < self.laps - 2:
             target = self._pick_compound(e)
+            stessa_vale = True
         # cambio per la pioggia. Le soglie di rientro sono piu' larghe di quelle
         # di uscita: si monta la gomma da bagnato appena serve, ma non si torna
         # indietro alla prima schiarita, altrimenti si vive ai box
@@ -1569,7 +1622,7 @@ class RaceSim:
                 target = "inter"
             elif self.bagnato < 0.08 and e.tyre == "inter" and e.lap < self.laps - 3:
                 target = self._pick_compound(e)
-        if target is None or target == e.tyre:
+        if target is None or (target == e.tyre and not stessa_vale):
             return
         self._fai_sosta(e, target)
 
@@ -1656,8 +1709,7 @@ class RaceSim:
     FINESTRA = {"soft": 30.0, "medium": 37.0, "hard": 44.0, "inter": 22.0, "wet": 18.0}
 
     def _tyre_life(self, e: Entrant, comp: str) -> float:
-        base = {"soft": 17.0, "medium": 26.0, "hard": 37.0, "inter": 22.0, "wet": 26.0}[comp]
-        wear_t = self.track.traits.get("tyre_wear", 0.6)
+        base = VITA_BASE[comp]
         # non tutte le "morbide" sono uguali: quella che il fornitore porta a
         # Monaco e quella che porta a Silverstone sono due gomme diverse
         if comp in ("soft", "medium", "hard"):
@@ -1667,7 +1719,7 @@ class RaceSim:
         # finestra si sfoglia, sotto non si accende
         fuori = (self.cond.track_temp - self.FINESTRA.get(comp, 37.0)) / 18.0
         finestra = 1.0 - 0.22 * max(0.0, fuori) ** 1.6 - 0.10 * max(0.0, -fuori) ** 1.6
-        life = (base * (1.35 - 0.62 * wear_t) * (0.78 + 0.42 * e.tyre_skill / 100.0)
+        life = (base * tenuta(self.track) * (0.78 + 0.42 * e.tyre_skill / 100.0)
                 * max(0.55, finestra))
         return life * self.distance
 

@@ -9,6 +9,7 @@ from .. import config as C
 from . import benzina as BZ
 from . import pace
 from ..model import track as TK
+from . import weekend as W
 from .weekend import BURN_KG_PER_LAP, DRIVER_S_PER_POINT, Entrant, RaceSim, Weather
 
 
@@ -509,6 +510,14 @@ def kg_giro(track) -> float:
     return BURN_KG_PER_LAP * lungo * getattr(track, "benzina_rel_giro", 1.0)
 
 
+# Il muretto non aspetta che la gomma sia finita: si ferma quando il treno
+# nuovo comincia a rendere piu' di quello vecchio, e quel momento arriva a
+# poco piu' di due terzi della vita utile.
+PRIMA_DEL_GRADINO = 0.68
+# E quanto pesa la posizione contro la gomma, dove sorpassare e' difficile.
+POSIZIONE_CONTA = 0.47
+
+
 def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
     """Piano soste scelto dal muretto: dipende da pista, gomme e da cosa c'e' ancora.
 
@@ -522,12 +531,32 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
     if weather.wet > 0.18:
         e.tyre = "inter"
         return []
-    wear_t = track.traits.get("tyre_wear", 0.6)
-    stops = 1 if wear_t < 0.62 else 2
-    if track.id == "monaco":
-        stops = 1
-    if wear_t > 0.88:
-        stops = 2
+    quota = laps / max(1.0, float(track.laps))
+    # Quante soste servano non lo decide una tabella per circuito: lo decidono
+    # due cose. Quanto regge un treno di gomme qui dentro contro quanto e'
+    # lunga la gara - ed e' il motivo per cui a Spa e in Ungheria, che
+    # consumano uguale, non si fa lo stesso numero di soste, perche' a Spa la
+    # gara finisce prima - e quanto costa perdere la posizione.
+    def regge(mescola: str) -> float:
+        """Giri che quel treno arriva a fare qui prima di essere finito."""
+        return W.stint_atteso(track, e.tyre_skill, weather.track_temp, quota, mescola)
+
+    stint = regge("medium")
+    # Ai box non ci si va con la gomma finita: ci si va quando il treno nuovo
+    # rende piu' di quello vecchio, e quel momento arriva parecchio prima del
+    # gradino.
+    stint *= PRIMA_DEL_GRADINO
+    # E dove non si passa, la gomma buona non serve a niente: meglio una sosta
+    # in meno e la posizione in mano. E' quello che tiene Monaco a una sosta
+    # sola senza bisogno di scriverlo da nessuna parte.
+    stint *= 1.0 + POSIZIONE_CONTA * (1.0 - track.traits.get("overtaking", 0.5))
+    attese = max(1.0, laps / max(1.0, stint) - 1.0)
+    # e sul filo fra due e tre il muretto si divide, ed e' giusto cosi': la
+    # stessa gara si vede finire con chi ne ha fatte due e chi tre
+    stops = int(attese)
+    if gs.rng.random() < attese - stops:
+        stops += 1
+    stops = max(1, stops)
     # e se il regolamento ne impone un numero minimo, quello viene prima di
     # qualunque conto sul degrado
     stops = max(stops, int(gs.regulations["sporting"].get("mandatory_stops") or 0))
@@ -551,22 +580,30 @@ def plan_strategy(gs, e: Entrant, track, laps: int, weather: Weather) -> list:
                 return m
         return prefer[0]
 
-    if stops == 1:
-        if wear_t > 0.5:
-            start = prendi(("medium", "soft"))
-            second = prendi(("hard", "medium"), diverso_da=start)
-        else:
-            start = prendi(("soft", "medium"))
-            second = prendi(("medium", "hard"), diverso_da=start)
-        lap = int(laps * gs.rng.uniform(0.36, 0.52) + gs.rng.gauss(0, 3.0 * noise))
-        plan = [(max(6, min(laps - 5, lap)), second)]
-    else:
-        start = prendi(("soft", "medium")) if wear_t < 0.8 else prendi(("medium", "hard"))
-        l1 = int(laps * gs.rng.uniform(0.24, 0.32) + gs.rng.gauss(0, 2.5 * noise))
-        l2 = int(laps * gs.rng.uniform(0.58, 0.68) + gs.rng.gauss(0, 3.0 * noise))
-        uno = prendi(("medium", "hard"), diverso_da=start)
-        due = prendi(("hard", "medium"))
-        plan = [(max(5, l1), uno), (max(l1 + 6, min(laps - 5, l2)), due)]
+    def per(giri: int, diverso_da=None) -> str:
+        """La mescola piu' morbida che arriva in fondo a un tratto cosi' lungo.
+
+        E' il conto che manca a tutti i piani sbagliati: partire con la gomma
+        che va forte e scoprire al quindicesimo giro che la sosta era scritta
+        al trentacinquesimo. Se nessuna ci arriva si monta la piu' dura che
+        resta e si stringe i denti.
+        """
+        buone = [m for m in ("soft", "medium", "hard") if regge(m) >= giri * 0.92]
+        return prendi(tuple(buone) or ("hard", "medium", "soft"), diverso_da=diverso_da)
+
+    passo = laps / (stops + 1.0)
+    start = per(int(passo))
+    corrente, ultimo = start, 0
+    for i in range(stops):
+        # il tratto finisce quando finisce la gomma, non quando lo dice la
+        # divisione in parti uguali
+        durata = min(passo, regge(corrente))
+        lap = int(ultimo + durata + gs.rng.gauss(0, 2.5 * noise) + gs.rng.uniform(-1.5, 1.5))
+        lap = max(ultimo + 5, min(laps - 5, lap))
+        nuova = per(laps - lap if i == stops - 1 else int(passo),
+                    diverso_da=start if i == 0 else None)
+        plan.append((lap, nuova))
+        corrente, ultimo = nuova, lap
     e.tyre = start
     e.used_compounds.add(start)
     if e.stock:
