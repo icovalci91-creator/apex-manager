@@ -124,6 +124,7 @@ class GameState:
                 titles=dict(td["titles"]),
                 pu_status=td.get("pu_status", "works" if td["works"] else "customer"),
                 proprieta=td.get("proprieta", "fondo"),
+                owner_stats=td.get("owner_stats") or None,
                 parent_team=td.get("parent_team", ""),
                 pu_capable=td.get("pu_capable", True),
                 pu_reason=td.get("pu_reason", ""),
@@ -162,6 +163,14 @@ class GameState:
             founding["id"] = team_id
             gs.founding = founding
             newteam.create(gs, founding)
+
+        # ogni squadra ha il suo proprietario, con i suoi numeri: quelli scritti
+        # nei dati se ci sono, se no pescati dal tipo di proprieta' e dal nome
+        # che la squadra si porta dietro
+        from . import proprieta as _pr
+        for t in gs.teams.values():
+            if not getattr(t, "owner_stats", None):
+                t.owner_stats = _pr.genera(gs.rng, _pr.tipo_di(t), t.reputation)
 
         gs._vivai = {td["id"]: list(td.get("academy") or []) for td in teamdata["teams"]}
         ddata = _load("drivers.json")
@@ -533,6 +542,7 @@ class GameState:
                     "cur_round": t.cur_round,
                     "engine": t.engine, "works": t.works, "pu_status": t.pu_status,
                     "proprieta": t.proprieta,
+                    "owner_stats": dict(t.owner_stats or {}),
                     "parent_team": t.parent_team,
                     "pu_partner_races": t.pu_partner_races,
                     "pu_partner_engine": t.pu_partner_engine,
@@ -654,6 +664,7 @@ class GameState:
             t.engine = td.get("engine", t.engine); t.works = td.get("works", t.works)
             t.pu_status = td.get("pu_status", t.pu_status)
             t.proprieta = td.get("proprieta", t.proprieta)
+            t.owner_stats = dict(td.get("owner_stats") or {}) or t.owner_stats
             t.parent_team = td.get("parent_team", t.parent_team)
             t.pu_partner_races = td.get("pu_partner_races", 0)
             t.pu_partner_engine = td.get("pu_partner_engine", "")

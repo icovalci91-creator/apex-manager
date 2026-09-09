@@ -184,6 +184,9 @@ def create(gs, spec: dict) -> Team:
         last_position=len(gs.teams) + 1, heritage=False,
     )
     team.entry_season = gs.season
+    # e chi ce l'ha messi, i soldi: una squadra nuova nasce con il suo
+    # proprietario e i suoi numeri, come tutte le altre
+    team.owner_stats = _prop.genera(gs.rng, _prop.tipo_di(team), team.reputation)
     team.car = Car.build(pezzi, eng, gs.regulations)
     team.is_player = True
     team.engine_customer_cost = eng.get("cost_per_customer", 25.0)

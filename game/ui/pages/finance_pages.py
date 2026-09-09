@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pygame
 
-from ...core import economy, sponsors as SP
+from ...core import economy, proprieta as PR, sponsors as SP
 from .. import theme as T
 from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Slider, Tabs, card
@@ -174,13 +174,16 @@ class FinancePage(Page):
              colour=col_r, accent=T.GOLD)
 
         # ---- mese per mese
-        left = pygame.Rect(r.x, y0 + 100, r.w * 0.46, r.h - 146)
+        righe_mesi = [m for m in economy.by_month(team, anno) if m["in"] or m["out"]]
+        anni = economy.by_year(team)[-6:]
+        alt_sx = 52 + 22 * len(righe_mesi) + 30 + 20 * len(anni) + 16
+        left = pygame.Rect(r.x, y0 + 100, r.w * 0.46, alt_sx)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, f"MESE PER MESE - {anno}", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
         for lab, x in (("MESE", 16), ("ENTRATE", 150), ("USCITE", 232), ("SALDO", 320)):
             T.text(surf, lab, (left.x + x, left.y + 32), 11, T.DIM_2, bold=True)
-        righe = [m for m in economy.by_month(team, anno) if m["in"] or m["out"]]
+        righe = righe_mesi
         picco = max([max(m["in"], m["out"]) for m in righe] + [1.0])
         yy = left.y + 52
         for m in righe:
@@ -198,13 +201,16 @@ class FinancePage(Page):
         yy += 8
         T.text(surf, "ANNO PER ANNO", (left.x + 16, yy), 12, T.DIM_2, bold=True)
         yy += 22
-        for a in economy.by_year(team)[-6:]:
+        for a in anni:
             T.text(surf, str(a["season"]), (left.x + 16, yy), 13, T.TEXT, bold=True)
             T.text(surf, f"{a['in']:.1f}", (left.x + 222, yy), 13, T.OK, align="right")
             T.text(surf, f"{a['out']:.1f}", (left.x + 305, yy), 13, T.BAD, align="right")
             T.text(surf, f"{a['net']:+.1f}", (left.x + 400, yy), 13,
                    T.OK if a["net"] >= 0 else T.BAD, bold=True, align="right")
             yy += 20
+
+        # ---- chi c'e' dietro alla squadra, sotto ai conti
+        fondo_sx = self._proprieta(surf, pygame.Rect(left.x, left.bottom + 12, left.w, 0))
 
         # ---- il conto del direttore finanziario
         right = pygame.Rect(r.x + r.w * 0.48, y0 + 100, r.w * 0.52 - 4, r.h - 146)
@@ -267,6 +273,44 @@ class FinancePage(Page):
                    bold=True, align="right")
             yy += 22
 
+
+
+    # ------------------------------------------------------- il proprietario
+    def _proprieta(self, surf, c) -> int:
+        """Chi c'e' dietro alla squadra, e quanto e' disposto a metterci.
+
+        Non e' colore: quello che mette il proprietario e' il conto che decide
+        se una squadra cresce o resta dov'e'. Il montepremi e gli sponsor
+        pagano la stagione; questi soldi la fanno diventare piu' forte.
+        """
+        gs, team = self.gs, self.team
+        d = PR.numeri(team)
+        c = pygame.Rect(c.x, c.y, c.w, 40 + 22 * len(PR.ATTRIBUTI) + 78)
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        T.text(surf, "LA PROPRIETA'", (c.x + 16, c.y + 12), 12, T.DIM_2, bold=True)
+        T.text(surf, PR.etichetta(team), (c.right - 16, c.y + 12), 12, T.GOLD,
+               align="right", bold=True)
+        y = c.y + 38
+        for a in PR.ATTRIBUTI:
+            v = d[a]
+            T.text(surf, PR.ETICHETTE[a], (c.x + 16, y), 13, T.DIM, maxw=120)
+            T.bar(surf, (c.x + 150, y + 5, c.w - 210, 8), v, 10,
+                  T.stat_colour(v, 4, 8))
+            T.text(surf, f"{v}", (c.right - 16, y - 1), 13, T.TEXT, bold=True,
+                   align="right", mono=True)
+            y += 22
+        y += 8
+        messo = economy.apporto_proprietario(gs, team)
+        T.text(surf, "Mette quest'anno", (c.x + 16, y), 13, T.DIM)
+        T.text(surf, f"{messo:.0f} M$", (c.right - 16, y - 1), 14, T.OK, bold=True,
+               align="right")
+        y += 20
+        T.text(surf, "Potrebbe arrivare a", (c.x + 16, y), 13, T.DIM_2)
+        T.text(surf, f"{PR.massimo_annuo(team):.0f} M$ l'anno",
+               (c.right - 16, y - 1), 13, T.DIM, align="right")
+        y += 22
+        T.paragraph(surf, PR.riassunto(team), (c.x + 16, y), 12, T.DIM_2, c.w - 32)
+        return c.bottom
 
     def _draw_sponsor(self, surf) -> None:
         r, gs, team = self.rect, self.gs, self.team

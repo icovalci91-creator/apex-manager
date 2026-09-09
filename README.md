@@ -1643,11 +1643,48 @@ la meta' della griglia sta fra -10 e +20, e i due costruttori nuovi - Audi e Cad
 perdono 20-30 M$ costruendosi il reparto motori, che e' esattamente quello che sembra un
 ingresso in Formula 1.
 
-**Il proprietario, e perche' l'utile resta dentro.** A fine stagione chi ha chiuso in
+### Il proprietario, e i soldi che fanno crescere una squadra
+
+Il montepremi e gli sponsor **pagano la stagione**: le trasferte, gli stipendi, la fabbrica
+che gira. Non la fanno crescere. A far diventare piu' forte una squadra sono i soldi che ci
+mette chi ce l'ha, e quel passaggio prima non esisteva: i soldi venivano solo dai risultati,
+quindi chi vinceva incassava di piu', investiva di piu' e vinceva ancora. Misurato su
+ventiquattro stagioni: **la McLaren ne vinceva venti**, e cinque squadre su undici
+cominciavano ogni anno senza un dollaro da investire — non compravano un ingegnere, non
+rifacevano una struttura, non aprivano un pacchetto.
+
+Adesso ogni squadra ha il suo proprietario, con **quattro numeri da 1 a 10** che si leggono
+nella pagina delle finanze:
+
+| | cosa vuol dire | cosa fa |
+|---|---|---|
+| **Ricchezza** | quanto ha | il tetto di quello che puo' mettere in una stagione, da 10 a 300 M$ — non lineare: fra il nono e il decimo c'e' piu' differenza che fra il primo e il quinto |
+| **Ambizione** | quanto vuole vincere | quanta parte di quel tetto tira fuori davvero. Un ambizioso paga anche quando le cose vanno bene; uno tranquillo aspetta di essere in difficolta' |
+| **Pazienza** | quanto regge le stagioni storte | quanto stringe la cinghia dopo un anno in perdita, e per quanto |
+| **Visione** | dove guarda | se i soldi vanno sul pacchetto della prossima gara o sulla fabbrica dei prossimi cinque anni |
+
+Il **tipo di proprieta'** non sparisce: decide da che intervalli si pescano quei numeri. Una
+casa costruttrice e' ricca e paziente ma non e' li' per vincere a ogni costo; un fondo ha i
+soldi e nessuna pazienza; un padrone ha le tasche che ha ma non deve rendere conto a
+nessuno. E la reputazione della squadra sposta la ricchezza, che non e' un caso: dietro a un
+nome grosso c'e' quasi sempre qualcuno che i soldi ce li ha davvero, ed e' il motivo per cui
+quel nome e' diventato grosso.
+
+Quanto mette lo decidono ambizione **e dove sta la squadra**: chi si ritrova ultimo o paga o
+vende, ed e' esattamente il momento in cui nella realta' arrivano i soldi veri. Con il tetto
+di spesa in mezzo questo non ribalta la griglia — la mette in condizione di competere, e la
+differenza torna a farla **come** si spendono quei soldi: strutture, uomini, pacchetti,
+scelte. Che e' il gioco.
+
+**E perche' l'utile resta dentro.** A fine stagione chi ha chiuso in
 perdita se la fa coprire dalla proprieta', ma non gratis: l'anno dopo il budget e' stretto,
 e sviluppo, costruzioni e giornate di test scendono in proporzione. La stretta si allenta
-da sola quando i conti tornano, cosi' chi perde poco tutti gli anni si stabilizza intorno
-al 35%: fatica, ma non muore, che e' quello che succede davvero in fondo alla griglia.
+da sola quando i conti tornano, e **non puo' comunque scendere sotto il sessanta per cento
+del ritmo normale**: prima non aveva un tetto, e una squadra di coda coperta due anni di
+fila finiva a spendere il quaranta per cento: siccome spendere meno vuol dire arrivare piu'
+indietro, e arrivare indietro vuol dire perdere ancora, non ne usciva piu'. Adesso fatica ma
+non muore, che e' quello che succede davvero in fondo alla griglia. Quanto stringe non e'
+piu' un numero per tipo di proprieta': lo dice la **pazienza** di quel proprietario li'.
 
 L'utile invece **non viene prelevato**: resta in cassa. Il proprietario di una scuderia non
 e' un azionista che stacca il dividendo, e soprattutto quei soldi servono, perche' non

@@ -71,6 +71,98 @@ TIPI = {
 
 DEFAULT = "fondo"
 
+# ---------------------------------------------------------- i numeri
+# Il tipo dice che razza di proprieta' e'; questi dicono chi e' quella
+# proprieta' li'. Sono quattro numeri da 1 a 10, come si fa nei gestionali di
+# calcio, e ognuno ha un effetto che si vede:
+#
+#   ricchezza   quanto puo' mettere in una stagione, in milioni. Non e' il
+#               budget della squadra: quello lo fanno montepremi e sponsor. E'
+#               quello che il proprietario aggiunge di tasca sua.
+#   ambizione   quanto vuole vincere, e quindi quanta parte di quel massimo
+#               tira fuori davvero. Un ambizioso mette tutto anche stando
+#               bene; uno tranquillo aspetta di essere in difficolta'.
+#   pazienza    quanto regge le stagioni storte prima di stringere la cinghia.
+#   visione     dove vanno i soldi che mette: sul pacchetto di domenica
+#               prossima (1) o sulla fabbrica dei prossimi cinque anni (10).
+#
+# Il senso, che e' quello che mancava: montepremi e sponsor coprono la
+# stagione, e basta. A far crescere una squadra e' il proprietario. Prima non
+# esisteva questo passaggio, i soldi venivano solo dai risultati, e quindi chi
+# vinceva continuava a vincere: su ventiquattro stagioni misurate la McLaren
+# ne vinceva venti.
+ATTRIBUTI = ("ricchezza", "ambizione", "pazienza", "visione")
+
+ETICHETTE = {
+    "ricchezza": "Ricchezza",
+    "ambizione": "Ambizione",
+    "pazienza": "Pazienza",
+    "visione": "Visione",
+}
+
+SPIEGA = {
+    "ricchezza": "Quanto puo' mettere in una stagione, oltre a quello che la "
+                 "squadra guadagna da sola.",
+    "ambizione": "Quanto vuole vincere: da questo dipende quanta parte di quel "
+                 "massimo tira fuori davvero.",
+    "pazienza": "Quante stagioni storte regge prima di stringere la cinghia.",
+    "visione": "Dove mette i soldi: sul pacchetto della prossima gara o sulla "
+               "fabbrica dei prossimi cinque anni.",
+}
+
+# Da 1 a 10 a milioni l'anno. Non e' lineare: fra il nono e il decimo c'e' piu'
+# differenza che fra il primo e il quinto, che e' come stanno le cose davvero.
+# Il tetto sta a centocinquanta e non a trecento perche' e' l'ordine di
+# grandezza vero - quello che un proprietario ambizioso mette in una squadra di
+# Formula 1 in un anno, fabbrica compresa - e perche' oltre quella cifra, con
+# il tetto di spesa in mezzo, tutti arrivavano al massimo consentito e la
+# differenza fra le squadre spariva: e un campionato dove il denaro non conta
+# piu' non e' piu' giocabile di uno dove conta solo lui.
+DENARO = (5.0, 10.0, 16.0, 24.0, 35.0, 48.0, 65.0, 88.0, 115.0, 150.0)
+
+# Da che intervalli si pesca ogni numero, per tipo di proprieta'. Una casa
+# costruttrice e' ricca e paziente ma non e' li' per vincere a ogni costo; un
+# fondo ha i soldi e nessuna pazienza; un padrone ha le tasche che ha ma non
+# deve rendere conto a nessuno.
+INTERVALLI = {
+    "costruttore": {"ricchezza": (7, 10), "ambizione": (5, 9),
+                    "pazienza": (5, 9), "visione": (6, 10)},
+    "marchio":     {"ricchezza": (5, 8), "ambizione": (4, 8),
+                    "pazienza": (6, 9), "visione": (4, 8)},
+    "fondo":       {"ricchezza": (6, 9), "ambizione": (6, 10),
+                    "pazienza": (2, 5), "visione": (2, 6)},
+    "padrone":     {"ricchezza": (2, 7), "ambizione": (5, 10),
+                    "pazienza": (6, 10), "visione": (3, 8)},
+}
+
+
+def numeri(team) -> dict:
+    """I quattro numeri del proprietario di questa squadra."""
+    d = getattr(team, "owner_stats", None) or {}
+    return {a: int(max(1, min(10, d.get(a, 5)))) for a in ATTRIBUTI}
+
+
+def genera(rng, tipo: str, reputazione: float = 70.0) -> dict:
+    """Pesca i numeri di un proprietario di questo tipo.
+
+    La reputazione della squadra sposta la ricchezza: dietro a un nome grosso
+    c'e' quasi sempre qualcuno che i soldi ce li ha davvero, e non e' un caso -
+    e' il motivo per cui quel nome e' diventato grosso.
+    """
+    intervalli = INTERVALLI.get(tipo, INTERVALLI[DEFAULT])
+    out = {}
+    for a, (lo, hi) in intervalli.items():
+        v = rng.randint(lo, hi)
+        if a == "ricchezza":
+            v += int(round((reputazione - 70.0) / 15.0))
+        out[a] = int(max(1, min(10, v)))
+    return out
+
+
+def massimo_annuo(team) -> float:
+    """Quanti milioni puo' mettere, al massimo, in una stagione."""
+    return DENARO[numeri(team)["ricchezza"] - 1]
+
 # Con che proprieta' nasce una squadra fondata dal giocatore, a seconda di come
 # ci e' entrato. Chi entra da garage e' padrone di se stesso: e' il modo in cui
 # in Formula 1 ci si e' sempre entrati.
@@ -101,5 +193,54 @@ def dividendo(team) -> float:
 
 
 def stretta(team) -> float:
-    """Quanto stringe la cinghia dopo una stagione chiusa in perdita."""
-    return scheda(team)["stretta"]
+    """Quanto stringe la cinghia dopo una stagione chiusa in perdita.
+
+    Non e' piu' un numero per tipo di proprieta': lo dice la pazienza di
+    questo proprietario qui. Un consiglio d'amministrazione paziente assorbe
+    la perdita e va avanti, un fondo con la pazienza corta taglia subito.
+    """
+    return round(1.55 - 0.11 * numeri(team)["pazienza"], 2)
+
+
+def quota_investita(team, posizione: int, squadre: int) -> float:
+    """Quanta parte del suo massimo mette davvero quest'anno, da 0 a 1.
+
+    Due cose la muovono. L'ambizione, che e' quanto uno vuole vincere: chi ce
+    l'ha alta mette mano al portafoglio anche quando le cose vanno bene. E
+    dove sta la squadra: un proprietario che si ritrova ultimo o paga o vende,
+    ed e' esattamente il momento in cui nella realta' arrivano i soldi veri.
+    """
+    n = max(2, int(squadre))
+    pos = max(1, min(n, int(posizione or n)))
+    dietro = (pos - 1) / (n - 1.0)
+    base = 0.20 + 0.08 * (numeri(team)["ambizione"] - 1)
+    # E la posizione pesa molto piu' dell'ambizione, non alla pari. Chi vince
+    # si finanzia da solo: il suo proprietario incassa il dividendo, non firma
+    # assegni. Con le due cose alla pari succedeva il contrario di quello che
+    # serve - la squadra davanti ha il nome grosso, quindi il proprietario
+    # ricco, quindi metteva piu' di tutti - e la classifica restava congelata
+    # come prima.
+    return round(max(0.0, min(1.0, base * (0.20 + 1.45 * dietro))), 3)
+
+
+def quota_fabbrica(team) -> float:
+    """Quanta parte dei soldi del proprietario va nelle strutture, da 0 a 1.
+
+    E' la visione: chi guarda lontano tira su la fabbrica, chi guarda alla
+    domenica prossima paga il pacchetto nuovo.
+    """
+    return round(0.15 + 0.06 * (numeri(team)["visione"] - 1), 3)
+
+
+def riassunto(team) -> str:
+    """Una riga che dice chi e' questo proprietario, senza guardare i numeri."""
+    d = numeri(team)
+    soldi = ("senza mezzi", "con poco", "con qualcosa da parte", "solido",
+             "ricco", "molto ricco")[min(5, (d["ricchezza"] - 1) // 2)]
+    voglia = ("non ha fretta", "vuole crescere", "vuole vincere",
+              "vuole vincere adesso")[min(3, (d["ambizione"] - 1) // 3)]
+    testa = "guarda lontano" if d["visione"] >= 7 else (
+        "guarda alla prossima gara" if d["visione"] <= 4 else "tiene i piedi per terra")
+    calma = "paziente" if d["pazienza"] >= 7 else (
+        "senza pazienza" if d["pazienza"] <= 3 else "di pazienza normale")
+    return f"{etichetta(team)}, {soldi}: {voglia}, {testa}, {calma}."

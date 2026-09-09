@@ -243,6 +243,12 @@ def ai_invest(gs) -> None:
         rateo = 1.0 if not gs.season % CAPEX_SPREAD else 0.55 + 0.45 * fame
         budget *= (rateo * economy.spending_room(gs, team)
                    * (0.30 + 0.70 * max(economy.budget_health(gs, team), fame)))
+        # e quanta parte del capitale finisce nel cemento invece che nel
+        # pacchetto della prossima gara lo decide la visione del proprietario:
+        # chi guarda lontano tira su la fabbrica, chi guarda alla domenica
+        # prossima preferisce l'aggiornamento
+        from . import proprieta
+        budget *= 0.55 + 1.20 * proprieta.quota_fabbrica(team)
         # chi nuota nei soldi prima o poi si costruisce la pista di casa, e
         # quella la paga il gruppo: non tocca nessuno dei due tetti
         for key in OPTIONAL:

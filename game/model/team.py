@@ -26,6 +26,10 @@ class Team:
     titles: dict
     pu_status: str = "customer"  # works = costruisce | partner = team ufficiale | customer
     proprieta: str = "fondo"     # costruttore | marchio | fondo | padrone
+    # I quattro numeri del proprietario, da 1 a 10: ricchezza, ambizione,
+    # pazienza, visione. Il tipo dice che razza di proprieta' e', questi
+    # dicono chi e' quella proprieta' li'.
+    owner_stats: dict = None
     parent_team: str = ""        # squadra maggiore dello stesso gruppo
     pu_capable: bool = True     # puo' fondare un reparto motori proprio?
     pu_partner_races: int = 0   # gare passate a lavorare con questa casa

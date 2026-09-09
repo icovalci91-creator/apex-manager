@@ -262,8 +262,30 @@ RESERVE_STAGIONE = 0.35
 # in cima, perche' il montepremi lo prende chi e' gia' davanti e i soldi in cassa
 # restavano a guardare.
 QUOTA_CAPITALE = 0.50
-AUSTERITY_STEP = 0.35    # quanto stringe la cinghia chi si fa coprire le perdite
-AUSTERITY_EASE = 0.5     # e quanto si allenta ogni stagione in cui i conti tengono
+# La cinghia si tira, ma non si strozza. A 0,35 di passo, e senza tetto, una
+# squadra di coda che si faceva coprire le perdite due anni di fila si
+# ritrovava a spendere il quaranta per cento del normale: e siccome spendere
+# meno vuol dire arrivare piu' indietro, e arrivare indietro vuol dire perdere
+# ancora, non ne usciva piu'. Il passo e' piu' corto, si allenta piu' in
+# fretta, e comunque non scende sotto il sessanta per cento del ritmo normale.
+AUSTERITY_STEP = 0.22    # quanto stringe la cinghia chi si fa coprire le perdite
+AUSTERITY_EASE = 0.40    # e quanto si allenta ogni stagione in cui i conti tengono
+AUSTERITY_MAX = 0.40     # e quanto puo' arrivare a stringere, al massimo
+
+# --- i soldi del proprietario ---------------------------------------------
+# Montepremi e sponsor coprono la stagione: le trasferte, gli stipendi, la
+# fabbrica che gira. A far *crescere* una squadra sono i soldi del
+# proprietario, ed e' il passaggio che prima non esisteva. I soldi venivano
+# solo dai risultati, quindi chi vinceva incassava di piu', investiva di piu'
+# e vinceva ancora: su ventiquattro stagioni misurate la McLaren ne vinceva
+# venti, e cinque squadre su undici cominciavano ogni anno senza un dollaro da
+# investire.
+#
+# Quanto mette lo dicono i numeri del proprietario - ricchezza e ambizione - e
+# dove sta la squadra: chi si ritrova ultimo o paga o vende, ed e' esattamente
+# il momento in cui nella realta' arrivano i soldi veri. Con il tetto di spesa
+# in mezzo, questo non ribalta la griglia: la mette in condizione di
+# competere, e la differenza torna a farla come si spendono, quei soldi.
 # Quanto si tiene in cassa oltre la riserva di lavoro per poter costruire, e
 # quanta parte del resto esce ai soci a fine anno. Non tutto: un proprietario
 # lascia dentro di che partire l'anno dopo senza chiedere niente a nessuno.
@@ -313,8 +335,25 @@ def spending_appetite(gs, team) -> float:
     return max(0.0, min(1.0, war_chest(gs, team) / max(1.0, reserve_of(gs, team) * 0.6)))
 
 
+def apporto_proprietario(gs, team) -> float:
+    """Quanti milioni mette il proprietario in questa stagione, di tasca sua.
+
+    E' il conto vero della crescita di una squadra: quello che entra dal
+    promoter e dagli sponsor serve a correre, questo serve a diventare piu'
+    forti.
+    """
+    from . import proprieta
+    n = max(2, len(gs.teams))
+    # la posizione di adesso, non quella dell'anno scorso: i conti si chiudono
+    # prima che le classifiche si azzerino, e un proprietario reagisce alla
+    # stagione che ha appena visto, non a quella prima
+    pos = int(gs.position_of(team.id) or getattr(team, "last_position", 0) or n)
+    return round(proprieta.massimo_annuo(team)
+                 * proprieta.quota_investita(team, pos, n), 2)
+
+
 def owner_settlement(gs, team) -> list:
-    """Chiude i conti col proprietario: copre le perdite. L'utile resta dentro."""
+    """Chiude i conti col proprietario: copre le perdite e mette il capitale."""
     msgs = []
     ris = reserve(gs)
     if team.cash < 0:
@@ -325,7 +364,7 @@ def owner_settlement(gs, team) -> list:
         # allenta comunque: altrimenti chi perde poco tutti gli anni finirebbe
         # per non spendere piu' niente, e sarebbe la fine e non una difficolta'
         from . import proprieta
-        team.austerity = min(1.0, team.austerity * 0.75
+        team.austerity = min(AUSTERITY_MAX, team.austerity * 0.75
                              + AUSTERITY_STEP * proprieta.stretta(team)
                              * min(2.0, buco / max(1.0, ris)))
         if team.is_player:
@@ -359,6 +398,17 @@ def owner_settlement(gs, team) -> list:
             msgs.append(f"Stagione chiusa in utile: {team.cash:.0f} M$ restano in cassa, "
                         f"{war_chest(gs, team):.0f} oltre la riserva di lavoro. Sono i "
                         f"soldi per costruire, per gli ingaggi e per i pacchetti.")
+    # E poi, dopo il dividendo, arriva quello che il proprietario mette. Va
+    # dopo apposta: se andasse prima glielo si porterebbe via come utile.
+    from . import proprieta
+    messo = apporto_proprietario(gs, team)
+    if messo > 0.5:
+        team.add_income("Capitale dal proprietario", messo, category="proprieta")
+        if team.is_player:
+            fab = proprieta.quota_fabbrica(team)
+            msgs.append(f"Il proprietario mette {messo:.0f} M$ di capitale per la "
+                        f"stagione nuova. {proprieta.riassunto(team)} Ne vorrebbe "
+                        f"circa il {fab * 100:.0f}% nelle strutture.")
     return msgs
 
 
