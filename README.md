@@ -1264,6 +1264,20 @@ dipende dalla *fiducia del reparto*, che mette insieme:
 | in aggiunta: correlazione dai test privati (+22%) e conoscenza della vettura (+10%) | |
 | in sottrazione: la taglia del pacchetto (medio -6%, grande -14%) | |
 
+**E quanto rende, che e' la regola contro le dinastie.** Un pacchetto non e' una fattura:
+e' un pezzo disegnato e provato in galleria del vento, e **quante ore di galleria si hanno
+lo decide dove si e' finiti l'anno prima** — dal 70% del primo al 115% dell'ultimo. E' la
+scala ATR, che la Formula 1 ha scritto apposta perche' chi vince non vinca per sempre, e
+adesso pesa dove deve pesare: sul guadagno del pacchetto.
+
+Prima non c'era, e si vedeva. Il reparto della prima della classe vale 88 contro i 59
+dell'ultima — una volta e mezza — e il recupero regolamentare non bastava a compensarlo: un
+pacchetto grande rendeva **4,95 alla McLaren e 4,52 alla Cadillac**. Chi era davanti si
+sviluppava *meglio* di chi inseguiva, e la classifica non poteva che congelarsi. Con l'ATR
+al suo posto lo stesso pacchetto rende 4,29 alla prima e 4,82 all'ultima, e i piu' avvantaggiati
+sono il secondo e il terzo, che hanno il reparto forte e hanno ancora margine da recuperare:
+esattamente chi, nella realta', il campione se lo va a riprendere.
+
 **Quanto costa, e chi ci lavora.** Un aggiornamento non e' una fattura: e' un gruppo di
 persone che per settimane disegna, prova in galleria, fa i pezzi e li monta. Il conto si
 legge in chiaro prima di firmare - materiali piu' straordinari - ma il vincolo vero e'

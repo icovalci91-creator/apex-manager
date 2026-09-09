@@ -358,17 +358,37 @@ def mani_libere(team) -> float:
 
 
 def expected_gain(gs, team, part: str, size: str) -> float:
-    """Quanto promette il pacchetto sulla carta. Poi la pista dira'."""
+    """Quanto promette il pacchetto sulla carta. Poi la pista dira'.
+
+    Qui dentro c'e' anche l'ATR, ed e' il motivo per cui la classifica non si
+    congela. Un pacchetto non e' una fattura: e' un pezzo disegnato e provato
+    in galleria del vento, e quante ore di galleria si hanno lo decide dove si
+    e' finiti l'anno prima - dal settanta per cento del primo al
+    centoquindici dell'ultimo. E' la regola che la Formula 1 ha scritto
+    apposta contro le dinastie.
+
+    Mancava proprio qui, ed era il buco vero. L'ATR c'era, ma toccava solo la
+    produzione continua del reparto: sul pacchetto, che e' quello che fa i
+    gradini, non entrava. Il risultato, misurato: il reparto della prima della
+    classe vale 88 contro i 59 dell'ultima, cioe' una volta e mezza, e il
+    recupero regolamentare non bastava a compensarlo. Un pacchetto grande
+    rendeva 4,95 alla McLaren e 4,52 alla Cadillac - chi era davanti si
+    sviluppava *meglio* di chi inseguiva, e su ventiquattro stagioni la
+    McLaren ne vinceva venti.
+    """
     mult = TAGLIA_RESA[size]
     p = C.CAR_PARTS[part]
     dept = (p["aero"] * team.aero_strength + p["mech"] * team.mech_strength
             + p["pu"] * (team.pu_strength if team.works else 55.0))
     dept /= max(0.1, p["aero"] + p["mech"] + p["pu"])
     cur = team.car.parts[part].perf
+    # la galleria non e' tutto il pacchetto, ma e' la parte grossa: la stessa
+    # miscela con cui l'ATR pesa gia' sulla capacita' di sviluppo
+    atr = 0.55 + 0.45 * atr_factor(gs, team)
     # 0.93 tiene i guadagni sulla stessa scala di prima a meta' ciclo: cambia
     # la forma della curva, non il ritmo con cui cresce una macchina
     return round(mult * (dept / 100.0) * team.dev_rate
-                 * yield_factor(gs, cur, team) * 0.93, 2)
+                 * yield_factor(gs, cur, team) * atr * 0.93, 2)
 
 
 # ------------------------------------------- quanto vale, in secondi al giro
