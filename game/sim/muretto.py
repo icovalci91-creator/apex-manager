@@ -248,10 +248,22 @@ def chiedi_scambio(sim, davanti, dietro) -> str:
     if davanti.status != "running" or dietro.status != "running":
         return ""
     voglia = voglia_di_obbedire(davanti, sim)
+    # e se quello dietro e' proprio il suo compagno di squadra, e i rapporti
+    # sono tesi da stagioni: "lascialo passare" si sente alla radio, ma non
+    # e' detto che si obbedisca. Non e' un contatto da dimenticare, e' il
+    # mondiale che si giocano in due
+    rivalita_forte = False
+    if davanti.team_id == dietro.team_id:
+        from ..core import rivalita
+        penalita = rivalita.penalita_scambio(sim.gs, davanti.driver_id, dietro.driver_id)
+        voglia -= penalita
+        rivalita_forte = penalita >= 0.35
     davanti.scambio_a = dietro.driver_id
     if sim.rng.random() > voglia:
         davanti.scambio_rifiuto = True
         davanti.scambio_giro = davanti.lap + 3     # ci si riprova piu' avanti
+        if rivalita_forte:
+            return "Con lui non se ne parla: quel mondiale me lo gioco io."
         return "Sto andando piu' forte di lui, lasciatemi correre."
     davanti.scambio_rifiuto = False
     ritardo = ATTESA_MIN + int(round((ATTESA_MAX - ATTESA_MIN) * (1.0 - voglia)))

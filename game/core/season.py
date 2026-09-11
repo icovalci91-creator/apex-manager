@@ -367,6 +367,11 @@ def end_season(gs) -> dict:
     # soldi che pesano su quello che ci si puo' permettere di offrire.
     from . import formulae
     report["progress"] += formulae.stagione(gs)
+    # e come sono andati d'accordo i due compagni di squadra, quest'anno:
+    # va misurato adesso, con la classifica appena chiusa in mano, perche' e'
+    # anche quello che decide chi il mercato lo ascolta e chi no
+    from . import rivalita
+    report["progress"] += rivalita.aggiorna(gs, ds, cs)
     report["market"] += market.run_transfer_window(gs)
     # e chi in Formula 1 il posto non l'ha trovato lo cerca altrove
     report["market"] += formulae.scendono(gs)

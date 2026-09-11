@@ -402,6 +402,18 @@ class DriversPage(Page):
             T.text(surf, f"Fiducia nella macchina {fid:.0f}   -   {driving.confidence_label(d)}",
                    (c.x + 16, y), 12, T.stat_colour(fid, 45, 75), maxw=c.w - 32)
             y += 18
+        # il compagno di squadra non e' un dettaglio: due forti sulla stessa
+        # macchina dominante, stagione dopo stagione, finiscono per scontrarsi
+        if y + 18 <= limite and d.team:
+            from ...core import rivalita
+            rivale = rivalita.compagno(gs, d)
+            if rivale is not None:
+                att = float(getattr(d, "attrito_compagno", 0.0))
+                stato = rivalita.descrizione(att)
+                col_riv = {"rotto": T.BAD, "teso": T.WARN}.get(stato, T.DIM)
+                T.text(surf, f"Rapporto con {rivale.short}: {stato} ({att:.0f})",
+                       (c.x + 16, y), 12, col_riv, maxw=c.w - 32)
+                y += 18
         if y + 18 <= limite:
             testo = f"Licenza {lic}/12 punti   -   in carriera {d.races} gare, "
             testo += f"{d.career_points:.0f} punti"

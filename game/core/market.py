@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from ..model.people import Driver, Staff, generate_staff
 from . import economy
+from . import rivalita
 
 
 # --------------------------------------------------------------- valutazioni
@@ -56,6 +57,12 @@ def driver_interest(gs, driver: Driver, team, salary: float, years: int) -> floa
     if elettrico:
         score += LUSINGATO
     score -= 0.20 * max(0, driver.contract_until - gs.season)
+    # e chi sta perdendo il duello con il compagno di squadra, in casa: se
+    # l'offerta arriva da un'altra squadra la ascolta volentieri, se e' il
+    # rinnovo con chi lo sta battendo tutti i weekend gli piace molto meno
+    tensione = rivalita.penalita_rinnovo(driver)
+    if tensione > 0.0:
+        score += tensione if (cur is None or team.id != cur.id) else -tensione
     return max(0.0, min(1.0, 0.5 + score * 0.42))
 
 
@@ -366,6 +373,10 @@ def run_transfer_window(gs) -> list:
                 keep = 0.55 + 0.4 * ((d.overall - 78) / 16.0) - 0.25 * max(0, d.age - 35) * 0.1
                 if lista is team.reserves:
                     keep += 0.15          # una riserva costa poco, si tiene volentieri
+                # chi sta perdendo il confronto in casa, da tempo, non aspetta
+                # che il team lo liberi: se il contratto scade se ne va da solo
+                tensione = rivalita.penalita_rinnovo(d)
+                keep -= tensione
                 if gs.rng.random() < max(0.1, min(0.92, keep)):
                     d.contract_until = gs.season + gs.rng.randint(1, 3)
                     quota = RESERVE_SHARE if lista is team.reserves else 1.0
@@ -375,7 +386,15 @@ def run_transfer_window(gs) -> list:
                     d.team = None
                     d.seat = "titolare"
                     gs.free_agents.append(d)
-                    news.append(f"{d.name} lascia {team.short}.")
+                    if tensione > 0.0:
+                        # il team non c'e' piu' su di lui, ma rivale_id resta:
+                        # e' con quello che si misura l'attrito, non con la squadra
+                        rivale = gs.drivers.get(getattr(d, "rivale_id", ""))
+                        chi = rivale.short if rivale else "il compagno di squadra"
+                        news.append(f"{d.name} lascia {team.short}: con {chi} non si "
+                                   f"correva piu' nella stessa squadra.")
+                    else:
+                        news.append(f"{d.name} lascia {team.short}.")
 
     # una squadra maggiore guarda prima nel proprio vivaio: e' a questo che
     # serve avere una seconda squadra nel gruppo

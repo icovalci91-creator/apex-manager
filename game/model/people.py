@@ -69,6 +69,19 @@ class Driver:
     stagioni_fermo: int = 0
     ritirato: bool = False
 
+    # Il rapporto con chi guida l'altra macchina della sua squadra: 0 tutto
+    # tranquillo, 100 non si parlano piu'. Sale solo quando i due si giocano
+    # davvero qualcosa, con la stessa macchina forte, stagione dopo stagione -
+    # non per un contatto in pista, quello si dimentica. rivale_id dice con
+    # chi e' misurato: cambia compagno, l'attrito torna a zero, perche' la
+    # tensione e' fra due persone e non un difetto della macchina.
+    attrito_compagno: float = 0.0
+    rivale_id: str = ""
+    # Se questa e' la stagione in cui ha perso il duello con il compagno:
+    # si ricalcola ogni volta, non e' storia. Serve a chi decide se restare
+    # o no - a parita' di tensione, chi vince non ha motivo di andarsene.
+    perdente_duello: bool = False
+
     # voci del contratto oltre all'ingaggio fisso
     bonus_win: float = 0.0        # M$ per vittoria
     bonus_podium: float = 0.0     # M$ per podio
