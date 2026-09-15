@@ -63,6 +63,18 @@ class FormulaEPage(Page):
                              lo=FE.INGEGNERI_MIN, hi=massimo, step=1, fmt="{:.0f}",
                              on_change=self.set_ingegneri)
         self.widgets.append(self.slider)
+        # comprare il motore a listino non e' per sempre: si puo' fondare il
+        # reparto propulsori anche a programma avviato, e quando e' pronto
+        # farlo debuttare - due momenti separati, come in Formula 1
+        if FE.puo_diventare_costruttore(self.gs, team)[0]:
+            self.widgets.append(Button(
+                (self.left.right - 216, self.left.y + 22, 200, 28),
+                f"Diventa costruttore ({FE.CONVERSIONE_COSTRUTTORE_COSTO:.0f} M$)",
+                self.avvia_costruttore, "normal"))
+        elif FE.costruttore_pronto(self.gs, team):
+            self.widgets.append(Button(
+                (self.left.right - 216, self.left.y + 22, 200, 28),
+                "Debutta il motore nostro", self.debutta_costruttore, "primary"))
         # i due sedili: chi ci mettiamo. Un professionista della serie fa il suo
         # e non cresce; un ragazzo del vivaio costa risultati e cresce davvero
         y = self.left.bottom - 108
@@ -141,6 +153,14 @@ class FormulaEPage(Page):
         self.app.toast(FE.chiudi(self.gs, self.team))
         self.shell.build()
 
+    def avvia_costruttore(self) -> None:
+        self.app.toast(FE.avvia_costruttore(self.gs, self.team))
+        self.shell.build()
+
+    def debutta_costruttore(self) -> None:
+        self.app.toast(FE.debutta_costruttore(self.gs, self.team))
+        self.shell.build()
+
     def corri(self) -> None:
         """Il prossimo E-Prix, corso dal muretto invece che contato.
 
@@ -216,8 +236,13 @@ class FormulaEPage(Page):
         c, team, gs = self.left, self.team, self.gs
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, team.fe_nome.upper(), (c.x + 16, c.y + 12), 16, T.TEXT, bold=True)
-        chi = "propulsore costruito in casa" if team.fe_costruttore else "propulsore cliente"
-        T.text(surf, chi, (c.x + 16, c.y + 34), 12, T.DIM_2)
+        if team.fe_costruttore:
+            chi = "propulsore costruito in casa"
+        elif FE.costruttore_in_arrivo(team):
+            chi = f"propulsore cliente - reparto in costruzione, pronto nel {team.fe_costruttore_anno}"
+        else:
+            chi = "propulsore cliente"
+        T.text(surf, chi, (c.x + 16, c.y + 34), 12, T.DIM_2, maxw=c.w - 220)
         larg = (c.w - 44) / 3
         card(surf, (c.x + 16, c.y + 56, larg, 62), "PROGRAMMA",
              f"{FE.livello(team):.0f}", f"tetto {FE.muro(gs, team):.0f}")

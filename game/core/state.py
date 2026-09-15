@@ -519,7 +519,8 @@ class GameState:
                     "drivers": t.drivers, "reserves": t.reserves,
                     "academy": t.academy, "academy_name": t.academy_name,
                     "fe_nome": t.fe_nome, "fe_ingegneri": t.fe_ingegneri,
-                    "fe_costruttore": t.fe_costruttore, "fe_livello": t.fe_livello,
+                    "fe_costruttore": t.fe_costruttore,
+                    "fe_costruttore_anno": t.fe_costruttore_anno, "fe_livello": t.fe_livello,
                     "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
                     "fe_posizione": t.fe_posizione, "fe_titoli": t.fe_titoli,
                     "fe_gara": t.fe_gara, "fe_gestione": t.fe_gestione,
@@ -697,6 +698,7 @@ class GameState:
             t.fe_nome = td.get("fe_nome", "")
             t.fe_ingegneri = int(td.get("fe_ingegneri", 0))
             t.fe_costruttore = bool(td.get("fe_costruttore", False))
+            t.fe_costruttore_anno = int(td.get("fe_costruttore_anno", 0))
             t.fe_livello = float(td.get("fe_livello", 0.0))
             t.fe_piloti = list(td.get("fe_piloti") or [])
             t.fe_punti = float(td.get("fe_punti", 0.0))

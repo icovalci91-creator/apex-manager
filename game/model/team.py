@@ -80,6 +80,10 @@ class Team:
     fe_nome: str = ""            # come si chiama la squadra li', "" = non c'e'
     fe_ingegneri: int = 0        # quanti ci lavorano: e' la manopola della performance
     fe_costruttore: bool = False # si fa il propulsore in casa o lo compra
+    # Un cliente puo' diventare costruttore anche a programma gia' avviato:
+    # qui dentro c'e' l'anno in cui il reparto - fondato, pagato, in
+    # costruzione - sara' pronto. 0 = nessun reparto in costruzione
+    fe_costruttore_anno: int = 0
     fe_livello: float = 0.0      # quanto vale il programma adesso, 0..100
     fe_piloti: list = field(default_factory=list)
     fe_punti: float = 0.0

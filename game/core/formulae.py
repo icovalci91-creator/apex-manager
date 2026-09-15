@@ -84,6 +84,16 @@ COSTRUTTORE_COSTO = 5.8
 # parte, perche' un programma elettrico e' quello che vuole vedere
 SCONTO_COSTRUTTORE = 0.70
 
+# Diventare costruttori non e' una scelta che si fa una volta sola all'ingresso
+# e basta: un cliente puo' decidere di fondare il proprio reparto propulsori
+# anche a programma avviato, come ha fatto la Nissan lasciando Renault o come
+# la Maserati sta provando a fare adesso. Costa piu' che farlo dal primo
+# giorno - si costruisce un reparto mentre la squadra corre gia' con quello
+# vecchio - e ci vogliono un paio di stagioni prima che il motore nuovo sia
+# pronto per la pista: non e' un interruttore, e' una fabbrica.
+CONVERSIONE_COSTRUTTORE_COSTO = 14.0
+CONVERSIONE_COSTRUTTORE_ANNI = 2
+
 
 def cambio() -> float:
     """Da euro a milioni di dollari, che e' la moneta del resto del gioco."""
@@ -143,6 +153,58 @@ def fuori_tetto(team) -> float:
         return 0.0
     listino = float(soldi().get("prezzo_powertrain_cliente_meur", 0.42)) * cambio() * 2
     return round(max(0.0, COSTRUTTORE_COSTO - listino), 2)
+
+
+# --------------------------------------------------- diventare costruttori
+# La scelta cliente/costruttore non si fa una volta sola all'ingresso: si puo'
+# rifare anche a programma avviato. Come per il reparto motori di Formula 1
+# (`powertrain.start_program`/`debut`), fondare il reparto e vederlo in pista
+# sono due momenti separati - qui in mezzo ci sono due stagioni di cantiere.
+def costruttore_in_arrivo(team) -> bool:
+    """Se il reparto propulsori e' in costruzione, ma non e' ancora pronto."""
+    return bool(getattr(team, "fe_costruttore_anno", 0)) and not getattr(team, "fe_costruttore", False)
+
+
+def costruttore_pronto(gs, team) -> bool:
+    """Se il reparto e' finito e si puo' far debuttare il motore nostro."""
+    return costruttore_in_arrivo(team) and gs.season >= team.fe_costruttore_anno
+
+
+def puo_diventare_costruttore(gs, team) -> tuple:
+    """Se questa squadra puo' fondare adesso il suo reparto propulsori."""
+    if not ha(team):
+        return False, "Prima serve un programma di Formula E."
+    if getattr(team, "fe_costruttore", False):
+        return False, "Il propulsore lo costruiamo gia'."
+    if costruttore_in_arrivo(team):
+        return False, f"Il reparto e' gia' in costruzione: pronto per il {team.fe_costruttore_anno}."
+    return True, ""
+
+
+def avvia_costruttore(gs, team) -> str:
+    """Fonda il reparto propulsori: da qui a un paio di stagioni si smette di
+    comprare il motore a listino."""
+    ok, perche = puo_diventare_costruttore(gs, team)
+    if not ok:
+        return perche
+    ok, why = economy.can_afford(team, CONVERSIONE_COSTRUTTORE_COSTO, gs, check_cap=False)
+    if not ok:
+        return why
+    team.add_expense("Reparto propulsori Formula E", CONVERSIONE_COSTRUTTORE_COSTO,
+                     in_cap=False, category="formulae")
+    team.fe_costruttore_anno = gs.season + CONVERSIONE_COSTRUTTORE_ANNI
+    return (f"Reparto propulsori fondato: pronto per il {team.fe_costruttore_anno}. "
+            f"Fino ad allora si corre ancora con il motore a listino.")
+
+
+def debutta_costruttore(gs, team) -> str:
+    """Il motore costruito in casa scende in pista: da qui in poi non si
+    compra piu' a listino."""
+    if not costruttore_pronto(gs, team):
+        return "Il reparto non e' ancora pronto per la pista."
+    team.fe_costruttore = True
+    team.fe_costruttore_anno = 0
+    return "Il nostro propulsore scende in pista: da oggi non si compra piu' a listino."
 
 
 def dentro_il_tetto(gs, team) -> tuple:

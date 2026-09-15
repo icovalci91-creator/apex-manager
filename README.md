@@ -375,6 +375,15 @@ arriva l'anno dopo: ci si avvicina al proprio tetto un pezzo per volta, e ci vog
 tre stagioni. Chi si costruisce il propulsore invece di comprarlo spende molto di più e va
 molto più forte, ed è il motivo per cui in Formula E vincono i costruttori.
 
+**E non è una scelta che si fa una volta sola, all'ingresso.** Un cliente può decidere di
+fondare il proprio reparto propulsori anche a programma avviato — è il giro che ha fatto la
+Nissan lasciando Renault, ed è quello che sta provando la Maserati adesso. Costa di più che
+farlo dal primo giorno, perché si costruisce un reparto mentre la squadra corre già con
+quello vecchio, e non è un interruttore: si fonda il reparto, si paga, e **due stagioni dopo**
+è pronto per la pista — lo stesso schema in due tempi del reparto motori di Formula 1
+(si fonda, si aspetta, si fa debuttare quando è pronto). Fino a quel giorno si corre ancora
+con il motore a listino.
+
 **Il conto si sente.** Gli sponsor li porta il nome — un marchio noto firma contratti che una
 squadra sconosciuta non vede nemmeno — e li rinnovano i risultati. Un programma da campione
 lascia qualche milione l'anno, uno a metà classifica va in pari, uno in fondo brucia cinque o
