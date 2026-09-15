@@ -1555,9 +1555,10 @@ class PowerUnitPage(Page):
                                        self.debut, "primary"))
         elif not team.works and not powertrain.has_program(gs):
             can, why = powertrain.can_found(team)
+            costo, _stagioni = powertrain.piano_fondazione(team)
             b = Button(
                 (right.x + 16, y, right.w - 32, 42),
-                f"Fonda il reparto motori ({powertrain.PROGRAM_START_COST:.0f} M$)"
+                f"Fonda il reparto motori ({costo:.0f} M$)"
                 if can else "Reparto motori fuori dalla nostra portata",
                 self.start_program, "primary" if can else "ghost")
             b.enabled = can

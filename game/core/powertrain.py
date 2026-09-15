@@ -60,6 +60,16 @@ PROGRAM_START_COST = 18.0
 PROGRAM_MIN_SEASONS = 2       # prima non si scende in pista con roba propria
 PROGRAM_FLOOR = 50.0          # per quanto male vada, non si parte da zero
 
+# Una squadra vera del mondiale con un fornitore scritto nella sua storia
+# resta cliente per quello che e': la McLaren non fara' mai un motore, e non
+# e' una questione di soldi. Ma una squadra nuova, fondata da zero, non ha
+# quella storia dietro - non e' legata a nessuno, ed e' cosi' che sono nate
+# la Cosworth e la Ilmor, non da una casa automobilistica ma da un gruppo di
+# motoristi con abbastanza soldi in tasca. Costa il doppio e ci vuole il
+# doppio del tempo, ma non e' impossibile: e' solo molto caro.
+SENZA_EREDITA_COSTO = 2.2
+SENZA_EREDITA_STAGIONI = 2
+
 # Tenere in casa una power unit costa comunque, anche senza svilupparla: banchi
 # prova, officina, gente. E' la spesa che rende la scelta pesante, e che chi ha
 # clienti si ripaga vendendo la fornitura.
@@ -784,19 +794,48 @@ def has_program(gs) -> bool:
     return bool(p.get("started")) and not p.get("own")
 
 
+def senza_eredita(team) -> bool:
+    """Una squadra senza una casa automobilistica alle spalle, ma anche senza
+    una storia da cliente scritta da qualcun altro: puo' provarci lo stesso,
+    a un prezzo. E' la differenza fra la McLaren, che cliente lo e' per
+    scelta di identita' dal 1993, e una squadra che il giocatore ha fondato
+    ieri e che quella scelta non l'ha ancora fatta per nessuno."""
+    return not getattr(team, "pu_capable", True) and int(getattr(team, "entry_season", 0) or 0) > 0
+
+
 def can_found(team) -> tuple:
     """Se questa squadra puo' realisticamente aprire un reparto motori.
 
     Costruire power unit non e' una spesa in piu': e' un'azienda dentro
     l'azienda, con banchi prova, fonderia e centinaia di persone, che costa
     una fondazione piu' decine di milioni l'anno di sola gestione. In Formula 1
-    lo fanno case automobilistiche e gruppi industriali; una squadra
-    indipendente compra il motore e concentra tutto sul telaio.
+    lo fanno soprattutto case automobilistiche e gruppi industriali - ma non
+    solo: la Cosworth e la Ilmor sono nate cosi', da un gruppo di motoristi
+    con abbastanza soldi in tasca, non da una casa automobilistica. Una
+    squadra vera del mondiale, con un fornitore scritto nella sua storia,
+    resta cliente per quello che e'; una squadra nuova, senza quella storia,
+    puo' provarci - le costa il doppio, e le ci vuole il doppio del tempo.
     """
     if getattr(team, "pu_capable", True):
         return True, getattr(team, "pu_reason", "")
+    if senza_eredita(team):
+        return True, ("Nessuna casa automobilistica alle spalle: si puo' provare lo "
+                      "stesso, ma costa il doppio e ci vuole il doppio del tempo.")
     why = getattr(team, "pu_reason", "") or "non ha una casa automobilistica alle spalle"
     return False, f"{team.short} non aprira' mai un reparto motori: {why}."
+
+
+def piano_fondazione(team) -> tuple:
+    """(costo, stagioni d'attesa) per fondare il reparto, per questa squadra.
+
+    Uguale per chi il motore ce l'ha gia' nel sangue - un gruppo industriale,
+    una casa dell'auto. Il doppio, in soldi e in tempo, per chi lo fa partendo
+    da zero senza nessuno alle spalle.
+    """
+    duro = senza_eredita(team)
+    costo = round(PROGRAM_START_COST * (SENZA_EREDITA_COSTO if duro else 1.0), 1)
+    stagioni = PROGRAM_MIN_SEASONS + (SENZA_EREDITA_STAGIONI if duro else 0)
+    return costo, stagioni
 
 
 def start_program(gs, team) -> tuple:
@@ -809,18 +848,22 @@ def start_program(gs, team) -> tuple:
     ok, why = can_found(team)
     if not ok:
         return False, why
-    ok, why = economy.can_afford(team, PROGRAM_START_COST, gs, check_cap=False)
+    duro = senza_eredita(team)
+    costo, stagioni = piano_fondazione(team)
+    ok, why = economy.can_afford(team, costo, gs, check_cap=False)
     if not ok:
         return False, why
-    team.add_expense("Fondazione reparto power unit", PROGRAM_START_COST,
+    team.add_expense("Fondazione reparto power unit", costo,
                      in_cap=False, category="powertrain")
     # da adesso il reparto motori va riempito di gente come quello di chiunque
     # altro: comprarlo era un'altra cosa
     team.pu_building = True
     p.update({"own": False, "started": True, "level": base_level(gs),
-              "invested": PROGRAM_START_COST, "ready_season": gs.season + PROGRAM_MIN_SEASONS})
-    return True, (f"Reparto power unit fondato: la prima unita' nostra non potra' "
-                  f"scendere in pista prima del {p['ready_season']}.")
+              "invested": costo, "ready_season": gs.season + stagioni})
+    extra = " Senza una casa automobilistica alle spalle ci e' voluto il doppio." if duro else ""
+    return True, (f"Reparto power unit fondato per {costo:.0f} M$: la prima unita' "
+                  f"nostra non potra' scendere in pista prima del "
+                  f"{p['ready_season']}.{extra}")
 
 
 def advance_program(gs, budget: float) -> list[str]:

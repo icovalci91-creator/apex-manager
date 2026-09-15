@@ -101,11 +101,20 @@ nel browser quindi si usa quello incluso in pygame.
 
    Non tutte le squadre possono farlo, ed e' voluto. Un reparto motori e' un'azienda dentro
    l'azienda: costa una fondazione piu' decine di milioni l'anno di sola gestione, e in
-   Formula 1 lo regge chi ha una casa automobilistica o un gruppo industriale alle spalle.
-   Alpine e Cadillac possono aprirlo, perche' dietro hanno Renault e General Motors.
-   McLaren, Williams, Racing Bulls e Haas restano squadre da telaio: comprano la power unit
-   e mettono tutto sulla macchina. Il vincolo e' il campo `pu_capable` in
+   Formula 1 lo regge soprattutto chi ha una casa automobilistica o un gruppo industriale
+   alle spalle. Alpine e Cadillac possono aprirlo, perche' dietro hanno Renault e General
+   Motors. McLaren, Williams, Racing Bulls e Haas restano squadre da telaio per sempre:
+   comprano la power unit e mettono tutto sulla macchina, ed e' una scelta di identita'
+   scritta nella loro storia, non di soldi. Il vincolo e' il campo `pu_capable` in
    `data/teams.json`, con accanto la motivazione: se non sei d'accordo, cambialo.
+
+   Per sempre, pero', vale solo per le undici squadre vere. Una squadra **fondata dal
+   giocatore** - progetto privato o sfida da garage, non ha ancora una storia da cliente
+   scritta da nessuno, ed e' cosi' che sono nate la Cosworth e la Ilmor: non da una casa
+   automobilistica, da un gruppo di motoristi con abbastanza soldi in tasca. Con un team
+   miliardario si puo' provarci anche partendo da un garage - costa il doppio (36-40 M$
+   invece di 18) e ci vuole il doppio del tempo (quattro stagioni invece di due), ma non e'
+   bloccato. Lo dice la pagina *Power unit*, sul pulsante e nel testo se ci si passa sopra.
 
    Oppure la squadra non la scegli: la **fondi**. Il pulsante *Fonda una scuderia*
    apre l'iscrizione al campionato come dodicesima squadra, e da li' si comincia da
