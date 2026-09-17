@@ -79,9 +79,9 @@ class TeamBudgetView:
         ]
         if formulae.ha(team):
             tetto_fe = formulae.tetto(gs)
-            usato_fe = formulae.monte_ingaggi(gs, team)
-            voci.append(("fe_usato", "Formula E, ingaggi: usato", usato_fe))
-            voci.append(("fe_rimasto", "Formula E, ingaggi: rimasto",
+            usato_fe = formulae.spesa_nel_tetto(gs, team)
+            voci.append(("fe_usato", "Tetto Formula E: usato", usato_fe))
+            voci.append(("fe_rimasto", "Tetto Formula E: rimasto",
                          max(0.0, tetto_fe - usato_fe)))
         return voci
 
@@ -103,9 +103,12 @@ class TeamBudgetView:
     def set(self, k, v) -> None:
         from .core import economy, formulae
         gs, team = self.gs, self.team
-        v = max(0.0, float(v))
+        # il "rimasto" si puo' scrivere anche negativo, di proposito: e' il
+        # modo piu' diretto per mettere alla prova uno sforamento del tetto
+        # senza dover calcolare a mano di quanto spingere lo "usato"
+        v = float(v)
         if k == "cap_usato":
-            team.spent = v
+            team.spent = max(0.0, v)
         elif k == "cap_rimasto":
             team.spent = max(0.0, economy.cap_limit(gs, team) - v)
         elif k in ("capex_usato", "capex_rimasto"):
@@ -116,21 +119,24 @@ class TeamBudgetView:
             log = dict(team.capex_log or {})
             stagione = str(gs.season)
             altre = economy.capex_spent(gs, team) - float(log.get(stagione, 0.0))
-            bersaglio = v if k == "capex_usato" else max(0.0, limite - v)
+            bersaglio = max(0.0, v) if k == "capex_usato" else limite - v
             log[stagione] = max(0.0, bersaglio - altre)
             team.capex_log = log
         elif k in ("fe_usato", "fe_rimasto") and formulae.ha(team):
-            # non c'e' un unico numero da spostare: il tetto FE e' la somma
-            # degli ingaggi dei due piloti, quindi si scalano proporzionalmente
+            # il tetto FE copre gestione, ingegneri e propulsore a listino
+            # oltre agli ingaggi: quelli restano com'erano, la leva che si
+            # sposta per centrare il bersaglio sono gli stipendi dei piloti
+            bersaglio_totale = max(0.0, v) if k == "fe_usato" else formulae.tetto(gs) - v
+            fissi = formulae.spesa_nel_tetto(gs, team) - formulae.monte_ingaggi(gs, team)
+            bersaglio_ingaggi = max(0.0, bersaglio_totale - fissi)
             piloti = formulae.piloti(gs, team)
             attuale = sum(d.salary for d in piloti)
-            bersaglio = v if k == "fe_usato" else max(0.0, formulae.tetto(gs) - v)
             if piloti and attuale > 0:
-                fattore = bersaglio / attuale
+                fattore = bersaglio_ingaggi / attuale
                 for d in piloti:
                     d.salary = round(max(0.0, d.salary * fattore), 3)
             elif piloti:
-                quota = bersaglio / len(piloti)
+                quota = bersaglio_ingaggi / len(piloti)
                 for d in piloti:
                     d.salary = round(quota, 3)
 
