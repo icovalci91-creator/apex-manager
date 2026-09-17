@@ -42,7 +42,7 @@ class EditorScene(Scene):
         return [(p[1], p[2]) for p in self.percorso]
 
     def voci(self) -> list:
-        voci = E.entries(self.corrente)
+        voci = E.entries(self.corrente, self.gs)
         if self.filtro:
             f = self.filtro.lower()
             voci = [v for v in voci if f in str(v[1]).lower()]

@@ -48,6 +48,93 @@ class ModuleView:
         setattr(self.modulo, k, v)
 
 
+class TeamBudgetView:
+    """Il budget di una squadra: usato e rimasto, per ciascun tetto che la
+    riguarda.
+
+    Non sono campi della squadra: sono numeri che si calcolano insieme al
+    regolamento e al calendario, per questo da un oggetto Team da solo non ci
+    si arriva. Qui si vedono affiancati e si possono riscrivere entrambi i
+    lati - scrivere il rimasto sposta lo speso, e viceversa - per mettere alla
+    prova un sforamento o un margine ampio senza dover rifare i conti a mano.
+    """
+
+    def __init__(self, gs, team):
+        self.gs = gs
+        self.team = team
+
+    def _voci(self) -> list:
+        from .core import economy, formulae
+        gs, team = self.gs, self.team
+        limite_cap = economy.cap_limit(gs, team)
+        limite_capex = economy.capex_limit(gs, team)
+        speso_capex = economy.capex_spent(gs, team)
+        voci = [
+            ("cap_usato", "Tetto tecnico F1: usato", team.spent),
+            ("cap_rimasto", "Tetto tecnico F1: rimasto",
+             max(0.0, limite_cap - team.spent)),
+            ("capex_usato", "Costruzioni: usato (finestra in corso)", speso_capex),
+            ("capex_rimasto", "Costruzioni: rimasto (finestra in corso)",
+             max(0.0, limite_capex - speso_capex)),
+        ]
+        if formulae.ha(team):
+            tetto_fe = formulae.tetto(gs)
+            usato_fe = formulae.monte_ingaggi(gs, team)
+            voci.append(("fe_usato", "Formula E, ingaggi: usato", usato_fe))
+            voci.append(("fe_rimasto", "Formula E, ingaggi: rimasto",
+                         max(0.0, tetto_fe - usato_fe)))
+        return voci
+
+    def keys(self) -> list:
+        return [k for k, _et, _v in self._voci()]
+
+    def etichetta(self, k: str) -> str:
+        for chiave, et, _v in self._voci():
+            if chiave == k:
+                return et
+        return k
+
+    def get(self, k):
+        for chiave, _et, v in self._voci():
+            if chiave == k:
+                return round(v, 3)
+        raise KeyError(k)
+
+    def set(self, k, v) -> None:
+        from .core import economy, formulae
+        gs, team = self.gs, self.team
+        v = max(0.0, float(v))
+        if k == "cap_usato":
+            team.spent = v
+        elif k == "cap_rimasto":
+            team.spent = max(0.0, economy.cap_limit(gs, team) - v)
+        elif k in ("capex_usato", "capex_rimasto"):
+            # il conto e' una finestra di piu' stagioni: quello che non e'
+            # dell'anno in corso resta com'era, si sposta solo la quota di
+            # quest'anno perche' il totale torni al valore scritto
+            limite = economy.capex_limit(gs, team)
+            log = dict(team.capex_log or {})
+            stagione = str(gs.season)
+            altre = economy.capex_spent(gs, team) - float(log.get(stagione, 0.0))
+            bersaglio = v if k == "capex_usato" else max(0.0, limite - v)
+            log[stagione] = max(0.0, bersaglio - altre)
+            team.capex_log = log
+        elif k in ("fe_usato", "fe_rimasto") and formulae.ha(team):
+            # non c'e' un unico numero da spostare: il tetto FE e' la somma
+            # degli ingaggi dei due piloti, quindi si scalano proporzionalmente
+            piloti = formulae.piloti(gs, team)
+            attuale = sum(d.salary for d in piloti)
+            bersaglio = v if k == "fe_usato" else max(0.0, formulae.tetto(gs) - v)
+            if piloti and attuale > 0:
+                fattore = bersaglio / attuale
+                for d in piloti:
+                    d.salary = round(max(0.0, d.salary * fattore), 3)
+            elif piloti:
+                quota = bersaglio / len(piloti)
+                for d in piloti:
+                    d.salary = round(quota, 3)
+
+
 # --------------------------------------------------------------- ispezione
 def is_scalar(v) -> bool:
     return v is None or isinstance(v, SCALARI)
@@ -56,7 +143,7 @@ def is_scalar(v) -> bool:
 def is_container(v) -> bool:
     if is_scalar(v):
         return False
-    if isinstance(v, (ModuleView, dict, list, tuple, set)):
+    if isinstance(v, (ModuleView, TeamBudgetView, dict, list, tuple, set)):
         return True
     return hasattr(v, "__dict__") or is_dataclass(v)
 
@@ -64,17 +151,25 @@ def is_container(v) -> bool:
 ESCLUSI = {"rng", "view_rng", "app", "shell", "screen", "surface"}
 
 
-def entries(obj) -> list:
+def entries(obj, gs=None) -> list:
     """Cosa contiene un oggetto: lista di (chiave, etichetta, valore).
 
     La chiave e' quello che serve per rileggere e riscrivere il valore, e
     l'etichetta e' come lo si mostra: per una squadra il nome, per un pilota il
     cognome, per un indice di lista il numero piu' un'anteprima.
+
+    `gs` serve solo per le squadre: il budget usato/rimasto e' un calcolo che
+    tira in ballo il regolamento e il calendario, non un campo della squadra,
+    quindi senza la partita intera non si puo' mostrare.
     """
     out = []
     if isinstance(obj, ModuleView):
         for k in obj.keys():
             out.append((k, k, obj.get(k)))
+        return out
+    if isinstance(obj, TeamBudgetView):
+        for k in obj.keys():
+            out.append((k, obj.etichetta(k), obj.get(k)))
         return out
     if isinstance(obj, dict):
         for k in obj.keys():
@@ -93,6 +188,8 @@ def entries(obj) -> list:
         # l'effetto di quello che si sta cambiando
         for nome, valore in _proprieta(obj):
             out.append((None, nome, valore))
+        if gs is not None and _e_squadra(obj):
+            out.append(("__budget__", "Budget (usato / rimasto)", TeamBudgetView(gs, obj)))
         return out
     if hasattr(obj, "__dict__"):
         for k, v in vars(obj).items():
@@ -103,6 +200,12 @@ def entries(obj) -> list:
             out.append((None, nome, valore))
         return out
     return out
+
+
+def _e_squadra(obj) -> bool:
+    """E' una squadra? Si guarda alla forma, non all'importazione: il modulo
+    delle squadre non deve dipendere da questo, ne' viceversa."""
+    return all(hasattr(obj, a) for a in ("cash", "spent", "capex_log", "fe_nome"))
 
 
 def _proprieta(obj) -> list:
@@ -159,7 +262,7 @@ def descrivi(v) -> str:
 
 # ------------------------------------------------------------ lettura e scrittura
 def leggi(obj, key):
-    if isinstance(obj, ModuleView):
+    if isinstance(obj, (ModuleView, TeamBudgetView)):
         return obj.get(key)
     if isinstance(obj, dict):
         return obj[key]
@@ -169,7 +272,7 @@ def leggi(obj, key):
 
 
 def scrivi(obj, key, valore) -> None:
-    if isinstance(obj, ModuleView):
+    if isinstance(obj, (ModuleView, TeamBudgetView)):
         obj.set(key, valore)
     elif isinstance(obj, dict):
         obj[key] = valore
