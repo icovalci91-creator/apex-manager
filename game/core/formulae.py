@@ -9,7 +9,10 @@ E soprattutto: non toglie niente alla Formula 1. Non e' che gli ingegneri
 dell'aerodinamica smettano di disegnare l'ala per andare a fare il software
 della batteria - sono altre persone, in un altro reparto, con un altro tetto
 di spesa. Se vuoi andare piu' forte qui, assumi qui: piu' gente ci metti piu'
-performance porti, e piu' ti costa. E' l'unica manopola, ed e' quella vera.
+performance porti, e piu' ti costa. Ma la gente da sola tiene in piedi il
+programma, non lo spinge: per crescere davvero serve mettere apposta dei
+soldi sullo sviluppo, gara dopo gara, non tutti insieme a dicembre - ed e'
+piu' facile recuperare se si insegue che scappare se si e' gia' avanti.
 
 Il conto lo si sente. Il regolamento finanziario della serie mette un tetto da
 quindici milioni di euro a stagione, stipendi dei piloti compresi - un decimo
@@ -135,16 +138,18 @@ def spesa_nel_tetto(gs, team) -> float:
     """Quanto di quella spesa conta contro il tetto della serie.
 
     Il regolamento finanziario della Formula E mette sotto tetto la squadra -
-    struttura, gente, propulsore comprato a listino e gli ingaggi dei piloti,
-    che qui ci stanno dentro. Non ci mette lo sviluppo del propulsore di chi se
-    lo costruisce: quello ha un tetto suo, venticinque milioni su due stagioni,
-    ed e' un budget della casa e non della squadra.
+    struttura, gente, propulsore comprato a listino, gli ingaggi dei piloti e
+    i soldi messi apposta sullo sviluppo - che qui ci stanno dentro tutti. Non
+    ci mette lo sviluppo del propulsore di chi se lo costruisce: quello ha un
+    tetto suo, venticinque milioni su due stagioni, ed e' un budget della casa
+    e non della squadra.
     """
     if not ha(team):
         return 0.0
     listino = float(soldi().get("prezzo_powertrain_cliente_meur", 0.42)) * cambio() * 2
+    gare = max(1, int(corrente().get("gare", 21)))
     return round(GESTIONE_BASE + ingegneri(team) * COSTO_INGEGNERE + listino
-                 + monte_ingaggi(gs, team), 2)
+                 + monte_ingaggi(gs, team) + dev_budget(team) * gare, 2)
 
 
 def fuori_tetto(team) -> float:
@@ -224,6 +229,18 @@ def ingegneri_massimi(gs, team) -> int:
     resto = tetto(gs) - (spesa_nel_tetto(gs, team)
                         - ingegneri(team) * COSTO_INGEGNERE)
     return max(INGEGNERI_MIN, min(INGEGNERI_MAX, int(resto / COSTO_INGEGNERE)))
+
+
+def dev_budget(team) -> float:
+    """Quanto si mette apposta sullo sviluppo, per gara."""
+    return max(0.0, float(getattr(team, "fe_dev_budget", 0.0) or 0.0))
+
+
+def dev_budget_massimo(gs, team) -> float:
+    """Il piu' che si puo' mettere apposta sullo sviluppo, restando nel tetto."""
+    gare = max(1, int(corrente().get("gare", 21)))
+    resto = tetto(gs) - (spesa_nel_tetto(gs, team) - dev_budget(team) * gare)
+    return round(max(0.0, resto / gare), 2)
 
 
 # --------------------------------------------------------------- gli sponsor
@@ -384,7 +401,11 @@ MURO_MAX = 95.0
 INGEGNERI_RIF = 55.0       # quanti ne ha un programma di vertice
 PESO_COSTRUTTORE = 5.0     # quanto vale farsi il propulsore in casa
 PESO_STRUTTURE = 0.12      # e quanto vale avere una fabbrica seria dietro
-PASSO = 0.42               # quanto ci si avvicina al proprio muro in una stagione
+PASSO_GARA = 0.028         # quota del divario dal muro coperta a ogni gara, a ritmo
+                           # pieno e classifica neutra
+DEV_BUDGET_RIF = 1.8       # M$ a gara di riferimento per il ritmo di sviluppo pieno
+ATR_MIN = 0.72             # chi comanda il mondiale sviluppa piu' piano...
+ATR_MAX = 1.18             # ...e chi insegue recupera piu' in fretta
 
 
 # E il verso opposto, che e' l'altra meta' della stessa cosa: una squadra che
@@ -416,20 +437,52 @@ def livello(team) -> float:
     return float(getattr(team, "fe_livello", 0.0) or MURO_MIN)
 
 
-def sviluppa(gs, team) -> float:
-    """Quanto cresce - o cala - il programma in una stagione.
+def fattore_investimento(budget: float) -> float:
+    """Quanto pesa il denaro messo apposta sullo sviluppo, oltre alla gente.
 
-    Ci si avvicina al proprio muro un pezzo per volta: una squadra che assume
-    sessanta ingegneri non si ritrova la macchina buona l'anno dopo, ci mette
-    due o tre stagioni. E se si taglia, si scende con la stessa lentezza.
+    Non mettercene non ferma il programma - gli ingegneri lavorano comunque,
+    ed e' per questo che il fattore non scende a zero - ma senza soldi dediti
+    il ritmo resta lento. Anche qui il rendimento e' calante: raddoppiare il
+    budget non raddoppia il passo.
+    """
+    n = max(0.0, budget) / DEV_BUDGET_RIF
+    if n <= 0.0:
+        return 0.3
+    return round(max(0.3, min(1.8, n ** 0.55)), 3)
+
+
+def fattore_atr(pos: int, n_squadre: int) -> float:
+    """Chi comanda il mondiale sviluppa piu' piano, chi insegue recupera.
+
+    Si guarda a come e' finita la stagione prima, non alla classifica di
+    adesso: e' la stessa logica dell'ATR in Formula 1, e serve allo stesso
+    scopo, che chi vince non scappi via per sempre.
+    """
+    if n_squadre <= 1 or pos <= 0:
+        return 1.0
+    frac = (max(1, min(n_squadre, pos)) - 1) / (n_squadre - 1)
+    return round(ATR_MIN + (ATR_MAX - ATR_MIN) * frac, 3)
+
+
+def sviluppa_gara(gs, team) -> float:
+    """Quanto cresce - o cala - il programma in una gara.
+
+    Non piu' un salto solo a dicembre: un pezzo alla volta, gara dopo gara,
+    come in Formula 1. Il passo dipende da quanto si mette apposta sullo
+    sviluppo - la gente da sola tiene in piedi il programma, non lo spinge -
+    e da come e' andata la stagione prima: chi era davanti spinge piu' piano,
+    chi inseguiva recupera piu' in fretta.
     """
     if not ha(team):
         return 0.0
     obiettivo = muro(gs, team)
     ora = livello(team)
-    passo = (obiettivo - ora) * PASSO
-    team.fe_livello = round(ora + passo, 2)
-    return round(passo, 2)
+    n_squadre = sum(1 for t in gs.teams.values() if ha(t))
+    f_inv = fattore_investimento(dev_budget(team))
+    f_atr = fattore_atr(int(getattr(team, "fe_posizione", 0) or 0), n_squadre)
+    passo = (obiettivo - ora) * PASSO_GARA * f_inv * f_atr
+    team.fe_livello = round(max(0.0, ora + passo), 2)
+    return round(passo, 3)
 
 
 # ------------------------------------------------------------- si puo' aprire?
@@ -460,6 +513,7 @@ def apri(gs, team, nome: str, costruttore: bool = False) -> str:
                      in_cap=False, category="formulae")
     team.fe_nome = nome
     team.fe_ingegneri = max(INGEGNERI_MIN, ingegneri(team))
+    team.fe_dev_budget = round(dev_budget_massimo(gs, team) * 0.3, 2)
     team.fe_costruttore = bool(costruttore)
     team.fe_livello = MURO_MIN + 8.0
     team.fe_posizione = 0
@@ -962,6 +1016,12 @@ def registra(gs, ordine: list, pole: str = "", veloce: str = "",
     st["storia"].append({"round": i + 1, "track": cal[i] if i < len(cal) else "",
                          "ordine": list(ordine)})
     st["round"] = i + 1
+    # ogni gara e' anche un pezzo di sviluppo, per chiunque abbia un programma
+    # aperto: che l'abbia corsa il giocatore o il computer non fa differenza,
+    # esattamente come per i punti qui sopra
+    for t in gs.teams.values():
+        if ha(t):
+            sviluppa_gara(gs, t)
 
 
 def simula_gara(gs, team=None) -> list:
@@ -1036,12 +1096,13 @@ def stagione(gs) -> list:
                          category="formulae")
         team.add_income(f"Formula E: sponsor e montepremi ({team.fe_nome})", incasso,
                         category="formulae")
-        passo = sviluppa(gs, team)
+        # lo sviluppo e' gia' cresciuto gara per gara dentro a registra(): qui
+        # non c'e' piu' un salto da dare, solo il livello a cui si e' arrivati
         imparato = applica_resa(gs, team)
         dove = f", {corse} corse dal muretto" if corse else ""
         righe.append(f"{team.short} in Formula E: {pos}o su {len(squadre)}, "
                      f"{team.fe_punti:.0f} punti, {vinte} vittorie{dove}. "
-                     f"Bilancio {incasso - costo:+.1f} M$, programma {passo:+.1f}")
+                     f"Bilancio {incasso - costo:+.1f} M$, programma a {livello(team):.0f}")
         # e i nostri piloti si portano a casa la stagione: per un ragazzo del
         # vivaio e' il vero motivo per mandarcelo, perche' i punti superlicenza
         # della Formula E valgono quanto quelli della Formula 2
@@ -1475,6 +1536,16 @@ def _ai_gestisci(gs, team) -> list:
     elif (conto < -3.0 or n > massimo) and n > INGEGNERI_MIN:
         team.fe_ingegneri = max(INGEGNERI_MIN, min(massimo,
                                                    n - INGEGNERI_PASSO))
+    # e quanto ci mette apposta sullo sviluppo: chi e' ambizioso e ha respiro
+    # spinge forte, chi tira la cinghia si accontenta di tenere il livello
+    from . import proprieta
+    ambizione = proprieta.numeri(team)["ambizione"] / 10.0
+    tetto_dev = dev_budget_massimo(gs, team)
+    if respiro > 5.0:
+        team.fe_dev_budget = round(max(0.0, min(tetto_dev,
+                                                 tetto_dev * (0.30 + 0.6 * ambizione))), 2)
+    else:
+        team.fe_dev_budget = round(max(0.0, min(tetto_dev, tetto_dev * 0.15)), 2)
     return righe
 
 

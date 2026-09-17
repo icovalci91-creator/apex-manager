@@ -50,6 +50,12 @@ class WecPage(Page):
                              hi=WEC.ingegneri_massimi(team), step=1, fmt="{:.0f}",
                              on_change=self.set_ingegneri)
         self.widgets.append(self.slider)
+        massimo_dev = WEC.dev_budget_massimo(team)
+        self.slider_dev = Slider((self.left.x + 16, self.left.y + 192, self.left.w - 32, 34),
+                                 "Budget sviluppo a gara", value=WEC.dev_budget(team),
+                                 lo=0.0, hi=max(0.1, massimo_dev), step=0.1,
+                                 fmt="{:.1f} M$", on_change=self.set_dev_budget)
+        self.widgets.append(self.slider_dev)
         self.widgets.append(Button((self.left.x + 16, self.left.bottom - 58,
                                     self.left.w - 32, 40),
                                    "Chiudi il programma", self.chiudi, "danger"))
@@ -66,6 +72,9 @@ class WecPage(Page):
 
     def set_ingegneri(self, v: float) -> None:
         self.team.wec_ingegneri = int(round(v))
+
+    def set_dev_budget(self, v: float) -> None:
+        self.team.wec_dev_budget = round(float(v), 2)
 
     def chiudi(self) -> None:
         self.app.toast(WEC.chiudi(self.gs, self.team))
@@ -157,16 +166,21 @@ class WecPage(Page):
         conto = WEC.bilancio(gs, team)
         card(surf, (c.x + 40 + 2 * larg, c.y + 56, larg, 62), "BILANCIO",
              f"{conto:+.1f}", "M$ a stagione", colour=T.OK if conto >= 0 else T.BAD)
-        y = c.y + 194
+        y = c.y + 236
         T.text(surf, "Qui non c'e' un tetto che fermi il conto: si puo' spendere "
                      "quanto si vuole, e si puo' fallire.",
                (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
         y += 28
         costo = WEC.costo_stagione(gs, team)
-        for eti, val in (("Struttura, trasferte, equipaggi",
-                          float(s.get("gestione_meur", 0)) * WEC.cambio()),
-                         (f"Ingegneri ({WEC.ingegneri(team)})",
-                          costo - float(s.get("gestione_meur", 0)) * WEC.cambio())):
+        gare = int(WEC.corrente().get("gare", 8))
+        for eti, val in (
+                ("Struttura, trasferte, equipaggi",
+                 float(s.get("gestione_meur", 0)) * WEC.cambio()),
+                (f"Ingegneri ({WEC.ingegneri(team)})",
+                 WEC.ingegneri(team) * float(s.get("costo_ingegnere_meur", 0.08))
+                 * WEC.cambio()),
+                (f"Sviluppo ({WEC.dev_budget(team):.1f} M$ a gara)",
+                 WEC.dev_budget(team) * gare)):
             T.text(surf, eti, (c.x + 16, y), 12, T.DIM)
             T.text(surf, f"{val:.1f} M$", (c.right - 16, y), 12, T.DIM, mono=True,
                    align="right")

@@ -522,6 +522,7 @@ class GameState:
                     "drivers": t.drivers, "reserves": t.reserves,
                     "academy": t.academy, "academy_name": t.academy_name,
                     "fe_nome": t.fe_nome, "fe_ingegneri": t.fe_ingegneri,
+                    "fe_dev_budget": t.fe_dev_budget,
                     "fe_costruttore": t.fe_costruttore,
                     "fe_costruttore_anno": t.fe_costruttore_anno, "fe_livello": t.fe_livello,
                     "fe_piloti": list(t.fe_piloti or []), "fe_punti": t.fe_punti,
@@ -529,6 +530,7 @@ class GameState:
                     "fe_gara": t.fe_gara, "fe_gestione": t.fe_gestione,
                     "wec_nome": t.wec_nome, "wec_classe": t.wec_classe,
                     "wec_ingegneri": t.wec_ingegneri, "wec_livello": t.wec_livello,
+                    "wec_dev_budget": t.wec_dev_budget,
                     "wec_piloti": list(t.wec_piloti or []),
                     "wec_punti": t.wec_punti, "wec_posizione": t.wec_posizione,
                     "wec_lemans": t.wec_lemans,
@@ -702,6 +704,7 @@ class GameState:
             # dietro il suo stato, dagli ingegneri ai titoli vinti
             t.fe_nome = td.get("fe_nome", "")
             t.fe_ingegneri = int(td.get("fe_ingegneri", 0))
+            t.fe_dev_budget = float(td.get("fe_dev_budget", 0.0))
             t.fe_costruttore = bool(td.get("fe_costruttore", False))
             t.fe_costruttore_anno = int(td.get("fe_costruttore_anno", 0))
             t.fe_livello = float(td.get("fe_livello", 0.0))
@@ -714,6 +717,7 @@ class GameState:
             t.wec_nome = td.get("wec_nome", "")
             t.wec_classe = td.get("wec_classe", "")
             t.wec_ingegneri = int(td.get("wec_ingegneri", 0))
+            t.wec_dev_budget = float(td.get("wec_dev_budget", 0.0))
             t.wec_livello = float(td.get("wec_livello", 0.0))
             t.wec_piloti = list(td.get("wec_piloti") or [])
             t.wec_punti = float(td.get("wec_punti", 0.0))

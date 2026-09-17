@@ -70,6 +70,11 @@ def ingegneri(team) -> int:
     return int(max(0, getattr(team, "wec_ingegneri", 0)))
 
 
+def dev_budget(team) -> float:
+    """Quanto si mette apposta sullo sviluppo, per gara."""
+    return max(0.0, float(getattr(team, "wec_dev_budget", 0.0) or 0.0))
+
+
 def costo_ingresso(team, cl: str = "") -> float:
     s = scheda(cl or classe(team))
     return round(float(s.get("ingresso_meur", 1.0)) * cambio(), 2)
@@ -78,17 +83,19 @@ def costo_ingresso(team, cl: str = "") -> float:
 def costo_stagione(gs, team) -> float:
     """Quanto costa una stagione di endurance.
 
-    La struttura, la gente, e i tre piloti per macchina: le gare durano un
-    giorno e uno solo non ce la fa. Non c'e' un tetto che fermi il conto, il
-    che vuol dire che si puo' spendere quanto si vuole - e che si puo'
-    fallire.
+    La struttura, la gente, i tre piloti per macchina e quello che si mette
+    apposta sullo sviluppo: le gare durano un giorno e uno solo non ce la fa.
+    Non c'e' un tetto che fermi il conto, il che vuol dire che si puo'
+    spendere quanto si vuole - e che si puo' fallire.
     """
     if not ha(team):
         return 0.0
     s = scheda(classe(team))
     fisso = float(s.get("gestione_meur", 6.0)) * cambio()
     gente = ingegneri(team) * float(s.get("costo_ingegnere_meur", 0.08)) * cambio()
-    return round(fisso + gente, 2)
+    gare = max(1, int(corrente().get("gare", 8)))
+    sviluppo = dev_budget(team) * gare
+    return round(fisso + gente + sviluppo, 2)
 
 
 def ingegneri_massimi(team) -> int:
@@ -97,6 +104,18 @@ def ingegneri_massimi(team) -> int:
 
 def ingegneri_minimi(team) -> int:
     return int((scheda(classe(team)).get("ingegneri") or [8, 45])[0])
+
+
+DEV_BUDGET_MASSIMO = {"hypercar": 6.0, "lmgt3": 2.2}  # M$ a gara, tetto della manopola
+
+
+def dev_budget_massimo(team) -> float:
+    """Il piu' che ha senso mettere apposta sullo sviluppo, per questa classe.
+
+    Qui non c'e' un tetto di spesa che lo faccia da solo: il limite e' solo
+    per non far scrivere alla manopola un numero senza senso.
+    """
+    return float(DEV_BUDGET_MASSIMO.get(classe(team), 3.0))
 
 
 # ----------------------------------------------------------------- gli sponsor
@@ -134,7 +153,11 @@ def bilancio(gs, team) -> float:
 # -------------------------------------------------------------- la performance
 INGEGNERI_RIF = {"hypercar": 85.0, "lmgt3": 26.0}
 PESO_STRUTTURE = 0.14
-PASSO = 0.40
+PASSO_GARA = 0.06          # quota del divario dal muro coperta a ogni gara, a ritmo
+                           # pieno e classifica neutra
+DEV_BUDGET_RIF = 2.0       # M$ a gara di riferimento per il ritmo di sviluppo pieno
+ATR_MIN = 0.75             # chi comanda il mondiale sviluppa piu' piano...
+ATR_MAX = 1.20             # ...e chi insegue recupera piu' in fretta
 
 
 def muro(gs, team) -> float:
@@ -155,13 +178,35 @@ def livello(team) -> float:
     return float(getattr(team, "wec_livello", 0.0) or 50.0)
 
 
-def sviluppa(gs, team) -> float:
+def fattore_investimento(budget: float) -> float:
+    """Quanto pesa il denaro messo apposta sullo sviluppo, oltre alla gente."""
+    n = max(0.0, budget) / DEV_BUDGET_RIF
+    if n <= 0.0:
+        return 0.3
+    return round(max(0.3, min(1.8, n ** 0.55)), 3)
+
+
+def fattore_atr(pos: int, n_squadre: int) -> float:
+    """Chi comanda il mondiale sviluppa piu' piano, chi insegue recupera."""
+    if n_squadre <= 1 or pos <= 0:
+        return 1.0
+    frac = (max(1, min(n_squadre, pos)) - 1) / (n_squadre - 1)
+    return round(ATR_MIN + (ATR_MAX - ATR_MIN) * frac, 3)
+
+
+def sviluppa_gara(gs, team) -> float:
+    """Quanto cresce - o cala - il programma in una gara, non piu' in blocco
+    a fine stagione: gara dopo gara, come in Formula E e in Formula 1."""
     if not ha(team):
         return 0.0
     ora, obiettivo = livello(team), muro(gs, team)
-    passo = (obiettivo - ora) * PASSO
-    team.wec_livello = round(ora + passo, 2)
-    return round(passo, 2)
+    cl = classe(team)
+    n_squadre = sum(1 for t in gs.teams.values() if ha(t) and classe(t) == cl)
+    f_inv = fattore_investimento(dev_budget(team))
+    f_atr = fattore_atr(int(getattr(team, "wec_posizione", 0) or 0), n_squadre)
+    passo = (obiettivo - ora) * PASSO_GARA * f_inv * f_atr
+    team.wec_livello = round(max(0.0, ora + passo), 2)
+    return round(passo, 3)
 
 
 # ------------------------------------------------------------- si puo' aprire?
@@ -192,6 +237,7 @@ def apri(gs, team, nome: str, cl: str) -> str:
     team.wec_nome = nome
     team.wec_classe = cl
     team.wec_ingegneri = ingegneri_minimi(team)
+    team.wec_dev_budget = round(dev_budget_massimo(team) * 0.3, 2)
     team.wec_livello = float((scheda(cl).get("muro") or [50])[0]) + 6.0
     team.wec_posizione = 0
     return f"{nome}: iscritta al mondiale endurance, classe {scheda(cl).get('nome')}."
@@ -420,8 +466,14 @@ def stagione(gs) -> list:
         gs.wec_stato = None
         return righe
     st = stato(gs)
+    squadre = [t for t in gs.teams.values() if ha(t)]
     for n in range(int(st.get("round", 0)) + 1, quante + 1):
         corri_gara(gs, n)
+        # anche qui lo sviluppo e' un pezzo alla gara, non un salto solo a
+        # dicembre: le gare si giocano tutte in questa stessa chiamata, ma il
+        # passo resta piccolo e composto, non un balzo unico di fine stagione
+        for team in squadre:
+            sviluppa_gara(gs, team)
     for team in gs.teams.values():
         if not ha(team):
             continue
@@ -440,7 +492,6 @@ def stagione(gs) -> list:
                          category="wec")
         team.add_income(f"Endurance: sponsor e montepremi ({team.wec_nome})",
                         incasso, category="wec")
-        passo = sviluppa(gs, team)
         imparato = applica_resa(gs, team)
         if vinta:
             team.reputation = min(99.0, team.reputation
@@ -448,7 +499,7 @@ def stagione(gs) -> list:
                                           .get("reputazione_lemans", 3.0)))
         riga = (f"{team.short} nel mondiale endurance ({scheda(cl).get('nome')}): "
                 f"{pos}o su {len(cls)}, {team.wec_punti:.0f} punti. "
-                f"Bilancio {incasso - costo:+.1f} M$, programma {passo:+.1f}")
+                f"Bilancio {incasso - costo:+.1f} M$, programma a {livello(team):.0f}")
         if vinta:
             riga += " - VINCE LE MANS"
         righe.append(riga)
@@ -499,4 +550,14 @@ def _ai_gestisci(gs, team) -> list:
         team.wec_ingegneri = min(ingegneri_massimi(team), n + PASSO_INGEGNERI)
     elif conto < -6.0 and n > ingegneri_minimi(team):
         team.wec_ingegneri = max(ingegneri_minimi(team), n - PASSO_INGEGNERI)
+    # e quanto ci mette apposta sullo sviluppo, come per gli ingegneri: chi ha
+    # respiro e ambizione spinge, chi tira la cinghia si accontenta
+    from . import proprieta
+    ambizione = proprieta.numeri(team)["ambizione"] / 10.0
+    tetto_dev = dev_budget_massimo(team)
+    if respiro > 15.0:
+        team.wec_dev_budget = round(max(0.0, min(tetto_dev,
+                                                  tetto_dev * (0.30 + 0.6 * ambizione))), 2)
+    else:
+        team.wec_dev_budget = round(max(0.0, min(tetto_dev, tetto_dev * 0.15)), 2)
     return righe

@@ -79,6 +79,7 @@ class Team:
     # suo tetto di spesa e il suo bilancio. Non toglie niente alla Formula 1
     fe_nome: str = ""            # come si chiama la squadra li', "" = non c'e'
     fe_ingegneri: int = 0        # quanti ci lavorano: e' la manopola della performance
+    fe_dev_budget: float = 0.0   # M$ a gara messi apposta sullo sviluppo, oltre alla gente
     fe_costruttore: bool = False # si fa il propulsore in casa o lo compra
     # Un cliente puo' diventare costruttore anche a programma gia' avviato:
     # qui dentro c'e' l'anno in cui il reparto - fondato, pagato, in
@@ -96,6 +97,7 @@ class Team:
     wec_nome: str = ""
     wec_classe: str = ""         # hypercar | lmgt3
     wec_ingegneri: int = 0
+    wec_dev_budget: float = 0.0  # M$ a gara messi apposta sullo sviluppo
     wec_livello: float = 0.0
     wec_piloti: list = field(default_factory=list)   # tre per macchina
     wec_punti: float = 0.0

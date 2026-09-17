@@ -1,10 +1,11 @@
 """Pagina Formula E: il secondo campionato della casa.
 
 Quello che si guarda qui non e' la Formula 1 in piccolo. Il programma ha un
-tetto di spesa suo, una manopola sola - quanti ingegneri ci lavorano - e un
-bilancio che si chiude o non si chiude a seconda di come e' andata. E in cima
-c'e' il regolamento, per esteso, perche' una gara di Formula E si capisce solo
-sapendo quanto dura, quanta energia c'e' e cosa fanno Attack Mode e Pit Boost.
+tetto di spesa suo, due manopole - quanti ingegneri ci lavorano, e quanto si
+mette apposta sullo sviluppo, gara dopo gara - e un bilancio che si chiude o
+non si chiude a seconda di come e' andata. E in cima c'e' il regolamento, per
+esteso, perche' una gara di Formula E si capisce solo sapendo quanto dura,
+quanta energia c'e' e cosa fanno Attack Mode e Pit Boost.
 """
 from __future__ import annotations
 
@@ -58,11 +59,19 @@ class FormulaEPage(Page):
             self._build_corri()
             return
         massimo = FE.ingegneri_massimi(self.gs, team)
-        self.slider = Slider((self.left.x + 16, self.left.y + 148, self.left.w - 32, 34),
+        self.slider = Slider((self.left.x + 16, self.left.y + 140, self.left.w - 32, 34),
                              "Ingegneri del programma", value=FE.ingegneri(team),
                              lo=FE.INGEGNERI_MIN, hi=massimo, step=1, fmt="{:.0f}",
                              on_change=self.set_ingegneri)
         self.widgets.append(self.slider)
+        # la seconda manopola: quanto si mette apposta sullo sviluppo, oltre
+        # alla gente che tiene in piedi il programma
+        massimo_dev = FE.dev_budget_massimo(self.gs, team)
+        self.slider_dev = Slider((self.left.x + 16, self.left.y + 180, self.left.w - 32, 34),
+                                 "Budget sviluppo a gara", value=FE.dev_budget(team),
+                                 lo=0.0, hi=max(0.1, massimo_dev), step=0.1,
+                                 fmt="{:.1f} M$", on_change=self.set_dev_budget)
+        self.widgets.append(self.slider_dev)
         # comprare il motore a listino non e' per sempre: si puo' fondare il
         # reparto propulsori anche a programma avviato, e quando e' pronto
         # farlo debuttare - due momenti separati, come in Formula 1
@@ -148,6 +157,9 @@ class FormulaEPage(Page):
 
     def set_ingegneri(self, v: float) -> None:
         self.team.fe_ingegneri = int(round(v))
+
+    def set_dev_budget(self, v: float) -> None:
+        self.team.fe_dev_budget = round(float(v), 2)
 
     def chiudi(self) -> None:
         self.app.toast(FE.chiudi(self.gs, self.team))
@@ -252,42 +264,49 @@ class FormulaEPage(Page):
         conto = FE.bilancio(gs, team)
         card(surf, (c.x + 40 + 2 * larg, c.y + 56, larg, 62), "BILANCIO",
              f"{conto:+.1f}", "M$ a stagione", colour=T.OK if conto >= 0 else T.BAD)
-        # la manopola, che e' una sola: quanta gente ci si mette
-        y = c.y + 190
-        T.text(surf, "Piu' ingegneri, piu' performance, piu' costi. Il tetto della serie "
-                     "dice fin dove ci si puo' spingere.",
+        # le due manopole: quanta gente ci si mette, e quanto si mette apposta
+        # sullo sviluppo. La gente tiene in piedi il programma, il budget lo
+        # spinge - gara dopo gara, non tutto insieme a dicembre
+        y = c.y + 214
+        T.text(surf, "Ingegneri e budget sviluppo, insieme al tetto della serie, dicono "
+                     "quanto in fretta si cresce.",
                (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
-        y += 26
+        y += 18
+        gare = int(FE.corrente().get("gare", 21))
         for eti, val, col in (
                 ("Gestione, trasferte, ricambi", FE.GESTIONE_BASE, T.DIM),
                 (f"Ingegneri ({FE.ingegneri(team)})",
                  FE.ingegneri(team) * FE.COSTO_INGEGNERE, T.DIM),
                 ("Propulsore",
-                 FE.COSTRUTTORE_COSTO if team.fe_costruttore else 0.9, T.DIM)):
+                 FE.COSTRUTTORE_COSTO if team.fe_costruttore else 0.9, T.DIM),
+                (f"Sviluppo ({FE.dev_budget(team):.1f} M$ a gara)",
+                 FE.dev_budget(team) * gare, T.DIM)):
             T.text(surf, eti, (c.x + 16, y), 12, col)
             T.text(surf, f"{val:.1f} M$", (c.right - 16, y), 12, col, mono=True,
                    align="right")
-            y += 18
+            y += 16
         spesa = FE.costo_stagione(gs, team)
         t = FE.tetto(gs)
         T.text(surf, "Totale", (c.x + 16, y + 4), 13, T.TEXT, bold=True)
         T.text(surf, f"{spesa:.1f} di {t:.1f} M$", (c.right - 16, y + 4), 13,
                T.OK if spesa <= t else T.BAD, mono=True, align="right", bold=True)
-        T.bar(surf, (c.x + 16, y + 26, c.w - 32, 8), min(spesa, t * 1.2), t * 1.2,
+        T.bar(surf, (c.x + 16, y + 24, c.w - 32, 6), min(spesa, t * 1.2), t * 1.2,
               T.OK if spesa <= t else T.BAD)
-        y += 44
+        y += 30
+        # sotto questa riga, su una finestra bassa, c'e' gia' "chi guida": da
+        # qui in poi ogni blocco si disegna solo se ci sta davvero
+        limite = c.bottom - 142
         entrate = FE.entrate(gs, team)
-        T.text(surf, f"Sponsor e montepremi: {entrate:.1f} M$", (c.x + 16, y), 12, T.OK)
-        y += 18
-        # la spiegazione solo se ci sta: su una finestra bassa il pannello e'
-        # corto e sotto ci sono i due sedili
-        if c.bottom - 132 - y > 22:
+        if y <= limite:
+            T.text(surf, f"Sponsor e montepremi: {entrate:.1f} M$", (c.x + 16, y), 12, T.OK)
+            y += 18
+        if y + 22 <= limite:
             T.text(surf, "Un marchio noto firma contratti che una squadra sconosciuta "
                          "non vede, e vincere ne porta altri.",
                    (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 32)
         # e cosa torna in Formula 1, che e' il motivo vero per essere qui
         r = FE.resa(gs, team)
-        if r:
+        if r and y + 22 <= limite:
             y += 22
             T.text(surf, "COSA TORNA IN FORMULA 1", (c.x + 16, y), 11, T.GOLD,
                    bold=True)
@@ -297,13 +316,13 @@ class FormulaEPage(Page):
                 voci += [("Centralina della power unit", r["software"]),
                          ("Recupero in frenata", r["recupero"])]
             for eti, val in voci:
-                if y > c.bottom - 140:
+                if y > limite:
                     break
                 T.text(surf, eti, (c.x + 16, y), 12, T.DIM_2, maxw=c.w - 130)
                 T.text(surf, f"+{val:.2f} a stagione", (c.right - 16, y), 12,
                        T.ACCENT, mono=True, align="right")
                 y += 17
-            if not r.get("software"):
+            if not r.get("software") and y <= limite:
                 T.text(surf, "il motore lo compriamo: la centralina non si tocca, "
                              "ma imparare a spenderla si", (c.x + 16, y), 11,
                        T.DIM_2, maxw=c.w - 32)
