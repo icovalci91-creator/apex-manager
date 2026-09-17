@@ -873,6 +873,32 @@ def nuovo_campionato(gs, team=None) -> dict:
             "podi": {c["id"]: 0 for c in campo}, "storia": []}
 
 
+def _sincronizza_piloti(gs, st: dict) -> None:
+    """Aggiorna nome, sigla e forza delle nostre righe di campo se nel
+    frattempo abbiamo ingaggiato o cambiato un pilota.
+
+    Non riapre il campionato: punti, vittorie e classifica restano quelli
+    che sono, perche' sono legati all'id della macchina in griglia, non a
+    chi ci guida oggi. Senza questo, un ingaggio a stagione in corso
+    restava scritto come "pilota ingaggiato" fino a dicembre.
+    """
+    righe = {c["id"]: c for c in (st.get("campo") or [])}
+    for t in gs.teams.values():
+        if not ha(t):
+            continue
+        loro = piloti(gs, t)
+        for i in range(2):
+            riga = righe.get(f"{t.id}{i}")
+            if riga is None:
+                continue
+            d = loro[i] if i < len(loro) else None
+            driver_id = d.id if d is not None else ""
+            if riga.get("driver_id") != driver_id:
+                riga["driver_id"] = driver_id
+                riga["nome"] = d.name if d is not None else f"pilota ingaggiato {i + 1}"
+                riga["forza"] = round(forza_macchina(gs, t, d), 2)
+
+
 def stato(gs, team=None) -> dict:
     """Lo stato del campionato in corso, aperto se non c'e' o se e' vecchio."""
     st = getattr(gs, "fe_stato", None)
@@ -885,6 +911,8 @@ def stato(gs, team=None) -> dict:
         st = nuovo_campionato(gs)
         st["programmi"] = quanti
         gs.fe_stato = st
+    else:
+        _sincronizza_piloti(gs, st)
     return st
 
 
@@ -1135,28 +1163,55 @@ def ingaggio_di(forza: float, eta: int) -> float:
     return round(prezzo, 2)
 
 
+def _pool_reale(gs) -> list:
+    """I piloti veri di Formula E ancora da mettere in carriera.
+
+    Si mescola una volta e si consuma: ogni identita' esce una volta sola in
+    tutta la carriera, come nella realta' non ci sono due Sebastien Buemi
+    sulla griglia. Esaurita, il mercato torna a inventare nomi.
+    """
+    pool = getattr(gs, "fe_pool_reale", None)
+    if pool is None:
+        from .state import _load
+        pool = [[r["first"], r["last"], r["nat"]]
+                for r in _load("drivers_fe.json")["roster"]]
+        gs.rng.shuffle(pool)
+        gs.fe_pool_reale = pool
+    return pool
+
+
 def crea_professionisti(gs, quanti: int = PILOTI_LIBERI) -> list:
     """Mette sul mercato i piloti che corrono in Formula E.
 
     Non sono nel vivaio di nessuno e non arrivano dalla scala: sono gente che
     quel mestiere lo fa gia'. Chi li prende ha una macchina competitiva subito,
     e paga; chi ci mette un ragazzo paga in risultati ma cresce qualcuno.
+
+    Finche' ce ne sono, sono piloti veri della Formula E: il mercato non deve
+    somigliare a una lista di nomi a caso. Esaurito il registro, si torna a
+    inventarli come prima.
     """
     from ..model.people import Driver
     from .state import _load
-    pool = _load("staff.json")["name_pool"]
+    pool_generico = _load("staff.json")["name_pool"]
+    pool_reale = _pool_reale(gs)
     fuori = []
     for _ in range(quanti):
-        first = gs.rng.choice(pool["first"])
-        last = gs.rng.choice(pool["last"])
+        if pool_reale:
+            first, last, nat = pool_reale.pop()
+        else:
+            first = gs.rng.choice(pool_generico["first"])
+            last = gs.rng.choice(pool_generico["last"])
+            nat = gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL",
+                                  "CH", "PT", "NZ"])
+        slug = "".join(ch for ch in last.lower() if ch.isalnum()) or "pilota"
         base = gs.rng.gauss(PILOTA_RIF, 4.6)
         # il grosso del mercato e' gente giovane: i veterani ci sono, ma sono
         # pochi, se no dopo qualche stagione il campionato e' una casa di riposo
         eta = int(gs.rng.triangular(ETA_FE[0], ETA_FE[1], 26))
         d = Driver(
-            id=f"fe_{last.lower()}{gs.rng.randrange(100, 999)}", first=first, last=last,
-            nat=gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL",
-                               "CH", "PT", "NZ"]),
+            id=f"fe_{slug}{gs.rng.randrange(100, 999)}", first=first, last=last,
+            nat=nat,
             age=eta, number=gs.rng.randint(2, 99), team=None,
             pace=base + gs.rng.uniform(-2, 3), racecraft=base + gs.rng.uniform(-1, 5),
             consistency=base + gs.rng.uniform(-3, 4),

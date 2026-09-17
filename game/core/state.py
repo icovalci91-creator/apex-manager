@@ -468,6 +468,9 @@ class GameState:
             "fe_rose": getattr(self, "fe_rose", {}) or {},
             "fe_staff": [s.to_dict() for s in (getattr(self, "fe_staff", None) or [])],
             "fe_organico": getattr(self, "fe_organico", {}) or {},
+            # i piloti veri di Formula E non ancora assegnati: senza salvarla,
+            # a ogni ricarica il mercato ne rimetterebbe in palio di gia' usati
+            "fe_pool_reale": getattr(self, "fe_pool_reale", None),
             # il campionato di Formula E in corso: campo partenti, calendario,
             # classifica e gare gia' corse. Senza questo, riaprendo il gioco a
             # meta' stagione il mondiale ricomincerebbe da zero
@@ -584,6 +587,8 @@ class GameState:
         gs.fe_rose = {k: list(v) for k, v in (data.get("fe_rose") or {}).items()}
         gs.fe_staff = [Staff.from_dict(x) for x in (data.get("fe_staff") or [])]
         gs.fe_organico = {k: int(v) for k, v in (data.get("fe_organico") or {}).items()}
+        pool_reale = data.get("fe_pool_reale")
+        gs.fe_pool_reale = [list(x) for x in pool_reale] if pool_reale is not None else None
         gs.fe_stato = data.get("fe_stato") or None
         gs.wec_griglia = dict(data.get("wec_griglia") or {})
         gs.wec_stato = data.get("wec_stato") or None
