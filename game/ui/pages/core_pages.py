@@ -129,51 +129,56 @@ class HQPage(Page):
         medie = PEOPLE.medie(gs.drivers.values())
         y = mid.y + 34
         for d in gs.drivers_of(team.id):
-            T.panel(surf, (mid.x + 10, y, mid.w - 20, 92), T.PANEL_2, radius=8)
-            T.text(surf, f"{d.number}", (mid.x + 22, y + 10), 22, col, bold=True)
-            T.text(surf, d.name, (mid.x + 60, y + 10), 17, T.TEXT, bold=True, maxw=mid.w - 150)
-            # riga corta: accanto ci sta il morale, e "anni" e "all'anno" si
-            # capiscono lo stesso senza scriverli
+            altezza = 108
+            cr = pygame.Rect(mid.x + 10, y, mid.w - 20, altezza)
+            T.panel(surf, cr, T.PANEL_2, radius=8)
+            # un numero in un riquadro suo si riconosce prima di leggerlo,
+            # come i piloti in griglia si riconoscono dal casco prima che
+            # dal nome
+            badge = pygame.Rect(cr.x + 12, cr.y + 12, 44, 44)
+            T.panel(surf, badge, T.PANEL_3, radius=10, border=T.LINE)
+            T.text(surf, f"{d.number}", (badge.centerx, badge.centery - 11), 18, col,
+                  bold=True, align="center")
+            colw = cr.right - 12 - 60 - (badge.right + 12)
+            testo_x = badge.right + 12
+            T.text(surf, d.name, (testo_x, cr.y + 12), 16, T.TEXT, bold=True, maxw=colw)
+            # riga corta: "anni" e "all'anno" si capiscono lo stesso senza
+            # scriverli, e il morale sta nella colonna della valutazione
             T.text(surf, f"{d.nat} - {d.age}a - {d.salary:.1f} M$",
-                   (mid.x + 60, y + 32), 12, T.DIM, maxw=mid.w - 190)
-            T.text(surf, f"{d.overall:.0f}", (mid.right - 22, y + 10), 22,
-                   T.stat_colour(d.overall, 70, 90), bold=True, align="right")
-            # il morale sta sulla riga dell'anagrafica: piu' in basso finiva
-            # sopra all'ultima barra, che era larga quanto le altre e usciva
-            # dal pannello
-            T.text(surf, f"morale {d.morale:.0f}", (mid.right - 22, y + 34), 12,
-                   T.stat_colour(d.morale, 40, 75), align="right")
+                   (testo_x, cr.y + 33), 12, T.DIM, maxw=colw)
+            T.text(surf, f"{d.overall:.0f}", (cr.right - 12, cr.y + 12), 24, T.GOLD,
+                  bold=True, align="right")
+            T.text(surf, f"morale {d.morale:.0f}", (cr.right - 12, cr.y + 40), 10,
+                  T.stat_colour(d.morale, 40, 75), align="right")
             # e le quattro barre si dividono la larghezza che c'e', invece di
             # essere larghe un numero fisso: su un pannello stretto sforavano
-            passo = max(40.0, (mid.w - 40) / 4.0)
-            bx = mid.x + 20
+            passo = max(40.0, (cr.right - 16 - testo_x) / 4.0)
+            bx = testo_x
             for lab, attr, v in (("Passo", "pace", d.pace),
                                  ("Duello", "racecraft", d.racecraft),
                                  ("Costanza", "consistency", d.consistency),
                                  ("Gomme", "tyre_mgmt", d.tyre_mgmt)):
-                T.text(surf, lab, (bx, y + 54), 10, T.DIM_2)
-                # la barra e' piu' alta di prima e porta la tacca della media
-                # della griglia: un ottantacinque non vuol dire niente finche'
-                # non si sa se gli altri stanno a settanta o a novantadue
-                T.bar(surf, (bx, y + 67, int(passo) - 8, 8), v, 100,
+                T.text(surf, lab, (bx, cr.y + 58), 10, T.DIM_2)
+                # la barra porta la tacca della media della griglia: un
+                # ottantacinque non vuol dire niente finche' non si sa se gli
+                # altri stanno a settanta o a novantadue
+                T.bar(surf, (bx, cr.y + 71, int(passo) - 8, 8), v, 100,
                       T.stat_colour(v, 65, 90), riferimento=medie.get(attr))
                 bx += passo
             # e come sta andando: le ultime gare, quelle che uno guarda per
-            # capire se il pilota e' in palla o no. Sotto c'era mezzo pannello
-            # vuoto e questo e' il posto giusto per metterlo
+            # capire se il pilota e' in palla o no
             piazzamenti = _ultimi_arrivi(gs, d.id)
             if piazzamenti:
-                T.text(surf, "ULTIME GARE", (mid.x + 20, y + 82), 10, T.DIM_2)
-                px = mid.x + 20 + 78
+                T.text(surf, "ULTIME GARE", (testo_x, cr.y + 87), 10, T.DIM_2)
+                px = testo_x + 78
                 for pos in piazzamenti:
-                    col = (T.GOLD if pos == 1 else T.OK if pos <= 3
-                           else T.TEXT if pos <= 10 else T.DIM_2)
+                    colore = (T.GOLD if pos == 1 else T.OK if pos <= 3
+                             else T.TEXT if pos <= 10 else T.DIM_2)
                     testo = f"{pos}" if pos else "RIT"
-                    T.text(surf, testo, (px, y + 80), 12,
-                           T.BAD if not pos else col, bold=(pos or 99) <= 3)
+                    T.text(surf, testo, (px, cr.y + 85), 12,
+                           T.BAD if not pos else colore, bold=(pos or 99) <= 3)
                     px += 26
-                y += 20
-            y += 100
+            y += altezza + 8
         y += 6
         T.text(surf, "REPARTI", (mid.x + 16, y), 12, T.DIM_2, bold=True)
         y += 20
