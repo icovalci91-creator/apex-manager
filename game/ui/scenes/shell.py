@@ -5,33 +5,39 @@ import pygame
 
 from ... import storage
 from ...core import economy, season as SEASON
+from .. import icons as I
 from .. import theme as T
 from ..app import Scene
-from ..widgets import Button
+from ..widgets import Button, ScrollList
 
+# (id, etichetta, icona, gruppo). Il gruppo decide dove finisce una voce
+# nella barra - non e' decorazione, e' la mappa che dice "questo e' un
+# programma, quello e' gestione" - e la prima voce di ogni gruppo si
+# riconosce anche disegnata, con l'etichetta del gruppo sopra.
 NAV = [
-    ("hq",        "Quartier Generale"),
-    ("car",       "Vettura e assetto"),
-    ("dev",       "Sviluppo"),
-    ("powerunit", "Power unit"),
-    ("engineers", "Ingegneri"),
-    ("testing",   "Test privati"),
-    ("drivers",   "Piloti e mercato"),
-    ("academy",   "Vivaio"),
-    ("formulae",  "Formula E"),
-    ("wec",       "Endurance"),
-    ("staff",     "Staff tecnico"),
-    ("workforce", "Organico reparti"),
-    ("finance",   "Finanze e sponsor"),
-    ("facilities", "Infrastrutture"),
-    ("rules",     "Regolamento"),
-    ("standings", "Classifiche"),
-    ("calendar",  "Calendario"),
-    ("history",   "Storico"),
+    ("hq",         "Quartier Generale", "hq",         "SQUADRA"),
+    ("car",        "Vettura e assetto", "car",        "SQUADRA"),
+    ("dev",        "Sviluppo",          "dev",        "SQUADRA"),
+    ("powerunit",  "Power unit",        "powerunit",  "SQUADRA"),
+    ("engineers",  "Ingegneri",         "engineers",  "SQUADRA"),
+    ("testing",    "Test privati",      "testing",    "SQUADRA"),
+    ("drivers",    "Piloti e mercato",  "drivers",    "PERSONE"),
+    ("academy",    "Vivaio",            "academy",    "PERSONE"),
+    ("staff",      "Staff tecnico",     "staff",      "PERSONE"),
+    ("workforce",  "Organico reparti",  "workforce",  "PERSONE"),
+    ("formulae",   "Formula E",         "formulae",   "PROGRAMMI"),
+    ("wec",        "Endurance",         "wec",        "PROGRAMMI"),
+    ("finance",    "Finanze e sponsor", "finance",    "GESTIONE"),
+    ("facilities", "Infrastrutture",    "facilities", "GESTIONE"),
+    ("rules",      "Regolamento",       "rules",      "GESTIONE"),
+    ("standings",  "Classifiche",       "standings",  "MONDO"),
+    ("calendar",   "Calendario",        "calendar",   "MONDO"),
+    ("history",    "Storico",           "history",    "MONDO"),
 ]
 
-TOPBAR_H = 64
-NAV_W = 212
+TOPBAR_H = 80
+NAV_W = 156
+NAV_ROW_H = 46
 # Quanto dura la dissolvenza quando si cambia pagina. Poco: serve a dire "sei
 # in un altro posto", non a farsi guardare.
 DISSOLVENZA = 0.16
@@ -141,7 +147,7 @@ class GameShell(Scene):
         self.page_id = "hq"
         self.entrata = 0.0          # quanto manca alla fine della dissolvenza
         self.pages: dict = {}
-        self.nav_buttons: list = []
+        self.rail: ScrollList | None = None
         self._make_pages()
         self.build()
 
@@ -174,26 +180,20 @@ class GameShell(Scene):
     def build(self) -> None:
         w, h = self.app.screen.get_size()
         self.widgets = []
-        self.nav_buttons = []
-        # il blocco in fondo si misura prima, cosi' le voci del menu sanno
-        # quanto spazio hanno davvero: su un desktop da 864 pixel le quindici
-        # voci a passo fisso finivano sotto il pulsante del weekend
+        # il blocco in fondo si misura prima, cosi' la barra sa quanto spazio
+        # ha davvero: su un desktop da 864 pixel le diciotto voci non ci
+        # stanno tutte insieme, e la barra scorre invece di stringersi
         editor = bool(getattr(self.app, "editor", False))
         save_y = h - 60                     # la riga Salva/Menu sta in fondo
         editor_y = save_y - 44
         race_y = (editor_y if editor else save_y) - 12 - 48
-        y = TOPBAR_H + 16
-        spazio = max(120, (race_y - 12) - y)
-        # sotto i 24 pixel una voce non si legge e non si clicca: prima di
-        # arrivarci si accetta di stringere, poi ci si ferma
-        passo = max(24, min(42, spazio // max(1, len(NAV))))
-        for pid, label in NAV:
-            b = Button((12, y, NAV_W - 24, max(20, passo - 4)), label, style="tab")
-            b.on_click = (lambda p=pid: self.go(p))
-            b.active = (pid == self.page_id)
-            self.nav_buttons.append(b)
-            self.widgets.append(b)
-            y += passo
+        rail_y = TOPBAR_H + 12
+        rail_rect = (6, rail_y, NAV_W - 12, max(NAV_ROW_H, (race_y - 12) - rail_y))
+        self.rail = ScrollList(rail_rect, row_h=NAV_ROW_H, draw_row=self._riga_nav,
+                               on_select=self._scegli_nav)
+        self.rail.items = NAV
+        self.rail.selected = next((i for i, v in enumerate(NAV) if v[0] == self.page_id), -1)
+        self.widgets.append(self.rail)
         self.race_btn = Button((12, race_y, NAV_W - 24, 48), "PROSSIMO EVENTO",
                                self.goto_weekend, "primary")
         self.widgets.append(self.race_btn)
@@ -210,6 +210,31 @@ class GameShell(Scene):
     def on_resize(self) -> None:
         self.build()
 
+    def _riga_nav(self, surf, rect, i: int, item) -> None:
+        """Una riga della barra: un gruppo si annuncia solo alla prima voce,
+        cosi' diciotto destinazioni si leggono come cinque famiglie invece
+        che come una colonna indistinta di etichette."""
+        pid, label, icon_name, gruppo = item
+        primo = i == 0 or NAV[i - 1][3] != gruppo
+        attivo = pid == self.page_id
+        colore = T.squadra_viva() if attivo else T.TEXT
+        top = rect.y
+        if primo:
+            T.text(surf, gruppo, (rect.x + 12, top + 3), 9, T.DIM_2, bold=True,
+                  maxw=rect.w - 18)
+            top += 13
+        corpo = pygame.Rect(rect.x, top, rect.w, rect.bottom - top)
+        if attivo:
+            pygame.draw.rect(surf, T.squadra_viva(), (rect.x + 1, corpo.y + 2, 3, corpo.h - 4))
+        icona = pygame.Rect(0, 0, 20, 20)
+        icona.center = (rect.x + 24, corpo.centery)
+        I.draw(surf, icon_name, icona, colore, 2)
+        T.text(surf, label, (icona.right + 10, corpo.centery - 9), 14, colore,
+              bold=attivo, maxw=rect.right - icona.right - 16)
+
+    def _scegli_nav(self, i: int, item) -> None:
+        self.go(item[0])
+
     # ------------------------------------------------------------------ azioni
     def go(self, pid: str) -> None:
         # cambiare pagina non e' un taglio di montaggio: la nuova entra con una
@@ -219,8 +244,8 @@ class GameShell(Scene):
         if pid != self.page_id:
             self.entrata = DISSOLVENZA
         self.page_id = pid
-        for b, (p, _l) in zip(self.nav_buttons, NAV):
-            b.active = (p == pid)
+        if self.rail is not None:
+            self.rail.selected = next((i for i, v in enumerate(NAV) if v[0] == pid), -1)
         self.pages[pid].refresh()
 
     def goto_weekend(self) -> None:
