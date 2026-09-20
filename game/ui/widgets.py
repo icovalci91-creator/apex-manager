@@ -10,6 +10,24 @@ from . import theme as T
 # Nel browser la tastiera non la comanda il gioco: la comanda la pagina.
 IS_WEB = sys.platform == "emscripten"
 
+# quanto si allarga una zona toccabile rispetto a quella disegnata, e solo nel
+# browser: un dito non e' preciso come un mouse, e un pulsante pensato per un
+# mouse e' facile da mancare con un polpastrello. Il numero e' piccolissimo
+# di proposito: in piu' punti della schermata (i due tasti piu'/meno del
+# power unit, "Salva" accanto a "Menu") due controlli stanno a due pixel
+# l'uno dall'altro, e una zona toccabile piu' larga di uno per lato farebbe
+# gia' rispondere quello sbagliato invece di non rispondere affatto. E' poco,
+# ma e' il massimo che si puo' allargare senza rischiare di premere il
+# pulsante accanto: un margine piu' ampio richiede prima di distanziare i
+# controlli piu' vicini, pagina per pagina, non solo di allargare la zona.
+TOCCO_PAD = 1
+
+
+def tocco(rect: pygame.Rect) -> pygame.Rect:
+    """Il rettangolo che conta per la pressione: quello disegnato, o poco piu'
+    largo se si e' nel browser."""
+    return rect.inflate(TOCCO_PAD * 2, TOCCO_PAD * 2) if IS_WEB else rect
+
 
 class Widget:
     def __init__(self, rect):
@@ -42,9 +60,9 @@ class Button(Widget):
         if not (self.enabled and self.visible):
             return False
         if ev.type == pygame.MOUSEMOTION:
-            self.hover = self.rect.collidepoint(ev.pos)
+            self.hover = tocco(self.rect).collidepoint(ev.pos)
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            if self.rect.collidepoint(ev.pos):
+            if tocco(self.rect).collidepoint(ev.pos):
                 if self.on_click:
                     self.on_click()
                 return True
@@ -211,17 +229,17 @@ class Slider(Widget):
         if not (self.enabled and self.visible):
             return False
         if ev.type == pygame.MOUSEMOTION:
-            self._hover = (-1 if self.minus_rect.collidepoint(ev.pos) else
-                           1 if self.plus_rect.collidepoint(ev.pos) else 0)
+            self._hover = (-1 if tocco(self.minus_rect).collidepoint(ev.pos) else
+                           1 if tocco(self.plus_rect).collidepoint(ev.pos) else 0)
             if self.drag:
                 self._set_from_x(ev.pos[0])
                 return True
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            if self.minus_rect.collidepoint(ev.pos):
+            if tocco(self.minus_rect).collidepoint(ev.pos):
                 self._held, self._t = -1, self.DELAY
                 self.nudge(-1)
                 return True
-            if self.plus_rect.collidepoint(ev.pos):
+            if tocco(self.plus_rect).collidepoint(ev.pos):
                 self._held, self._t = 1, self.DELAY
                 self.nudge(1)
                 return True
@@ -424,7 +442,7 @@ class Toggle(Widget):
     def handle(self, ev) -> bool:
         if not self.enabled:
             return False
-        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.rect.collidepoint(ev.pos):
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and tocco(self.rect).collidepoint(ev.pos):
             self.value = not self.value
             if self.on_change:
                 self.on_change(self.value)

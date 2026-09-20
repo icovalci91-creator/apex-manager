@@ -37,6 +37,29 @@ class Scene:
             w.draw(surf)
 
 
+def _web_viewport_size() -> tuple | None:
+    """Quanto spazio c'e' davvero nella pagina che ospita il canvas.
+
+    La build si fa con una misura di riferimento (1600x900 di norma), ma
+    quella e' solo il punto di partenza del pacchetto: un iPad in orizzontale
+    e' largo circa 1180 punti, non 1600, e un canvas piu' grande viene scalato
+    dal browser - sfocato, e disallineato rispetto a dove il dito tocca
+    davvero lo schermo. Si chiede al browser quanto spazio c'e' per aprire il
+    canvas a quella misura, non a quella scritta nel pacchetto. None se non si
+    riesce a chiederlo (fuori dal browser, o il pygame di questa build non
+    espone il ponte verso il JavaScript della pagina).
+    """
+    try:
+        import platform          # iniettato da pygbag, non la stdlib
+        w = int(platform.window.innerWidth)
+        h = int(platform.window.innerHeight)
+    except Exception:
+        return None
+    if w <= 0 or h <= 0:
+        return None
+    return w, h
+
+
 def _window_size() -> tuple:
     """La finestra piu' grande che ci sta davvero sullo schermo.
 
@@ -47,7 +70,11 @@ def _window_size() -> tuple:
     posto per la barra del titolo e per quella delle applicazioni.
     """
     if IS_WEB:
-        return C.SCREEN_W, C.SCREEN_H
+        vp = _web_viewport_size()
+        if vp is None:
+            return C.SCREEN_W, C.SCREEN_H
+        return (max(C.MIN_SCREEN_W, min(C.SCREEN_W, vp[0])),
+                max(C.MIN_SCREEN_H, min(C.SCREEN_H, vp[1])))
     try:
         dw, dh = pygame.display.get_desktop_sizes()[0]
     except Exception:
@@ -60,10 +87,12 @@ class App:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption(f"{C.GAME_TITLE} {C.GAME_VERSION}")
-        # nel browser la finestra e' la canvas della pagina, di dimensione
-        # fissa: chiedere RESIZABLE non serve e puo' lasciarla vuota
-        flags = 0 if IS_WEB else pygame.RESIZABLE
-        self.screen = pygame.display.set_mode(_window_size(), flags)
+        # anche nel browser il canvas puo' cambiare misura - un iPad che gira
+        # da orizzontale a verticale, o la pagina che ridimensiona la finestra
+        # - e RESIZABLE e' quello che permette al ciclo qui sotto di
+        # accorgersene e riaprire il canvas alla misura giusta invece di
+        # restare fermo a quella con cui si e' avviato
+        self.screen = pygame.display.set_mode(_window_size(), pygame.RESIZABLE)
         self._splash()
         self.clock = pygame.time.Clock()
         self.running = True
