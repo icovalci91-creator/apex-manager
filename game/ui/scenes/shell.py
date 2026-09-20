@@ -336,24 +336,31 @@ class GameShell(Scene):
         T.text(surf, f"Stagione {gs.season}", (22, 38), 13, T.DIM)
 
         spent, limit, frac = economy.cap_usage(gs, team)
-        _kv(surf, 250, "LIQUIDITA'", T.fmt_money(team.cash),
-            T.OK if team.cash > 5 else T.BAD)
-        _kv(surf, 420, "BUDGET CAP", f"{spent:.1f} / {limit:.0f} M$",
-            T.BAD if frac > 1.0 else (T.WARN if frac > 0.85 else T.TEXT))
         pos = gs.position_of(team.id)
-        _kv(surf, 610, "COSTRUTTORI", f"{pos}o  -  {team.points:.0f} pt", T.TEXT)
         ev = SEASON.evento_display(gs)
+        # ogni numero vive dentro il suo riquadro invece che appoggiato sul
+        # fondo della barra: cosi' si legge come una scheda, non come una
+        # riga di didascalie
+        kpi = [
+            (250, 158, "LIQUIDITA'", T.fmt_money(team.cash),
+             T.OK if team.cash > 5 else T.BAD),
+            (424, 178, "BUDGET CAP", f"{spent:.1f} / {limit:.0f} M$",
+             T.BAD if frac > 1.0 else (T.WARN if frac > 0.85 else T.TEXT)),
+            (618, 158, "COSTRUTTORI", f"{pos}o  -  {team.points:.0f} pt", T.TEXT),
+        ]
         if ev:
-            _kv(surf, 780, f"{ev['sigla']} {ev['conta']}", ev["titolo"], T.TEXT, maxw=280)
+            kpi.append((792, 296, f"{ev['sigla']} {ev['conta']}", ev["titolo"], T.TEXT))
         else:
-            _kv(surf, 780, "STAGIONE", "conclusa", T.WARN)
+            kpi.append((792, 160, "STAGIONE", "conclusa", T.WARN))
         drs = gs.drivers_of(team.id)
         # i piloti stanno in fondo alla barra, e in fondo vuol dire in fondo a
         # questa finestra: su uno schermo stretto a 1090 fissi finivano fuori
         if drs and w >= 1120:
             names = "  |  ".join(f"{d.last} {d.points:.0f}" for d in drs)
             largo = min(330, w - 1106)
-            _kv(surf, w - largo - 16, "PILOTI", names, T.TEXT, maxw=largo)
+            kpi.append((w - largo - 16, largo, "PILOTI", names, T.TEXT))
+        for x, tw, label, value, colour in kpi:
+            _kv(surf, x, tw, label, value, colour)
         pygame.draw.line(surf, T.LINE, (0, TOPBAR_H), (w, TOPBAR_H))
         pygame.draw.rect(surf, col, (0, TOPBAR_H - 2, w, 2))
 
@@ -392,6 +399,15 @@ class GameShell(Scene):
         super().draw(surf)
 
 
-def _kv(surf, x: int, label: str, value: str, colour=T.TEXT, maxw: int = 200) -> None:
-    T.text(surf, label, (x, 13), 11, T.DIM_2, bold=True)
-    T.text(surf, value, (x, 30), 17, colour, bold=True, maxw=maxw)
+def _kv(surf, x: int, w: int, label: str, value: str, colour=T.TEXT) -> None:
+    """Un numero della barra superiore, dentro la sua scheda.
+
+    Prima era una didascalia appoggiata sul fondo della barra: un riquadro
+    proprio lo separa dai suoi vicini anche quando i due valori sono lunghi
+    uguali, e il numero grande si legge da piu' lontano di prima.
+    """
+    r = pygame.Rect(x - 12, 10, w, TOPBAR_H - 20)
+    T.panel(surf, r, T.PANEL_3, radius=8, rilievo=False)
+    inner = w - 16
+    T.text(surf, label, (x, 17), 10, T.DIM_2, bold=True, mono=True, maxw=inner)
+    T.text(surf, value, (x, 33), 20, colour, bold=True, maxw=inner)
