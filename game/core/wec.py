@@ -52,6 +52,25 @@ def scheda(classe: str) -> dict:
     return dict(classi().get(classe, {}))
 
 
+def calendario() -> list:
+    """Le otto tappe del mondiale endurance, in ordine di mese.
+
+    E' un calendario vero - Qatar, Imola, Spa, Le Mans, San Paolo, Texas,
+    Fuji, Bahrain - non piu' "gara 1 di 8": serve per intrecciarlo con
+    quello di Formula 1 e Formula E ed avanzare la stagione per data, non
+    per campionato separato.
+    """
+    cal = list(corrente().get("calendario") or [])
+    cal.sort(key=lambda c: int(c.get("mese", 6)))
+    return cal
+
+
+def tappa(n: int) -> dict | None:
+    """La tappa che sta all'n-esimo posto del calendario, 1-based."""
+    cal = calendario()
+    return cal[n - 1] if 1 <= n <= len(cal) else None
+
+
 def cambio() -> float:
     """Da euro a milioni di dollari, come per la Formula E."""
     return 1.08
@@ -258,7 +277,6 @@ def chiudi(gs, team) -> str:
 # livello suo che si muove di anno in anno.
 DERIVA = 2.0
 RUMORE = 4.2               # una gara lunga e' meno lotteria di uno sprint
-LEMANS = 4                 # a che gara del calendario sta Le Mans
 
 
 def griglia_di(cl: str) -> dict:
@@ -315,7 +333,8 @@ def forza_equipaggio(gs, team) -> float:
 
 def nuovo_campionato(gs) -> dict:
     """Apre la stagione endurance: le due classi, il calendario, la classifica."""
-    st = {"stagione": gs.season, "round": 0, "classi": {}}
+    st = {"stagione": gs.season, "round": 0, "classi": {},
+          "calendario": [c["id"] for c in calendario()], "storia": []}
     nostre = [t for t in gs.teams.values() if ha(t)]
     for cl in classi():
         g = dict(stato_griglia(gs, cl))
@@ -345,6 +364,17 @@ def stato(gs) -> dict:
     return st
 
 
+def prossima(gs) -> dict | None:
+    """La prossima tappa del calendario, o None se la stagione e' finita."""
+    st = stato(gs)
+    i = int(st.get("round", 0))
+    cal = st.get("calendario") or []
+    if i >= len(cal):
+        return None
+    tappe = {c["id"]: c for c in calendario()}
+    return tappe.get(cal[i])
+
+
 def corri_gara(gs, n: int) -> None:
     """Una gara del mondiale, in tutte e due le classi.
 
@@ -355,11 +385,19 @@ def corri_gara(gs, n: int) -> None:
     tante.
     """
     st = stato(gs)
+    t = tappa(n)
+    id_tappa = t.get("id", "") if t else ""
+    durata = float(t.get("durata_h", 6)) if t else 6.0
     punti = corrente().get("punti", {}) or {}
-    endurance = n in (LEMANS, 3, 7)
+    lunghe = set(punti.get("gare_endurance") or ["lemans", "bahrain", "qatar"])
+    endurance = id_tappa in lunghe
     tabella = list(punti.get("endurance" if endurance else "gara")
                    or [25, 18, 15, 12, 10, 8, 6, 4, 2, 1])
-    lunga = 3.0 if n == LEMANS else (1.5 if endurance else 1.0)
+    # il rischio di fermarsi si paga in proporzione a quanto dura la gara:
+    # ventiquattro ore mettono alla prova l'affidabilita' quattro volte di
+    # piu' di una sei ore, non semplicemente "un po' di piu'"
+    lunga = max(1.0, durata / 6.0)
+    vincitori = {}
     for cl, dati in st["classi"].items():
         campo = dati["campo"]
         vivi = []
@@ -377,12 +415,42 @@ def corri_gara(gs, n: int) -> None:
                 dati["punti"][c["id"]] += tabella[i]
             if i == 0:
                 dati["vittorie"][c["id"]] += 1
-                if n == LEMANS:
+                if id_tappa == "lemans":
                     dati["lemans"] = c["id"]
         quali = sorted(campo, key=lambda c: -(c["forza"] + gs.rng.gauss(0.0, 3.0)))
         if quali:
             dati["punti"][quali[0]["id"]] += float(punti.get("pole", 1))
+        if ordine:
+            vincitori[cl] = ordine[0]["nome"]
     st["round"] = max(st.get("round", 0), n)
+    st.setdefault("storia", []).append(
+        {"round": n, "tappa": id_tappa, "vincitori": vincitori})
+
+
+def avanza(gs) -> str:
+    """Corre la prossima tappa del calendario, una sola, e la racconta.
+
+    E' la stessa `corri_gara` di sempre, un passo alla volta invece che tutte
+    insieme a dicembre: serve al calendario intrecciato con Formula 1 e
+    Formula E, che vuole vedere ogni tappa quando tocca a lei, non un
+    fascicolo a fine anno. Lo sviluppo dei programmi cresce con lo stesso
+    passo di sempre, gara per gara.
+    """
+    st = stato(gs)
+    i = int(st.get("round", 0))
+    cal = st.get("calendario") or []
+    if i >= len(cal):
+        return ""
+    t = tappa(i + 1)
+    corri_gara(gs, i + 1)
+    for team in gs.teams.values():
+        if ha(team):
+            sviluppa_gara(gs, team)
+    vincitori = (st["storia"][-1] if st.get("storia") else {}).get("vincitori", {})
+    nome = t.get("nome", f"tappa {i + 1}") if t else f"tappa {i + 1}"
+    righe = [f"{scheda(cl).get('nome', cl)}: vince {nome_v}"
+             for cl, nome_v in vincitori.items()]
+    return f"{nome}. " + "; ".join(righe) if righe else nome
 
 
 def classifica(gs, cl: str) -> list:

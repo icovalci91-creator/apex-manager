@@ -852,16 +852,20 @@ def piloti(gs, team) -> list:
 
 
 def calendario(gs) -> list:
-    """I circuiti su cui si corre questa stagione.
+    """I circuiti su cui si corre questa stagione, in ordine di mese.
 
     Quelli veri ci sono da sempre; quelli inventati entrano dalla stagione
     scritta nei dati. Non e' colore: un campionato che corre sempre negli
     stessi tredici posti per vent'anni non somiglia a niente, e la Formula E
-    in particolare cambia meta' calendario ogni due anni.
+    in particolare cambia meta' calendario ogni due anni. E l'ordine e' quello
+    dei mesi veri, non quello scritto nei dati: serve per intrecciarlo con
+    quello di Formula 1 e di Endurance.
     """
     piste = list(getattr(gs, "fe_tracks", []) or [])
     debutti = getattr(gs, "fe_debutti", {}) or {}
-    return [t for t in piste if int(debutti.get(t.id, 0) or 0) <= gs.season]
+    piste = [t for t in piste if int(debutti.get(t.id, 0) or 0) <= gs.season]
+    piste.sort(key=lambda t: getattr(t, "month", 6))
+    return piste
 
 
 # ------------------------------------------------------------ il campionato

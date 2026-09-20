@@ -6,6 +6,24 @@
     "etichetta": "Mondiale Endurance - era Hypercar",
     "gare": 8,
     "_calendario_nota": "Otto gare, e una vale piu' di tutte: la Ventiquattro Ore di Le Mans. Nel mondo vero c'e' chi fa tutta la stagione per quella, e chi si iscrive solo a quella.",
+    "calendario": [
+      {"id": "qatar", "nome": "Qatar 1812 km", "circuito": "Losail International Circuit",
+       "mese": 2, "durata_h": 10, "bandiera": "QA"},
+      {"id": "imola", "nome": "6 Ore di Imola", "circuito": "Autodromo Enzo e Dino Ferrari",
+       "mese": 4, "durata_h": 6, "bandiera": "IT"},
+      {"id": "spa", "nome": "6 Ore di Spa-Francorchamps", "circuito": "Circuit de Spa-Francorchamps",
+       "mese": 5, "durata_h": 6, "bandiera": "BE"},
+      {"id": "lemans", "nome": "24 Ore di Le Mans", "circuito": "Circuit de la Sarthe",
+       "mese": 6, "durata_h": 24, "bandiera": "FR"},
+      {"id": "saopaulo", "nome": "6 Ore di San Paolo", "circuito": "Autodromo Jose Carlos Pace",
+       "mese": 7, "durata_h": 6, "bandiera": "BR"},
+      {"id": "cota", "nome": "6 Ore del Texas", "circuito": "Circuit of the Americas",
+       "mese": 9, "durata_h": 6, "bandiera": "US"},
+      {"id": "fuji", "nome": "6 Ore del Fuji", "circuito": "Fuji Speedway",
+       "mese": 9, "durata_h": 6, "bandiera": "JP"},
+      {"id": "bahrain", "nome": "8 Ore del Bahrain", "circuito": "Bahrain International Circuit",
+       "mese": 11, "durata_h": 8, "bandiera": "BH"}
+    ],
     "classi": {
       "hypercar": {
         "nome": "Hypercar",

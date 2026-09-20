@@ -504,6 +504,48 @@ def end_season(gs) -> dict:
     return report
 
 
+# --------------------------------------------------------- il calendario unico
+# Tre campionati, tre calendari veri, un solo modo di avanzare: quello che
+# viene prima per mese. La Formula 1 c'e' sempre - e' la stagione del
+# giocatore, punto e basta - Formula E ed Endurance entrano in fila solo se
+# il giocatore ci ha aperto un programma. Se non ce l'ha, quei campionati
+# girano lo stesso in sottofondo (li chiude il conguaglio di fine stagione),
+# ma non sono il suo calendario, e non ha senso fargliene vedere ogni tappa.
+ORDINE_SERIE = {"f1": 0, "fe": 1, "wec": 2}
+
+
+def prossimo_evento(gs) -> dict | None:
+    """Il prossimo evento del calendario intrecciato, o None a stagione finita.
+
+    Ritorna {"serie": "f1"|"fe"|"wec", "mese": int, "pista": ...}: `pista` e'
+    l'oggetto Track per F1 ed E-Prix, il dizionario della tappa per
+    l'endurance. A parita' di mese vince la Formula 1, poi la Formula E, poi
+    l'Endurance: un ordine fisso, non arbitrario a ogni chiamata, perche' i
+    dati con cui si sceglie non cambiano finche' non si corre qualcosa.
+    """
+    from . import formulae, wec
+    candidati = []
+    if gs.phase != "offseason" and gs.round < len(gs.tracks):
+        pista = gs.tracks[gs.round]
+        candidati.append({"serie": "f1", "mese": getattr(pista, "month", 6),
+                          "pista": pista})
+    team = gs.player
+    if formulae.ha(team):
+        pista, formato = formulae.prossima(gs, team)
+        if pista is not None:
+            candidati.append({"serie": "fe", "mese": getattr(pista, "month", 6),
+                              "pista": pista, "formato": formato})
+    if wec.ha(team):
+        tappa = wec.prossima(gs)
+        if tappa is not None:
+            candidati.append({"serie": "wec", "mese": int(tappa.get("mese", 6)),
+                              "pista": tappa})
+    if not candidati:
+        return None
+    candidati.sort(key=lambda c: (c["mese"], ORDINE_SERIE[c["serie"]]))
+    return candidati[0]
+
+
 def _nome_ciclo(gs, ciclo: dict) -> str:
     aree = ciclo.get("areas", {})
     dom = max(aree, key=aree.get) if aree else "chassis"

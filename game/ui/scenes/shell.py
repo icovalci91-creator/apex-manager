@@ -194,7 +194,7 @@ class GameShell(Scene):
             self.nav_buttons.append(b)
             self.widgets.append(b)
             y += passo
-        self.race_btn = Button((12, race_y, NAV_W - 24, 48), "WEEKEND DI GARA",
+        self.race_btn = Button((12, race_y, NAV_W - 24, 48), "PROSSIMO EVENTO",
                                self.goto_weekend, "primary")
         self.widgets.append(self.race_btn)
         if editor:
@@ -224,10 +224,24 @@ class GameShell(Scene):
         self.pages[pid].refresh()
 
     def goto_weekend(self) -> None:
+        from ...core import season as SEASON
         gs = self.app.gs
-        if gs.phase == "offseason" or gs.round >= len(gs.tracks):
+        evento = SEASON.prossimo_evento(gs)
+        if evento is None:
             from .offseason import OffseasonScene
             self.app.push(OffseasonScene(self.app))
+            return
+        serie = evento["serie"]
+        if serie == "fe":
+            from .eprix import EPrixScene
+            self.app.push(EPrixScene(self.app, evento["pista"], evento["formato"]))
+            return
+        if serie == "wec":
+            # niente scena: l'endurance non si guida, e otto tappe l'anno si
+            # possono raccontare con un messaggio invece che con un weekend
+            from ...core import wec as WEC
+            self.app.toast(WEC.avanza(gs))
+            self.enter()
             return
         from .weekend import WeekendScene
         # se il weekend e' gia' cominciato si riprende quello: uscire a
@@ -259,12 +273,18 @@ class GameShell(Scene):
 
     # ------------------------------------------------------------------- loop
     def enter(self) -> None:
+        from ...core import season as SEASON
         gs = self.app.gs
-        if gs.phase == "offseason" or gs.round >= len(gs.tracks):
+        evento = SEASON.prossimo_evento(gs)
+        if evento is None:
             self.race_btn.label = "FINE STAGIONE"
+        elif evento["serie"] == "f1":
+            t = evento["pista"]
+            self.race_btn.label = f"GARA {gs.round + 1}: {t.flag}"
+        elif evento["serie"] == "fe":
+            self.race_btn.label = f"E-PRIX: {evento['pista'].flag}"
         else:
-            t = gs.next_track
-            self.race_btn.label = f"GARA {gs.round + 1}: {t.flag}" if t else "WEEKEND"
+            self.race_btn.label = f"ENDURANCE: {evento['pista'].get('bandiera', '')}"
         self.pages[self.page_id].refresh()
 
     def handle(self, ev) -> None:
