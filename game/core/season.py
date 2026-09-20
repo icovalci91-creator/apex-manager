@@ -546,6 +546,50 @@ def prossimo_evento(gs) -> dict | None:
     return candidati[0]
 
 
+MESI = ["", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+
+
+def evento_display(gs) -> dict | None:
+    """Il prossimo evento, gia' impacchettato per mostrarlo, o None a fine anno.
+
+    E' la stessa scelta di `prossimo_evento`, ma pronta da disegnare: sigla
+    del campionato, titolo, sede, bandiera, mese e a che punto del calendario
+    siamo. Serve perche' la barra in alto, la scheda del quartier generale e
+    il pulsante dicano tutti la stessa cosa - il prossimo appuntamento e' uno
+    solo, qualunque campionato sia, e non ha senso che una parte dello schermo
+    guardi la Formula 1 mentre l'altra guarda l'endurance.
+
+    `pista` e' l'oggetto Track per Formula 1 ed E-Prix (ha il tracciato da
+    disegnare); per l'endurance e' None e i dati stanno in `tappa`.
+    """
+    ev = prossimo_evento(gs)
+    if ev is None:
+        return None
+    p = ev["pista"]
+    mese = MESI[ev["mese"]] if 1 <= ev["mese"] <= 12 else ""
+    if ev["serie"] == "wec":
+        from . import wec
+        st = wec.stato(gs)
+        tot = len(st.get("calendario") or []) or len(wec.calendario())
+        return {"serie": "wec", "sigla": "ENDURANCE", "titolo": p.get("nome", ""),
+                "sede": p.get("circuito", ""), "flag": p.get("bandiera", ""),
+                "mese": ev["mese"], "mese_nome": mese,
+                "conta": f"{int(st.get('round', 0)) + 1}/{tot}",
+                "pista": None, "tappa": p}
+    if ev["serie"] == "fe":
+        from . import formulae
+        st = formulae.stato(gs, gs.player)
+        tot = len(st.get("calendario") or []) or len(formulae.calendario(gs))
+        return {"serie": "fe", "sigla": "E-PRIX", "titolo": p.gp, "sede": p.name,
+                "flag": p.flag, "mese": ev["mese"], "mese_nome": mese,
+                "conta": f"{int(st.get('round', 0)) + 1}/{tot}",
+                "pista": p, "tappa": None}
+    return {"serie": "f1", "sigla": "F1", "titolo": p.gp, "sede": p.name,
+            "flag": p.flag, "mese": ev["mese"], "mese_nome": mese,
+            "conta": f"{gs.round + 1}/{len(gs.tracks)}", "pista": p, "tappa": None}
+
+
 def _nome_ciclo(gs, ciclo: dict) -> str:
     aree = ciclo.get("areas", {})
     dom = max(aree, key=aree.get) if aree else "chassis"

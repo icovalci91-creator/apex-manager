@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from ... import storage
-from ...core import economy
+from ...core import economy, season as SEASON
 from .. import theme as T
 from ..app import Scene
 from ..widgets import Button
@@ -224,7 +224,6 @@ class GameShell(Scene):
         self.pages[pid].refresh()
 
     def goto_weekend(self) -> None:
-        from ...core import season as SEASON
         gs = self.app.gs
         evento = SEASON.prossimo_evento(gs)
         if evento is None:
@@ -273,18 +272,11 @@ class GameShell(Scene):
 
     # ------------------------------------------------------------------- loop
     def enter(self) -> None:
-        from ...core import season as SEASON
-        gs = self.app.gs
-        evento = SEASON.prossimo_evento(gs)
-        if evento is None:
+        ev = SEASON.evento_display(self.app.gs)
+        if ev is None:
             self.race_btn.label = "FINE STAGIONE"
-        elif evento["serie"] == "f1":
-            t = evento["pista"]
-            self.race_btn.label = f"GARA {gs.round + 1}: {t.flag}"
-        elif evento["serie"] == "fe":
-            self.race_btn.label = f"E-PRIX: {evento['pista'].flag}"
         else:
-            self.race_btn.label = f"ENDURANCE: {evento['pista'].get('bandiera', '')}"
+            self.race_btn.label = f"{ev['sigla']}: {ev['flag']}"
         self.pages[self.page_id].refresh()
 
     def handle(self, ev) -> None:
@@ -325,9 +317,9 @@ class GameShell(Scene):
             T.BAD if frac > 1.0 else (T.WARN if frac > 0.85 else T.TEXT))
         pos = gs.position_of(team.id)
         _kv(surf, 610, "COSTRUTTORI", f"{pos}o  -  {team.points:.0f} pt", T.TEXT)
-        nt = gs.next_track
-        if nt:
-            _kv(surf, 780, f"GARA {gs.round + 1}/{len(gs.tracks)}", nt.name, T.TEXT, maxw=280)
+        ev = SEASON.evento_display(gs)
+        if ev:
+            _kv(surf, 780, f"{ev['sigla']} {ev['conta']}", ev["titolo"], T.TEXT, maxw=280)
         else:
             _kv(surf, 780, "STAGIONE", "conclusa", T.WARN)
         drs = gs.drivers_of(team.id)

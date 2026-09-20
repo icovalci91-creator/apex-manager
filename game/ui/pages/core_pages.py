@@ -6,7 +6,7 @@ import pygame
 from ... import config as C
 from ...model import people as PEOPLE
 from ...core import (development, driving, economy, engineering, kits, nextcar,
-                      penalties, powertrain, rules)
+                      penalties, powertrain, rules, season as SEASON)
 from ...core import setup as SETUP
 from ...model.car import SETUP_KEYS
 from ...sim import session as S
@@ -67,20 +67,27 @@ class HQPage(Page):
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Budget cap",
              f"{frac*100:.0f}%", f"{spent:.1f} di {limit:.0f} M$",
              colour=T.BAD if frac > 1 else T.TEXT, accent=T.WARN)
-        nt = gs.next_track
+        # il prossimo appuntamento e' quello del calendario intrecciato - puo'
+        # essere un Gran Premio, un E-Prix o una tappa endurance - non piu'
+        # solo la Formula 1: cosi' la scheda dice la stessa cosa del pulsante
+        ev = SEASON.evento_display(gs)
         card(surf, (r.x + 3 * (cw + 16), r.y, cw, 86), "Prossimo appuntamento",
-             nt.name if nt else "-", nt.gp if nt else "stagione conclusa", accent=T.ACCENT)
+             ev["sede"] if ev else "-",
+             ev["titolo"] if ev else "stagione conclusa", accent=T.ACCENT)
 
         # prossima gara con tracciato
         left = pygame.Rect(r.x, r.y + 92, r.w * 0.33, r.h - 100)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "PROSSIMA GARA", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
-        if nt:
+        testa = f"PROSSIMA GARA - {ev['sigla']}" if ev else "PROSSIMA GARA"
+        T.text(surf, testa, (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
+        if ev and ev["pista"] is not None:
+            nt = ev["pista"]
             T.text(surf, nt.gp, (left.x + 16, left.y + 30), 18, T.TEXT, bold=True, maxw=left.w - 32)
             trackdraw.draw_track(surf, nt, (left.x + 10, left.y + 58, left.w - 20, left.h * 0.42),
                                  width=7, colour=(58, 70, 92))
             y = left.y + 58 + left.h * 0.42 + 10
-            info = [("Lunghezza", f"{nt.length_km:.3f} km"), ("Giri", str(nt.laps)),
+            info = [("Mese", ev["mese_nome"].capitalize()),
+                    ("Lunghezza", f"{nt.length_km:.3f} km"), ("Giri", str(nt.laps)),
                     ("Curve", str(nt.corners)), ("Perdita ai box", f"{nt.pit_loss:.1f} s"),
                     ("Sprint", "si" if nt.sprint else "no")]
             for k, v in info:
@@ -93,6 +100,25 @@ class HQPage(Page):
                 T.text(surf, lab, (left.x + 16, y), 12, T.DIM)
                 T.bar(surf, (left.x + 100, y + 3, left.w - 130, 7), nt.traits[k] * 100)
                 y += 18
+        elif ev:
+            # l'endurance non ha un tracciato da disegnare: si mostra la tappa
+            tp = ev["tappa"]
+            T.text(surf, ev["titolo"], (left.x + 16, left.y + 30), 18, T.TEXT, bold=True,
+                   maxw=left.w - 32)
+            y = left.y + 64
+            info = [("Circuito", tp.get("circuito", "")),
+                    ("Mese", ev["mese_nome"].capitalize()),
+                    ("Durata", f"{int(tp.get('durata_h', 6))} ore"),
+                    ("Tappa", ev["conta"])]
+            for k, v in info:
+                T.text(surf, k, (left.x + 16, y), 13, T.DIM)
+                T.text(surf, v, (left.right - 16, y), 13, T.TEXT, bold=True, align="right",
+                       maxw=left.w - 130)
+                y += 22
+            y += 8
+            T.paragraph(surf, "L'endurance non si guida dal muretto: la tappa si corre "
+                              "dal pulsante e conta nella stessa classifica.",
+                        (left.x + 16, y), 12, T.DIM_2, left.w - 32)
 
         # piloti e reparti
         mid = pygame.Rect(r.x + r.w * 0.34, r.y + 92, r.w * 0.32, r.h - 100)
