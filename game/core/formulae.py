@@ -513,7 +513,9 @@ def apri(gs, team, nome: str, costruttore: bool = False) -> str:
                      in_cap=False, category="formulae")
     team.fe_nome = nome
     team.fe_ingegneri = max(INGEGNERI_MIN, ingegneri(team))
-    team.fe_dev_budget = round(dev_budget_massimo(gs, team) * 0.3, 2)
+    # il budget sviluppo parte da zero: e' facoltativo, e competere con gli
+    # ingegneri per lo stesso tetto va scelto, non trovato gia' impostato
+    team.fe_dev_budget = 0.0
     team.fe_costruttore = bool(costruttore)
     team.fe_livello = MURO_MIN + 8.0
     team.fe_posizione = 0
@@ -1511,6 +1513,7 @@ def ai_programmi(gs) -> list:
         nome = f"{team.short} Formula E"
         apri(gs, team, nome, costruttore)
         team.fe_ingegneri = INGEGNERI_MIN + INGEGNERI_PASSO
+        team.fe_dev_budget = round(dev_budget_massimo(gs, team) * 0.3, 2)
         righe.append(f"{team.name} entra nel mondiale di Formula E.")
     return righe
 

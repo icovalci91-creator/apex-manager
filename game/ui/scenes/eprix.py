@@ -383,10 +383,16 @@ class EPrixScene(Scene):
         self.applicato = True
         sim = self.sim
         ordine = sim.order()
+        # il distacco si legge dal tempo del primo classificato: chi e'
+        # ritirato non ne ha uno, chi ha vinto parte da zero
+        vincitore = next((e for e in ordine if e.status == "finished"), None)
+        base = vincitore.finished_time if vincitore is not None else 0.0
         self.result_rows = [
             {"pos": i, "code": e.code, "name": e.name, "squadra": e.squadra,
              "status": e.status, "energia": e.carica(), "attack": e.attack_usi,
-             "boost": e.boost_fatto}
+             "boost": e.boost_fatto,
+             "distacco": (e.finished_time - base) if e.status == "finished" else None,
+             "tempo": e.finished_time if e.status == "finished" else None}
             for i, e in enumerate(ordine, 1)]
         # chi ha fatto la pole e chi il giro veloce: sono punti iridati anche
         # quelli, e vanno segnati come in una gara simulata
@@ -529,9 +535,10 @@ class EPrixScene(Scene):
         y = r.y + 16
         T.text(surf, "POS  PILOTA", (r.x + 18, y), 11, T.DIM_2, bold=True)
         T.text(surf, "SQUADRA", (r.x + 240, y), 11, T.DIM_2, bold=True)
-        T.text(surf, "ENERGIA", (r.x + 560, y), 11, T.DIM_2, bold=True)
-        T.text(surf, "ATTACK", (r.x + 650, y), 11, T.DIM_2, bold=True)
-        T.text(surf, "BOOST", (r.x + 730, y), 11, T.DIM_2, bold=True)
+        T.text(surf, "DISTACCO", (r.x + 540, y), 11, T.DIM_2, bold=True, align="right")
+        T.text(surf, "ENERGIA", (r.x + 620, y), 11, T.DIM_2, bold=True)
+        T.text(surf, "ATTACK", (r.x + 710, y), 11, T.DIM_2, bold=True)
+        T.text(surf, "BOOST", (r.x + 790, y), 11, T.DIM_2, bold=True)
         y += 22
         rh = max(16, min(26, (r.h - 60) / max(1, len(self.result_rows))))
         for riga in self.result_rows:
@@ -542,11 +549,17 @@ class EPrixScene(Scene):
             T.text(surf, riga["name"], (r.x + 56, y), 13, col, bold=mio, maxw=170)
             T.text(surf, riga["squadra"], (r.x + 240, y), 12, col, maxw=300)
             if riga["status"] == "retired":
-                T.text(surf, "RITIRATO", (r.x + 560, y), 12, T.BAD)
+                T.text(surf, "RITIRATO", (r.x + 540, y), 12, T.BAD, align="right")
+            elif riga["pos"] == 1:
+                T.text(surf, _orologio(riga["tempo"]), (r.x + 540, y), 12, T.GOLD,
+                       mono=True, align="right", bold=mio)
             else:
-                T.text(surf, f"{riga['energia'] * 100:.0f}%", (r.x + 560, y), 12, col)
-                T.text(surf, str(riga["attack"]), (r.x + 660, y), 12, col)
-                T.text(surf, "si" if riga["boost"] else "NO", (r.x + 740, y), 12,
+                T.text(surf, f"+{riga['distacco']:.1f}s", (r.x + 540, y), 12, col,
+                       mono=True, align="right")
+            if riga["status"] != "retired":
+                T.text(surf, f"{riga['energia'] * 100:.0f}%", (r.x + 620, y), 12, col)
+                T.text(surf, str(riga["attack"]), (r.x + 720, y), 12, col)
+                T.text(surf, "si" if riga["boost"] else "NO", (r.x + 800, y), 12,
                        col if riga["boost"] else T.BAD)
             y += rh
 
