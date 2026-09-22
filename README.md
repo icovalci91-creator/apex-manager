@@ -29,6 +29,21 @@ fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il m
 sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
 il quale i pannelli non starebbero piu' in piedi.
 
+## Vista 3D delle sessioni
+
+Su PC le prove, le qualifiche e la gara si guardano anche in 3D, con due riprese:
+**ELICOTTERO** (tutto il circuito dall'alto; si trascina per girarlo e la rotellina
+avvicina) e **SEGUI** (da dietro a una macchina; un clic su un pilota del tabellone
+sceglie chi). I pulsanti stanno in alto a sinistra sulla mappa, insieme a **2D** per
+tornare alla mappa di sempre.
+
+Il tracciato, i dislivelli e la corsia box vengono dagli stessi dati della mappa 2D;
+l'ambiente attorno (bosco, parco, citta', deserto, dune) cambia da circuito a circuito,
+e le gare in notturna hanno i fari. Le macchine restano sagome 2D appoggiate sull'asfalto.
+
+Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
+c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
+
 ## Eseguibile per Windows
 
 Chi deve solo giocare non installa Python: scarica **ApexManager.exe**, lo mette dove vuole

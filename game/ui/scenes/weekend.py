@@ -13,7 +13,7 @@ from ...sim import pace as PACE
 from ...sim import benzina
 from ...sim import muretto as MU
 from .. import theme as T
-from .. import bandiere, trackdraw
+from .. import bandiere, trackdraw, vista3d
 from ..app import Scene
 from ..widgets import Button
 
@@ -55,6 +55,13 @@ class WeekendScene(Scene):
         self.sprint_notes = []
         self.pts = None
         self.pts_rect = None
+        # la pista in 3D: si carica sulla scheda video la prima volta che serve
+        self.v3d = None
+        self.segui_id = ""          # chi segue la ripresa da dietro ("" = la nostra)
+        self._trascina = None
+        self._mappa = None          # dove sta la mappa, per il mouse
+        self._torre = None          # le righe del tabellone, per sceglierci chi seguire
+        self._dt = 1 / 60
         self.applied = False
         # il foglio strategia: aperto sopra alla gara, e di chi si sta guardando
         self.piano_aperto = False
@@ -73,6 +80,8 @@ class WeekendScene(Scene):
         self.widgets = []
         self.pts = None
         self.pts_rect = None
+        self._torre = None
+        self._mappa = None
         if self.stage == "gomme":
             self._build_tyres(w, h)
         elif self.turno is not None:
@@ -235,6 +244,7 @@ class WeekendScene(Scene):
             # sopra alla gara, non una finestra da cui sfuggono i click
             self._build_piano(w, h)
             return
+        self._comandi_vista(self._race_rects(w, h)[0])
         # i comandi dell'energia stanno dentro al pannello della vettura, che
         # e' dove si guardano i megajoule: non in fondo insieme a tutto il resto
         from ...sim import energia as EN
@@ -716,6 +726,9 @@ class WeekendScene(Scene):
 
     # ------------------------------------------------------------------- loop
     def update(self, dt: float) -> None:
+        self._dt = dt
+        if self.v3d is not None:
+            self.v3d.aggiorna(dt)
         if self.turno and not self.turno.finita:
             mult = SPEEDS[self.speed_idx]
             if mult:
@@ -1216,31 +1229,34 @@ class WeekendScene(Scene):
     ALTEZZA_DUE_RIGHE = 700
     CRONACA_H = 62
 
+    def _race_rects(self, w: int, h: int) -> tuple:
+        """Dove stanno la mappa e la cronaca durante la gara.
+
+        La mappa si prende tutta l'altezza fino alla barra dei comandi, e la
+        cronaca le sta di fianco invece che sotto: un circuito e' quasi
+        quadrato, e un pannello largo e schiacciato lo disegnava in un angolo.
+        Su una finestra stretta la colonna non ci sta e la cronaca torna una
+        striscia sotto, che e' meglio di due pannelli inservibili.
+        """
+        tower_w = max(336, min(460, int(w * 0.30)))
+        barra_y = h - 84 - self.barra_h(h)
+        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
+        cronaca_w = int(min(300, max(0, vista.w * 0.34)))
+        if cronaca_w >= 190:
+            return (pygame.Rect(vista.x, vista.y, vista.w - cronaca_w - 8, vista.h),
+                    pygame.Rect(vista.right - cronaca_w, vista.y, cronaca_w, vista.h))
+        alta = vista.h - self.CRONACA_H - 8
+        return (pygame.Rect(vista.x, vista.y, vista.w, alta),
+                pygame.Rect(vista.x, vista.y + alta + 8, vista.w, self.CRONACA_H))
+
     def _draw_race(self, surf) -> None:
         w, h = surf.get_size()
         tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
         barra_y = h - 84 - self.barra_h(h)
-        # La mappa si prende tutta l'altezza fino alla barra dei comandi, e la
-        # cronaca le sta di fianco invece che sotto. Prima erano un pannello
-        # largo e schiacciato - due volte e mezza piu' largo che alto, mentre
-        # un circuito e' quasi quadrato - con sotto una striscia da sessanta
-        # pixel in cui stavano tre righe. Cosi' il disegno ha una forma che gli
-        # somiglia e la cronaca diventa una colonna che si legge davvero.
-        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
-        cronaca_w = int(min(300, max(0, vista.w * 0.34)))
-        if cronaca_w >= 190:
-            self._race_map(surf, pygame.Rect(vista.x, vista.y,
-                                             vista.w - cronaca_w - 8, vista.h))
-            self._race_events(surf, pygame.Rect(vista.right - cronaca_w, vista.y,
-                                                cronaca_w, vista.h))
-        else:
-            # su una finestra stretta la colonna non ci sta: si torna alla
-            # striscia sotto, che e' meglio di due pannelli inservibili
-            alta = vista.h - self.CRONACA_H - 8
-            self._race_map(surf, pygame.Rect(vista.x, vista.y, vista.w, alta))
-            self._race_events(surf, pygame.Rect(vista.x, vista.y + alta + 8,
-                                                vista.w, self.CRONACA_H))
+        mappa, cronaca = self._race_rects(w, h)
+        self._race_map(surf, mappa)
+        self._race_events(surf, cronaca)
         self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
         self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.barra_h(h)))
         if self.piano_aperto:
@@ -1306,9 +1322,170 @@ class WeekendScene(Scene):
             T.panel(surf, (w // 2 - 110, 12, 220, 34), (120, 96, 20), radius=6)
             T.text(surf, lab, (w // 2, 20), 16, (255, 235, 120), bold=True, align="center")
 
+    # ------------------------------------------------------------ la pista 3D
+    def _modo_vista(self) -> str:
+        """2d, elicottero o segui. La scelta resta per tutta la partita."""
+        modo = getattr(self.app, "vista_gara", None)
+        if modo is None:
+            modo = "elicottero" if vista3d.disponibile() else "2d"
+        return modo if (modo == "2d" or vista3d.disponibile()) else "2d"
+
+    def _in_3d(self) -> bool:
+        return self._modo_vista() != "2d" and vista3d.disponibile()
+
+    def set_vista(self, modo: str) -> None:
+        self.app.vista_gara = modo
+        self.build()
+
+    def _comandi_vista(self, mappa) -> None:
+        """Le tre riprese, in alto a sinistra sulla mappa. Senza OpenGL non
+        ci sono: resta la mappa 2D e basta."""
+        if not vista3d.disponibile():
+            return
+        modo = self._modo_vista()
+        x = mappa.x + 10
+        for chiave, lab, largo in (("2d", "2D", 44), ("elicottero", "ELICOTTERO", 104),
+                                   ("segui", "SEGUI", 72)):
+            b = Button((x, mappa.y + 10, largo, 26), lab, style="tab",
+                       tip={"2d": "La mappa vista da sopra",
+                            "elicottero": "Trascina per girare, rotella per avvicinarti",
+                            "segui": "Da dietro a una macchina: scegli chi dal tabellone"}[chiave])
+            b.on_click = (lambda m=chiave: self.set_vista(m))
+            b.active = (modo == chiave)
+            self.widgets.append(b)
+            x += largo + 6
+
+    def _chi_seguire(self, ids: list, base) -> int:
+        """L'indice, fra le macchine in pista, di quella da seguire."""
+        if self.segui_id in ids:
+            return ids.index(self.segui_id)
+        chi = getattr(base, "driver_id", None)
+        return ids.index(chi) if chi in ids else (0 if ids else -1)
+
+    def _mappa_3d(self, surf, vista, auto: list, seguita: int, codici: list,
+                  etichette: list) -> bool:
+        """Disegna la pista in 3D nel riquadro. False se la scheda video non
+        ce la fa: chi chiama torna alla mappa 2D."""
+        modo = self._modo_vista()
+        try:
+            if self.v3d is None or self.v3d.geo.track is not self.track:
+                self.v3d = vista3d.Vista3D(self.track)
+            meteo = self.sim.weather if self.sim else (self.turno.weather if self.turno else None)
+            self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
+            img = self.v3d.disegna(vista.size, auto, modo, seguita, self._dt)
+        except Exception as exc:          # driver, memoria: la scheda video dice di no
+            vista3d.spegni()
+            self.v3d = None
+            self.app.toast(f"Vista 3D non disponibile ({type(exc).__name__}): torno alla mappa")
+            self.build()
+            return False
+        self._mappa = pygame.Rect(vista)
+        # gli angoli tondi come gli altri pannelli: si ritaglia l'immagine
+        maschera = getattr(self, "_maschera", None)
+        if maschera is None or maschera.get_size() != vista.size:
+            maschera = pygame.Surface(vista.size, pygame.SRCALPHA)
+            pygame.draw.rect(maschera, (255, 255, 255, 255), maschera.get_rect(), border_radius=10)
+            self._maschera = maschera
+        img = img.convert_alpha()
+        img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        surf.blit(img, vista.topleft)
+        pygame.draw.rect(surf, T.LINE, vista, 1, border_radius=10)
+        # le sigle sopra alle macchine, come la grafica della televisione
+        prima = surf.get_clip()
+        surf.set_clip(vista.clip(prima) if prima else vista)
+        self._etichette = []
+        for i in etichette:
+            # chi si sta seguendo ha gia' il nome nel cartello in basso, e da
+            # vicino la sigla gli finirebbe sopra
+            if modo == "segui" and i == seguita:
+                continue
+            f, lat, _c, mio = auto[i]
+            code = codici[i]
+            p = self.v3d.proietta(f, lat, 1.5)
+            if p is None:
+                continue
+            x, y = int(vista.x + p[0]), int(vista.y + p[1])
+            if not vista.collidepoint(x, y) or not self._spazio(x, y - 22):
+                continue
+            larga = T.width(code, 12, bold=True) + 10
+            T.panel(surf, (x - larga // 2, y - 30, larga, 18),
+                    (20, 26, 38) if not mio else T.squadra_viva(), radius=4, rilievo=False)
+            T.text(surf, code, (x, y - 29), 12, T.WHITE, bold=True, align="center")
+        surf.set_clip(prima)
+        if modo == "segui" and 0 <= seguita < len(auto):
+            testo = f"SEGUI {codici[seguita]}"
+            T.panel(surf, (vista.x + 10, vista.bottom - 36, 330, 26), (13, 17, 24), radius=6,
+                    rilievo=False)
+            T.text(surf, testo, (vista.x + 20, vista.bottom - 31), 12, T.TEXT, bold=True)
+            T.text(surf, "clic sul tabellone per cambiare", (vista.x + 110, vista.bottom - 30),
+                   11, T.DIM)
+        elif modo == "elicottero":
+            T.text(surf, "trascina per girare - rotella per lo zoom",
+                   (vista.right - 12, vista.bottom - 24), 11, (210, 220, 235), align="right")
+        return True
+
+    def handle(self, ev) -> None:
+        if self._mano_3d(ev):
+            return
+        super().handle(ev)
+
+    def _mano_3d(self, ev) -> bool:
+        """Il mouse sulla vista 3D: girare, avvicinarsi, scegliere chi seguire."""
+        if not (self._in_3d() and self.v3d is not None and self._mappa is not None):
+            return False
+        if self.piano_aperto:
+            return False
+        modo = self._modo_vista()
+        if ev.type == pygame.MOUSEWHEEL:
+            if self._mappa.collidepoint(pygame.mouse.get_pos()):
+                cam = self.v3d.segui if modo == "segui" else self.v3d.elicottero
+                cam.rotella(ev.y)
+                return True
+            return False
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            sopra_pulsante = any(w.rect.collidepoint(ev.pos) for w in self.widgets)
+            if modo == "elicottero" and self._mappa.collidepoint(ev.pos) and not sopra_pulsante:
+                self._trascina = ev.pos
+                return True
+            if self._torre and not sopra_pulsante:
+                torre, y0, rh, ids = self._torre
+                if torre.collidepoint(ev.pos) and ev.pos[1] >= y0:
+                    i = int((ev.pos[1] - y0) // rh)
+                    if 0 <= i < len(ids):
+                        self.segui_id = ids[i]
+                        if modo != "segui":
+                            self.set_vista("segui")
+                        return True
+            return False
+        if ev.type == pygame.MOUSEMOTION and self._trascina is not None:
+            dx, dy = ev.pos[0] - self._trascina[0], ev.pos[1] - self._trascina[1]
+            self._trascina = ev.pos
+            self.v3d.elicottero.trascina(dx, dy)
+            return True
+        if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1 and self._trascina is not None:
+            self._trascina = None
+            return True
+        return False
+
     # ------------------------------------------------------------ la pista 2D
     def _race_map(self, surf, vista) -> None:
         sim, gs = self.sim, self.gs
+        if self._in_3d():
+            auto, ids, codici, etichette = [], [], [], []
+            for e in sim.order():
+                if e.status == "retired":
+                    continue
+                frazione = self.track.pos_at(e.lap_fraction(sim.track_len))
+                mio = (e.team_id == gs.player_team)
+                col = T.mix(e.colour, (150, 150, 160), 0.6) if e.status == "pitting" else e.colour
+                auto.append((frazione, -2.2 if e.position % 2 == 0 else 2.2, col, mio))
+                ids.append(e.driver_id)
+                codici.append(e.code)
+                if mio or e.position <= 3:
+                    etichette.append(len(auto) - 1)
+            seguita = self._chi_seguire(ids, self._auto_seguita())
+            if self._mappa_3d(surf, vista, auto, seguita, codici, etichette):
+                return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
         if self.pts is None or self.pts_rect != tuple(vista):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
@@ -1434,6 +1611,7 @@ class WeekendScene(Scene):
         y = tower.y + 34
         leader = order[0] if order else None
         rh = min(26.0, (tower.h - 46) / max(1, len(order)))
+        self._torre = (tower, tower.y + 34, rh, [e.driver_id for e in order])
         dim = 14 if rh >= 21 else (13 if rh >= 17 else 12)
         pic = min(12, dim)
         for i, e in enumerate(order, 1):
@@ -1730,6 +1908,7 @@ class WeekendScene(Scene):
             self.widgets.append(b)
         self.widgets.append(Button((bx + 5 * 62 + 16, by, 210, 34),
                                    "Vai alla fine del turno", self.skip_turno, "ghost"))
+        self._comandi_vista(self._turno_rect(w, h))
 
     def skip_turno(self) -> None:
         if self.turno:
@@ -1756,7 +1935,7 @@ class WeekendScene(Scene):
         self._turno_header(surf, w)
         barra_y = h - 84 - self.BARRA_H
         cronaca_y = barra_y - self.CRONACA_H - 8
-        vista = pygame.Rect(20, 68, w - tower_w - 48, cronaca_y - 76)
+        vista = self._turno_rect(w, h)
         self._turno_map(surf, vista)
         self._turno_events(surf, pygame.Rect(20, cronaca_y, vista.w, self.CRONACA_H))
         self._turno_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
@@ -1790,8 +1969,32 @@ class WeekendScene(Scene):
         T.text(surf, f"PISTA GOMMATA AL {gomma * 100:.0f}%", (w - 24, 20), 11,
                T.stat_colour(gomma * 100, 25, 70), bold=True, align="right")
 
+    def _turno_rect(self, w: int, h: int):
+        tower_w = max(336, min(460, int(w * 0.30)))
+        cronaca_y = h - 84 - self.BARRA_H - self.CRONACA_H - 8
+        return pygame.Rect(20, 68, w - tower_w - 48, cronaca_y - 76)
+
     def _turno_map(self, surf, vista) -> None:
         t, gs = self.turno, self.gs
+        if self._in_3d():
+            fuori = [p for p in t.piste.values() if p.stato in ("uscita", "giro", "rientro")]
+            auto, ids, codici, etichette = [], [], [], []
+            for p in fuori:
+                mio = (p.e.team_id == gs.player_team)
+                auto.append((self.track.pos_at(p.quota), 0.0, p.e.colour, mio))
+                ids.append(p.e.driver_id)
+                codici.append(p.e.code)
+                if mio or p.stato == "giro":
+                    etichette.append(len(auto) - 1)
+            mie = [p.e for p in fuori if p.e.team_id == gs.player_team]
+            lanciati = [p.e for p in fuori if p.stato == "giro"]
+            base = (mie or lanciati or [p.e for p in fuori] or [None])[0]
+            seguita = self._chi_seguire(ids, base)
+            if self._mappa_3d(surf, vista, auto, seguita, codici, etichette):
+                if not fuori:
+                    T.text(surf, "NESSUNO IN PISTA", (vista.centerx, vista.bottom - 26), 12,
+                           T.TEXT, bold=True, align="center")
+                return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
         if self.pts is None or self.pts_rect != tuple(vista):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))

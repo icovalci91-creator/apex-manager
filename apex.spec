@@ -16,11 +16,17 @@ legge per sapere dove stanno. I salvataggi invece *non* finiscono li': quella
 cartella viene cancellata alla chiusura, quindi vanno in %APPDATA% - se ne
 occupa sempre config.py.
 
+**La vista 3D.** `moderngl` carica i suoi pezzi per il sistema operativo
+(`glcontext.wgl` su Windows) solo quando serve, e PyInstaller da solo non li
+vede: si elencano qui, se no l'eseguibile parte ma la gara resta in 2D.
+
 **Cosa resta fuori.** Le librerie che pygame si porta dietro per cose che
 questo gioco non fa - numpy, i test, tkinter - si escludono a mano: sono
 qualche decina di megabyte di roba che nessuno aprira' mai. `tools/` e gli
 screenshot non entrano affatto: servono a chi sviluppa, non a chi gioca.
 """
+
+from PyInstaller.utils.hooks import collect_submodules
 
 blocco = None
 
@@ -31,7 +37,7 @@ a = Analysis(
     # (da dove, dove finisce dentro al pacchetto): le due cartelle che il gioco
     # legge all'avvio, con la stessa struttura che hanno nel progetto
     datas=[('data', 'data'), ('assets', 'assets')],
-    hiddenimports=[],
+    hiddenimports=['moderngl', '_moderngl'] + collect_submodules('glcontext'),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
