@@ -57,10 +57,8 @@ class WeekendScene(Scene):
         self.pts_rect = None
         # la pista in 3D: si carica sulla scheda video la prima volta che serve
         self.v3d = None
-        self.segui_id = ""          # chi segue la ripresa da dietro ("" = la nostra)
         self._trascina = None
         self._mappa = None          # dove sta la mappa, per il mouse
-        self._torre = None          # le righe del tabellone, per sceglierci chi seguire
         self._dt = 1 / 60
         self.applied = False
         # il foglio strategia: aperto sopra alla gara, e di chi si sta guardando
@@ -80,7 +78,6 @@ class WeekendScene(Scene):
         self.widgets = []
         self.pts = None
         self.pts_rect = None
-        self._torre = None
         self._mappa = None
         if self.stage == "gomme":
             self._build_tyres(w, h)
@@ -1324,55 +1321,48 @@ class WeekendScene(Scene):
 
     # ------------------------------------------------------------ la pista 3D
     def _modo_vista(self) -> str:
-        """2d, elicottero o segui. La scelta resta per tutta la partita."""
+        """2d o 3d. La scelta resta per tutta la partita."""
         modo = getattr(self.app, "vista_gara", None)
-        if modo is None:
-            modo = "elicottero" if vista3d.disponibile() else "2d"
+        if modo not in ("2d", "3d"):
+            modo = "3d" if vista3d.disponibile() else "2d"
         return modo if (modo == "2d" or vista3d.disponibile()) else "2d"
 
     def _in_3d(self) -> bool:
-        return self._modo_vista() != "2d" and vista3d.disponibile()
+        return self._modo_vista() == "3d" and vista3d.disponibile()
 
     def set_vista(self, modo: str) -> None:
         self.app.vista_gara = modo
         self.build()
 
     def _comandi_vista(self, mappa) -> None:
-        """Le tre riprese, in alto a sinistra sulla mappa. Senza OpenGL non
-        ci sono: resta la mappa 2D e basta."""
+        """2D e 3D, in alto a sinistra sulla mappa. Senza OpenGL non ci sono."""
         if not vista3d.disponibile():
             return
         modo = self._modo_vista()
         x = mappa.x + 10
-        for chiave, lab, largo in (("2d", "2D", 44), ("elicottero", "ELICOTTERO", 104),
-                                   ("segui", "SEGUI", 72)):
-            b = Button((x, mappa.y + 10, largo, 26), lab, style="tab",
-                       tip={"2d": "La mappa vista da sopra",
-                            "elicottero": "Trascina per girare, rotella per avvicinarti",
-                            "segui": "Da dietro a una macchina: scegli chi dal tabellone"}[chiave])
+        for chiave, lab, tip in (("2d", "2D", "La mappa vista da sopra"),
+                                 ("3d", "3D", "Il circuito dall'elicottero")):
+            b = Button((x, mappa.y + 10, 44, 26), lab, style="tab", tip=tip)
             b.on_click = (lambda m=chiave: self.set_vista(m))
             b.active = (modo == chiave)
             self.widgets.append(b)
-            x += largo + 6
+            x += 50
 
-    def _chi_seguire(self, ids: list, base) -> int:
-        """L'indice, fra le macchine in pista, di quella da seguire."""
-        if self.segui_id in ids:
-            return ids.index(self.segui_id)
-        chi = getattr(base, "driver_id", None)
-        return ids.index(chi) if chi in ids else (0 if ids else -1)
+    def _mappa_3d(self, surf, vista, auto: list) -> bool:
+        """La pista in 3D con i pallini delle macchine sopra.
 
-    def _mappa_3d(self, surf, vista, auto: list, seguita: int, codici: list,
-                  etichette: list) -> bool:
-        """Disegna la pista in 3D nel riquadro. False se la scheda video non
-        ce la fa: chi chiama torna alla mappa 2D."""
-        modo = self._modo_vista()
+        `auto` e' una lista di (frazione del giro, colore, nostra, sigla, ai
+        box, con l'etichetta), dall'ultimo al primo: chi e' davanti si
+        disegna per ultimo e resta sopra. False se la scheda video non ce la
+        fa: chi chiama torna alla mappa 2D.
+        """
         try:
             if self.v3d is None or self.v3d.geo.track is not self.track:
                 self.v3d = vista3d.Vista3D(self.track)
             meteo = self.sim.weather if self.sim else (self.turno.weather if self.turno else None)
             self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
-            img = self.v3d.disegna(vista.size, auto, modo, seguita, self._dt)
+            self.v3d.bagnato = getattr(meteo, "wet", 0.0)
+            img = self.v3d.disegna(vista.size)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()
             self.v3d = None
@@ -1380,7 +1370,6 @@ class WeekendScene(Scene):
             self.build()
             return False
         self._mappa = pygame.Rect(vista)
-        # gli angoli tondi come gli altri pannelli: si ritaglia l'immagine
         maschera = getattr(self, "_maschera", None)
         if maschera is None or maschera.get_size() != vista.size:
             maschera = pygame.Surface(vista.size, pygame.SRCALPHA)
@@ -1390,38 +1379,37 @@ class WeekendScene(Scene):
         img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         surf.blit(img, vista.topleft)
         pygame.draw.rect(surf, T.LINE, vista, 1, border_radius=10)
-        # le sigle sopra alle macchine, come la grafica della televisione
+        # i pallini, come sulla mappa: piu' vicino si guarda, piu' si
+        # allargano fra loro, cosi' due macchine incollate non diventano una
         prima = surf.get_clip()
         surf.set_clip(vista.clip(prima) if prima else vista)
         self._etichette = []
-        for i in etichette:
-            # chi si sta seguendo ha gia' il nome nel cartello in basso, e da
-            # vicino la sigla gli finirebbe sopra
-            if modo == "segui" and i == seguita:
-                continue
-            f, lat, _c, mio = auto[i]
-            code = codici[i]
-            p = self.v3d.proietta(f, lat, 1.5)
+        largo = 10.0 * self.v3d.elicottero.zoom
+        punti = []
+        for k, (f, col, mio, code, box, nome) in enumerate(auto):
+            p = self.v3d.proietta(f, largo if k % 2 else -largo)
             if p is None:
                 continue
             x, y = int(vista.x + p[0]), int(vista.y + p[1])
-            if not vista.collidepoint(x, y) or not self._spazio(x, y - 22):
+            r = 7 if mio else 5
+            pygame.draw.circle(surf, (8, 10, 14), (x + 1, y + 2), r + 1)
+            if box:
+                pygame.draw.circle(surf, (150, 150, 160), (x, y), r + 2)
+            pygame.draw.circle(surf, col, (x, y), r)
+            pygame.draw.circle(surf, (255, 255, 255) if mio else (10, 14, 20), (x, y), r,
+                               2 if mio else 1)
+            punti.append((x, y, code, mio, nome))
+        for x, y, code, mio, nome in reversed(punti):
+            if not nome or not self._spazio(x + 9, y - 10):
                 continue
             larga = T.width(code, 12, bold=True) + 10
-            T.panel(surf, (x - larga // 2, y - 30, larga, 18),
-                    (20, 26, 38) if not mio else T.squadra_viva(), radius=4, rilievo=False)
-            T.text(surf, code, (x, y - 29), 12, T.WHITE, bold=True, align="center")
+            T.panel(surf, (x + 8, y - 20, larga, 17),
+                    T.squadra_viva() if mio else (16, 20, 30), radius=4, rilievo=False)
+            T.text(surf, code, (x + 8 + larga // 2, y - 19), 12, T.WHITE, bold=True,
+                   align="center")
         surf.set_clip(prima)
-        if modo == "segui" and 0 <= seguita < len(auto):
-            testo = f"SEGUI {codici[seguita]}"
-            T.panel(surf, (vista.x + 10, vista.bottom - 36, 330, 26), (13, 17, 24), radius=6,
-                    rilievo=False)
-            T.text(surf, testo, (vista.x + 20, vista.bottom - 31), 12, T.TEXT, bold=True)
-            T.text(surf, "clic sul tabellone per cambiare", (vista.x + 110, vista.bottom - 30),
-                   11, T.DIM)
-        elif modo == "elicottero":
-            T.text(surf, "trascina per girare - rotella per lo zoom",
-                   (vista.right - 12, vista.bottom - 24), 11, (210, 220, 235), align="right")
+        T.text(surf, "trascina: gira  -  tasto destro: sposta  -  rotella: zoom",
+               (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
         return True
 
     def handle(self, ev) -> None:
@@ -1430,39 +1418,33 @@ class WeekendScene(Scene):
         super().handle(ev)
 
     def _mano_3d(self, ev) -> bool:
-        """Il mouse sulla vista 3D: girare, avvicinarsi, scegliere chi seguire."""
+        """Il mouse sulla vista 3D: girarla, spostarla, avvicinarsi."""
         if not (self._in_3d() and self.v3d is not None and self._mappa is not None):
             return False
         if self.piano_aperto:
             return False
-        modo = self._modo_vista()
+        cam = self.v3d.elicottero
         if ev.type == pygame.MOUSEWHEEL:
             if self._mappa.collidepoint(pygame.mouse.get_pos()):
-                cam = self.v3d.segui if modo == "segui" else self.v3d.elicottero
                 cam.rotella(ev.y)
                 return True
             return False
-        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button in (1, 3):
             sopra_pulsante = any(w.rect.collidepoint(ev.pos) for w in self.widgets)
-            if modo == "elicottero" and self._mappa.collidepoint(ev.pos) and not sopra_pulsante:
-                self._trascina = ev.pos
+            if self._mappa.collidepoint(ev.pos) and not sopra_pulsante:
+                self._trascina = (ev.pos, ev.button)
                 return True
-            if self._torre and not sopra_pulsante:
-                torre, y0, rh, ids = self._torre
-                if torre.collidepoint(ev.pos) and ev.pos[1] >= y0:
-                    i = int((ev.pos[1] - y0) // rh)
-                    if 0 <= i < len(ids):
-                        self.segui_id = ids[i]
-                        if modo != "segui":
-                            self.set_vista("segui")
-                        return True
             return False
         if ev.type == pygame.MOUSEMOTION and self._trascina is not None:
-            dx, dy = ev.pos[0] - self._trascina[0], ev.pos[1] - self._trascina[1]
-            self._trascina = ev.pos
-            self.v3d.elicottero.trascina(dx, dy)
+            (x0, y0), tasto = self._trascina
+            dx, dy = ev.pos[0] - x0, ev.pos[1] - y0
+            self._trascina = (ev.pos, tasto)
+            if tasto == 1:
+                cam.trascina(dx, dy)
+            else:
+                cam.sposta(dx, dy, self.v3d.geo)
             return True
-        if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1 and self._trascina is not None:
+        if ev.type == pygame.MOUSEBUTTONUP and self._trascina is not None:
             self._trascina = None
             return True
         return False
@@ -1471,20 +1453,14 @@ class WeekendScene(Scene):
     def _race_map(self, surf, vista) -> None:
         sim, gs = self.sim, self.gs
         if self._in_3d():
-            auto, ids, codici, etichette = [], [], [], []
-            for e in sim.order():
+            auto = []
+            for e in reversed(sim.order()):
                 if e.status == "retired":
                     continue
-                frazione = self.track.pos_at(e.lap_fraction(sim.track_len))
                 mio = (e.team_id == gs.player_team)
-                col = T.mix(e.colour, (150, 150, 160), 0.6) if e.status == "pitting" else e.colour
-                auto.append((frazione, -2.2 if e.position % 2 == 0 else 2.2, col, mio))
-                ids.append(e.driver_id)
-                codici.append(e.code)
-                if mio or e.position <= 3:
-                    etichette.append(len(auto) - 1)
-            seguita = self._chi_seguire(ids, self._auto_seguita())
-            if self._mappa_3d(surf, vista, auto, seguita, codici, etichette):
+                auto.append((self.track.pos_at(e.lap_fraction(sim.track_len)), e.colour, mio,
+                             e.code, e.status == "pitting", mio or e.position <= 3))
+            if self._mappa_3d(surf, vista, auto):
                 return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
         if self.pts is None or self.pts_rect != tuple(vista):
@@ -1611,7 +1587,6 @@ class WeekendScene(Scene):
         y = tower.y + 34
         leader = order[0] if order else None
         rh = min(26.0, (tower.h - 46) / max(1, len(order)))
-        self._torre = (tower, tower.y + 34, rh, [e.driver_id for e in order])
         dim = 14 if rh >= 21 else (13 if rh >= 17 else 12)
         pic = min(12, dim)
         for i, e in enumerate(order, 1):
@@ -1978,19 +1953,13 @@ class WeekendScene(Scene):
         t, gs = self.turno, self.gs
         if self._in_3d():
             fuori = [p for p in t.piste.values() if p.stato in ("uscita", "giro", "rientro")]
-            auto, ids, codici, etichette = [], [], [], []
+            fuori.sort(key=lambda p: p.stato == "giro")
+            auto = []
             for p in fuori:
                 mio = (p.e.team_id == gs.player_team)
-                auto.append((self.track.pos_at(p.quota), 0.0, p.e.colour, mio))
-                ids.append(p.e.driver_id)
-                codici.append(p.e.code)
-                if mio or p.stato == "giro":
-                    etichette.append(len(auto) - 1)
-            mie = [p.e for p in fuori if p.e.team_id == gs.player_team]
-            lanciati = [p.e for p in fuori if p.stato == "giro"]
-            base = (mie or lanciati or [p.e for p in fuori] or [None])[0]
-            seguita = self._chi_seguire(ids, base)
-            if self._mappa_3d(surf, vista, auto, seguita, codici, etichette):
+                auto.append((self.track.pos_at(p.quota), p.e.colour, mio, p.e.code, False,
+                             mio or p.stato == "giro"))
+            if self._mappa_3d(surf, vista, auto):
                 if not fuori:
                     T.text(surf, "NESSUNO IN PISTA", (vista.centerx, vista.bottom - 26), 12,
                            T.TEXT, bold=True, align="center")

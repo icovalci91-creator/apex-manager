@@ -31,15 +31,18 @@ il quale i pannelli non starebbero piu' in piedi.
 
 ## Vista 3D delle sessioni
 
-Su PC le prove, le qualifiche e la gara si guardano anche in 3D, con due riprese:
-**ELICOTTERO** (tutto il circuito dall'alto; si trascina per girarlo e la rotellina
-avvicina) e **SEGUI** (da dietro a una macchina; un clic su un pilota del tabellone
-sceglie chi). I pulsanti stanno in alto a sinistra sulla mappa, insieme a **2D** per
-tornare alla mappa di sempre.
+Su PC le prove, le qualifiche e la gara si guardano anche in 3D: il circuito
+dall'elicottero, disegnato come una foto da satellite ridisegnata a mano, con le
+macchine che restano i pallini di sempre. I pulsanti **2D** e **3D** stanno in alto a
+sinistra sulla mappa. Si trascina col tasto sinistro per girare la ripresa, col destro
+per spostarla, e la rotellina avvicina.
 
-Il tracciato, i dislivelli e la corsia box vengono dagli stessi dati della mappa 2D;
-l'ambiente attorno (bosco, parco, citta', deserto, dune) cambia da circuito a circuito,
-e le gare in notturna hanno i fari. Le macchine restano sagome 2D appoggiate sull'asfalto.
+Il tracciato, i dislivelli e la corsia box vengono dagli stessi dati della mappa 2D.
+Attorno c'e' un ambiente per circuito - campagna a campi con le siepi, bosco, citta' a
+isolati, deserto, dune - con l'acqua dove c'e' davvero (il lago di Albert Park, il mare
+di Monaco), paddock, parcheggi, tribune con la folla. Le ombre sono vere, le nuvole
+passano e lasciano la loro ombra, di notte si accendono i fari e con la pioggia il
+cielo si chiude e l'asfalto luccica.
 
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
