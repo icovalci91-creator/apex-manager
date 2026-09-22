@@ -36,7 +36,10 @@ a = Analysis(
     binaries=[],
     # (da dove, dove finisce dentro al pacchetto): le due cartelle che il gioco
     # legge all'avvio, con la stessa struttura che hanno nel progetto
-    datas=[('data', 'data'), ('assets', 'assets')],
+    # e i dintorni dei circuiti per la vista 3D, se qualcuno li ha scaricati
+    # con tools/fetch_dintorni.py: finche' la cartella non c'e' si fa senza
+    datas=[('data', 'data'), ('assets', 'assets')]
+          + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else []),
     hiddenimports=['moderngl', '_moderngl'] + collect_submodules('glcontext'),
     hookspath=[],
     hooksconfig={},

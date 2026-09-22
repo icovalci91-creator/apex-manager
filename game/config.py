@@ -42,6 +42,9 @@ def _cartella_utente() -> Path:
 
 ROOT = _radice()
 DATA = ROOT / "data"
+# quello che c'e' attorno ai circuiti, scaricato da OpenStreetMap: sta fuori da
+# data/ perche' serve solo alla vista 3D, e la versione web non se lo porta dietro
+DINTORNI = ROOT / "dintorni"
 UTENTE = _cartella_utente()
 SAVES = UTENTE / "saves"
 

@@ -22,6 +22,8 @@ import math
 import random
 from array import array
 
+from . import dintorni
+
 # Quanto si esagera il dislivello: una volta e mezza rende leggibili i cento
 # metri di Spa senza trasformare le Ardenne nelle Dolomiti.
 ESAGERA_Z = 1.5
@@ -31,6 +33,12 @@ RAGGIO_CURVA = 130.0       # sotto questo raggio un pezzo di pista e' una curva
 LIVELLO_ACQUA = -1.2
 TERRA_MIN = -0.3           # sotto questa quota, fuori dall'acqua, non si scende
 BLOCCO = 110.0             # il lato di un isolato in citta', strada compresa
+
+# Le famiglie di suolo della mappa vera, nell'ordine in cui si stendono: chi
+# viene dopo copre chi viene prima (un parco in un quartiere resta parco).
+C_NIENTE, C_URBANO, C_CAMPI, C_VERDE, C_SABBIA, C_BOSCO, C_ACQUA = 0, 1, 2, 3, 4, 5, 6
+_STESURA = (("urbano", C_URBANO), ("campi", C_CAMPI), ("verde", C_VERDE),
+            ("sabbia", C_SABBIA), ("bosco", C_BOSCO), ("acqua", C_ACQUA))
 
 # I materiali: stessi numeri nello shader di `vista3d`.
 M_PIANO, M_TERRA, M_SABBIA, M_CITTA = 0, 1, 2, 3
@@ -141,6 +149,10 @@ class Geometria:
         self.rng = random.Random(seme)
         self.rumore = _Rumore(seme % 9973 + 3)
         self.fuga = self.pal["fuga"]
+        # i dintorni veri, se qualcuno li ha scaricati: se no si inventano
+        self.osm = dintorni.carica(track)
+        self.fonte = self.osm["fonte"] if self.osm else None
+        self.strade = []
         self._punti(track)
         self._indice()
         self._corsia_box()
@@ -149,8 +161,11 @@ class Geometria:
         self._pista()
         self._box()
         self._tribune()
-        self._strade()
-        self._citta()
+        if self.osm:
+            self._osm_costruito()
+        else:
+            self._strade()
+            self._citta()
         self._alberi()
         self._fari()
         self._portale()
@@ -270,6 +285,11 @@ class Geometria:
         """Dove sta l'acqua: il lago dentro al giro o il mare da una parte."""
         self.acqua = ACQUA.get(self.track.id)
         self.lago_righe = None
+        self.mare_dir = None
+        if self.osm:
+            o = self.osm
+            self.acqua = ("mappa",) if (o["acqua"] or o["fiumi"] or o["costa"]) else None
+            return
         if not self.acqua:
             return
         if self.acqua[0] == "mare":
@@ -321,8 +341,12 @@ class Geometria:
             den += w
         return num / den, math.sqrt(dmin)
 
-    def _altezza(self, x: float, z: float) -> tuple:
-        """(quota, distanza dalla pista, quanto e' acqua)."""
+    def _altezza(self, x: float, z: float, acqua: float | None = None) -> tuple:
+        """(quota, distanza dalla pista, quanto e' acqua).
+
+        `acqua`, se c'e', viene dalla mappa vera; se no la si deduce da dove
+        dovrebbe stare il lago o il mare.
+        """
         base, lontano = self.altezza_base(x, z)
         amp = self.pal["colline"]
         colline = (self.rumore.ottave(x / 420.0, z / 420.0) - 0.45) * 2.0 * amp
@@ -340,7 +364,11 @@ class Geometria:
                 t = _smooth((d - bordo) / 120.0)
                 h = tetto * (1 - t) + base * t
         h = max(h, TERRA_MIN)
-        w = self.bagnato(x, z, d)
+        if acqua is None:
+            w = self.bagnato(x, z, d)
+        else:
+            # sotto alla pista l'acqua non ci va mai: un ponte e' un ponte
+            w = acqua * _smooth((d - MEZZA_PISTA - CORDOLO - self.fuga - 6.0) / 18.0)
         if w > 0:
             h = h * (1 - w) + (LIVELLO_ACQUA - 2.0) * w
         return h, d, w
@@ -351,14 +379,18 @@ class Geometria:
         passo = ext * 2 / G
         self.t_ext, self.t_G, self.t_passo = ext, G, passo
         x0, z0 = self.cx - ext, self.cz - ext
-        bosco = self.bioma in ("bosco", "parco")
+        bosco = self.bioma in ("bosco", "parco") and not self.osm
         soglia = 0.52 if self.bioma == "bosco" else 0.66
+        CL = WM = None
+        if self.osm:
+            CL, WM = self._mappa_osm(G, passo, x0, z0)
+        self.t_CL = CL
         H, D, W, BO = [], [], [], []
         for gx in range(G + 1):
             rh, rd, rw, rb = [], [], [], []
             for gz in range(G + 1):
                 x, z = x0 + gx * passo, z0 + gz * passo
-                h, d, w = self._altezza(x, z)
+                h, d, w = self._altezza(x, z, WM[gx][gz] if WM else None)
                 # verso il bordo della griglia si scende piano alla pianura
                 bordo = _smooth(min(gx, gz, G - gx, G - gz) / (G * 0.1))
                 if w < 0.5:
@@ -371,6 +403,8 @@ class Geometria:
                     m = self.rumore(x / 520.0 + 31, z / 520.0 - 5)
                     b = _smooth((m - soglia) / 0.05)
                     b *= _smooth((d - MEZZA_PISTA - self.fuga - 30) / 25.0)
+                elif CL and w < 0.01 and CL[gx][gz] == C_BOSCO:
+                    b = _smooth((d - MEZZA_PISTA - self.fuga - 12) / 20.0)
                 rb.append(b)
             H.append(rh)
             D.append(rd)
@@ -389,7 +423,7 @@ class Geometria:
                 hu = H[gx][min(G, gz + 1)]
                 N[gx][gz] = _norm((hl - hr, 2 * passo, hd - hu))
         base = self.pal["terra"]
-        mat = self.pal["mat"]
+        mat_base = self.pal["mat"]
         notte = self.notte
         self.bosco_celle = []
         for gx in range(G):
@@ -406,7 +440,17 @@ class Geometria:
                 if notte:
                     luce = lambda dd: (1.0 - _smooth((dd - 15.0) / 110.0)) * 0.7  # noqa: E731
                     glow = tuple(luce(dd) for dd in dist)
-                par = tuple(min(dd, 5000.0) for dd in dist)
+                mat = mat_base
+                if CL:
+                    classi = [CL[i][j] for i, j in ang]
+                    mat, col = self._suolo(max(set(classi), key=classi.count), mat_base, base)
+                    # i campi veri si dipingono come campi; il resto no: dove
+                    # la mappa non dice niente non si inventano poderi
+                    par = tuple(5000.0 if c == C_CAMPI else
+                                (0.0 if mat == M_CITTA else min(dd, 300.0))
+                                for c, dd in zip(classi, dist))
+                else:
+                    par = tuple(min(dd, 5000.0) for dd in dist)
                 g = glow if isinstance(glow, tuple) else (glow,) * 4
                 self.tri(pos[0], pos[1], pos[2], col, (g[0], g[1], g[2]),
                          (nor[0], nor[1], nor[2]), mat, (par[0], par[1], par[2]),
@@ -414,7 +458,7 @@ class Geometria:
                 self.tri(pos[0], pos[2], pos[3], col, (g[0], g[2], g[3]),
                          (nor[0], nor[2], nor[3]), mat, (par[0], par[2], par[3]),
                          (bo[0], bo[2], bo[3]))
-        self._pianura(base, mat)
+        self._pianura(base, mat_base)
         if self.acqua:
             L = self.span * 60
             y = LIVELLO_ACQUA
@@ -439,7 +483,7 @@ class Geometria:
         ]
         y = TERRA_MIN - 0.02
         for poli in cornice:
-            if self.acqua and self.acqua[0] == "mare":
+            if self.mare_dir is not None:
                 poli = self._taglia_mare(poli)
             for k in range(1, len(poli) - 1):
                 a, b, c3 = poli[0], poli[k], poli[k + 1]
@@ -776,12 +820,23 @@ class Geometria:
                     self._piazzale(cx, self.terra(cx, cz), cz, 110, 70, ang, mat, col, g)
 
     def _nastro(self, punti, largo, col, mat, glow=0.0) -> None:
+        # un rettilineo lungo, appoggiato al terreno solo agli estremi, finisce
+        # sotto alle colline che ha in mezzo: lo si spezza ogni quindici metri
+        fitti = [punti[0]]
+        for b in punti[1:]:
+            a = fitti[-1]
+            pezzi = max(1, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 15.0))
+            fitti += [(a[0] + (b[0] - a[0]) * t / pezzi, a[1] + (b[1] - a[1]) * t / pezzi)
+                      for t in range(1, pezzi + 1)]
+        punti = fitti
         for k in range(len(punti) - 1):
             a, b = punti[k], punti[k + 1]
             dx, dz = b[0] - a[0], b[1] - a[1]
             d = math.hypot(dx, dz) or 1.0
             rx, rz = -dz / d * largo / 2, dx / d * largo / 2
-            ya, yb = self.terra(*a) + 0.6, self.terra(*b) + 0.6
+            # sopra all'acqua la strada e' un ponte: non ci si tuffa
+            ya = max(self.terra(*a), LIVELLO_ACQUA + 0.4) + 0.6
+            yb = max(self.terra(*b), LIVELLO_ACQUA + 0.4) + 0.6
             self.quad((a[0] - rx, ya, a[1] - rz), (b[0] - rx, yb, b[1] - rz),
                       (b[0] + rx, yb, b[1] + rz), (a[0] + rx, ya, a[1] + rz),
                       col, glow, (0, 1, 0), mat)
@@ -835,6 +890,286 @@ class Geometria:
                                          lz + rng.uniform(-w / 5, w / 5), w * 0.3, w * 0.25,
                                          3.0, 0.0, (0.55, 0.56, 0.58))
 
+    # ------------------------------------------------------ la mappa vera
+    def _mappa_osm(self, G: int, passo: float, x0: float, z0: float) -> tuple:
+        """Stende le aree della mappa sui vertici del terreno.
+
+        Restituisce la famiglia di suolo di ogni vertice e quanto e' acqua
+        (0..1, sfumata sulla riva). Le aree si riempiono riga per riga, come
+        si colora un disegno: per ogni riga della griglia si trovano i punti
+        in cui il bordo la attraversa, e fra un ingresso e un'uscita si e'
+        dentro.
+        """
+        o = self.osm
+        CL = [[C_NIENTE] * (G + 1) for _ in range(G + 1)]
+        for chiave, classe in _STESURA:
+            for poli in o[chiave]:
+                self._riempi(CL, poli, classe, G, passo, x0, z0)
+        # i fiumi disegnati come linee: acqua per mezza larghezza di qua e di la'
+        for linea, largo in o["fiumi"]:
+            for k in range(len(linea) - 1):
+                self._striscia(CL, linea[k], linea[k + 1], largo / 2 + passo * 0.4,
+                               C_ACQUA, G, passo, x0, z0)
+        mare = self._mare_da_costa(G, passo, x0, z0)
+        acqua = [[1.0 if (CL[i][j] == C_ACQUA or (mare and mare[i][j])) else 0.0
+                  for j in range(G + 1)] for i in range(G + 1)]
+        for i in range(G + 1):
+            for j in range(G + 1):
+                if acqua[i][j] and CL[i][j] != C_ACQUA:
+                    CL[i][j] = C_ACQUA
+        # la riva si sfuma su un giro di vertici, cosi' non viene a gradini
+        liscia = [[0.0] * (G + 1) for _ in range(G + 1)]
+        for i in range(G + 1):
+            for j in range(G + 1):
+                tot = n = 0
+                for di in (-1, 0, 1):
+                    for dj in (-1, 0, 1):
+                        a, b = i + di, j + dj
+                        if 0 <= a <= G and 0 <= b <= G:
+                            tot += acqua[a][b]
+                            n += 1
+                liscia[i][j] = _smooth((tot / n - 0.2) / 0.6)
+        return CL, liscia
+
+    @staticmethod
+    def _riempi(CL, poli, classe, G, passo, x0, z0) -> None:
+        if len(poli) < 3:
+            return
+        zs = [p[1] for p in poli]
+        j0 = max(0, int((min(zs) - z0) / passo))
+        j1 = min(G, int((max(zs) - z0) / passo) + 1)
+        n = len(poli)
+        for j in range(j0, j1 + 1):
+            z = z0 + j * passo
+            tagli = []
+            for k in range(n):
+                a, b = poli[k], poli[(k + 1) % n]
+                if (a[1] <= z) != (b[1] <= z):
+                    tagli.append(a[0] + (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]))
+            tagli.sort()
+            for k in range(0, len(tagli) - 1, 2):
+                i0 = max(0, int(math.ceil((tagli[k] - x0) / passo)))
+                i1 = min(G, int(math.floor((tagli[k + 1] - x0) / passo)))
+                for i in range(i0, i1 + 1):
+                    CL[i][j] = classe
+
+    @staticmethod
+    def _striscia(CL, a, b, r, classe, G, passo, x0, z0) -> None:
+        i0 = max(0, int((min(a[0], b[0]) - r - x0) / passo))
+        i1 = min(G, int((max(a[0], b[0]) + r - x0) / passo) + 1)
+        j0 = max(0, int((min(a[1], b[1]) - r - z0) / passo))
+        j1 = min(G, int((max(a[1], b[1]) + r - z0) / passo) + 1)
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        l2 = dx * dx + dz * dz or 1e-9
+        for i in range(i0, i1 + 1):
+            for j in range(j0, j1 + 1):
+                x, z = x0 + i * passo, z0 + j * passo
+                t = max(0.0, min(1.0, ((x - a[0]) * dx + (z - a[1]) * dz) / l2))
+                if (x - a[0] - dx * t) ** 2 + (z - a[1] - dz * t) ** 2 <= r * r:
+                    CL[i][j] = classe
+
+    def _mare_da_costa(self, G, passo, x0, z0):
+        """Da che parte della linea di costa c'e' il mare, vertice per vertice.
+
+        In OpenStreetMap la costa si percorre con la terra a sinistra e il
+        mare a destra. Si guarda da che parte stanno i vertici vicini alla
+        costa, e poi quel verdetto si allarga a tutta la griglia, un giro di
+        vertici alla volta: ogni vertice prende il lato del pezzo di costa
+        che gli arriva per primo, che e' il piu' vicino.
+        """
+        costa = [c for c in self.osm["costa"] if len(c) >= 2]
+        if not costa:
+            return None
+        lato = {}
+        vicino = {}
+        r = passo * 1.6
+        for c in costa:
+            for k in range(len(c) - 1):
+                a, b = c[k], c[k + 1]
+                ex, ez = b[0] - a[0], b[1] - a[1]
+                l2 = ex * ex + ez * ez or 1e-9
+                i0 = max(0, int((min(a[0], b[0]) - r - x0) / passo))
+                i1 = min(G, int((max(a[0], b[0]) + r - x0) / passo) + 1)
+                j0 = max(0, int((min(a[1], b[1]) - r - z0) / passo))
+                j1 = min(G, int((max(a[1], b[1]) + r - z0) / passo) + 1)
+                for i in range(i0, i1 + 1):
+                    for j in range(j0, j1 + 1):
+                        x, z = x0 + i * passo, z0 + j * passo
+                        t = max(0.0, min(1.0, ((x - a[0]) * ex + (z - a[1]) * ez) / l2))
+                        d = (x - a[0] - ex * t) ** 2 + (z - a[1] - ez * t) ** 2
+                        if d > r * r or d >= vicino.get((i, j), 1e18):
+                            continue
+                        vicino[(i, j)] = d
+                        # in coordinate da carta (nord = -z): a destra e' mare
+                        lato[(i, j)] = ex * (-(z - a[1])) - (-ez) * (x - a[0]) < 0
+        if not lato:
+            return None
+        mare = [[None] * (G + 1) for _ in range(G + 1)]
+        coda = []
+        for (i, j), m in lato.items():
+            mare[i][j] = m
+            coda.append((i, j))
+        testa = 0
+        while testa < len(coda):
+            i, j = coda[testa]
+            testa += 1
+            for a, b in ((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)):
+                if 0 <= a <= G and 0 <= b <= G and mare[a][b] is None:
+                    mare[a][b] = mare[i][j]
+                    coda.append((a, b))
+        somma = [0.0, 0.0]
+        quanti = 0
+        for i in range(G + 1):
+            for j in range(G + 1):
+                if mare[i][j]:
+                    somma[0] += x0 + i * passo - self.cx
+                    somma[1] += z0 + j * passo - self.cz
+                    quanti += 1
+        if quanti > (G + 1) ** 2 * 0.02:
+            d = math.hypot(*somma) or 1.0
+            self.mare_dir = (somma[0] / d, somma[1] / d)
+            punti = [p for c in costa for p in c]
+            self.mare_c = sum(p[0] * self.mare_dir[0] + p[1] * self.mare_dir[1]
+                              for p in punti) / len(punti)
+        return mare
+
+    def _suolo(self, classe: int, mat_base: int, base) -> tuple:
+        """Il materiale e il colore di un pezzo di terreno, dalla sua famiglia."""
+        if classe == C_URBANO:
+            return M_CITTA, (0.55, 0.55, 0.53)
+        if classe == C_VERDE:
+            return M_TERRA, (0.33, 0.49, 0.23)
+        if classe == C_CAMPI:
+            return M_TERRA, (0.40, 0.50, 0.26)
+        if classe == C_SABBIA:
+            return M_SABBIA, (0.82, 0.74, 0.56)
+        if classe == C_BOSCO:
+            return M_TERRA, (0.26, 0.40, 0.19)
+        if mat_base == M_CITTA:
+            return M_CITTA, (0.52, 0.53, 0.51)
+        return mat_base, base
+
+    def _lontano_da_pista(self, punti, margine: float) -> bool:
+        return all(self.vicino(x, z, margine + 5)[0] >= margine for x, z in punti)
+
+    @staticmethod
+    def _triangola(poli: list) -> list:
+        """Un poligono semplice in triangoli, tagliando le orecchie una a una."""
+        n = len(poli)
+        if n < 3:
+            return []
+        area = sum(poli[k][0] * poli[(k + 1) % n][1] - poli[(k + 1) % n][0] * poli[k][1]
+                   for k in range(n))
+        idx = list(range(n)) if area > 0 else list(range(n))[::-1]
+        tri = []
+
+        def dentro(p, a, b, c):
+            d1 = (p[0] - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (p[1] - b[1])
+            d2 = (p[0] - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (p[1] - c[1])
+            d3 = (p[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (p[1] - a[1])
+            return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
+
+        giri = 0
+        while len(idx) > 3 and giri < n * n:
+            giri += 1
+            m = len(idx)
+            for k in range(m):
+                i0, i1, i2 = idx[k - 1], idx[k], idx[(k + 1) % m]
+                a, b, c = poli[i0], poli[i1], poli[i2]
+                if (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) <= 0:
+                    continue
+                if any(dentro(poli[j], a, b, c) for j in idx if j not in (i0, i1, i2)):
+                    continue
+                tri.append((i0, i1, i2))
+                idx.pop(k)
+                break
+            else:
+                break
+        if len(idx) == 3:
+            tri.append(tuple(idx))
+        return tri
+
+    def _osm_costruito(self) -> None:
+        """Palazzi, strade, ferrovie e parcheggi veri."""
+        o = self.osm
+        g = 0.6 if self.notte else 0.0
+        margine = MEZZA_PISTA + CORDOLO + self.fuga + 2.0
+        box = self.box_P[::3]
+
+        def vicino_ai_box(x, z):
+            if any((b[0] - x) ** 2 + (b[2] - z) ** 2 < 32 ** 2 for b in box):
+                return True
+            pd = getattr(self, "paddock", None)
+            return bool(pd) and (pd[0] - x) ** 2 + (pd[1] - z) ** 2 < 110 ** 2
+
+        lim = self.t_ext
+        dentro = lambda x, z: abs(x - self.cx) < lim and abs(z - self.cz) < lim  # noqa: E731
+        for poli, largo in o["strade"]:
+            punti = [p for p in poli if dentro(*p)]
+            tratto = []
+            for p in punti + [None]:
+                if p is not None and self.vicino(p[0], p[1], margine + largo)[0] >= margine + largo / 2:
+                    tratto.append(p)
+                    continue
+                if len(tratto) >= 2:
+                    col = (0.36, 0.37, 0.39) if largo >= 11 else (0.30, 0.31, 0.33)
+                    self._nastro(tratto, largo, col, M_STRADA, g)
+                tratto = []
+        for linea in o["ferrovie"]:
+            punti = [p for p in linea if dentro(*p)]
+            if len(punti) >= 2 and self._lontano_da_pista(punti[::4], margine):
+                self._nastro(punti, 4.0, (0.38, 0.35, 0.31), M_PIANO)
+        for poli in o["parcheggi"]:
+            if not all(dentro(*p) for p in poli) or not self._lontano_da_pista(poli, margine):
+                continue
+            y = max(self.terra(x, z) for x, z in poli) + 0.2
+            for a, b, c in self._triangola(poli):
+                self.tri((poli[a][0], y, poli[a][1]), (poli[b][0], y, poli[b][1]),
+                         (poli[c][0], y, poli[c][1]), (0.34, 0.35, 0.37), g, (0, 1, 0),
+                         M_PARCHEGGIO)
+        mediterranea = self.track.id in ("monaco", "baku", "madrid", "barcelona")
+        tinte = ([(0.86, 0.78, 0.66), (0.80, 0.56, 0.42), (0.90, 0.86, 0.78), (0.74, 0.70, 0.62)]
+                 if mediterranea else
+                 [(0.62, 0.64, 0.68), (0.72, 0.72, 0.70), (0.52, 0.55, 0.60), (0.80, 0.80, 0.78),
+                  (0.66, 0.50, 0.42)])
+        fatti = 0
+        # prima i palazzi piu' vicini alla pista: e' la' che si guarda
+        edifici = sorted(o["edifici"], key=lambda e: (e[0][0][0] - self.cx) ** 2
+                         + (e[0][0][1] - self.cz) ** 2)
+        for poli, alto in edifici:
+            if fatti >= 12000 or len(poli) < 3 or not all(dentro(*p) for p in poli):
+                continue
+            cx = sum(p[0] for p in poli) / len(poli)
+            cz = sum(p[1] for p in poli) / len(poli)
+            if vicino_ai_box(cx, cz) or not self._lontano_da_pista(poli, margine):
+                continue
+            if not self.all_asciutto(cx, cz):
+                continue
+            y = min(self.terra(x, z) for x, z in poli) - 0.4
+            h = alto + (self.terra(cx, cz) - y)
+            tinta = tinte[int(abs(cx * 7.3 + cz * 3.1)) % len(tinte)]
+            acceso = (0.25 + (int(abs(cx + cz)) % 5) * 0.1) if self.notte else 0.0
+            self._edificio(poli, y, h, tinta, acceso)
+            fatti += 1
+
+    def _edificio(self, poli, y, alto, col, acceso) -> None:
+        tetto = _mix(col, (0.3, 0.3, 0.3), 0.25)
+        for a, b, c in self._triangola(poli):
+            self.tri((poli[a][0], y + alto, poli[a][1]), (poli[b][0], y + alto, poli[b][1]),
+                     (poli[c][0], y + alto, poli[c][1]), tetto, 0.0, (0, 1, 0), M_TETTO)
+        cx = sum(p[0] for p in poli) / len(poli)
+        cz = sum(p[1] for p in poli) / len(poli)
+        muro = _mix(col, (0, 0, 0), 0.12)
+        n = len(poli)
+        for k in range(n):
+            a, b = poli[k], poli[(k + 1) % n]
+            ex, ez = b[0] - a[0], b[1] - a[1]
+            nor = _norm((ez, 0.0, -ex))
+            if nor[0] * ((a[0] + b[0]) / 2 - cx) + nor[2] * ((a[1] + b[1]) / 2 - cz) < 0:
+                nor = (-nor[0], 0.0, -nor[2])
+            self.quad((a[0], y, a[1]), (b[0], y, b[1]), (b[0], y + alto, b[1]),
+                      (a[0], y + alto, a[1]), muro, acceso, nor)
+
     # ----------------------------------------------------------------- alberi
     def _chioma(self, x: float, z: float, r: float, col, alto: float | None = None) -> None:
         """Un albero visto dall'alto: una chioma tonda, bassa, a facce."""
@@ -881,10 +1216,18 @@ class Geometria:
         # gli alberi sparsi e i filari lungo le strade
         sparsi = {"parco": 700, "bosco": 500, "dune": 260, "deserto": 0, "citta": 0}[self.bioma]
         tentativi = 0
-        while sparsi > 0 and tentativi < 9000 and fatti < tetto + 900:
+        CL = self.t_CL
+        if CL:
+            sparsi = 1400
+        while sparsi > 0 and tentativi < 12000 and fatti < tetto + 1400:
             tentativi += 1
             x = self.cx + rng.uniform(-self.ext, self.ext)
             z = self.cz + rng.uniform(-self.ext, self.ext)
+            if CL:
+                i = int(round((x - x0) / passo))
+                j = int(round((z - z0) / passo))
+                if not (0 <= i <= self.t_G and 0 <= j <= self.t_G) or CL[i][j] != C_VERDE:
+                    continue
             if not self._libero(x, z, MEZZA_PISTA + self.fuga + 14):
                 continue
             r = rng.uniform(3.0, 6.5) if self.bioma != "dune" else rng.uniform(1.8, 3.0)

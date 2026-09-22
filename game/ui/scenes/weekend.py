@@ -1410,6 +1410,10 @@ class WeekendScene(Scene):
         surf.set_clip(prima)
         T.text(surf, "trascina: gira  -  tasto destro: sposta  -  rotella: zoom",
                (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
+        if self.v3d.geo.fonte:
+            # la licenza dei dati chiede di dire da dove vengono, e sulla mappa
+            T.text(surf, "Mappa: (c) OpenStreetMap contributors",
+                   (vista.x + 12, vista.bottom - 22), 11, (225, 230, 240))
         return True
 
     def handle(self, ev) -> None:

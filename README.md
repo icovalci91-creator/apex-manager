@@ -47,6 +47,26 @@ cielo si chiude e l'asfalto luccica.
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
 
+### I dintorni veri, da OpenStreetMap
+
+Di base quello che sta attorno alla pista e' inventato. Per avere i dintorni veri -
+palazzi con la loro altezza, strade, ferrovie, parcheggi, laghi, porti, fiumi, la costa,
+boschi, parchi e campi - si lancia una volta, da un PC collegato a internet:
+
+```bash
+python tools/fetch_dintorni.py                  # tutti i circuiti che non ce l'hanno
+python tools/fetch_dintorni.py --only monaco    # uno solo, per provare
+```
+
+Scrive un file per circuito in `dintorni/` (da qualche centinaio di kB a un paio di mega)
+e ci mette qualche minuto in tutto, perche' fra un circuito e l'altro aspetta: il servizio
+di OpenStreetMap e' condiviso. Non serve installare niente oltre a Python. Poi basta fare
+il commit della cartella `dintorni/`: il gioco la usa da solo e l'eseguibile per Windows se
+la porta dentro; dove un file manca, resta l'ambiente inventato.
+
+I dati sono (c) OpenStreetMap contributors, sotto licenza ODbL: la vista 3D lo scrive in un
+angolo quando li usa.
+
 ## Eseguibile per Windows
 
 Chi deve solo giocare non installa Python: scarica **ApexManager.exe**, lo mette dove vuole

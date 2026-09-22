@@ -338,6 +338,19 @@ class Track:
         mx = 111320.0 * math.cos(math.radians(lat0))
         return (lat0 + (y / k) / 110540.0, lon0 + (x / k) / max(1e-6, mx))
 
+    def metri_da(self, lat: float, lon: float) -> tuple:
+        """Il contrario di `latlon`: un punto della carta nei metri del tracciato.
+
+        Serve a mettere attorno alla pista quello che c'e' davvero - strade,
+        palazzi, laghi presi da una mappa - nello stesso riferimento del nastro.
+        """
+        if not self.geo:
+            return (0.0, 0.0)
+        lat0, lon0 = _centro(self.geo)
+        k = float(getattr(self, "_scala_geo", 1.0))
+        mx = 111320.0 * math.cos(math.radians(lat0))
+        return ((lon - lon0) * mx * k, (lat - lat0) * 110540.0 * k)
+
     def _map_pendenza(self) -> list:
         """Quanto sale o scende ogni metro di pista, come seno dell'angolo.
 
