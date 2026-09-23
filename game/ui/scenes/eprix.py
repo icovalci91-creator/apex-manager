@@ -619,12 +619,13 @@ class EPrixScene(Scene):
             self.pts_rect = tuple(vista)
         trackdraw.draw_track(surf, self.track, vista, width=14, pts=self.pts)
         self._etichette = []
-        for e in reversed(sim.order()):
-            if e.status == "retired":
-                continue
-            quota = self.track.pos_at(e.lap_fraction(sim.track_len))
-            off = -7 if e.position % 2 == 0 else 7
-            x, y = trackdraw.car_pos(self.pts, quota, off * 0.55)
+        vive = [e for e in sim.order() if e.status != "retired"]
+        quote = {id(e): self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
+        lat = trackdraw.laterali(self.track, list(quote.items()))
+        mezzo = max(0.0, trackdraw.nastro_px(self.track, vista, 14) / 2 - 1.0)
+        for e in reversed(vive):
+            quota = quote[id(e)]
+            x, y = trackdraw.car_pos(self.pts, quota, lat[id(e)] * mezzo)
             mio = e.is_player
             r = 7 if mio else 5
             if e.status == "pitting":

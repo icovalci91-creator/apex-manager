@@ -890,6 +890,53 @@ class Track:
                                  for k in self.curvature]
         return self._curva_linea
 
+    def linea(self) -> list:
+        """La traiettoria ideale: dove sta la macchina sulla larghezza della pista.
+
+        Un valore per punto del tracciato, da -1 (tutta a sinistra) a 1 (tutta
+        a destra, nel verso di marcia). Si entra in curva dal lato di fuori, si
+        tocca la corda dentro e si esce di nuovo larghi: e' la differenza fra
+        una curvatura letta da vicino, che dice dov'e' il punto di corda, e
+        una letta da lontano, che si accorge della curva prima di arrivarci e
+        allarga la macchina in ingresso. Sui rettilinei lunghi si torna al
+        centro. Serve a chi disegna: il modello di giro non ne ha bisogno.
+        """
+        if getattr(self, "_linea", None) is None:
+            pts = getattr(self, "_metri", None) or []
+            n = len(pts)
+            if n < 16:
+                self._linea = [0.0] * max(1, n)
+                return self._linea
+            ds = max(0.5, self.ds)
+            direz = []
+            for i in range(n):
+                a, b = pts[(i - 1) % n], pts[(i + 1) % n]
+                d = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+                direz.append(((b[0] - a[0]) / d, (b[1] - a[1]) / d))
+            # con il segno: positiva quando si gira a destra (in senso orario)
+            k = []
+            for i in range(n):
+                a, b = direz[(i - 3) % n], direz[(i + 3) % n]
+                k.append(-(a[0] * b[1] - a[1] * b[0]) / (6 * ds))
+
+            def media(v, meta):
+                return [sum(v[(i + j) % n] for j in range(-meta, meta + 1)) / (2 * meta + 1)
+                        for i in range(n)]
+            vicina = media(k, max(1, int(40 / ds)))
+            lontana = media(k, max(2, int(150 / ds)))
+            grezza = [max(-1.0, min(1.0, 1.6 * a * 60 - 1.1 * b * 60)) * 0.85
+                      for a, b in zip(vicina, lontana)]
+            self._linea = media(grezza, max(1, int(30 / ds)))
+        return self._linea
+
+    def linea_a(self, frazione: float) -> float:
+        """La traiettoria ideale a questa frazione del giro (in distanza)."""
+        l = self.linea()
+        n = len(l)
+        f = (frazione % 1.0) * n
+        i = int(f) % n
+        return l[i] + (l[(i + 1) % n] - l[i]) * (f - int(f))
+
     def _map_domains(self, ref_car, cond) -> None:
         """Divide il giro in domini una volta per tutte, sulla vettura campione.
 

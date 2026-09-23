@@ -399,32 +399,53 @@ void main() {
 
 
 class Elicottero:
-    """La ripresa dall'alto: gira piano da sola, finche' non la si prende.
+    """La ripresa dall'alto, sul circuito o agganciata a una macchina.
 
-    Si trascina col sinistro per girarla, col destro per spostarla, e la
-    rotellina avvicina.
+    Sul circuito gira piano da sola, finche' non la si prende: si trascina
+    col sinistro per girarla, col destro per spostarla, e la rotellina
+    avvicina. Agganciata a una macchina le resta sopra mentre corre, e
+    trascinando le si gira intorno: la macchina resta sempre al centro.
+    Passando da un bersaglio all'altro la camera vola, non salta.
     """
+
+    VOLO = 0.9                  # secondi per andare da un bersaglio all'altro
 
     def __init__(self):
         self.yaw = math.radians(215)
         self.pitch = math.radians(57)
         self.zoom = 1.0
+        self.zoom_auto = 1.0
         self.pan = [0.0, 0.0]
         self.fermo = 0.0
+        self.chi = None             # chi si segue: None e' il circuito intero
+        self.auto = None            # dov'e' adesso, nel mondo
+        self._volo = 0.0
+        self._da = None
+        self._ultimo = None
 
     def aggiorna(self, dt: float) -> None:
+        self._volo = max(0.0, self._volo - dt)
         if self.fermo > 0:
             self.fermo -= dt
-        else:
+        elif self.chi is None:
             self.yaw += dt * math.radians(0.8)
+
+    def segui(self, chi, pos) -> None:
+        if chi != self.chi:
+            self._da = self._ultimo
+            self._volo = self.VOLO if self._da else 0.0
+            self.chi = chi
+        self.auto = pos
 
     def trascina(self, dx: float, dy: float) -> None:
         self.yaw += dx * 0.006
-        self.pitch = max(math.radians(28), min(math.radians(88), self.pitch + dy * 0.004))
+        self.pitch = max(math.radians(18), min(math.radians(88), self.pitch + dy * 0.004))
         self.fermo = 15.0
 
     def sposta(self, dx: float, dy: float, geo) -> None:
         """Il piano segue il mouse: si trascina la mappa, non la camera."""
+        if self.chi is not None:
+            return
         k = geo.span * 0.0016 * self.zoom
         fx, fz = math.cos(self.yaw), math.sin(self.yaw)
         # destra dello schermo = (-fz, fx), avanti = (fx, fz)
@@ -435,18 +456,34 @@ class Elicottero:
         self.fermo = 15.0
 
     def rotella(self, y: float) -> None:
-        self.zoom = max(0.2, min(1.6, self.zoom * (0.87 ** y)))
+        if self.chi is not None:
+            self.zoom_auto = max(0.12, min(6.0, self.zoom_auto * (0.85 ** y)))
+        else:
+            self.zoom = max(0.2, min(1.6, self.zoom * (0.87 ** y)))
         self.fermo = 15.0
 
     def inquadra(self, geo, aspetto: float, fov: float) -> tuple:
-        bersaglio = (geo.cx + self.pan[0], geo.cy, geo.cz + self.pan[1])
-        mezzo = math.tan(math.radians(fov) / 2.0) * min(aspetto, 1.3)
-        dist = geo.span * 0.66 / mezzo * self.zoom
+        if self.chi is not None and self.auto is not None:
+            bersaglio = self.auto
+            dist = 260.0 * self.zoom_auto
+        else:
+            bersaglio = (geo.cx + self.pan[0], geo.cy, geo.cz + self.pan[1])
+            mezzo = math.tan(math.radians(fov) / 2.0) * min(aspetto, 1.3)
+            dist = geo.span * 0.66 / mezzo * self.zoom
+        if self._volo > 0 and self._da:
+            t = 1.0 - self._volo / self.VOLO
+            t = t * t * (3 - 2 * t)
+            (b0, d0) = self._da
+            bersaglio = tuple(a + (c - a) * t for a, c in zip(b0, bersaglio))
+            # a meta' volo ci si alza un po': si vede dove si va
+            dist = d0 + (dist - d0) * t + math.sin(t * math.pi) * min(d0, dist) * 0.35
+        self._ultimo = (bersaglio, dist)
         cp = math.cos(self.pitch)
         occhio = (bersaglio[0] - math.cos(self.yaw) * cp * dist,
                   bersaglio[1] + math.sin(self.pitch) * dist,
                   bersaglio[2] - math.sin(self.yaw) * cp * dist)
-        return occhio, bersaglio, max(2.0, dist * 0.05), geo.span * 70
+        occhio = (occhio[0], max(occhio[1], geo.terra(occhio[0], occhio[2]) + 6.0), occhio[2])
+        return occhio, bersaglio, max(1.0, dist * 0.03), geo.span * 70
 
 
 _GEO: dict = {}
@@ -571,6 +608,14 @@ class Vista3D:
     def aggiorna(self, dt: float) -> None:
         self.elicottero.aggiorna(dt)
         self.tempo += dt
+
+    def segui(self, chi, frazione: float = 0.0, laterale: float = 0.0) -> None:
+        """Aggancia la ripresa a una macchina (None: torna sul circuito)."""
+        pos = None
+        if chi is not None:
+            (x, y, z), _ = self.geo.sul_giro(frazione, laterale)
+            pos = (x, y + 1.0, z)
+        self.elicottero.segui(chi, pos)
 
     def disegna(self, misura) -> pygame.Surface:
         """Un fotogramma della pista, grande `misura`, senza le macchine."""

@@ -379,6 +379,45 @@ def draw_track(surf, track, rect, width: int = 12, colour=ASFALTO,
     return pts or fit_points(track, rect)
 
 
+# Sotto questa distanza due macchine si disegnano affiancate: e' la lotta
+# ruota a ruota. Piu' lontane, una sta dietro all'altra, in scia.
+AFFIANCATE_M = 9.0
+
+
+def laterali(track, auto: list) -> dict:
+    """Dove stanno le macchine sulla larghezza della pista, da -1 a 1.
+
+    `auto` e' una lista di (chiave, frazione del giro in distanza). La gara
+    sa solo quanti metri ha fatto ognuno, non dove sta sulla carreggiata:
+    qui ognuno segue la traiettoria ideale, in fila, e si sposta di lato
+    solo quando ha una macchina a pochi metri davanti - li' si e'
+    affiancati davvero. Prima i pallini si alternavano a destra e a
+    sinistra secondo la posizione in classifica, e due macchine vicine
+    sembravano sempre in lotta anche quando erano in fila.
+    """
+    giro = max(1.0, track.length_km * 1000.0)
+    fuori = {}
+    prima = None
+    for chiave, frazione in sorted(auto, key=lambda a: -a[1]):
+        lat = track.linea_a(frazione)
+        if prima is not None and (prima[0] - frazione) * giro < AFFIANCATE_M:
+            # di fianco a chi ha davanti, dalla parte dove c'e' piu' spazio
+            lato = -1.0 if prima[1] > 0 else 1.0
+            lat = max(-1.0, min(1.0, prima[1] + lato * 0.95))
+        fuori[chiave] = lat
+        prima = (frazione, lat)
+    return fuori
+
+
+def nastro_px(track, rect, width: int = 12) -> float:
+    """Quanto e' largo in pixel il nastro d'asfalto che `draw_track` disegna qui."""
+    base = pygame.Rect(0, 0, rect[2], rect[3])
+    lato, _ox, _oy = inquadra(track, base)
+    ppm = ESAGERA * lato / max(1.0, getattr(track, "scala_m", 0.0) or 1e9)
+    vero = getattr(track, "larghezza_m", 13.0) * ppm
+    return max(NASTRO_MINIMO, min(width, int(round(vero))))
+
+
 def car_pos(pts, frac: float, offset: float = 0.0):
     """Posizione lungo il tracciato con uno scostamento laterale in pixel."""
     n = len(pts)
