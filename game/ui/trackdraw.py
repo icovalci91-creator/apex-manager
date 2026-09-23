@@ -384,7 +384,7 @@ def draw_track(surf, track, rect, width: int = 12, colour=ASFALTO,
 AFFIANCATE_M = 9.0
 
 
-def laterali(track, auto: list) -> dict:
+def laterali(track, auto: list, forzati: dict | None = None) -> dict:
     """Dove stanno le macchine sulla larghezza della pista, da -1 a 1.
 
     `auto` e' una lista di (chiave, frazione del giro in distanza). La gara
@@ -394,13 +394,19 @@ def laterali(track, auto: list) -> dict:
     affiancati davvero. Prima i pallini si alternavano a destra e a
     sinistra secondo la posizione in classifica, e due macchine vicine
     sembravano sempre in lotta anche quando erano in fila.
+
+    `forzati` dice chi si e' spostato di sua volonta' - a difendere l'interno,
+    ad attaccare da fuori - e dove: quello vale sopra a tutto il resto.
     """
+    forzati = forzati or {}
     giro = max(1.0, track.length_km * 1000.0)
     fuori = {}
     prima = None
     for chiave, frazione in sorted(auto, key=lambda a: -a[1]):
         lat = track.linea_a(frazione)
-        if prima is not None and (prima[0] - frazione) * giro < AFFIANCATE_M:
+        if chiave in forzati:
+            lat = forzati[chiave]
+        elif prima is not None and (prima[0] - frazione) * giro < AFFIANCATE_M:
             # di fianco a chi ha davanti, dalla parte dove c'e' piu' spazio
             lato = -1.0 if prima[1] > 0 else 1.0
             lat = max(-1.0, min(1.0, prima[1] + lato * 0.95))

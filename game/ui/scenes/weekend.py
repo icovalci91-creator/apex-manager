@@ -1363,6 +1363,27 @@ class WeekendScene(Scene):
                                        lambda: self.segui(None), "ghost",
                                        tip="Torna a guardare tutto il circuito"))
 
+    def _laterali(self, auto: list, forzati: dict | None = None) -> dict:
+        """Le posizioni sulla larghezza della pista, senza scatti.
+
+        Chi cambia lato - per difendere, per attaccare, per rientrare in
+        traiettoria - ci va in un attimo ma non di colpo: in un quarto di
+        secondo circa, come si vede in pista.
+        """
+        mete = trackdraw.laterali(self.track, auto, forzati)
+        prima = getattr(self, "_lat_prec", {})
+        k = min(1.0, self._dt * 4.0)
+        ora = {c: prima.get(c, v) + (v - prima.get(c, v)) * k for c, v in mete.items()}
+        self._lat_prec = ora
+        return ora
+
+    def _manovre(self) -> dict:
+        """Chi si e' spostato per attaccare o difendere, e dove."""
+        if not self.sim:
+            return {}
+        return {e.driver_id: e.manovra for e in self.sim.entrants
+                if getattr(e, "manovra_t", 0.0) > 0.0 and e.status == "running"}
+
     def _codice(self, driver_id) -> str:
         entranti = self.sim.entrants if self.sim else (
             [p.e for p in self.turno.piste.values()] if self.turno else [])
@@ -1381,7 +1402,7 @@ class WeekendScene(Scene):
         si disegna per ultimo e resta sopra. False se la scheda video non ce
         la fa: chi chiama torna alla mappa 2D.
         """
-        lat = trackdraw.laterali(self.track, [(a[0], a[1]) for a in auto])
+        lat = self._laterali([(a[0], a[1]) for a in auto], self._manovre())
         metri = pista3d.MEZZA_PISTA - 1.2
         seguita = next((a for a in auto if a[0] == self.segui_id), None)
         if self.segui_id and seguita is None:
@@ -1543,7 +1564,7 @@ class WeekendScene(Scene):
         # rettilineo copre trecento metri in tre secondi e nel tornante ne
         # copre trenta. La mappa del giro nel tempo dice il punto giusto
         quote = {e.driver_id: self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
-        lat = trackdraw.laterali(self.track, list(quote.items()))
+        lat = self._laterali(list(quote.items()), self._manovre())
         mezzo = max(0.0, trackdraw.nastro_px(self.track, vista, 14) / 2 - 1.0)
         for e in reversed(vive):
             quota = quote[e.driver_id]

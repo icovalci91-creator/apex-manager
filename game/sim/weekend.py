@@ -97,12 +97,44 @@ PERDITA_SC = 0.55         # quanto costa la sosta con la safety car in pista
 PERDITA_VSC = 0.78        # con la virtual e' meno regalo: rallentano tutti uguale
 FINESTRA_SC = 12          # con la sosta entro tanti giri, si entra adesso
 GOMMA_SC = 0.30           # o comunque se alla gomma resta meno di tanta vita
-ARIA_SPORCA_S = 0.42           # stare attaccati a chi sta davanti
 # E sotto l'acqua stare attaccati e' un'altra cosa ancora: dalla macchina
 # davanti esce un muro di spruzzi e non si vede la staccata. Si perde di piu' e
 # si prova a passare di meno, ed e' il motivo per cui certe gare bagnate sono
 # file indiane che non si sbloccano.
 SPRUZZI = 1.60
+
+# ----------------------------------------------------------------- la scia
+# L'aria che una monoposto si lascia dietro fa due cose opposte, e dipende da
+# dove si e'. Sul dritto chi sta dietro trova meno resistenza e prende
+# velocita': e' la scia, e attaccati vale qualche km/h in fondo al rettilineo.
+# In curva la stessa aria toglie carico: l'anteriore non morde, si scivola, e
+# piu' la curva e' veloce piu' si perde. Si conta punto per punto e non in
+# media sul giro: e' cosi' che chi insegue si avvicina in fondo al dritto e si
+# stacca di nuovo nel misto, ed e' li' - in fondo al dritto - che ci prova.
+SCIA_MAX = 0.032            # quanto piu' veloce si va sul dritto, attaccati
+SCIA_RAGGIO_S = 1.0         # oltre un secondo la scia non si sente piu'
+ARIA_CURVA = {"veloci": 0.016, "medie": 0.011, "lente": 0.007, "trazione": 0.004}
+ARIA_RAGGIO_S = 1.6         # l'aria sporca arriva piu' lontano della scia
+# Piu' vicino di cosi' si e' uno di fianco all'altro: senza passare, non si va
+# oltre. Prima era una distanza fissa di venti-sessanta metri, e le macchine
+# stavano in fila come vagoni; adesso la distanza la fa l'aria.
+DISTANZA_MINIMA_M = 8.0
+# In difesa si chiude l'interno della curva che arriva. Chi ci riesce toglie
+# la strada buona a chi attacca, che deve provarci da fuori; chi non ci riesce
+# se lo trova di fianco. Difendersi costa qualche metro, e un attacco andato a
+# vuoto ne costa di piu': si e' frenato tardi e si esce storti.
+COPERTURA_BASE = 0.35
+COPERTURA_MESTIERE = 0.50
+SORPASSO_COPERTO = 0.80     # attaccare da fuori, con l'interno chiuso
+SORPASSO_APERTO = 1.60      # trovarsi l'interno libero
+COSTO_DIFESA_M = 2.0
+COSTO_ATTACCO_M = 3.0
+MANOVRA_S = 3.0             # quanto dura, a vedersi, una manovra
+# Entro quanto si puo' provare a passare: un secondo, come la finestra del DRS.
+# Prima era una distanza in metri tarata sulla coda fissa, stretta proprio sui
+# circuiti dove si passa di piu'; adesso che la distanza la fa l'aria serve
+# una misura in tempo, uguale per tutti.
+TIRO_S = 1.0
 # Con l'acqua alta non e' piu' questione di aderenza: sotto le gomme c'e'
 # l'acqua e non l'asfalto. Da li' in su si va piano e basta, per tutti, e chi
 # ci sa fare ci guadagna solo un po'.
@@ -456,6 +488,9 @@ class Entrant:
     stock: dict = None            # set ancora nel camion, per mescola
     overtake_cd: float = 0.0
     dirty_air: float = 0.0
+    aria: float = 0.0             # scia (+) o aria sporca (-) in questo istante
+    manovra: float = 0.0          # dove si e' spostato per attaccare o difendere
+    manovra_t: float = 0.0        # e per quanto ancora
     clean_lap: float = 90.0     # passo in aria libera, usato per valutare i duelli
     damage: float = 0.0
     push_mode: float = 1.0        # 0.9 conserva .. 1.1 attacca
@@ -725,9 +760,8 @@ class RaceSim:
         if e.fuel <= 0.01 and not self.senza_benzina:
             t += DRY_TANK_PENALTY
         clean = t
-        # nell'acqua chi insegue non vede: gli spruzzi di chi sta davanti sono
-        # un muro, e si sta piu' lontani di quanto si vorrebbe
-        t += e.dirty_air * ARIA_SPORCA_S * tr.scia_rel * (1.0 + SPRUZZI * self.weather.wet)
+        # l'aria di chi sta davanti non e' piu' una media sul giro: la conta
+        # `_aria`, punto per punto - scia sul dritto, carico perso in curva
         acqua = self.bagnato
         if self.weather.wet > 0.05 or acqua > 0.05:
             # la gomma giusta e' quella per l'acqua che c'e' sulla linea, non
@@ -777,9 +811,11 @@ class RaceSim:
                 self.log("Safety car rientrata: si riparte!", "sc")
                 self.vsc = False
 
+        self._aria()
         for e in self.entrants:
             if e.status in ("retired", "finished"):
                 continue
+            e.manovra_t = max(0.0, e.manovra_t - dt)
             if e.status == "pitting":
                 e.pit_timer -= dt
                 e.total_time += dt
@@ -789,7 +825,7 @@ class RaceSim:
 
             lt = self.lap_time_of(e)
             e.last_lap = lt
-            v = self.track_len / lt
+            v = self.track_len / lt * (1.0 + e.aria)
             e.dist += v * dt
             e.total_time += dt
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
@@ -950,9 +986,47 @@ class RaceSim:
         coda = [e for e in self._coda if e.status == "running"]
         for i in range(1, len(coda)):
             davanti, dietro = coda[i - 1], coda[i]
-            limite = davanti.dist - self.follow
+            limite = davanti.dist - DISTANZA_MINIMA_M
             if dietro.dist > limite:
                 dietro.dist = limite
+
+    def _aria(self) -> None:
+        """Scia e aria sporca di ognuno, in questo istante.
+
+        Conta chi sta fisicamente davanti in pista, non in classifica: anche un
+        doppiato da' la scia, e anche un doppiato sporca l'aria.
+        """
+        vive = [e for e in self.entrants if e.status == "running"]
+        if self.safety_car > 0 or len(vive) < 2:
+            for e in vive:
+                e.aria = 0.0
+            return
+        giro = self.track_len
+        vive.sort(key=lambda e: e.dist % giro)
+        tr = self.track
+        spruzzi = 1.0 + SPRUZZI * self.weather.wet
+        n = len(vive)
+        for k, e in enumerate(vive):
+            davanti = vive[(k + 1) % n]
+            gap_s = ((davanti.dist - e.dist) % giro) / (giro / max(20.0, e.last_lap or e.base_lap))
+            zona = tr.zone_at(e.lap_fraction(giro))
+            if zona == "rettilinei":
+                # sotto l'acqua la scia c'e' ancora, ma dentro agli spruzzi non
+                # ci si mette volentieri
+                e.aria = SCIA_MAX * max(0.0, 1.0 - gap_s / SCIA_RAGGIO_S) ** 1.5 / spruzzi ** 0.5
+            else:
+                e.aria = -(ARIA_CURVA.get(zona, 0.0) * tr.scia_rel * spruzzi
+                           * max(0.0, 1.0 - gap_s / ARIA_RAGGIO_S) ** 1.2)
+
+    def _interno(self, e) -> float:
+        """Da che parte e' l'interno della prossima curva: 1 a destra, -1 a sinistra."""
+        tr = self.track
+        linea = tr.linea()
+        n = len(linea)
+        i0 = int(tr.pos_at(e.lap_fraction(self.track_len)) * n)
+        passi = max(2, int(300.0 / max(1.0, tr.ds)))
+        valore = max((linea[(i0 + k) % n] for k in range(passi)), key=abs)
+        return 1.0 if valore >= 0 else -1.0
 
     def _wear_rate(self, e: Entrant) -> float:
         comp = C.COMPOUNDS[e.tyre]
@@ -1800,7 +1874,8 @@ class RaceSim:
         for i in range(1, len(live)):
             ahead, behind = live[i - 1], live[i]
             gap_m = ahead.dist - behind.dist
-            if gap_m > self.follow * 2.4 or gap_m < 0:
+            gap_t = gap_m / (self.track_len / max(20.0, behind.last_lap or behind.base_lap))
+            if gap_t > 2.0 * TIRO_S or gap_m < 0:
                 behind.dirty_air = max(0.0, behind.dirty_air - dt * 1.5)
                 continue
             # fra compagni di squadra non si combatte: si conta
@@ -1815,7 +1890,7 @@ class RaceSim:
                     continue
             behind.dirty_air = min(1.0, behind.dirty_air + dt * 0.9) * (1.0 - 0.55 * ot_track)
             if (self.safety_car > 0 or behind.overtake_cd > 0
-                    or gap_m > self.follow * 1.25):
+                    or gap_t > TIRO_S):
                 continue
             # quante volte al giro ci si prova e' un numero piccolo, e non
             # dipende da quanti posti buoni ci sono: si sceglie il migliore e
@@ -1841,6 +1916,16 @@ class RaceSim:
             # da qui in poi e' il tentativo in questa zona, riuscito o no
             behind.overtake_cd = ATTESA_ZONA
             behind.tentativi_giro += 1
+            # chi difende chiude l'interno della curva che arriva, se lo vede
+            # arrivare; chi attacca va dove trova la porta aperta
+            interno = self._interno(behind)
+            chiude = self.rng.random() < (COPERTURA_BASE + COPERTURA_MESTIERE
+                                          * ahead.racecraft / 100.0)
+            if chiude:
+                ahead.manovra, ahead.manovra_t = interno * 0.8, MANOVRA_S
+                ahead.dist -= COSTO_DIFESA_M
+            behind.manovra = (-interno if chiude else interno) * 0.8
+            behind.manovra_t = MANOVRA_S
             # l'override: stando entro un secondo si possono chiedere i
             # trecentocinquanta kilowatt pieni fin quasi in fondo al dritto, e
             # costano mezzo megajoule. Se chi sta davanti e' a secco non ha
@@ -1907,9 +1992,12 @@ class RaceSim:
             # porta prima che si apra
             p *= MU.di(behind)["attacco"]
             p /= max(0.60, MU.di(ahead)["difesa"])
+            p *= SORPASSO_COPERTO if chiude else SORPASSO_APERTO
             # e comunque, per quanto uno sia piu' veloce, il posto per passare
             # non lo inventa: e' il tetto che separa Monza da Monte Carlo
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot_track, p):
+                # andato a vuoto: si e' frenato tardi, si esce storti
+                behind.dist -= COSTO_ATTACCO_M
                 continue
             behind.dist, ahead.dist = ahead.dist + 6.0, ahead.dist - self.follow * 0.6
             # passare costa: si e' arrivati in fondo al dritto in attacco, e
