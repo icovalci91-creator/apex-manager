@@ -12,3 +12,6 @@ tools/_cache/
 build/
 dist/
 *.spec.bak
+
+# le preferenze dell audio (volume, musica), scritte dal gioco lanciato dai sorgenti
+audio.json
