@@ -723,10 +723,17 @@ class WeekendScene(Mappa3D, Scene):
             self.app.push(CommissionScene(self.app))
 
     # ------------------------------------------------------------------- loop
+    def in_pista(self) -> bool:
+        """C'e' un turno o una gara in corso: la musica tace, si sente la pista."""
+        return bool((self.sim and not self.sim.finished)
+                    or (self.turno and not self.turno.finita))
+
     def update(self, dt: float) -> None:
         self._dt = dt
         if self.v3d is not None:
             self.v3d.aggiorna(dt)
+        if self.in_pista():
+            self._suono_pista()
         if getattr(self, "traguardo", None) is not None:
             self.traguardo.update(dt)
             if self.traguardo.finito:

@@ -11,6 +11,7 @@ import pygame
 
 from ... import storage
 from ...core.state import GameState
+from .. import pannello_audio
 from .. import theme as T
 from ..app import Scene
 from ..widgets import Button, ScrollList, TextInput, Toggle
@@ -36,7 +37,7 @@ class GameMenuScene(Scene):
         w, h = self.app.screen.get_size()
         self.widgets = []
         cx = w // 2
-        y = 200
+        y = 186
         if self.modo == "principale":
             voci = [
                 ("Riprendi la partita", self.chiudi, "primary"),
@@ -45,9 +46,11 @@ class GameMenuScene(Scene):
                 ("Carica partita", lambda: self.vai("carica"), "normal"),
             ]
             for lab, azione, stile in voci:
-                self.widgets.append(Button((cx - 200, y, 400, 48), lab, azione, stile))
-                y += 58
+                self.widgets.append(Button((cx - 200, y, 400, 44), lab, azione, stile))
+                y += 52
             y += 10
+            if pannello_audio.aggiungi(self.widgets, cx - 200, y, 400, self.build):
+                y += 44
             self.widgets.append(Toggle((cx - 200, y, 400, 34), "Editor di gioco",
                                        bool(getattr(self.app, "editor", False)),
                                        self.set_editor))
@@ -56,7 +59,7 @@ class GameMenuScene(Scene):
                        "normal" if getattr(self.app, "editor", False) else "ghost")
             b.enabled = bool(getattr(self.app, "editor", False))
             self.widgets.append(b)
-            y += 62
+            y += 52
             self.widgets.append(Button((cx - 200, y, 400, 40), "Torna alla schermata iniziale",
                                        self.al_menu_iniziale, "ghost"))
         elif self.modo == "salva":

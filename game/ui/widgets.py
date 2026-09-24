@@ -5,7 +5,7 @@ import sys
 
 import pygame
 
-from . import fx
+from . import audio, fx
 from . import theme as T
 
 # Nel browser la tastiera non la comanda il gioco: la comanda la pagina.
@@ -62,9 +62,12 @@ class Button(Widget):
             return False
         if ev.type == pygame.MOUSEMOTION:
             self.hover = tocco(self.rect).collidepoint(ev.pos)
+            if self.hover and self.style != "invisible":
+                _sfiorato(self._chiave())
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             if tocco(self.rect).collidepoint(ev.pos):
                 _PREMUTI[self._chiave()] = (fx.ora(), ev.pos)
+                audio.suona("clic", 0.55)
                 if self.on_click:
                     self.on_click()
                 return True
@@ -148,6 +151,18 @@ class Button(Widget):
 
 # dove e quando e' stato premuto ogni pulsante, per l'onda del clic
 _PREMUTI: dict = {}
+
+# l'ultimo pulsante su cui e' passato il mouse: il tocco si sente solo quando
+# si arriva su uno nuovo, non a ogni movimento (e non quando la schermata
+# ricostruisce i pulsanti sotto al mouse fermo)
+_SFIORATO = [None, 0.0]
+
+
+def _sfiorato(chiave) -> None:
+    ora = fx.ora()
+    if chiave != _SFIORATO[0] or ora - _SFIORATO[1] > 0.5:
+        audio.suona("sfiora", 0.3)
+    _SFIORATO[0], _SFIORATO[1] = chiave, ora
 
 
 def _passo_tondo(x: float) -> float:

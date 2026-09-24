@@ -15,7 +15,7 @@ import math
 import pygame
 
 from . import theme as T
-from . import pista3d, regia, trackdraw, vista3d
+from . import audio, pista3d, regia, trackdraw, vista3d
 from .widgets import Button
 
 
@@ -41,6 +41,10 @@ class Mappa3D:
         self.regista = None
         self._replay_prima = False
         self._stacco = 9.0          # da quanto e' partito o finito il replay
+        # per il suono: com'era l'ultimo fotogramma 3D, e chi accelera
+        self._audio_3d = None
+        self._accel: dict = {}
+        self._v_prec: dict = {}
 
     # -- quello che cambia da una scena all'altra
     def _entranti_3d(self) -> list:
@@ -81,6 +85,10 @@ class Mappa3D:
         """La cronaca: la regia ci legge i sorpassi."""
         sim = getattr(self, "sim", None)
         return list(getattr(sim, "events", []) or []) if sim else []
+
+    def _elettrico_3d(self) -> bool:
+        """Motori elettrici (la Formula E) o il V6 turbo."""
+        return False
 
     def _alone_3d(self, driver_id):
         """Un colore attorno al pallino, per chi ha qualcosa da far vedere."""
@@ -221,6 +229,12 @@ class Mappa3D:
             giro = regia.lunghezza(self.v3d.geo)
             pos = self._continua.applica({a[0]: (a[1], lat[a[0]] * metri) for a in auto},
                                          dt_sim, giro)
+            if dt_sim > 0:
+                for chi in pos:
+                    v = self._continua.velocita(chi)
+                    a = (v - self._v_prec.get(chi, v)) / dt_sim
+                    self._accel[chi] = self._accel.get(chi, 0.0) * 0.6 + a * 0.4
+                    self._v_prec[chi] = v
             if tv:
                 pos = self._regia(pos, auto, t_sim)
                 self.v3d.segui(None)
@@ -236,6 +250,7 @@ class Mappa3D:
                              + (self._gomma_3d(a[0]), self._livrea_3d(a[0], a[2])[2])
                              for a in auto if a[0] in pos]
             img = self.v3d.disegna(vista.size)
+            self._audio_3d = (pygame.time.get_ticks(), pos, tv, dt_sim, vista.w)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()
             self.v3d = None
@@ -518,3 +533,107 @@ class Mappa3D:
                     self.segui(ids[i])
                     return True
         return False
+
+    # ------------------------------------------------------------- il suono
+    def _semaforo_acceso(self) -> bool:
+        sem = getattr(self, "semaforo", None)
+        return sem is not None and sem.ferma
+
+    def _suono_pista(self) -> None:
+        """Quello che si sente in pista, chiesto a ogni fotogramma.
+
+        In 3D il motore della macchina inquadrata - dal bordo pista con
+        l'effetto Doppler e il volume che sale man mano che arriva, dall'onboard
+        a tutto volume col vento, dall'elicottero lontano - e se c'e' una
+        battaglia anche quello di chi le sta davanti. Sotto, la folla, il rombo
+        del gruppo che gira, la pioggia quando piove. In 2D restano i fondi.
+        """
+        if not audio.attivo():
+            return
+        meteo = self._meteo_3d()
+        bagnato = float(getattr(meteo, "wet", 0.0) or 0.0)
+        ultimo = self._audio_3d
+        in_3d = (ultimo is not None and self.v3d is not None
+                 and pygame.time.get_ticks() - ultimo[0] < 300)
+        if bagnato > 0.05:
+            audio.ambiente("pioggia", min(1.0, bagnato) * (0.7 if in_3d else 0.45))
+        if not in_3d:
+            audio.ambiente("folla", 0.12)
+            audio.ambiente("campo", 0.25)
+            return
+        _, pos, tv, dt_sim, larga = ultimo
+        fermo = dt_sim <= 0.0 and not self._semaforo_acceso()
+        elettrico = self._elettrico_3d()
+        geo = self.v3d.geo
+        soggetti = []           # (chi, volume, pan, doppler)
+        folla, campo = 0.18, 0.15
+        replay = None
+        cam = None
+        if tv and self.regista is not None:
+            cam = self.regista.camera
+            replay = self.regista.replay
+        if cam is not None:
+            chi_ = [c for c in [cam.chi] + cam.altri[:1] if c in pos]
+            for k, chi in enumerate(chi_):
+                if isinstance(cam, regia.Bordo):
+                    (x, y, z), fw = geo.sul_giro(*pos[chi])
+                    ox, oy, oz = cam.occhio
+                    dx, dy, dz = ox - x, oy - y, oz - z
+                    d = max(1.0, math.sqrt(dx * dx + dy * dy + dz * dz))
+                    v = self._velocita_suono(chi, replay)[0]
+                    verso = (fw[0] * dx + fw[1] * dy + fw[2] * dz) / d * v
+                    doppler = 343.0 / max(150.0, 343.0 - verso)
+                    vol = min(1.0, (24.0 / d) ** 0.8)
+                    soggetti.append((chi, vol, self._pan_di(pos[chi], larga), doppler))
+                    folla = 0.32
+                elif isinstance(cam, regia.TCam):
+                    soggetti.append((chi, 1.0 if k == 0 else 0.5, 0.0, 1.0))
+                    v = self._velocita_suono(chi, replay)[0]
+                    audio.ambiente("vento", 0.55 * min(1.0, v / 80.0))
+                    folla = 0.1
+                elif isinstance(cam, regia.Segue):
+                    soggetti.append((chi, 0.85 if k == 0 else 0.45, 0.0, 1.0))
+                else:
+                    soggetti.append((chi, 0.32 if k == 0 else 0.22,
+                                     self._pan_di(pos[chi], larga), 1.0))
+                    campo = 0.3
+        elif not tv and self.segui_id in pos:
+            zoom = self.v3d.elicottero.zoom_auto
+            soggetti.append((self.segui_id, max(0.15, min(0.9, 0.22 / max(0.03, zoom))),
+                             self._pan_di(pos[self.segui_id], larga), 1.0))
+        else:
+            campo = 0.45
+            folla = 0.22
+        audio.ambiente("folla", folla * (0.7 if replay else 1.0))
+        audio.ambiente("campo", campo)
+        if fermo:
+            return
+        veloce = getattr(self, "regista", None) is not None and self.regista.ritmo > 8.0
+        for k, (chi, vol, pan, doppler) in enumerate(soggetti[:2]):
+            v, a = self._velocita_suono(chi, replay)
+            if self._semaforo_acceso():
+                # sulla griglia col rosso: fermi, col motore su di giri
+                v, a = 0.0, 5.0
+            audio.motore(k, chi, v, a, vol * (0.5 if veloce else 1.0) * (0.8 if replay else 1.0),
+                         pan, doppler, elettrico)
+
+    def _velocita_suono(self, chi, replay) -> tuple:
+        """(velocita' m/s, accelerazione m/s2) di una macchina: dal vivo, o dal
+        registro della regia se si sta guardando un replay."""
+        if replay is None:
+            return self._continua.velocita(chi), self._accel.get(chi, 0.0)
+        reg, t = self.regista.registro, replay["t"]
+        giro = regia.lunghezza(self.v3d.geo)
+        punti = [reg.a(t - k * 0.1).get(chi) for k in range(3)]
+        if any(p is None for p in punti):
+            return self._continua.velocita(chi), 0.0
+        v1 = regia._avanti(punti[1][0], punti[0][0], giro) / 0.1
+        v0 = regia._avanti(punti[2][0], punti[1][0], giro) / 0.1
+        return max(0.0, v1), (v1 - v0) / 0.1
+
+    def _pan_di(self, p, larga: int) -> float:
+        """Da che parte dello schermo sta: il suono viene da li'."""
+        q = self.v3d.proietta(*p) if self.v3d is not None else None
+        if q is None or larga <= 0:
+            return 0.0
+        return max(-0.8, min(0.8, (q[0] / larga - 0.5) * 1.6))

@@ -362,11 +362,19 @@ class EPrixScene(Mappa3D, Scene):
         self.build()
 
     # -------------------------------------------------------------------- loop
+    def in_pista(self) -> bool:
+        return self.fase == "gara" and self.sim is not None and not self.sim.finished
+
+    def _elettrico_3d(self) -> bool:
+        return True
+
     def update(self, dt: float) -> None:
         super().update(dt)
         self._dt = dt
         if self.v3d is not None:
             self.v3d.aggiorna(dt)
+        if self.in_pista():
+            self._suono_pista()
         if getattr(self, "traguardo", None) is not None:
             self.traguardo.update(dt)
             if self.traguardo.finito:

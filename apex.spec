@@ -20,10 +20,13 @@ occupa sempre config.py.
 (`glcontext.wgl` su Windows) solo quando serve, e PyInstaller da solo non li
 vede: si elencano qui, se no l'eseguibile parte ma la gara resta in 2D.
 
+**Il suono.** Si sintetizza all'avvio con numpy (`game/ui/sintesi.py`): e'
+l'unica libreria in piu', e pesa una quindicina di megabyte.
+
 **Cosa resta fuori.** Le librerie che pygame si porta dietro per cose che
-questo gioco non fa - numpy, i test, tkinter - si escludono a mano: sono
-qualche decina di megabyte di roba che nessuno aprira' mai. `tools/` e gli
-screenshot non entrano affatto: servono a chi sviluppa, non a chi gioca.
+questo gioco non fa - i test, tkinter - si escludono a mano: sono qualche
+megabyte di roba che nessuno aprira' mai. `tools/` e gli screenshot non
+entrano affatto: servono a chi sviluppa, non a chi gioca.
 """
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -45,7 +48,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        'numpy', 'tkinter', 'unittest', 'pydoc_data', 'test',
+        'tkinter', 'unittest', 'pydoc_data', 'test',
         'pygame.tests', 'PIL', 'setuptools', 'pip',
     ],
     noarchive=False,

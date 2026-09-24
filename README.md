@@ -116,6 +116,35 @@ restituisce in sette decimi, cosi' chi passa sembra uscire dalla scia piu' forte
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
 
+## Il suono
+
+Anche il suono e' fatto dal codice: nessun file audio, tutto si sintetizza con numpy
+all'avvio (`game/ui/sintesi.py`) mentre si guarda il menu, e ci mette un paio di secondi.
+
+- **Il motore** si genera mentre si guarda, settanta millesimi alla volta: il V6 turbo
+  ibrido del 2026 con la nota degli scoppi (sei per ciclo), la raspa dei mezzi ordini,
+  il fischio del turbo, il sibilo dell'MGU-K. Dalla velocita' vera della macchina
+  inquadrata escono la marcia e i giri - otto marce, le cambiate che salgono in
+  accelerazione e le scalate in frenata, gli scoppiettii in rilascio. Sulla griglia, col
+  rosso acceso, si sgasa. In Formula E suona il motore elettrico, con il sibilo che
+  sale con la velocita' e il rumore di gomme e vento.
+- **Dove sta la telecamera** cambia tutto: dall'onboard il motore e' a tutto volume e c'e'
+  il vento; dietro con la camera car un po' meno; dal bordo pista la macchina arriva da
+  lontano, passa e si allontana con l'effetto Doppler, e il suono viene dalla parte dello
+  schermo dove sta; dall'elicottero e' lontano. In una battaglia si sentono tutte e due.
+- **I fondi**: la folla sulle tribune, il rombo del gruppo che gira lontano (quando si
+  guarda il circuito intero), la pioggia quando piove. In 2D restano solo quelli.
+- **I momenti**: le cinque luci del semaforo e, allo spegnimento, venti motori che
+  partono insieme; la fanfara e gli applausi alla bandiera a scacchi (piu' forti se c'e'
+  una delle nostre sul podio); il clic dei pulsanti, il fruscio del passaggio di pagina,
+  il tono degli avvisi.
+- **La musica** del menu e delle pagine: otto battute in la minore - pad, basso, arpeggio
+  con l'eco, batteria - che girano senza cucitura. In pista tace.
+
+Volume, musica ed effetti si regolano dal menu iniziale e dal menu della partita, e il
+gioco se li ricorda. **Ctrl+M** toglie e rimette l'audio in qualunque momento. Senza
+scheda audio, o nella versione web, il gioco resta muto.
+
 ### I dintorni veri, da OpenStreetMap
 
 Di base quello che sta attorno alla pista e' inventato. Per avere i dintorni veri -
@@ -2396,6 +2425,7 @@ game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
                      pista3d e vista3d (il circuito in 3D), mappa3d (la mappa
                      3D delle scene di gara), regia (le telecamere della TV e
                      i replay), monoposto e livree (le macchine in 3D),
+                     sintesi e audio (il suono: i motori, i fondi, la musica),
                      dintorni (i dintorni da OSM),
                      fx (luci, ombre, semaforo, bandiera, coriandoli, passaggi)
 data/                database JSON (regulations.json, formulae.json e wec.json

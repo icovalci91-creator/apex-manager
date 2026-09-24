@@ -7,7 +7,7 @@ import pygame
 from ... import config as C
 from ... import storage
 from ...core.state import GameState
-from .. import fx
+from .. import fx, pannello_audio
 from .. import theme as T
 from ..app import Scene
 from ..widgets import Button, TextInput, Toggle
@@ -31,6 +31,8 @@ class MenuScene(Scene):
         self.widgets[-1].enabled = bool(saves)
         if not storage.IS_WEB:
             self.widgets.append(Button((cx - 170, y + 134, 340, 50), "Esci", self.quit, "ghost"))
+        # il suono, in basso a destra
+        pannello_audio.aggiungi(self.widgets, w - 420, h - 58, 396, self.build)
 
     def on_resize(self) -> None:
         self.build()

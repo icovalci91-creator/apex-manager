@@ -7,7 +7,7 @@ import sys
 import pygame
 
 from .. import config as C
-from . import fx
+from . import audio, fx
 from . import theme as T
 
 IS_WEB = sys.platform == "emscripten"
@@ -86,6 +86,7 @@ def _window_size() -> tuple:
 
 class App:
     def __init__(self):
+        audio.prepara()
         pygame.init()
         pygame.display.set_caption(f"{C.GAME_TITLE} {C.GAME_VERSION}")
         # anche nel browser il canvas puo' cambiare misura - un iPad che gira
@@ -103,6 +104,8 @@ class App:
         self.editor = False         # editor di gioco: si accende dal menu
         self.toast_text = ""
         self.toast_t = 0.0
+        # il suono si prepara mentre si guarda il menu
+        audio.avvia()
 
     def _splash(self) -> None:
         """Dipinge subito qualcosa, appena lo schermo esiste.
@@ -131,6 +134,7 @@ class App:
         fx.entra()
         if getattr(self, "screen", None) is None or not self.scenes:
             return
+        audio.suona("passa", 0.35)
         try:
             self.passaggio = fx.Passaggio(self.screen.copy(), T.squadra_viva())
         except pygame.error:
@@ -160,6 +164,7 @@ class App:
     def toast(self, msg: str, seconds: float = 3.0) -> None:
         self.toast_text = msg
         self.toast_t = seconds
+        audio.suona("avviso", 0.5)
         self._toast_durata = seconds
 
     # ------------------------------------------------------------------ loop
@@ -184,6 +189,12 @@ class App:
                         pygame.RESIZABLE)
                     if self.scene and hasattr(self.scene, "on_resize"):
                         self.scene.on_resize()
+                elif (ev.type == pygame.KEYDOWN and ev.key == pygame.K_m
+                      and ev.mod & pygame.KMOD_CTRL):
+                    # Ctrl+M: via l'audio, o di nuovo dentro
+                    audio.imposta(muto=not audio.IMPOSTAZIONI["muto"])
+                    self.toast("Audio spento (Ctrl+M per riaccenderlo)"
+                               if audio.IMPOSTAZIONI["muto"] else "Audio acceso")
                 elif self.scene:
                     self.scene.handle(ev)
             if self.scene:
@@ -199,6 +210,10 @@ class App:
             if self.toast_t > 0:
                 self.toast_t -= dt
                 self._draw_toast()
+            # la musica e' del menu e delle pagine: in pista si sente la pista
+            in_pista = getattr(self.scene, "in_pista", None)
+            audio.musica(not (callable(in_pista) and in_pista()))
+            audio.aggiorna(dt)
             pygame.display.flip()
             await asyncio.sleep(0)
         pygame.quit()

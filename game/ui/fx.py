@@ -21,6 +21,8 @@ import sys
 
 import pygame
 
+from . import audio
+
 LEGGERO = sys.platform == "emscripten"
 
 # ------------------------------------------------------------------ il tempo
@@ -407,8 +409,18 @@ class Semaforo:
     def salta(self) -> None:
         self.t = max(self.t, self.attesa)
 
+    def _accese(self, t: float) -> int:
+        return min(5, int(t / self.PASSO) + 1) if t < self.attesa else 0
+
     def update(self, dt: float) -> None:
+        prima = self._accese(self.t) if self.t > 0 else 0
         self.t += dt
+        if self._accese(self.t) > prima:
+            audio.suona("luce", 0.5)
+        if self.t >= self.attesa and not getattr(self, "_partiti", False):
+            # e via: tutta la griglia insieme (anche se si e' saltata l'attesa)
+            self._partiti = True
+            audio.suona("partenza", 0.9)
 
     def draw(self, surf, rect) -> None:
         r = pygame.Rect(rect)
@@ -490,6 +502,9 @@ class Traguardo:
         return self.t >= self.DURATA
 
     def update(self, dt: float) -> None:
+        if self.t == 0.0:
+            audio.suona("fanfara", 0.7)
+            audio.suona("applausi", 0.9 if self.festa else 0.5)
         self.t += dt
         if self.coriandoli:
             self.coriandoli.update(dt)
