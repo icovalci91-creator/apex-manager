@@ -55,10 +55,30 @@ RECUPERO = 0.46
 # E quanto ne recupera in piu' chi ci sa fare: alzare il piede nel punto giusto
 # e frenare forte dove si puo' e' un mestiere, e separa i piloti veri dagli altri
 RECUPERO_MANO = 0.14
-# Aria sporca: seguire costa, ma molto meno che in Formula 1 - queste macchine
-# hanno poco carico e la scia aiuta piu' di quanto l'aria sporca tolga
-ARIA_SPORCA_S = 0.18
-SCIA = 0.10                # e quanto si guadagna stando dietro, in secondi
+# La scia e l'aria sporca, istante per istante come in Formula 1, ma pesate per
+# queste macchine: poco carico, quindi in curva seguire costa poco; tanta
+# resistenza per la potenza che hanno, quindi sul dritto la scia rende di piu'.
+# E in Formula E la scia non da' solo velocita': da' energia. Chi sta dietro
+# arriva in fondo al dritto con la stessa velocita' consumando meno, ed e' il
+# motivo per cui nessuno vuole stare davanti e le gare si fanno in gruppo.
+SCIA_MAX = 0.038            # quanto piu' veloce si va sul dritto, attaccati
+SCIA_RAGGIO_S = 1.2         # oltre questo distacco la scia non si sente piu'
+ARIA_CURVA = {"veloci": 0.007, "medie": 0.005, "lente": 0.003, "trazione": 0.002}
+ARIA_RAGGIO_S = 1.2
+SCIA_ENERGIA = 0.30         # quanto consumo si risparmia, in scia piena sul dritto
+SPRUZZI = 0.8               # quanto gli spruzzi allungano l'aria sporca sul bagnato
+DISTANZA_MINIMA_M = 7.0     # piu' vicino si e' affiancati
+# In difesa si chiude l'interno della curva che arriva; chi attacca va dove
+# trova la porta aperta. Qui ci si tocca di piu' e si difende di piu': le
+# macchine sono uguali e l'unico modo di tenere il posto e' chiudere.
+COPERTURA_BASE = 0.40
+COPERTURA_MESTIERE = 0.45
+SORPASSO_COPERTO = 0.70
+SORPASSO_APERTO = 1.30
+COSTO_DIFESA_M = 1.5
+COSTO_ATTACCO_M = 2.5
+MANOVRA_S = 3.0
+TIRO_S = 0.8                # entro quanto ci si puo' provare
 # Quanto si riesce a passare stando semplicemente attaccati, senza avere il
 # passo. In Formula 1 e' quasi zero; qui e' la maggior parte dei sorpassi.
 SCIA_PASSA = 0.42
@@ -129,6 +149,9 @@ class Corridore:
     lap_t0: float = 0.0
     clean_lap: float = 80.0
     dirty_air: float = 0.0
+    aria: float = 0.0              # scia (+) o aria sporca (-) in questo istante
+    manovra: float = 0.0           # di quanto si e' spostato per attaccare o difendere
+    manovra_t: float = 0.0         # e per quanto ancora
     status: str = "running"        # running | pitting | retired | finished
     dnf_reason: str = ""
     pit_timer: float = 0.0
@@ -335,9 +358,6 @@ class EPrix:
         if e.attack_attivo > 0:
             t -= ATTACK_GUADAGNO
         t += e.damage * 0.05
-        # l'aria di quello davanti: toglie poco, e la scia sul dritto ne
-        # restituisce quasi altrettanto. E' per questo che qui si sta attaccati
-        t += e.dirty_air * ARIA_SPORCA_S - e.dirty_air * SCIA
         # la batteria vuota non e' un modo di dire: sotto il cinque per cento
         # la potenza cala e si va a passo di trasferimento
         if e.carica() < 0.05:
@@ -585,6 +605,7 @@ class EPrix:
                 self.log("Si riparte.", "sc")
                 self.vsc = False
 
+        self._aria()
         for e in self.entrants:
             if e.status in ("retired", "finished"):
                 continue
@@ -596,15 +617,20 @@ class EPrix:
                 continue
             lt = self.lap_time_of(e)
             e.last_lap = lt
-            e.clean_lap = lt - e.dirty_air * (ARIA_SPORCA_S - SCIA)
-            e.dist += (self.track_len / lt) * dt
+            e.clean_lap = lt
+            # la scia e l'aria sporca non cambiano il passo sul giro: cambiano
+            # la velocita' in quel punto, e quindi la distanza da chi sta davanti
+            e.dist += (self.track_len / lt) * (1.0 + e.aria) * dt
             e.total_time += dt
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
+            e.manovra_t = max(0.0, e.manovra_t - dt)
             if e.attack_attivo > 0:
                 e.attack_attivo = max(0.0, e.attack_attivo - dt)
                 if e.attack_attivo == 0.0:
                     self.radio_say(e, "Attack Mode finito.", "muretto")
-            e.energia = max(0.0, e.energia - self.consumo_di(e) * dt / lt)
+            # in scia sul dritto si va uguale spingendo meno aria: si risparmia
+            risparmio = SCIA_ENERGIA * max(0.0, e.aria) / SCIA_MAX
+            e.energia = max(0.0, e.energia - self.consumo_di(e) * (1.0 - risparmio) * dt / lt)
             e.consumo_giro = self.consumo_di(e)
             nuovo = int(e.dist // self.track_len)
             if nuovo > e.lap:
@@ -678,9 +704,48 @@ class EPrix:
         coda = [e for e in self._coda if e.status == "running"]
         for i in range(1, len(coda)):
             davanti, dietro = coda[i - 1], coda[i]
-            limite = davanti.dist - self.follow
+            limite = davanti.dist - DISTANZA_MINIMA_M
             if dietro.dist > limite:
                 dietro.dist = limite
+
+    def _aria(self) -> None:
+        """Scia e aria sporca di ognuno, in questo istante.
+
+        Conta chi sta fisicamente davanti in pista, non in classifica: anche un
+        doppiato da' la scia.
+        """
+        vive = [e for e in self.entrants if e.status == "running"]
+        if self.safety_car > 0 or len(vive) < 2:
+            for e in vive:
+                e.aria = 0.0
+            return
+        giro = self.track_len
+        vive.sort(key=lambda e: e.dist % giro)
+        tr = self.track
+        spruzzi = 1.0 + SPRUZZI * float(self.weather.wet)
+        rel = float(getattr(tr, "scia_rel", 1.0))
+        n = len(vive)
+        for k, e in enumerate(vive):
+            davanti = vive[(k + 1) % n]
+            gap_s = ((davanti.dist - e.dist) % giro) / (giro / max(20.0, e.last_lap or e.base_lap))
+            zona = tr.zone_at(e.lap_fraction(giro))
+            if zona == "rettilinei":
+                e.aria = SCIA_MAX * max(0.0, 1.0 - gap_s / SCIA_RAGGIO_S) ** 1.5 / spruzzi ** 0.5
+            else:
+                e.aria = -(ARIA_CURVA.get(zona, 0.0) * rel * spruzzi
+                           * max(0.0, 1.0 - gap_s / ARIA_RAGGIO_S) ** 1.2)
+
+    def _interno(self, e) -> float:
+        """Da che parte e' l'interno della prossima curva: 1 a destra, -1 a sinistra."""
+        tr = self.track
+        linea = tr.linea()
+        n = len(linea)
+        if not n:
+            return 1.0
+        i0 = int(tr.pos_at(e.lap_fraction(self.track_len)) * n)
+        passi = max(2, int(300.0 / max(1.0, tr.ds)))
+        valore = max((linea[(i0 + k) % n] for k in range(passi)), key=abs)
+        return 1.0 if valore >= 0 else -1.0
 
     # ------------------------------------------------------------- i duelli
     def _duelli(self, dt: float) -> None:
@@ -698,7 +763,8 @@ class EPrix:
         for i in range(1, len(vivi)):
             davanti, dietro = vivi[i - 1], vivi[i]
             gap_m = davanti.dist - dietro.dist
-            if gap_m > self.follow * 2.4 or gap_m < 0:
+            gap_t = gap_m / (self.track_len / max(20.0, dietro.last_lap or dietro.base_lap))
+            if gap_t > 2.0 * TIRO_S or gap_m < 0:
                 dietro.dirty_air = max(0.0, dietro.dirty_air - dt * 1.5)
                 dietro.bloccato_da = ""
                 continue
@@ -721,18 +787,28 @@ class EPrix:
             else:
                 dietro.bloccato_da = davanti.driver_id
                 dietro.bloccato_giri = 0
-            if self.safety_car > 0 or dietro.overtake_cd > 0 \
-                    or gap_m > self.follow * 1.25:
+            if self.safety_car > 0 or dietro.overtake_cd > 0 or gap_t > TIRO_S:
                 continue
             if dietro.tentativi_giro >= MU.tentativi(dietro, TENTATIVI_GIRO):
                 continue
-            posto = self.track.zona_di(dietro.lap_fraction(self.track_len))
+            # i posti per passare, col metro di qui: dritti corti e staccate
+            posto = self.track.zona_di(dietro.lap_fraction(self.track_len), corta=True)
             if posto <= 0.0:
                 continue
             if self.rng.random() > INGAGGIO_MINIMO + (1.0 - INGAGGIO_MINIMO) * posto:
                 continue
             dietro.overtake_cd = ATTESA_ZONA
             dietro.tentativi_giro += 1
+            # chi difende chiude l'interno della curva che arriva, se lo vede
+            # arrivare; chi attacca va dove trova la porta aperta
+            interno = self._interno(dietro)
+            chiude = self.rng.random() < (COPERTURA_BASE + COPERTURA_MESTIERE
+                                          * davanti.racecraft / 100.0)
+            if chiude:
+                davanti.manovra, davanti.manovra_t = interno * 0.8, MANOVRA_S
+                davanti.dist -= COSTO_DIFESA_M
+            dietro.manovra = (-interno if chiude else interno) * 0.8
+            dietro.manovra_t = MANOVRA_S
             vantaggio = davanti.clean_lap - dietro.clean_lap + self.rng.gauss(0.0, 0.25)
             # l'Attack Mode: centocinquanta kilowatt in piu' non sono un
             # dettaglio, e sono la ragione per cui in Formula E si passa
@@ -760,7 +836,10 @@ class EPrix:
             p *= 1.0 + 0.45 * float(self.weather.wet)
             p *= MU.di(dietro)["attacco"]
             p /= max(0.60, MU.di(davanti)["difesa"])
+            p *= SORPASSO_COPERTO if chiude else SORPASSO_APERTO
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot, p):
+                # frenato tardi e uscito storto: si perde qualche metro
+                dietro.dist -= COSTO_ATTACCO_M
                 continue
             dietro.dist, davanti.dist = davanti.dist + 6.0, davanti.dist - self.follow * 0.6
             dietro.energia = max(0.0, dietro.energia - COSTO_SORPASSO)
@@ -1065,8 +1144,28 @@ def qualifica(gs, track, corridori: list, rng=None) -> dict:
     return {"griglia": griglia, "gruppi": tabelle, "duelli": duelli, "tempi": tempi}
 
 
+def misura(gs, track) -> None:
+    """Le piste che ha solo la Formula E non le misura nessuno all'avvio.
+
+    Senza misura non si sa dove sono i rettilinei e dove si frena: la scia
+    varrebbe dappertutto e i pallini andrebbero a velocita' costante. Si
+    misurano la prima volta che servono, con la stessa vettura campione dei
+    circuiti di Formula 1; la taratura sul giro vero di Formula E sistema il
+    resto.
+    """
+    if not hasattr(gs, "_ref_car"):
+        return
+    if not track.zone_map:
+        track.calibrate(gs._ref_car())
+    elif not getattr(track, "mappa_corta", None):
+        # misurata da un salvataggio di prima: si rifanno le mappe, la
+        # taratura resta quella
+        track.rimisura(gs._ref_car())
+
+
 def make_eprix(gs, track, team=None, formato: str = "eprix", weather=None) -> EPrix:
     """Prepara un E-Prix: griglia, meteo, energia in cassa."""
+    misura(gs, track)
     w = weather or Weather.generate(track, gs.rng)
     corridori = costruisci(gs, track, team, formato)
     q = qualifica(gs, track, corridori)

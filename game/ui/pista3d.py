@@ -56,7 +56,18 @@ BIOMI = {
     "madrid": "citta", "baku": "citta", "singapore": "citta",
     "cota": "parco", "mexico": "citta", "interlagos": "citta",
     "lasvegas": "citta", "lusail": "deserto", "yasmarina": "deserto",
+    # i candidati e le piste private
+    "imola": "parco", "portimao": "parco", "mugello": "bosco", "istanbul": "parco",
+    "sepang": "parco", "hockenheim": "bosco", "kyalami": "parco", "paulricard": "parco",
+    "nurburgring": "bosco", "buenosaires": "parco", "tsukuba": "parco",
+    "fiorano": "parco", "pista_privata": "parco",
+    # la Formula E corre in citta': sui piazzali, fra i palazzi, lungo il porto
+    "tempelhof": "aeroporto", "excel": "citta", "tokyobs": "citta", "ancol": "citta",
+    "portland": "parco", "anhembi": "citta", "jarama": "deserto", "diriyah": "deserto",
+    "genova": "citta", "osaka": "citta", "reforma": "citta", "kalasatama": "citta",
 }
+# Chi corre fra i muri: niente ghiaia, niente vie di fuga, cemento e reti.
+CITTADINI = ("citta", "aeroporto")
 
 # L'acqua che si vede davvero dall'alto: il lago dentro Albert Park e il
 # bacino del canottaggio a Montreal, il mare dalla parte dove sta (in gradi
@@ -65,6 +76,8 @@ ACQUA = {
     "melbourne": ("lago",), "montreal": ("lago",),
     "monaco": ("mare", 140), "baku": ("mare", 165), "jeddah": ("mare", 270),
     "singapore": ("mare", 110), "zandvoort": ("mare", 285),
+    "excel": ("mare", 200), "tokyobs": ("mare", 170), "ancol": ("mare", 0),
+    "genova": ("mare", 190), "kalasatama": ("mare", 80), "osaka": ("mare", 250),
 }
 
 PALETTE = {
@@ -73,7 +86,9 @@ PALETTE = {
     "deserto": dict(terra=(0.80, 0.67, 0.47), fuga=16.0, colline=5.0, mat=M_SABBIA),
     "dune":    dict(terra=(0.46, 0.53, 0.30), fuga=10.0, colline=14.0, mat=M_TERRA),
     "citta":   dict(terra=(0.56, 0.56, 0.54), fuga=3.0, colline=0.0, mat=M_CITTA),
+    "aeroporto": dict(terra=(0.42, 0.51, 0.29), fuga=4.0, colline=0.0, mat=M_TERRA),
 }
+CEMENTO = (0.63, 0.63, 0.61)
 
 ASFALTO = (0.21, 0.22, 0.24)
 FUGA_ASFALTO = (0.36, 0.37, 0.40)
@@ -158,6 +173,7 @@ class Geometria:
         self._corsia_box()
         self._prepara_acqua()
         self._terreno()
+        self._aeroporto()
         self._pista()
         self._box()
         self._tribune()
@@ -571,12 +587,15 @@ class Geometria:
         m = MEZZA_PISTA
         f = self.fuga
 
+        # fra i muri di una citta' la ghiaia non c'e': c'e' il marciapiede
+        ghiaia = self.bioma not in CITTADINI
+
         def fuga(lato):
             def mat(i):
-                return M_GHIAIA if lato * K[i] < -curva * 0.8 else M_PIANO
+                return M_GHIAIA if ghiaia and lato * K[i] < -curva * 0.8 else M_PIANO
 
             def col(i):
-                return GHIAIA if lato * K[i] < -curva * 0.8 else FUGA_ASFALTO
+                return GHIAIA if ghiaia and lato * K[i] < -curva * 0.8 else FUGA_ASFALTO
             return col, mat
 
         for lato, da, a in ((1, m + CORDOLO, m + CORDOLO + f), (-1, -m - CORDOLO - f, -m - CORDOLO)):
@@ -608,7 +627,7 @@ class Geometria:
             b = (cx + r[0] * 1.2, y, cz + r[2] * 1.2)
             self.quad(a, b, (b[0] + fw[0] * 0.5, y, b[2] + fw[2] * 0.5),
                       (a[0] + fw[0] * 0.5, y, a[2] + fw[2] * 0.5), BIANCO, g, (0, 1, 0))
-        citta = self.bioma == "citta"
+        citta = self.bioma in CITTADINI
 
         def barriera(i):
             if citta:
@@ -841,6 +860,81 @@ class Geometria:
                       (b[0] + rx, yb, b[1] + rz), (a[0] + rx, ya, a[1] + rz),
                       col, glow, (0, 1, 0), mat)
 
+    # --------------------------------------------------------------- aeroporto
+    def _aeroporto(self) -> None:
+        """Un circuito disegnato sul piazzale di un aeroporto, come a Tempelhof.
+
+        Sotto la pista una distesa di cemento a lastre; da una parte il
+        terminal lungo e curvo, con gli hangar; dall'altra, nell'erba, le due
+        piste di volo con le loro strisce. Tutto allineato al rettilineo del
+        traguardo, perche' e' li' che il circuito e' stato disegnato.
+        """
+        if self.bioma != "aeroporto":
+            return
+        f = self.F[0]
+        ux, uz = _norm((f[0], 0.0, f[2]))[0], _norm((f[0], 0.0, f[2]))[2]
+        vx, vz = -uz, ux
+
+        def locale(x, z):
+            dx, dz = x - self.cx, z - self.cz
+            return dx * ux + dz * uz, dx * vx + dz * vz
+
+        def mondo(u, v):
+            return self.cx + u * ux + v * vx, self.cz + u * uz + v * vz
+        us = [locale(p[0], p[2]) for p in self.P]
+        u0, u1 = min(p[0] for p in us) - 80, max(p[0] for p in us) + 80
+        v0, v1 = min(p[1] for p in us) - 70, max(p[1] for p in us) + 70
+        y = max(self.terra(*mondo(u, v)) for u in (u0, u1) for v in (v0, v1)) + 0.02
+        # il piazzale, a lastre: una griglia di quadrati appena diversi
+        lastra = 40.0
+        rng = self.rng
+        nu, nv = int((u1 - u0) / lastra) + 1, int((v1 - v0) / lastra) + 1
+        for a in range(nu):
+            for b in range(nv):
+                ua, va = u0 + a * lastra, v0 + b * lastra
+                t = rng.uniform(-0.03, 0.03)
+                col = tuple(c + t for c in CEMENTO)
+                q = [mondo(ua, va), mondo(ua + lastra, va), mondo(ua + lastra, va + lastra),
+                     mondo(ua, va + lastra)]
+                self.quad(*[(x, y, z) for x, z in q], col, 0.0, (0, 1, 0), M_PIANO)
+        # il terminal: un arco lungo di palazzi bassi dietro al piazzale
+        g = 0.5 if self.notte else 0.0
+        raggio = (u1 - u0) * 0.9
+        centro_v = v1 + 40 + raggio
+        pezzi = 14
+        for k in range(pezzi):
+            a = (k - (pezzi - 1) / 2) / pezzi * 1.1
+            u = math.sin(a) * raggio
+            v = centro_v - math.cos(a) * raggio
+            x, z = mondo(u, v)
+            ang = math.atan2(uz, ux) + a
+            self.scatola(x, self.terra(x, z) - 0.5, z, raggio * 1.1 / pezzi * 1.05, 34, 22,
+                         ang, (0.80, 0.74, 0.62), g, (0.52, 0.52, 0.50))
+            # gli hangar, sporgenti verso il piazzale
+            if k % 3 == 1:
+                hx, hz = mondo(u, v - 34)
+                self.scatola(hx, self.terra(hx, hz) - 0.5, hz, 60, 40, 16, ang,
+                             (0.70, 0.70, 0.68), g * 0.5, (0.45, 0.47, 0.50))
+        # le due piste di volo, nell'erba dall'altra parte
+        for k, dv in enumerate((180.0, 420.0)):
+            v = v0 - dv
+            lung = max(1800.0, (u1 - u0) * 1.6)
+            a, b = -lung / 2, lung / 2
+            q = [mondo(a, v - 30), mondo(b, v - 30), mondo(b, v + 30), mondo(a, v + 30)]
+            yy = max(self.terra(x, z) for x, z in q) + 0.05
+            self.quad(*[(x, yy, z) for x, z in q], (0.30, 0.31, 0.32), 0.0, (0, 1, 0), M_STRADA)
+            passo = 60.0
+            u = a + 30
+            while u < b - 30:
+                q = [mondo(u, v - 0.8), mondo(u + 30, v - 0.8), mondo(u + 30, v + 0.8),
+                     mondo(u, v + 0.8)]
+                self.quad(*[(x, yy + 0.05, z) for x, z in q], BIANCO, 0.0, (0, 1, 0))
+                u += passo
+            # la bretella che la collega al piazzale
+            x0, z0 = mondo(a + 200 + k * 300, v + 30)
+            x1, z1 = mondo(a + 200 + k * 300, v0)
+            self._nastro([(x0, z0), (x1, z1)], 22.0, (0.33, 0.34, 0.35), M_STRADA)
+
     # ------------------------------------------------------------------ citta
     def _citta(self) -> None:
         """Gli isolati: le strade le dipinge lo shader, qui si alzano i palazzi."""
@@ -850,7 +944,7 @@ class Geometria:
         B = BLOCCO
         strada = 16.0
         k0 = int(self.ext / B)
-        mediterranea = self.track.id in ("monaco", "baku", "madrid")
+        mediterranea = self.track.id in ("monaco", "baku", "madrid", "genova", "anhembi")
         tinte = ([(0.86, 0.78, 0.66), (0.80, 0.56, 0.42), (0.90, 0.86, 0.78), (0.74, 0.70, 0.62)]
                  if mediterranea else
                  [(0.62, 0.64, 0.68), (0.72, 0.72, 0.70), (0.52, 0.55, 0.60), (0.80, 0.80, 0.78)])
@@ -867,8 +961,12 @@ class Geometria:
                     for v in range(parti):
                         lx = bx - interno / 2 + (u + 0.5) * lato
                         lz = bz - interno / 2 + (v + 0.5) * lato
-                        margine = lato * 0.55 + MEZZA_PISTA + self.fuga + 3
-                        if not self._libero(lx, lz, margine):
+                        # vicino alla pista il palazzo si stringe fin quasi ai
+                        # muri: in un circuito cittadino le case stanno li'
+                        libero = MEZZA_PISTA + CORDOLO + self.fuga + 5
+                        d, _ = self.vicino(lx, lz, lato + libero + 10)
+                        largo = min(lato, 2.0 * (d - libero) / 1.45)
+                        if largo < 14 or not self._libero(lx, lz, libero):
                             continue
                         if rng.random() < 0.10:
                             # un giardino fra i palazzi
@@ -880,7 +978,7 @@ class Geometria:
                         alto = 10 + rng.random() ** 2.2 * 80 * max(0.3, 1.25 - centro)
                         col = rng.choice(tinte)
                         acceso = (0.25 + rng.random() * 0.5) if self.notte else 0.0
-                        w = lato - rng.uniform(4, 10)
+                        w = largo - rng.uniform(4, 10)
                         y = self.terra(lx, lz) - 0.5
                         self.scatola(lx, y, lz, w, w * rng.uniform(0.7, 1.0), alto, 0.0, col,
                                      acceso, _mix(col, (0.3, 0.3, 0.3), 0.25))
@@ -1214,7 +1312,7 @@ class Geometria:
                 self._chioma(x, z, rng.uniform(5.5, 8.5), rng.choice(verdi))
                 fatti += 1
         # gli alberi sparsi e i filari lungo le strade
-        sparsi = {"parco": 700, "bosco": 500, "dune": 260, "deserto": 0, "citta": 0}[self.bioma]
+        sparsi = {"parco": 700, "bosco": 500, "dune": 260}.get(self.bioma, 0)
         tentativi = 0
         CL = self.t_CL
         if CL:

@@ -26079,10 +26079,10 @@
     "power": 0.65,
     "tyre_wear": 0.7,
     "braking": 0.7,
-    "overtaking": 0.6,
+    "overtaking": 0.61,
     "bumpiness": 0.55
    },
-   "layout": "S800 R90:2 S180 L70:3 S200 R60:4 S170 L80:3 S190 R45:5 S210 L90:2 S160 R70:3 S180 L60:4 S170 R80:3 S190 L45:5 S200 R90:2 S150 L70:3 S170 R60:4 S180 L100:3 S150 R70:3 S350"
+   "layout": "S760 R165:1 S184 R25:5 S246 R75:2 S142 R25:4 S200 L50:3 S25 R50:3 S110 L25:4 S190 L75:3 S564 R90:2 S189 L75:3 S160 R90:3 S164 L25:4 S124 L45:5 S223 R35:5 S191 R100:2"
   },
   {
    "id": "tsukuba",
@@ -26540,10 +26540,10 @@
     "power": 0.5,
     "tyre_wear": 0.5,
     "braking": 0.6,
-    "overtaking": 0.3,
+    "overtaking": 0.5,
     "bumpiness": 0.35
    },
-   "layout": "S420 R90:2 S140 L70:3 S180 R60:3 S120 L100:1 S260 R85:2 S150 L65:3 S110 R75:2 S190 L110:1 S300",
+   "layout": "S549 L95:2 S151 R25:4 S164 R45:3 S25 L45:3 S233 R25:4 S134 L100:2 S895 L165:1 S245 L90:2 S254 L75:3 S129 L70:3 S50 R70:3 S220 R90:2",
    "coords": [
     45.0,
     9.0
@@ -26821,7 +26821,7 @@
     "power": 0.35,
     "tyre_wear": 0.45,
     "braking": 0.75,
-    "overtaking": 0.15,
+    "overtaking": 0.65,
     "bumpiness": 0.7
    },
    "climate": {
@@ -26830,8 +26830,8 @@
     "rain": 0.25,
     "wind": 15
    },
-   "nota": "Fra le banchine e i magazzini del porto vecchio, di sera, con il basolato sotto l'asfalto e i muri a un metro. Stretto e sconnesso.",
-   "layout": "S470 L130:2 S80 R75:2 S60 L87:3 S110 R90:1 S70 L116:2 S330 R55:3 S60 L130:2 S100 R70:2 S80 L65:4 S130 R85:2 S60 L94:3 S90 R90:2 S70 L72:4 S110 R60:3 S55 L109:2 S80 R90:2 S90 L101:2 S60 R45:4 S100 L116:2"
+   "nota": "Fra le banchine e i magazzini del porto vecchio, di sera, con il basolato sotto l'asfalto e i muri a un metro. Stretto e sconnesso, ma con due staccate vere in fondo ai rettilinei delle banchine: e' li' che si passa.",
+   "layout": "S302 L85:2 S107 R90:2 S93 R50:3 S25 L50:3 S135 L75:2 S161 R45:3 S25 L45:3 S513 L165:1 S102 L90:2 S116 L75:2 S166 R45:3 S25 L45:3 S125 R90:2 S337 L130:1 S132 R50:3 S25 L50:3 S125 R75:2 S99 R45:3 S25 L45:3"
   },
   {
    "id": "osaka",
@@ -26853,7 +26853,7 @@
     "power": 0.75,
     "tyre_wear": 0.5,
     "braking": 0.55,
-    "overtaking": 0.75,
+    "overtaking": 0.76,
     "bumpiness": 0.3
    },
    "climate": {
@@ -26863,7 +26863,7 @@
     "wind": 18
    },
    "nota": "Sulle strade larghe del porto artificiale, con il vento del mare che arriva di traverso sui due rettilinei lunghi.",
-   "layout": "S820 R60:4 S260 L154:2 S180 R45:5 S620 L128:2 S200 R70:3 S150 L94:4 S240 R90:2 S170 L103:3 S200 R80:2 S140 L77:5 S260 R65:3 S180 L145:2 S150 R50:4 S220 L120:3"
+   "layout": "S424 L85:2 S153 L70:3 S50 R70:3 S155 R50:3 S25 L50:3 S105 R35:3 S25 L35:3 S80 L90:2 S376 L130:1 S141 L70:3 S50 R70:3 S86 L90:2 S111 L90:2 S86 R100:2"
   },
   {
    "id": "reforma",
@@ -26885,7 +26885,7 @@
     "power": 0.7,
     "tyre_wear": 0.6,
     "braking": 0.7,
-    "overtaking": 0.55,
+    "overtaking": 0.59,
     "bumpiness": 0.55
    },
    "climate": {
@@ -26895,7 +26895,7 @@
     "wind": 10
    },
    "nota": "Sul viale piu' famoso della citta', a duemiladuecento metri: l'aria sottile toglie carico e raffreddamento, e i freni non ne vogliono sapere.",
-   "layout": "S900 R90:2 S220 L92:3 S340 R75:2 S180 L69:4 S420 R85:2 S160 L107:3 S240 R55:4 S200 L137:1 S180 R65:3 S260 L122:2 S140 R50:4 S220 L114:2 S190 R60:3 S170 L137:2 S200 R45:5 S150 L107:3"
+   "layout": "S340 L130:1 S140 R50:3 S25 L50:3 S127 L90:2 S103 R90:2 S167 R35:3 S25 L35:3 S333 L105:2 S127 L25:5 S164 L35:5 S92 L90:2 S552 L150:1 S73 R90:2 S132 R50:3 S25 L50:3 S121 R90:2"
   },
   {
    "id": "kalasatama",
@@ -26917,7 +26917,7 @@
     "power": 0.5,
     "tyre_wear": 0.3,
     "braking": 0.6,
-    "overtaking": 0.35,
+    "overtaking": 0.87,
     "bumpiness": 0.4
    },
    "climate": {
@@ -26927,7 +26927,7 @@
     "wind": 17
    },
    "nota": "Il quartiere nuovo sull'acqua, a nord di tutto: l'asfalto e' freddo tutto l'anno e le gomme non si accendono mai davvero.",
-   "layout": "S680 L75:2 S130 R144:2 S90 L60:3 S160 R72:4 S120 L85:2 S90 R112:3 S420 L55:4 S110 R144:1 S80 L65:3 S140 R128:2 S100 L50:4 S120 R120:2 S90 L90:2 S150 R96:3 S100 L45:5 S110 R136:2 S80 L70:3"
+   "layout": "S451 L130:1 S146 R35:3 S25 L35:3 S123 R50:3 S25 L50:3 S86 R90:2 S331 L95:2 S154 L60:3 S50 R60:3 S154 R45:3 S25 L45:3 S102 L100:2 S352 L130:1 S116 L70:3 S50 R70:3 S101 R35:3 S25 L35:3"
   }
  ]
 }

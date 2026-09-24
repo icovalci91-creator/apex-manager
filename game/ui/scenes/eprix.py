@@ -24,6 +24,7 @@ from ...sim.weekend import Weather
 from .. import theme as T
 from .. import bandiere, trackdraw
 from ..app import Scene
+from ..mappa3d import Mappa3D
 from ..widgets import Button
 
 SPEEDS = [0, 1, 4, 12, 40]
@@ -35,7 +36,7 @@ def _orologio(s: float) -> str:
     return f"{int(m)}:{int(sec):02d}"
 
 
-class EPrixScene(Scene):
+class EPrixScene(Mappa3D, Scene):
     # la barra: due righe di comandi dove c'e' altezza, una sola dove non ce
     # n'e', perche' l'altezza la vuole il tabellone che ha ventidue righe
     BARRA_H = 200
@@ -59,12 +60,15 @@ class EPrixScene(Scene):
         self.fase = "prep"          # prep | quali | gara | fine
         self.q_passo = 0            # a che punto e' il racconto della qualifica
         self.q_t = 0.0
+        self._init_3d()
         self.build()
 
     # ------------------------------------------------------------ costruzione
     def build(self) -> None:
         w, h = self.app.screen.get_size()
         self.widgets = []
+        self._mappa = None
+        self._righe_torre = None
         if self.sim is None:
             self._build_prep(w, h)
         elif self.fase == "quali":
@@ -133,6 +137,19 @@ class EPrixScene(Scene):
             self.widgets.append(b)
         for e, r in self._pannelli(w, h):
             self._comandi(e, r)
+        self._comandi_vista(self._rect_gara(w, h)[0])
+
+    def _rect_gara(self, w: int, h: int) -> tuple:
+        """Dove vanno la mappa, la cronaca (se c'e' posto) e il tabellone."""
+        barra_y = h - 84 - self.barra_h(h)
+        tower_w = max(300, min(420, int(w * 0.28)))
+        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
+        cronaca = int(min(self.CRONACA_W, max(0, vista.w * 0.34)))
+        torre = pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76)
+        if cronaca >= 180:
+            return (pygame.Rect(vista.x, vista.y, vista.w - cronaca - 8, vista.h),
+                    pygame.Rect(vista.right - cronaca, vista.y, cronaca, vista.h), torre)
+        return vista, None, torre
 
     def due_righe(self, h: int = 0) -> bool:
         h = h or self.app.screen.get_size()[1]
@@ -345,6 +362,9 @@ class EPrixScene(Scene):
     # -------------------------------------------------------------------- loop
     def update(self, dt: float) -> None:
         super().update(dt)
+        self._dt = dt
+        if self.v3d is not None:
+            self.v3d.aggiorna(dt)
         if not self.sim:
             return
         if self.fase == "quali":
@@ -566,18 +586,11 @@ class EPrixScene(Scene):
     # ------------------------------------------------------------- la gara viva
     def _draw_gara(self, surf, w: int, h: int) -> None:
         self._header(surf, w)
-        barra_y = h - 84 - self.barra_h(h)
-        tower_w = max(300, min(420, int(w * 0.28)))
-        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
-        cronaca = int(min(self.CRONACA_W, max(0, vista.w * 0.34)))
-        if cronaca >= 180:
-            self._mappa(surf, pygame.Rect(vista.x, vista.y, vista.w - cronaca - 8,
-                                          vista.h))
-            self._cronaca(surf, pygame.Rect(vista.right - cronaca, vista.y, cronaca,
-                                            vista.h))
-        else:
-            self._mappa(surf, vista)
-        self._torre(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
+        mappa, cronaca, torre = self._rect_gara(w, h)
+        self._disegna_mappa(surf, mappa)
+        if cronaca is not None:
+            self._cronaca(surf, cronaca)
+        self._torre(surf, torre)
         for e, r in self._pannelli(w, h):
             self._pannello(surf, r, e)
 
@@ -611,21 +624,37 @@ class EPrixScene(Scene):
         T.text(surf, f"giro {sim.leader_lap + 1} - {FE.corrente().get('etichetta','')}",
                (x0, 34), 13, T.DIM_2, maxw=max(120, destra - x0 - 16))
 
-    def _mappa(self, surf, vista) -> None:
+    def _alone_3d(self, driver_id):
+        # chi ha l'Attack Mode acceso si vede: e' la cosa che cambia la gara
+        e = next((x for x in self.sim.entrants if x.driver_id == driver_id), None)
+        return (183, 96, 255) if e is not None and e.attack_attivo > 0 else None
+
+    def handle(self, ev) -> None:
+        if self.sim is not None and self.fase == "gara" and self._mano_3d(ev):
+            return
+        super().handle(ev)
+
+    def _disegna_mappa(self, surf, vista) -> None:
         sim = self.sim
+        vive = [e for e in sim.order() if e.status != "retired"]
+        quote = {e.driver_id: self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
+        if self._in_3d():
+            auto = [(e.driver_id, quote[e.driver_id], e.colour, e.is_player, e.code,
+                     e.status == "pitting", e.is_player or e.position <= 3)
+                    for e in reversed(vive)]
+            if self._mappa_3d(surf, vista, auto):
+                return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
         if self.pts is None or self.pts_rect != tuple(vista):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
             self.pts_rect = tuple(vista)
         trackdraw.draw_track(surf, self.track, vista, width=14, pts=self.pts)
         self._etichette = []
-        vive = [e for e in sim.order() if e.status != "retired"]
-        quote = {id(e): self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
-        lat = trackdraw.laterali(self.track, list(quote.items()))
+        lat = self._laterali(list(quote.items()), self._manovre())
         mezzo = max(0.0, trackdraw.nastro_px(self.track, vista, 14) / 2 - 1.0)
         for e in reversed(vive):
-            quota = quote[id(e)]
-            x, y = trackdraw.car_pos(self.pts, quota, lat[id(e)] * mezzo)
+            quota = quote[e.driver_id]
+            x, y = trackdraw.car_pos(self.pts, quota, lat[e.driver_id] * mezzo)
             mio = e.is_player
             r = 7 if mio else 5
             if e.status == "pitting":
@@ -679,6 +708,7 @@ class EPrixScene(Scene):
         ordine = sim.order()
         y = r.y + 34
         rh = min(24.0, (r.h - 46) / max(1, len(ordine)))
+        self._righe_torre = (r, y, rh, [e.driver_id for e in ordine])
         dim = 13 if rh >= 20 else (12 if rh >= 15 else 11)
         for i, e in enumerate(ordine, 1):
             mio = e.is_player

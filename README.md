@@ -31,7 +31,7 @@ il quale i pannelli non starebbero piu' in piedi.
 
 ## Vista 3D delle sessioni
 
-Su PC le prove, le qualifiche e la gara si guardano anche in 3D: il circuito
+Su PC le prove, le qualifiche e la gara - e l'E-Prix - si guardano anche in 3D: il circuito
 dall'elicottero, disegnato come una foto da satellite ridisegnata a mano, con le
 macchine che restano i pallini di sempre. I pulsanti **2D** e **3D** stanno in alto a
 sinistra sulla mappa. Si trascina col tasto sinistro per girare la ripresa, col destro
@@ -43,6 +43,13 @@ isolati, deserto, dune - con l'acqua dove c'e' davvero (il lago di Albert Park, 
 di Monaco), paddock, parcheggi, tribune con la folla. Le ombre sono vere, le nuvole
 passano e lasciano la loro ombra, di notte si accendono i fari e con la pioggia il
 cielo si chiude e l'asfalto luccica.
+
+Anche i circuiti senza traccia GPS - quelli di Formula E, i candidati disegnati a mano, le
+piste private - hanno la loro pianta in metri: il layout scritto a mano si chiude con le
+correzioni piu' piccole possibili (un po' di lunghezza ai rettilinei, un po' di angolo alle
+curve, mai il raggio), cosi' i rettilinei restano dritti e le curve restano curve. Le
+cittadine corrono fra i muri, con i palazzi fino alle reti e il mare dove c'e'; Tempelhof
+sta sul piazzale dell'aeroporto, con il terminal e le piste di volo.
 
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
@@ -647,11 +654,20 @@ Il muretto è lo stesso della Formula 1 — gli stessi cinque ordini al pilota, 
 lasciargli tutto — perché è lo stesso mestiere: si guarda cosa resta in cassa e si decide chi
 spende e quando.
 
-**Misurato su tutti e dodici i circuiti, tre gare ognuno:** 49 sorpassi a gara (contro i 33
-della Formula 1 — in Formula E se ne contano molti di più, nel Monaco 2023 ne sono stati
-contati 116 sullo stesso tracciato dove un gran premio ne produce cinque), 1,3
-neutralizzazioni, 1,6 ritiri, e tutti al traguardo con **l'1,8% di batteria**, che è
-esattamente come finiscono le gare vere. Il Pit Boost lo fanno 21-22 macchine su 22, e
+**La scia qui vale doppio.** Come in Formula 1 si conta istante per istante: attaccati sul
+dritto si va fino a quasi il 4% più forte, in curva l'aria sporca toglie meno che in
+Formula 1 perché queste macchine hanno poco carico. Ma in Formula E la scia dà anche
+**energia**: in scia piena sul dritto si consuma fino al 30% in meno, ed è per questo che
+nessuno vuole stare davanti e le gare si corrono in gruppo. In difesa si chiude l'interno
+della staccata, chi attacca va dove trova la porta aperta, e i posti per passare li misura
+il modello di giro con il metro di qui: in fondo a un dritto di duecento metri con una
+staccata vera si passa, anche se non è una zona di Formula 1.
+
+**Misurato su tutti e dodici i circuiti, tre gare ognuno:** 145 sorpassi a gara, da una
+sessantina a ExCeL, dove non si passa, a più di trecento a Portland (nel Monaco 2023 ne
+sono stati contati 116, sullo stesso tracciato dove un gran premio ne produce cinque); 1,3
+neutralizzazioni, 1,4 ritiri, e tutti al traguardo con **il 2,4% di batteria**, che è
+esattamente come finiscono le gare vere. Il Pit Boost lo fanno 21 macchine su 22, e
 l'Attack Mode si spende quasi tutto.
 
 ### Il mondiale endurance
@@ -2085,6 +2101,36 @@ sul telaio, sara' il telaio a decidere; se e' passato il ritorno ai V10, sara' i
 Nessuno sa in anticipo che forma avra' il prossimo regolamento: dipende da come si e'
 votato.
 
+### I circuiti inventati, disegnati per passare
+
+I circuiti che non esistono - le quattro cittadine di Formula E che debuttano dal 2028, la
+pista privata, e Buenos Aires, che una traccia GPS non ce l'ha - li disegna
+`game/model/disegno.py` con le regole con cui si disegnano le piste vere:
+
+- un sorpasso si fa **in staccata**: un dritto lungo abbastanza da prendere la scia e in
+  fondo una curva lenta, un tornante o un angolo retto;
+- la curva **prima** di quel dritto è lenta anche lei, perché da una curva lenta si esce
+  attaccati e da un curvone si esce staccati;
+- le staccate buone sono **almeno due, e non in fila**: chi ha chiuso la porta nella prima
+  si deve difendere di nuovo nella seconda;
+- il rettilineo del traguardo finisce in una staccata, e nel misto non ci sono curvoni
+  veloci subito prima di una staccata.
+
+Il tracciato si compone a blocchi; se ne provano più di mille, si scartano quelli che
+si incrociano, si toccano o vengono lunghi e stretti, e fra i migliori si tiene quello in
+cui il modello di giro trova i posti migliori per passare. Da lì esce anche il carattere
+"sorpasso" del circuito, sulla stessa scala delle piste vere.
+
+```bash
+python tools/disegna_piste.py                 # mostra e basta
+python tools/disegna_piste.py --scrivi        # e scrive in data/tracks.json
+python tools/disegna_piste.py --only genova   # uno solo
+```
+
+Con i tracciati nuovi, a parità di tutto il resto, un E-Prix a Genova passa da 65 a 137
+sorpassi, a Reforma da 107 a 138, a Kalasatama da 103 a 294; Osaka, che due rettilinei
+lunghi li aveva già, resta dov'era.
+
 ## Dati modificabili
 
 Tutto il contenuto sta in `data/` ed è JSON leggibile:
@@ -2250,7 +2296,8 @@ legge un file che tieni tu e non porta con se' nessun dato altrui.
 ```
 main.py              avvio
 game/config.py       costanti fisiche, gomme, componenti, strutture
-game/model/          track (geometria + modello di giro), car, people, team
+game/model/          track (geometria + modello di giro), car, people, team,
+                     disegno (il progettista dei circuiti inventati)
 game/core/           state (mondo e salvataggi), economy, development,
                      powertrain, engineering, market, rules, season,
                      serie (le categorie minori), formulae (il mondiale
@@ -2259,7 +2306,9 @@ game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
                      muretto (ordini al pilota e ordini di squadra),
                      eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
-game/ui/             app, theme, widgets, trackdraw, scenes/, pages/
+game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
+                     pista3d e vista3d (il circuito in 3D), mappa3d (la mappa
+                     3D delle scene di gara), dintorni (i dintorni da OSM)
 data/                database JSON (regulations.json, formulae.json e wec.json
                      sono i tre regolamenti: Formula 1, Formula E, endurance)
 saves/               salvataggi

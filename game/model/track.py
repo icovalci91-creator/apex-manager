@@ -198,6 +198,7 @@ class Track:
     corner_map: list = field(default_factory=list)   # le curve, una per una
     zone_ala: list = field(default_factory=list)     # dove si apre l'ala e si prova a passare
     mappa_ala: list = field(default_factory=list)    # le stesse, in tabella per la gara
+    mappa_corta: list = field(default_factory=list)  # e col metro della Formula E
     benzina_giro: float = 1.18       # chili di benzina bruciati in un giro
     benzina_rel_giro: float = 1.0    # quanto beve qui rispetto alla pista media
     energia_giro: float = 0.0    # MJ che si riescono a recuperare in un giro
@@ -265,7 +266,7 @@ class Track:
         )
         if t.geo:
             # tracciato vero: forma e curvatura vengono dalle coordinate
-            t._parse_layout()          # serve ancora per il conteggio dei segmenti
+            t._parse_layout(chiudi=False)   # serve ancora per il conteggio dei segmenti
             t._build_from_geo()
         else:
             t._parse_layout()
@@ -501,7 +502,7 @@ class Track:
             pts = pts[i0:] + pts[:i0]
         return pts
 
-    def _parse_layout(self) -> None:
+    def _parse_layout(self, chiudi: bool = True) -> None:
         raw: list[Segment] = []
         for tok in self.layout.split():
             kind = tok[0]
@@ -525,6 +526,8 @@ class Track:
             for s in raw:
                 if s.kind == "S":
                     s.length *= k
+        if chiudi:
+            _chiudi(raw, target)
         self.segments = raw
 
     def _build_geometry(self) -> None:
@@ -534,10 +537,10 @@ class Track:
         x = y = 0.0
         heading = 0.0
 
-        # Un circuito chiuso deve girare in tutto di 360 gradi. Lo scarto fra il
-        # totale delle curve descritte e il giro completo viene distribuito come
-        # curvatura costante lungo tutto il tracciato: e' cio' che nella realta'
-        # fanno i raccordi e i lunghi curvoni fra una curva e l'altra.
+        # Un circuito chiuso deve girare in tutto di 360 gradi e tornare dove e'
+        # partito: di questo si e' occupato `_chiudi`. Se non ce l'ha fatta - un
+        # layout scritto male - lo scarto si spalma sulle curve, come si faceva
+        # una volta, e quel che resta sulla chiusura qui sotto.
         total_turn = sum(s.turn for s in self.segments)
         abs_turn = sum(abs(s.turn) for s in self.segments) or 1.0
         target = math.tau if total_turn >= 0 else -math.tau
@@ -548,7 +551,9 @@ class Track:
         for seg in self.segments:
             n = max(1, int(round(seg.length / STEP_M)))
             step = seg.length / n
-            dturn = draw_turn[id(seg)] / n if seg.kind != "S" else 0.0
+            # la destra e' in senso orario: sulla carta, col nord in alto, la
+            # direzione di marcia cala
+            dturn = -draw_turn[id(seg)] / n if seg.kind != "S" else 0.0
             k = (1.0 / seg.radius) if seg.radius else 0.0
             for _ in range(n):
                 heading += dturn
@@ -573,6 +578,11 @@ class Track:
         self.curvature = curv
         self._curva_linea = None
         self.sector_bounds = (n / 3.0, 2.0 * n / 3.0)
+        # la pianta in metri, come quella dei circuiti veri: e' quella su cui
+        # si costruiscono la traiettoria e la pista in 3D
+        self._metri = pts
+        self._scala_geo = 1.0
+        self.corsia_m = self._misura_corsia()
 
     # ------------------------------------------------------- modello di giro
     def lap_model(self, car, wet: float = 0.0, grip: float = 1.0, rho: float | None = None,
@@ -1131,53 +1141,77 @@ class Track:
         return fuori
 
     def _map_ala(self, v: list) -> None:
-        """I tratti in cui l'ala si apre, misurati sul giro."""
+        """I tratti in cui l'ala si apre, misurati sul giro.
+
+        E accanto, gli stessi misurati col metro delle monoposto di citta': la
+        Formula E non ha l'ala mobile e corre su dritti lunghi la meta', ma in
+        fondo a un dritto di duecento metri con una staccata vera si passa lo
+        stesso. Senza questa seconda misura un circuito come Tokyo non avrebbe
+        neanche un posto per passare.
+        """
+        self.zone_ala, self.mappa_ala = self._zone_sorpasso(
+            v, self.ALA_MIN_M, self.ALA_MIN_S, self.ALA_MIN_SALTO, 1400.0, 250.0)
+        _zone, self.mappa_corta = self._zone_sorpasso(
+            v, self.CORTA_MIN_M, self.CORTA_MIN_S, self.CORTA_MIN_SALTO, 700.0, 200.0)
+
+    # le soglie per le monoposto di citta': un dritto corto con una staccata
+    CORTA_MIN_M = 150.0
+    CORTA_MIN_S = 2.0
+    CORTA_MIN_SALTO = 30.0
+
+    def _zone_sorpasso(self, v: list, min_m: float, min_s: float, min_salto: float,
+                       lung_rif: float, salto_rif: float) -> tuple:
+        """I posti per passare con queste soglie: (zone, tabella per la gara)."""
         n, ds = len(v), self.ds
         apici = self._apici(v)
         if len(apici) < 2:
-            self.zone_ala = []
-            return
+            return [], []
         zone = []
         for a, b in zip(apici, apici[1:] + apici[:1]):
             passi = (b - a) % n
             lung = passi * ds
-            if lung < self.ALA_MIN_M:
+            if lung < min_m:
                 continue
             durata = sum(ds / max(3.0, v[(a + j) % n]) for j in range(passi))
-            if durata < self.ALA_MIN_S:
+            if durata < min_s:
                 continue
             picco = max(v[(a + j) % n] for j in range(passi))
             salto = (picco - v[b]) * 3.6
-            if salto < self.ALA_MIN_SALTO:
+            if salto < min_salto:
                 continue
             # quanto vale come posto per passare: quanta scia si prende e
             # quanto si stacca in fondo
-            qualita = max(0.15, min(1.0, (lung / 1400.0) * (salto / 250.0)))
+            qualita = max(0.15, min(1.0, (lung / lung_rif) * (salto / salto_rif)))
             zone.append({"fine": b / n, "inizio": a / n, "lung": round(lung),
                          "durata": round(durata, 1),
                          "salto": round(salto), "qualita": round(qualita, 3),
                          "attacco": (b / n - self.ALA_ATTACCO * passi / n) % 1.0})
         zone.sort(key=lambda z: -z["qualita"])
-        self.zone_ala = zone[:8]
+        zone = zone[:8]
         # la stessa cosa in tabella, perche' la gara la chiede a ogni passo
         # per ogni macchina: cercarla nella lista ogni volta costerebbe
-        self.mappa_ala = [0.0] * self.ALA_CASELLE
-        for z in self.zone_ala:
+        mappa = [0.0] * self.ALA_CASELLE
+        for z in zone:
             a = int(z["attacco"] * self.ALA_CASELLE)
             b = int(z["fine"] * self.ALA_CASELLE)
             i = a
             while True:
-                self.mappa_ala[i % self.ALA_CASELLE] = max(
-                    self.mappa_ala[i % self.ALA_CASELLE], z["qualita"])
+                mappa[i % self.ALA_CASELLE] = max(mappa[i % self.ALA_CASELLE], z["qualita"])
                 if i % self.ALA_CASELLE == b % self.ALA_CASELLE:
                     break
                 i += 1
+        return zone, mappa
 
-    def zona_di(self, frazione: float) -> float:
-        """Quanto vale come posto per passare il punto in cui si e' adesso."""
-        if not self.mappa_ala:
+    def zona_di(self, frazione: float, corta: bool = False) -> float:
+        """Quanto vale come posto per passare il punto in cui si e' adesso.
+
+        `corta` la chiede col metro delle monoposto di citta', dove basta un
+        dritto di duecento metri.
+        """
+        mappa = (getattr(self, "mappa_corta", None) or self.mappa_ala) if corta else self.mappa_ala
+        if not mappa:
             return 0.45          # senza tracciato non si sa: si tira a indovinare
-        return self.mappa_ala[int((frazione % 1.0) * self.ALA_CASELLE) % self.ALA_CASELLE]
+        return mappa[int((frazione % 1.0) * self.ALA_CASELLE) % self.ALA_CASELLE]
 
     # ------------------------------------------------------- il giro nel tempo
     CAMPIONI = 720          # quanto e' fitto il giro raccontato dal cronometro
@@ -1533,6 +1567,142 @@ class _Scia:
     @property
     def drag(self) -> float:
         return self._c.drag * self._cd
+
+
+def _cammina(segmenti: list, valori: list) -> tuple:
+    """Dove si arriva percorrendo il layout: (x, y, direzione, lunghezza).
+
+    `valori` sono, segmento per segmento, la lunghezza del rettilineo o il
+    cambio di direzione della curva (in radianti, positivo a sinistra).
+    """
+    x = y = th = tot = 0.0
+    for seg, v in zip(segmenti, valori):
+        if seg.kind == "S":
+            x += v * math.cos(th)
+            y += v * math.sin(th)
+            tot += v
+        else:
+            r = seg.radius
+            segno = 1.0 if v >= 0 else -1.0
+            x += r * segno * (math.sin(th + v) - math.sin(th))
+            y -= r * segno * (math.cos(th + v) - math.cos(th))
+            th += v
+            tot += r * abs(v)
+    return x, y, th, tot
+
+
+def _chiudi(segmenti: list, lunghezza: float, giri: int = 40) -> bool:
+    """Fa tornare il layout al punto di partenza, con la lunghezza giusta.
+
+    Un layout scritto a mano non si chiude mai da solo: le curve non sommano
+    esattamente a un giro e i rettilinei non tornano. Qui si cercano le
+    correzioni piu' piccole possibili - un po' di lunghezza ai rettilinei, un
+    po' di angolo alle curve, in proporzione a quanto sono lunghi e larghi -
+    perche' l'anello si chiuda nel punto e nella direzione da cui e' partito
+    e misuri quanto deve. I rettilinei restano dritti e le curve restano curve,
+    con il loro raggio: e' il raggio che fa la velocita', e non si tocca.
+    Le curve non cambiano piu' di un terzo, i rettilinei non scendono sotto
+    un terzo: se non basta, si lascia com'era e ci pensa il disegno.
+    """
+    if len(segmenti) < 4:
+        return False
+    v0 = [s.length if s.kind == "S" else -s.turn for s in segmenti]
+    giro = sum(v for s, v in zip(segmenti, v0) if s.kind != "S")
+    meta_th = math.tau if giro >= 0 else -math.tau
+    # quanto puo' muoversi ciascuno: i rettilinei in proporzione alla loro
+    # lunghezza, le curve un po' meno, in proporzione al loro angolo
+    peso = [max(1.0, v) ** 2 if s.kind == "S" else 0.35 * max(0.05, abs(v)) ** 2
+            for s, v in zip(segmenti, v0)]
+    lo = [0.33 * v if s.kind == "S" else (v * 0.67 if v > 0 else v * 1.33)
+          for s, v in zip(segmenti, v0)]
+    hi = [3.0 * v if s.kind == "S" else (v * 1.33 if v > 0 else v * 0.67)
+          for s, v in zip(segmenti, v0)]
+    v = list(v0)
+
+    def scarto(val):
+        x, y, th, tot = _cammina(segmenti, val)
+        return [x / lunghezza, y / lunghezza, th - meta_th, (tot - lunghezza) / lunghezza]
+
+    n = len(v)
+    for _ in range(giri):
+        c = scarto(v)
+        if max(abs(e) for e in c) < 1e-7:
+            break
+        # lo jacobiano, a differenze finite: sono poche decine di numeri
+        jac = []
+        for i in range(n):
+            h = 1e-4 * (abs(v[i]) + 1.0) * (1.0 if segmenti[i].kind == "S" else 0.01)
+            w = list(v)
+            w[i] += h
+            ci = scarto(w)
+            jac.append([(a - b) / h for a, b in zip(ci, c)])
+        # il passo di norma minima pesata: dv = P J^T (J P J^T)^-1 (-c). Chi e'
+        # gia' al limite e vorrebbe andare oltre si ferma, e il passo si rifa'
+        # con gli altri
+        fermi = set()
+        for _tentativo in range(n):
+            p = [0.0 if i in fermi else peso[i] for i in range(n)]
+            m = [[sum(p[i] * jac[i][a] * jac[i][b] for i in range(n)) for b in range(4)]
+                 for a in range(4)]
+            lam = _risolvi4(m, [-e for e in c])
+            if lam is None:
+                return False
+            dv = [p[i] * sum(jac[i][a] * lam[a] for a in range(4)) for i in range(n)]
+            fuori = [i for i in range(n) if i not in fermi
+                     and not (min(lo[i], hi[i]) - 1e-9 <= v[i] + dv[i] <= max(lo[i], hi[i]) + 1e-9)
+                     and (v[i] <= min(lo[i], hi[i]) + 1e-9 or v[i] >= max(lo[i], hi[i]) - 1e-9)]
+            if not fuori:
+                break
+            fermi.update(fuori)
+        for i in range(n):
+            v[i] = min(max(v[i] + dv[i], min(lo[i], hi[i])), max(lo[i], hi[i]))
+    if max(abs(e) for e in scarto(v)) > 1e-4:
+        return False
+    for seg, val in zip(segmenti, v):
+        if seg.kind == "S":
+            seg.length = val
+        else:
+            seg.turn = -val
+            seg.length = seg.radius * abs(val)
+    return True
+
+
+def _risolvi4(m: list, b: list):
+    """Un sistema lineare piccolo, con Gauss e il pivot."""
+    k = len(b)
+    a = [list(r) + [b[i]] for i, r in enumerate(m)]
+    for c in range(k):
+        p = max(range(c, k), key=lambda r: abs(a[r][c]))
+        if abs(a[p][c]) < 1e-14:
+            return None
+        a[c], a[p] = a[p], a[c]
+        for r in range(k):
+            if r != c:
+                f = a[r][c] / a[c][c]
+                for j in range(c, k + 1):
+                    a[r][j] -= f * a[c][j]
+    return [a[i][k] / a[i][i] for i in range(k)]
+
+
+def incroci(pts: list, passo: int = 4) -> int:
+    """Quante volte il tracciato passa sopra se stesso (senza ponte, e' un errore)."""
+    q = pts[::max(1, passo)]
+    n = len(q)
+    conta = 0
+
+    def taglia(a, b, c, d):
+        def lato(p, r, s):
+            return (s[0] - p[0]) * (r[1] - p[1]) - (s[1] - p[1]) * (r[0] - p[0])
+        return (lato(a, b, c) * lato(a, b, d) < 0) and (lato(c, d, a) * lato(c, d, b) < 0)
+
+    for i in range(n):
+        a, b = q[i], q[(i + 1) % n]
+        for j in range(i + 2, n):
+            if (j + 1) % n == i:
+                continue
+            if taglia(a, b, q[j], q[(j + 1) % n]):
+                conta += 1
+    return conta
 
 
 def _project(geo, origine: tuple | None = None) -> list:
