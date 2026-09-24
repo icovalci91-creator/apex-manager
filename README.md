@@ -72,6 +72,15 @@ curve, mai il raggio), cosi' i rettilinei restano dritti e le curve restano curv
 cittadine corrono fra i muri, con i palazzi fino alle reti e il mare dove c'e'; Tempelhof
 sta sul piazzale dell'aeroporto, con il terminal e le piste di volo.
 
+Da vicino le macchine smettono di essere pallini: quando la ripresa si avvicina compare la
+monoposto, costruita dal codice sulle quote del regolamento 2026 (`game/ui/monoposto.py`) -
+muso, halo e casco, pance scavate, fondo con il diffusore, ali a piu' elementi, ruote con la
+fascia del colore della mescola montata. Ogni squadra ha la sua livrea
+(`game/ui/livree.py`), ripresa dalla macchina vera, con sopra le scritte degli sponsor che
+ha sotto contratto in quel momento: il title sul cofano e sull'ala posteriore, i partner
+sulle pance e sul muso, i secondari sull'ala anteriore. Se si firma con un marchio nuovo, dal
+weekend dopo la macchina lo porta. La ripresa si avvicina fino a otto metri.
+
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
 

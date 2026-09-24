@@ -49,9 +49,13 @@ class Mappa3D:
         return False
 
     def _livrea_3d(self, driver_id, colore) -> tuple:
-        """(seconda tinta, schema) della livrea di questa macchina."""
+        """(seconda tinta, schema, indice della tela o -1) di questa macchina."""
         scura = tuple(int(c * 0.25) for c in colore[:3])
-        return (scura, 0)
+        return (scura, 0, -1)
+
+    def _livree_3d(self) -> tuple:
+        """Le tele delle livree e, per squadra, l'indice di ognuna."""
+        return [], {}
 
     def _gomma_3d(self, driver_id) -> tuple:
         """Il colore della mescola montata, per la fascia sulla spalla."""
@@ -146,6 +150,10 @@ class Mappa3D:
         try:
             if self.v3d is None or self.v3d.geo.track is not self.track:
                 self.v3d = vista3d.Vista3D(self.track)
+                # le livree si dipingono una volta per weekend, con gli
+                # sponsor che le squadre hanno adesso
+                tele, self._indice_livree = self._livree_3d()
+                self.v3d.carica_livree(tele)
             meteo = self._meteo_3d()
             self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
             self.v3d.bagnato = getattr(meteo, "wet", 0.0)
@@ -154,8 +162,9 @@ class Mappa3D:
             else:
                 self.v3d.segui(None)
             # le monoposto vere, con la livrea di ognuna
-            self.v3d.auto = [(a[1], lat[a[0]] * metri, a[2]) + self._livrea_3d(a[0], a[2])
-                             + (self._gomma_3d(a[0]),) for a in auto]
+            self.v3d.auto = [(a[1], lat[a[0]] * metri, a[2]) + self._livrea_3d(a[0], a[2])[:2]
+                             + (self._gomma_3d(a[0]), self._livrea_3d(a[0], a[2])[2])
+                             for a in auto]
             img = self.v3d.disegna(vista.size)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()

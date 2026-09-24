@@ -332,8 +332,9 @@ _VS_AUTO = """
 uniform mat4 mvp;
 in vec3 in_pos; in vec3 in_nor; in float in_parte;
 in vec3 i_pos; in vec3 i_fwd; in vec3 i_col; in vec3 i_col2; in float i_stile; in vec3 i_gomma;
-out vec3 v_pos; out vec3 v_nor; out vec3 v_loc; flat out int v_parte;
-out vec3 v_col; out vec3 v_col2; flat out int v_stile; out vec3 v_gomma;
+in float i_livrea;
+out vec3 v_pos; out vec3 v_nor; out vec3 v_loc; flat out int v_parte; out vec3 v_nloc;
+out vec3 v_col; out vec3 v_col2; flat out int v_stile; out vec3 v_gomma; flat out int v_livrea;
 void main() {
     vec3 f = normalize(i_fwd);
     vec3 r = normalize(vec3(-f.z, 0.0, f.x));
@@ -345,6 +346,7 @@ void main() {
     v_loc = in_pos;
     v_parte = int(in_parte + 0.5);
     v_col = i_col; v_col2 = i_col2; v_stile = int(i_stile + 0.5); v_gomma = i_gomma;
+    v_nloc = in_nor; v_livrea = int(i_livrea + 0.5) - 1;
 }
 """
 
@@ -354,9 +356,27 @@ uniform vec3 sun; uniform vec3 sun_col; uniform vec3 amb_sky; uniform vec3 amb_g
 uniform vec3 fog_col; uniform vec3 zenit; uniform float fog_d; uniform vec3 eye;
 uniform float fari; uniform float bagnato;
 uniform sampler2DShadow ombre; uniform mat4 luce_vp; uniform float texel;
-in vec3 v_pos; in vec3 v_nor; in vec3 v_loc; flat in int v_parte;
-in vec3 v_col; in vec3 v_col2; flat in int v_stile; in vec3 v_gomma;
+uniform sampler2DArray livree;
+in vec3 v_pos; in vec3 v_nor; in vec3 v_loc; flat in int v_parte; in vec3 v_nloc;
+in vec3 v_col; in vec3 v_col2; flat in int v_stile; in vec3 v_gomma; flat in int v_livrea;
 out vec4 frag;
+
+// Dove cade questo punto della macchina sulla tela della livrea: i due
+// fianchi, la vista da sopra, le ali. Le misure sono quelle di `livree`.
+vec2 tela(vec3 p, vec3 n) {
+    float u = (p.x + 2.9) / 5.9;
+    if (p.x < -2.26 && p.y > 0.78 && abs(n.y) > 0.5)
+        return vec2((p.z + 0.5) / 1.0, (768.0 + (1.0 - clamp((p.x + 2.76) / 0.5, 0.0, 1.0)) * 128.0) / 1024.0);
+    if (p.x > 2.28 && p.y < 0.24 && abs(n.y) > 0.5 && abs(p.z) > 0.2)
+        return vec2(0.25 + 0.5 * (p.z + 0.95) / 1.9,
+                    (896.0 + (1.0 - clamp((p.x - 2.3) / 0.7, 0.0, 1.0)) * 128.0) / 1024.0);
+    if (abs(n.y) > 0.72)
+        return vec2(u, (384.0 + (p.z + 1.0) * 0.5 * 384.0) / 1024.0);
+    float v = (1.0 - p.y / 1.1) * 384.0 / 1024.0;
+    // il lato lo dice la faccia, non la posizione: la faccia interna di una
+    // paratia destra guarda a sinistra, e da sinistra si legge
+    return n.z >= 0.0 ? vec2(u * 0.5, v) : vec2(0.5 + (1.0 - u) * 0.5, v);
+}
 
 float ombra(vec3 n) {
     vec4 ls = luce_vp * vec4(v_pos + n * 0.3, 1.0);
@@ -383,6 +403,8 @@ vec3 livrea(out float lucido) {
     if (v_parte == 6) { lucido = 0.3; return vec3(0.08, 0.08, 0.09); }       // halo
     if (v_parte == 5) { lucido = 0.8; return mix(v_col2, vec3(0.95), 0.35 * step(0.86, p.y)); }
     lucido = 0.75;
+    if (v_livrea >= 0)
+        return texture(livree, vec3(tela(p, normalize(v_nloc)), float(v_livrea))).rgb;
     vec3 c = v_parte == 1 ? mix(v_col, v_col2, 0.0) : v_col;
     float due = 0.0;
     if (v_stile == 0) {                 // punta e cofano nella seconda tinta
@@ -631,7 +653,7 @@ def geometria(track) -> pista3d.Geometria:
 FOV = 34.0
 OMBRA_MISURA = 4096
 ISTANZE_MAX = 32            # quante macchine in pista al massimo
-ISTANZA = 16                # float per macchina: posizione, direzione, colori, mescola
+ISTANZA = 17                # float per macchina: posizione, direzione, colori, mescola, livrea
 
 
 class Vista3D:
@@ -663,15 +685,16 @@ class Vista3D:
                                         fragment_shader=_FS_OMBRA_AUTO)
         self.vbo_auto = ctx.buffer(monoposto.mesh().tobytes())
         self.vbo_istanze = ctx.buffer(reserve=ISTANZE_MAX * ISTANZA * 4, dynamic=True)
-        istanze = (self.vbo_istanze, "3f 3f 3f 3f 1f 3f/i", "i_pos", "i_fwd", "i_col", "i_col2",
-                   "i_stile", "i_gomma")
+        istanze = (self.vbo_istanze, "3f 3f 3f 3f 1f 3f 1f/i", "i_pos", "i_fwd", "i_col",
+                   "i_col2", "i_stile", "i_gomma", "i_livrea")
         self.vao_auto = ctx.vertex_array(self.p_auto, [
             (self.vbo_auto, "3f 3f 1f", "in_pos", "in_nor", "in_parte"), istanze])
         self.vbo_macchia = ctx.buffer(array("f", [-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]).tobytes())
         self.vao_ombra_auto = ctx.vertex_array(self.p_ombra_auto, [
             (self.vbo_macchia, "2f", "in_q"),
-            (self.vbo_istanze, "3f 3f 40x/i", "i_pos", "i_fwd")])
+            (self.vbo_istanze, "3f 3f 44x/i", "i_pos", "i_fwd")])
         self.auto = []
+        self.tex_livree = None
         self.elicottero = Elicottero()
         self.buffer = {}
         self.misura = None
@@ -682,6 +705,9 @@ class Vista3D:
         self._ombre()
 
     def rilascia(self) -> None:
+        if self.tex_livree is not None:
+            self.tex_livree.release()
+            self.tex_livree = None
         for o in list(self.buffer.values()) + [
                 self.vao_auto, self.vao_ombra_auto, self.vbo_auto, self.vbo_istanze,
                 self.vbo_macchia, self.p_auto, self.p_ombra_auto,
@@ -858,11 +884,13 @@ class Vista3D:
         for voce in self.auto[:ISTANZE_MAX]:
             frazione, laterale, col, col2, stile = voce[:5]
             gomma = voce[5] if len(voce) > 5 else (255, 214, 0)
+            livrea = voce[6] if len(voce) > 6 and self.tex_livree is not None else -1
             (x, y, z), f = geo.sul_giro(frazione, laterale)
             dati.extend((x, y + 0.12, z, f[0], f[1], f[2],
                          col[0] / 255.0, col[1] / 255.0, col[2] / 255.0,
                          col2[0] / 255.0, col2[1] / 255.0, col2[2] / 255.0, float(stile),
-                         gomma[0] / 255.0, gomma[1] / 255.0, gomma[2] / 255.0))
+                         gomma[0] / 255.0, gomma[1] / 255.0, gomma[2] / 255.0,
+                         float(livrea + 1)))
         quante = len(dati) // ISTANZA
         self.vbo_istanze.write(dati.tobytes())
         sole = luce["sun"]
@@ -889,7 +917,29 @@ class Vista3D:
         pa["texel"].value = 1.0 / OMBRA_MISURA
         self.tex_ombre.use(0)
         pa["ombre"].value = 0
+        if self.tex_livree is not None:
+            self.tex_livree.use(1)
+            pa["livree"].value = 1
         self.vao_auto.render(moderngl.TRIANGLES, instances=quante)
+
+    def carica_livree(self, tele: list) -> None:
+        """Le livree delle squadre, una tela per squadra (vedi `livree`): la
+        macchina con indice k porta la tela k."""
+        if self.tex_livree is not None:
+            self.tex_livree.release()
+            self.tex_livree = None
+        if not tele:
+            return
+        w, h = tele[0].get_size()
+        tex = self.ctx.texture_array((w, h, len(tele)), 3)
+        for k, t in enumerate(tele):
+            if t.get_size() != (w, h):
+                t = pygame.transform.smoothscale(t, (w, h))
+            tex.write(pygame.image.tobytes(t, "RGB"), viewport=(0, 0, k, w, h, 1))
+        tex.build_mipmaps()
+        tex.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+        tex.anisotropy = 8.0
+        self.tex_livree = tex
 
     def pixel_per_metro(self, frazione: float, laterale: float = 0.0) -> float:
         """Quanto e' grande un metro, sullo schermo, in quel punto della pista."""
