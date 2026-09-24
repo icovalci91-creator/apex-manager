@@ -1367,6 +1367,11 @@ class WeekendScene(Mappa3D, Scene):
     def _meteo_3d(self):
         return self.sim.weather if self.sim else (self.turno.weather if self.turno else None)
 
+    def _tempo_3d(self) -> float:
+        if self.sim:
+            return self.sim.time
+        return self.turno.t if self.turno else 0.0
+
     def _mano_bloccata(self) -> bool:
         return self.piano_aperto
 

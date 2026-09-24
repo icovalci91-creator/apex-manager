@@ -684,8 +684,10 @@ class RaceSim:
         self._coda = list(entrants)
 
     # ------------------------------------------------------------ utilita'
-    def log(self, text: str, kind: str = "info") -> None:
-        self.events.insert(0, {"lap": self.leader_lap + 1, "text": text, "kind": kind})
+    def log(self, text: str, kind: str = "info", **dati) -> None:
+        # t e i dati in piu' (chi ha passato chi) servono alla regia per i replay
+        self.events.insert(0, {"lap": self.leader_lap + 1, "text": text, "kind": kind,
+                               "t": self.time, **dati})
         del self.events[60:]
 
     def radio_say(self, e, testo: str, chi: str = "pilota") -> None:
@@ -2009,7 +2011,8 @@ class RaceSim:
             ahead.overtake_cd = RISPOSTA_ATTESA
             ahead.riscossa = RISCOSSA_S
             ahead.riscossa_su = behind.driver_id
-            self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass")
+            self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass",
+                     chi=behind.driver_id, su=ahead.driver_id)
             if self.rng.random() < (0.075 * (behind.aggression / 100.0)
                                    * (1.0 + self.weather.wet) * MU.rischio(behind)):
                 dmg = self.rng.uniform(4, 26)

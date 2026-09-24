@@ -520,6 +520,7 @@ void main() {
 _FS_FINALE = """
 #version 330
 uniform sampler2D scena; uniform sampler2D sfocata; uniform float notte; uniform float tilt;
+uniform vec2 fuoco; uniform float replay;
 in vec2 v_uv;
 out vec4 frag;
 void main() {
@@ -530,6 +531,10 @@ void main() {
     // dell'immagine, perche' la scena e' disegnata gia' ribaltata
     float t = max(smoothstep(0.38, 0.0, v_uv.y), smoothstep(0.86, 1.0, v_uv.y) * 0.6);
     c = mix(c, b, t * tilt);
+    // il teleobiettivo della regia: a fuoco la macchina in mezzo al quadro,
+    // lo sfondo morbido. fuoco = (forza, raggio)
+    vec2 q = (v_uv - 0.5) * vec2(1.6, 1.0);
+    c = mix(c, b, smoothstep(fuoco.y, fuoco.y + 0.30, length(q)) * fuoco.x);
     // il bagliore delle luci forti, molto piu' vivo di notte
     c += max(b - vec3(0.72), vec3(0.0)) * (0.35 + 1.8 * notte);
     // una curva morbida sulle luci, colori un filo piu' caldi e saturi
@@ -538,6 +543,9 @@ void main() {
     c = mix(vec3(l), c, 1.12);
     c = mix(c, c * c * (3.0 - 2.0 * c), 0.25);
     c *= mix(vec3(1.0), vec3(1.03, 1.0, 0.95), 1.0 - notte);
+    // il replay si riconosce anche dal colore: un filo spento e freddo
+    float lr = dot(c, vec3(0.299, 0.587, 0.114));
+    c = mix(c, vec3(lr) * vec3(0.93, 0.99, 1.08), replay * 0.22);
     vec2 d = (v_uv - 0.5) * vec2(1.25, 1.0);
     c *= mix(0.78, 1.0, smoothstep(0.85, 0.25, length(d)));
     frag = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -695,7 +703,14 @@ class Vista3D:
             (self.vbo_istanze, "3f 3f 44x/i", "i_pos", "i_fwd")])
         self.auto = []
         self.tex_livree = None
+        # senza livree (l'E-Prix) il campionatore deve comunque puntare a una
+        # tela del suo tipo: se resta sull'unita' delle ombre la scheda video
+        # rifiuta di disegnare le macchine
+        self.tex_vuota = ctx.texture_array((1, 1, 1), 3, data=b"\xff\xff\xff")
         self.elicottero = Elicottero()
+        # la regia: se c'e', e' lei a dire da dove si guarda (vedi `regia`)
+        self.camera = None
+        self.replay = 0.0
         self.buffer = {}
         self.misura = None
         self.mvp = None
@@ -710,7 +725,7 @@ class Vista3D:
             self.tex_livree = None
         for o in list(self.buffer.values()) + [
                 self.vao_auto, self.vao_ombra_auto, self.vbo_auto, self.vbo_istanze,
-                self.vbo_macchia, self.p_auto, self.p_ombra_auto,
+                self.vbo_macchia, self.p_auto, self.p_ombra_auto, self.tex_vuota,
                 self.vao, self.vao_ombra, self.vbo, self.vao_cielo, self.vao_sfoca,
                 self.vao_finale, self.vbo_pieno, self.p_mondo, self.p_ombra, self.p_cielo,
                 self.p_sfoca, self.p_finale, self.tex_ombre, self.fbo_ombre]:
@@ -800,9 +815,15 @@ class Vista3D:
         misura = (max(16, int(misura[0])), max(16, int(misura[1])))
         self._buffer(misura)
         geo, ctx, b = self.geo, self.ctx, self.buffer
-        occhio, bersaglio, vicino, lontano = self.elicottero.inquadra(
-            geo, misura[0] / misura[1], FOV)
-        proj = _prospettiva(FOV, misura[0] / misura[1], vicino, lontano)
+        aspetto = misura[0] / misura[1]
+        ripresa = self.camera.inquadra(geo, aspetto) if self.camera is not None else None
+        if ripresa is None:
+            occhio, bersaglio, vicino, lontano = self.elicottero.inquadra(geo, aspetto, FOV)
+            fov, fuoco, regia = FOV, (0.0, 0.3), False
+        else:
+            occhio, bersaglio, vicino, lontano, fov, fuoco = ripresa
+            regia = True
+        proj = _prospettiva(fov, aspetto, vicino, lontano)
         # la y si ribalta qui: OpenGL scrive le righe dal fondo, pygame le
         # legge dall'alto, e cosi' l'immagine esce gia' dritta
         mvp = _per(proj, _guarda(occhio, bersaglio))
@@ -870,7 +891,10 @@ class Vista3D:
         pf["notte"].value = 1.0 if geo.notte else 0.0
         # l'effetto plastico serve da lontano: vicino a una macchina si toglie
         vicino = self.elicottero.chi is not None and self.elicottero.zoom_auto < 0.5
-        pf["tilt"].value = 0.85 * (min(1.0, self.elicottero.zoom_auto / 0.5) if vicino else 1.0)
+        pf["tilt"].value = 0.0 if regia else 0.85 * (
+            min(1.0, self.elicottero.zoom_auto / 0.5) if vicino else 1.0)
+        pf["fuoco"].value = tuple(fuoco)
+        pf["replay"].value = max(0.0, min(1.0, self.replay))
         self.vao_finale.render(moderngl.TRIANGLES)
         dati = b["fine"].read(components=3, alignment=1)
         return pygame.image.frombytes(dati, misura, "RGB")
@@ -917,9 +941,8 @@ class Vista3D:
         pa["texel"].value = 1.0 / OMBRA_MISURA
         self.tex_ombre.use(0)
         pa["ombre"].value = 0
-        if self.tex_livree is not None:
-            self.tex_livree.use(1)
-            pa["livree"].value = 1
+        (self.tex_livree or self.tex_vuota).use(1)
+        pa["livree"].value = 1
         self.vao_auto.render(moderngl.TRIANGLES, instances=quante)
 
     def carica_livree(self, tele: list) -> None:

@@ -81,6 +81,38 @@ ha sotto contratto in quel momento: il title sul cofano e sull'ala posteriore, i
 sulle pance e sul muso, i secondari sull'ala anteriore. Se si firma con un marchio nuovo, dal
 weekend dopo la macchina lo porta. La ripresa si avvicina fino a otto metri.
 
+### La regia televisiva
+
+Il terzo pulsante, **TV**, passa la mappa al regista (`game/ui/regia.py`): la gara come la
+si guarda in televisione. Il regista sceglie chi inquadrare - una battaglia prima di tutto,
+poi chi e' in testa, poi le proprie macchine, poi chi ha appena passato qualcuno - e stacca
+fra quattro telecamere:
+
+- **bordo pista**: il cameraman dietro al muro, all'esterno della curva che arriva, aspetta la
+  macchina e la segue col teleobiettivo, stringendo man mano che si avvicina. Lo sfondo
+  resta morbido e la macchina a fuoco. Se sono in due a battersi, le tiene tutte e due nel
+  quadro;
+- **inseguimento**: la camera car, dietro e un po' sopra, sulla stessa traiettoria;
+- **onboard**: la telecamera sopra l'airbox, con l'halo e il muso davanti;
+- **elicottero**: sopra la macchina, girandole piano attorno.
+
+In basso a sinistra c'e' la grafica: posizione, colore della squadra e sigla, e "battaglia
+per P5" quando le macchine sono due; in alto a destra la camera in onda. Un clic su una
+macchina, o su una riga del tabellone, dice al regista di guardare solo quella (**REGIA
+LIBERA** lo lascia di nuovo scegliere).
+
+Quando qualcuno passa, fra i primi dieci o con una delle proprie macchine, un paio di
+secondi dopo parte il **replay**: la staccata rivista al rallentatore dal bordo pista, subito
+dopo il punto del sorpasso, e poi dall'abitacolo di chi ha attaccato. Per rivederla la
+regia tiene a mente l'ultimo minuto e mezzo di gara, macchina per macchina. Il pulsante
+**REPLAY** rivede l'ultimo sorpasso quando si vuole, e durante un replay torna in diretta.
+Un replay ogni venticinque secondi al massimo, e solo fino a x4: piu' veloce, la gara
+scapperebbe mentre si guarda indietro. Sopra x6 restano le riprese larghe.
+
+La gara decide un sorpasso in un colpo solo (chi attacca si ritrova davanti), e da vicino
+si vedrebbe la macchina saltare in avanti: la vista 3D mette da parte lo strappo e lo
+restituisce in sette decimi, cosi' chi passa sembra uscire dalla scia piu' forte.
+
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
 
@@ -2362,7 +2394,9 @@ game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
                      eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
                      pista3d e vista3d (il circuito in 3D), mappa3d (la mappa
-                     3D delle scene di gara), dintorni (i dintorni da OSM),
+                     3D delle scene di gara), regia (le telecamere della TV e
+                     i replay), monoposto e livree (le macchine in 3D),
+                     dintorni (i dintorni da OSM),
                      fx (luci, ombre, semaforo, bandiera, coriandoli, passaggi)
 data/                database JSON (regulations.json, formulae.json e wec.json
                      sono i tre regolamenti: Formula 1, Formula E, endurance)

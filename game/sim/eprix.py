@@ -298,8 +298,10 @@ class EPrix:
         totale = _kwh_riferimento(self.reg) + (self.boost_kwh if self.col_boost else 0.0)
         return totale / max(1.0, self.giri_previsti * self.MARGINE)
 
-    def log(self, testo: str, tipo: str = "info") -> None:
-        self.events.insert(0, {"lap": self.leader_lap + 1, "text": testo, "kind": tipo})
+    def log(self, testo: str, tipo: str = "info", **dati) -> None:
+        # t e i dati in piu' (chi ha passato chi) servono alla regia per i replay
+        self.events.insert(0, {"lap": self.leader_lap + 1, "text": testo, "kind": tipo,
+                               "t": self.time, **dati})
         del self.events[60:]
 
     def radio_say(self, e, testo: str, chi: str = "pilota") -> None:
@@ -845,7 +847,8 @@ class EPrix:
             dietro.energia = max(0.0, dietro.energia - COSTO_SORPASSO)
             dietro.overtake_cd = max(20.0, dietro.last_lap * 1.1)
             davanti.overtake_cd = 6.0
-            self.log(f"SORPASSO: {dietro.name} passa {davanti.name}", "pass")
+            self.log(f"SORPASSO: {dietro.name} passa {davanti.name}", "pass",
+                     chi=dietro.driver_id, su=davanti.driver_id)
             if self.rng.random() < (RISCHIO_CONTATTO * (dietro.aggression / 100.0)
                                     * (1.0 + self.weather.wet) * MU.rischio(dietro)):
                 danno = self.rng.uniform(5, 28)

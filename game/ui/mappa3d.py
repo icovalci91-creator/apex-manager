@@ -2,8 +2,10 @@
 
 Il weekend di Formula 1 e l'E-Prix la usano uguale: la pista vista
 dall'elicottero, i pallini sopra, un clic per seguire una macchina, il mouse
-per girarci attorno. Chi la usa deve avere `app`, `track`, `widgets`,
-`build()` e `_spazio(x, y)`, chiamare `_init_3d()` nel costruttore,
+per girarci attorno. Oppure la regia: la gara come in televisione, con le
+telecamere a bordo pista, le camere car e i replay dei sorpassi (`regia`).
+Chi la usa deve avere `app`, `track`, `widgets`, `build()` e `_spazio(x, y)`,
+chiamare `_init_3d()` nel costruttore,
 `self.v3d.aggiorna(dt)` nell'update e `_mano_3d(ev)` in `handle`.
 """
 from __future__ import annotations
@@ -13,7 +15,7 @@ import math
 import pygame
 
 from . import theme as T
-from . import pista3d, trackdraw, vista3d
+from . import pista3d, regia, trackdraw, vista3d
 from .widgets import Button
 
 
@@ -33,6 +35,12 @@ class Mappa3D:
         self._righe_torre = None    # le righe del tabellone, per sceglierci chi seguire
         self._mappa = None          # dove sta la mappa, per il mouse
         self._dt = 1 / 60
+        # le macchine senza strappi, e il regista per la vista TV
+        self._continua = regia.Continuita()
+        self._t_sim_3d = None
+        self.regista = None
+        self._replay_prima = False
+        self._stacco = 9.0          # da quanto e' partito o finito il replay
 
     # -- quello che cambia da una scena all'altra
     def _entranti_3d(self) -> list:
@@ -64,19 +72,33 @@ class Mappa3D:
         mescola = getattr(e, "tyre", "") if e is not None else ""
         return tuple(C.COMPOUNDS.get(mescola, {}).get("colour", (255, 214, 0)))
 
+    def _tempo_3d(self) -> float:
+        """Il cronometro della gara, in secondi."""
+        sim = getattr(self, "sim", None)
+        return float(getattr(sim, "time", 0.0)) if sim else 0.0
+
+    def _eventi_3d(self) -> list:
+        """La cronaca: la regia ci legge i sorpassi."""
+        sim = getattr(self, "sim", None)
+        return list(getattr(sim, "events", []) or []) if sim else []
+
     def _alone_3d(self, driver_id):
         """Un colore attorno al pallino, per chi ha qualcosa da far vedere."""
         return None
 
     def _modo_vista(self) -> str:
-        """2d o 3d. La scelta resta per tutta la partita."""
+        """2d, 3d o tv. La scelta resta per tutta la partita."""
         modo = getattr(self.app, "vista_gara", None)
-        if modo not in ("2d", "3d"):
+        if modo not in ("2d", "3d", "tv"):
             modo = "3d" if vista3d.disponibile() else "2d"
         return modo if (modo == "2d" or vista3d.disponibile()) else "2d"
 
     def _in_3d(self) -> bool:
-        return self._modo_vista() == "3d" and vista3d.disponibile()
+        """La pista in 3D: dall'elicottero o con la regia."""
+        return self._modo_vista() in ("3d", "tv") and vista3d.disponibile()
+
+    def _in_tv(self) -> bool:
+        return self._modo_vista() == "tv" and vista3d.disponibile()
 
     def set_vista(self, modo: str) -> None:
         self.app.vista_gara = modo
@@ -89,12 +111,35 @@ class Mappa3D:
         modo = self._modo_vista()
         x = mappa.x + 10
         for chiave, lab, tip in (("2d", "2D", "La mappa vista da sopra"),
-                                 ("3d", "3D", "Il circuito dall'elicottero")):
+                                 ("3d", "3D", "Il circuito dall'elicottero"),
+                                 ("tv", "TV", "La regia: la gara come in televisione, "
+                                              "con i replay dei sorpassi")):
             b = Button((x, mappa.y + 10, 44, 26), lab, style="tab", tip=tip)
             b.on_click = (lambda m=chiave: self.set_vista(m))
             b.active = (modo == chiave and not (chiave == "3d" and self.segui_id))
             self.widgets.append(b)
             x += 50
+        if modo == "tv":
+            x += 6
+
+            def largo(testo):
+                return T.width(testo, 15) + 24
+            if self.segui_id:
+                lab = f"REGIA SU {self._codice(self.segui_id)}"
+                b = Button((x, mappa.y + 10, largo(lab), 26), lab, style="tab",
+                           tip="Le telecamere guardano solo questa macchina")
+                b.active = True
+                self.widgets.append(b)
+                x += largo(lab) + 6
+                self.widgets.append(Button((x, mappa.y + 10, largo("REGIA LIBERA"), 26),
+                                           "REGIA LIBERA", lambda: self.segui(None), "ghost",
+                                           tip="Il regista torna a scegliere da solo"))
+                x += largo("REGIA LIBERA") + 6
+            self.widgets.append(Button((x, mappa.y + 10, largo("REPLAY"), 26), "REPLAY",
+                                       self.replay_tv, "ghost",
+                                       tip="Rivedi l'ultimo sorpasso. Durante un replay: "
+                                           "torna in diretta"))
+            return
         if modo == "3d" and self.segui_id:
             codice = self._codice(self.segui_id)
             b = Button((x + 6, mappa.y + 10, 104, 26), f"SEGUI {codice}", style="tab",
@@ -124,6 +169,16 @@ class Mappa3D:
         return {e.driver_id: e.manovra for e in self._entranti_3d()
                 if getattr(e, "manovra_t", 0.0) > 0.0 and e.status == "running"}
 
+    def replay_tv(self) -> None:
+        """Il pulsante REPLAY: rivede l'ultimo sorpasso, o torna in diretta."""
+        r = self.regista
+        if r is None:
+            return
+        if r.replay is not None:
+            r.salta()
+        elif not r.rivedi():
+            self.app.toast("Nessun sorpasso da rivedere, per ora")
+
     def _codice(self, driver_id) -> str:
         return next((e.code for e in self._entranti_3d() if e.driver_id == driver_id), "")
 
@@ -142,6 +197,10 @@ class Mappa3D:
         """
         lat = self._laterali([(a[0], a[1]) for a in auto], self._manovre())
         metri = pista3d.MEZZA_PISTA - 1.2
+        t_sim = self._tempo_3d()
+        dt_sim = 0.0 if self._t_sim_3d is None else max(0.0, t_sim - self._t_sim_3d)
+        self._t_sim_3d = t_sim
+        tv = self._in_tv()
         seguita = next((a for a in auto if a[0] == self.segui_id), None)
         if self.segui_id and seguita is None:
             # ritirata, o il turno e' finito: si torna sul circuito
@@ -154,17 +213,28 @@ class Mappa3D:
                 # sponsor che le squadre hanno adesso
                 tele, self._indice_livree = self._livree_3d()
                 self.v3d.carica_livree(tele)
+                self.regista = None
             meteo = self._meteo_3d()
             self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
             self.v3d.bagnato = getattr(meteo, "wet", 0.0)
-            if seguita:
-                self.v3d.segui(seguita[0], seguita[1], lat[seguita[0]] * metri)
-            else:
+            # dove stanno, senza gli strappi dei sorpassi: da vicino si vedrebbero
+            giro = regia.lunghezza(self.v3d.geo)
+            pos = self._continua.applica({a[0]: (a[1], lat[a[0]] * metri) for a in auto},
+                                         dt_sim, giro)
+            if tv:
+                pos = self._regia(pos, auto, t_sim)
                 self.v3d.segui(None)
+            else:
+                self.v3d.camera = None
+                self.v3d.replay = 0.0
+                if seguita:
+                    self.v3d.segui(seguita[0], *pos[seguita[0]])
+                else:
+                    self.v3d.segui(None)
             # le monoposto vere, con la livrea di ognuna
-            self.v3d.auto = [(a[1], lat[a[0]] * metri, a[2]) + self._livrea_3d(a[0], a[2])[:2]
+            self.v3d.auto = [(pos[a[0]][0], pos[a[0]][1], a[2]) + self._livrea_3d(a[0], a[2])[:2]
                              + (self._gomma_3d(a[0]), self._livrea_3d(a[0], a[2])[2])
-                             for a in auto]
+                             for a in auto if a[0] in pos]
             img = self.v3d.disegna(vista.size)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()
@@ -182,6 +252,9 @@ class Mappa3D:
         img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         surf.blit(img, vista.topleft)
         pygame.draw.rect(surf, T.LINE, vista, 1, border_radius=10)
+        if tv:
+            self._grafica_tv(surf, vista, auto, pos)
+            return True
         # i pallini, sulla traiettoria: in fila, e affiancati solo quando
         # sono davvero ruota a ruota
         prima = surf.get_clip()
@@ -190,8 +263,9 @@ class Mappa3D:
         self._pallini = []
         punti = []
         vicino = self.segui_id is not None
-        for chi, f, col, mio, code, box, nome in auto:
-            p = self.v3d.proietta(f, lat[chi] * metri)
+        for chi, _f, col, mio, code, box, nome in auto:
+            f, laterale = pos[chi]
+            p = self.v3d.proietta(f, laterale)
             if p is None:
                 continue
             x, y = int(vista.x + p[0]), int(vista.y + p[1])
@@ -199,10 +273,10 @@ class Mappa3D:
             # quando la macchina e' abbastanza grande da vedersi, il pallino
             # lascia il posto alla monoposto: resta la sigla, e l'anello per
             # chi si sta seguendo
-            grande = self.v3d.pixel_per_metro(f, lat[chi] * metri) * 5.4 >= MACCHINA_PX
+            grande = self.v3d.pixel_per_metro(f, laterale) * 5.4 >= MACCHINA_PX
             if grande:
                 # la sigla va sopra alla macchina, non addosso
-                sopra = self.v3d.proietta(f, lat[chi] * metri, 1.6) or p
+                sopra = self.v3d.proietta(f, laterale, 1.6) or p
                 if vista.collidepoint(x, y):
                     self._pallini.append((x, y, chi))
                 punti.append((int(vista.x + sopra[0]) - 8, int(vista.y + sopra[1]) + 4,
@@ -248,6 +322,8 @@ class Mappa3D:
             return False
         if self._mano_bloccata():
             return False
+        if self._in_tv():
+            return self._mano_tv(ev)
         cam = self.v3d.elicottero
         if ev.type == pygame.MOUSEWHEEL:
             if self._mappa.collidepoint(pygame.mouse.get_pos()):
@@ -290,4 +366,155 @@ class Mappa3D:
         if ev.type == pygame.MOUSEBUTTONUP and self._trascina is not None:
             self._trascina = None
             return True
+        return False
+
+    # ------------------------------------------------------------- la regia
+    def _regia(self, pos: dict, auto: list, t_sim: float) -> dict:
+        """Il regista guarda la gara e dice cosa far vedere: la diretta, o un
+        replay preso dal suo registro."""
+        r = self.regista
+        if r is None:
+            r = self.regista = regia.Regista(sum(map(ord, self.track.id)))
+            r.velocita = self._continua.velocita
+        info = {a[0]: {"pos": len(auto) - k, "mio": a[3], "box": a[5]}
+                for k, a in enumerate(auto)}
+        r.fissa(self.segui_id)
+        r.aggiorna(self.v3d.geo, self._dt, t_sim, pos, info, self._eventi_3d())
+        self.v3d.camera = r
+        in_replay = r.replay is not None
+        if in_replay != self._replay_prima:
+            self._stacco = 0.0
+            self._replay_prima = in_replay
+        self._stacco += self._dt
+        self.v3d.replay = 1.0 if in_replay else 0.0
+        # nel replay ci sono solo quelli che il registro ricorda
+        in_pista = set(info)
+        return {c: v for c, v in r.pos.items() if c in in_pista}
+
+    def _grafica_tv(self, surf, vista, auto: list, pos: dict) -> None:
+        """La grafica della televisione: chi si sta guardando, la camera, il
+        replay. E i punti dove cliccare per scegliere una macchina."""
+        r = self.regista
+        d = r.didascalia() if r is not None else None
+        per_id = {a[0]: a for a in auto}
+        prima = surf.get_clip()
+        surf.set_clip(vista.clip(prima) if prima else vista)
+        self._pallini = []
+        for chi in pos:
+            p = self.v3d.proietta(*pos[chi])
+            if p is not None:
+                x, y = int(vista.x + p[0]), int(vista.y + p[1])
+                if vista.collidepoint(x, y):
+                    self._pallini.append((x, y, chi))
+        if d is not None:
+            # la sigla sopra alle macchine inquadrate, se non ci si e' seduti dentro
+            if d["nome"] != regia.TCam.nome:
+                for chi in [d["chi"]] + d["altri"]:
+                    a = per_id.get(chi)
+                    if a is None or chi not in pos:
+                        continue
+                    p = self.v3d.proietta(pos[chi][0], pos[chi][1], 1.2)
+                    if p is None:
+                        continue
+                    x, y = int(vista.x + p[0]), int(vista.y + p[1])
+                    larga = T.width(a[4], 12, bold=True) + 14
+                    y -= 8
+                    T.panel(surf, (x - larga // 2, y - 18, larga, 18), (12, 16, 24),
+                            radius=4, rilievo=False)
+                    pygame.draw.rect(surf, a[2], (x - larga // 2, y - 18, 4, 18),
+                                     border_top_left_radius=4, border_bottom_left_radius=4)
+                    T.text(surf, a[4], (x + 2, y - 17), 12, T.WHITE, bold=True, align="center")
+            self._terzo_basso(surf, vista, d, per_id)
+            self._etichetta_camera(surf, vista, d)
+        if self._stacco < 0.5:
+            self._stinger(surf, vista, self._stacco / 0.5)
+        surf.set_clip(prima)
+        T.text(surf, "clic su una macchina o sul tabellone: la regia la segue",
+               (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
+
+    def _terzo_basso(self, surf, vista, d, per_id) -> None:
+        """In basso a sinistra: posizione, colore della squadra, sigla. Se
+        c'e' una battaglia, anche chi c'e' davanti."""
+        a = per_id.get(d["chi"])
+        if a is None:
+            return
+        info = self.regista.info.get(d["chi"], {})
+        x, y = vista.x + 14, vista.bottom - 70
+        riga = [(info.get("pos"), a)]
+        for c in d["altri"]:
+            b = per_id.get(c)
+            if b is not None:
+                riga.append((self.regista.info.get(c, {}).get("pos"), b))
+        if d["replay"] and d["sorpasso"]:
+            titolo = "IL SORPASSO"
+        elif len(riga) > 1:
+            posti = sorted(p for p, _ in riga if p)
+            titolo = f"BATTAGLIA PER P{posti[0]}" if posti else "BATTAGLIA"
+        else:
+            titolo = "IN PISTA"
+        T.text(surf, titolo, (x + 2, y - 16), 11, (235, 240, 250), bold=True)
+        for posto, b in riga:
+            larga = 44 + T.width(b[4], 16, bold=True) + 18
+            T.panel(surf, (x, y, larga, 30), (10, 14, 22), radius=5, rilievo=False)
+            T.panel(surf, (x, y, 30, 30), T.WHITE if b[3] else (232, 236, 244), radius=5,
+                    rilievo=False)
+            T.text(surf, str(posto or "-"), (x + 15, y + 6), 15, (10, 14, 22), bold=True,
+                   align="center")
+            pygame.draw.rect(surf, b[2], (x + 32, y + 5, 4, 20))
+            T.text(surf, b[4], (x + 44, y + 5), 16, T.squadra_viva() if b[3] else T.WHITE,
+                   bold=True)
+            x += larga + 8
+
+    def _etichetta_camera(self, surf, vista, d) -> None:
+        """In alto a destra: DIRETTA o REPLAY, e da che camera."""
+        x = vista.right - 12
+        y = vista.y + 12
+        if d["replay"]:
+            T.panel(surf, (x - 96, y, 96, 26), (196, 30, 40), radius=5, rilievo=False)
+            T.text(surf, "REPLAY", (x - 48, y + 5), 14, T.WHITE, bold=True, align="center")
+            # quanto manca, sotto
+            pygame.draw.rect(surf, (40, 44, 56), (x - 96, y + 30, 96, 3))
+            pygame.draw.rect(surf, (255, 90, 90), (x - 96, y + 30, int(96 * d["avanzato"]), 3))
+            T.text(surf, d["nome"], (x, y + 38), 11, (235, 240, 250), bold=True, align="right")
+            return
+        larga = T.width(d["nome"], 11, bold=True) + 44
+        T.panel(surf, (x - larga, y, larga, 22), (10, 14, 22), radius=5, rilievo=False)
+        acceso = (pygame.time.get_ticks() // 600) % 2 == 0
+        pygame.draw.circle(surf, (235, 50, 60) if acceso else (120, 30, 36),
+                           (x - larga + 14, y + 11), 4)
+        T.text(surf, d["nome"], (x - larga + 26, y + 4), 11, T.WHITE, bold=True)
+
+    def _stinger(self, surf, vista, t: float) -> None:
+        """Il lampo che apre e chiude il replay: una fascia che attraversa il quadro."""
+        larga = int(vista.w * 0.45)
+        x = int(vista.x - larga + (vista.w + larga * 2) * t)
+        fascia = pygame.Surface((larga, vista.h), pygame.SRCALPHA)
+        fascia.fill((*T.ACCENT, 200))
+        pygame.draw.rect(fascia, (255, 255, 255, 230), (larga - 10, 0, 10, vista.h))
+        surf.blit(fascia, (x, vista.y))
+        T.text(surf, "REPLAY" if self._replay_prima else "DIRETTA",
+               (x + larga // 2, vista.centery - 14), 26, T.WHITE, bold=True, align="center")
+
+    def _mano_tv(self, ev) -> bool:
+        """Con la regia il mouse non gira la camera: sceglie chi guardare."""
+        if ev.type != pygame.MOUSEBUTTONDOWN or ev.button != 1:
+            return False
+        if any(w.rect.collidepoint(ev.pos) for w in self.widgets):
+            return False
+        if self._mappa.collidepoint(ev.pos):
+            vicini = [(math.hypot(x - ev.pos[0], y - ev.pos[1]), chi)
+                      for x, y, chi in self._pallini]
+            if vicini:
+                d, chi = min(vicini, key=lambda v: v[0])
+                if d <= 40 and chi != self.segui_id:
+                    self.segui(chi)
+                    return True
+            return True
+        if self._righe_torre:
+            torre, y0, rh, ids = self._righe_torre
+            if torre.collidepoint(ev.pos) and ev.pos[1] >= y0:
+                i = int((ev.pos[1] - y0) // rh)
+                if 0 <= i < len(ids):
+                    self.segui(ids[i])
+                    return True
         return False
