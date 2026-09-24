@@ -141,6 +141,11 @@ Lanciando `python main.py` dai sorgenti invece resta tutto com'era, con i salvat
 
 ## Versione web (iPad e tablet)
 
+**Non si pubblica piu' da sola.** Il gioco si usa con l'eseguibile per Windows: la build per
+il browser e la pubblicazione su GitHub Pages non partono piu' a ogni push. Il codice e
+l'automazione restano: per riaccenderla basta avviare "Build web e pubblica su Pages" a mano
+dalla pagina Actions, oppure rimettere il blocco `push` in `.github/workflows/web.yml`.
+
 Lo stesso codice gira nel browser via WebAssembly. Per costruirla in locale:
 
 ```bash

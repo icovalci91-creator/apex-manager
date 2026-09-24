@@ -4,15 +4,11 @@ name: Build web e pubblica su Pages
 # cosi' si apre da Safari sull'iPad. La build va fatta qui e non in locale
 # perche' pygbag scarica il runtime CPython-WASM da pygame-web.github.io.
 
+# Spenta: il gioco si usa con l'eseguibile per Windows, e la versione per il
+# browser non si pubblica piu' a ogni push. Resta qui intera: per riaccenderla
+# basta avviarla a mano da Actions ("Run workflow"), oppure rimettere il blocco
+# `push` qui sotto.
 on:
-  push:
-    # main pubblica la versione buona; il ramo di lavoro serve a provare su
-    # iPad quello che non si puo' provare sul PC. L'ultimo push vince, quindi
-    # dopo un push su main il sito torna alla versione di main.
-    branches: [main, claude/game-analysis-l4v034]
-    paths-ignore:
-      - 'screenshots/**'
-      - 'README.md'
   workflow_dispatch:
 
 permissions:
