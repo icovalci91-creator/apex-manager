@@ -17,6 +17,10 @@ from . import pista3d, trackdraw, vista3d
 from .widgets import Button
 
 
+# da quanti pixel di lunghezza in su una macchina si vede da sola
+MACCHINA_PX = 26
+
+
 class Mappa3D:
     """I pezzi della vista 3D che non dipendono dal tipo di gara."""
 
@@ -43,6 +47,18 @@ class Mappa3D:
     def _mano_bloccata(self) -> bool:
         """Se sopra alla mappa c'e' aperto qualcos'altro, il mouse e' suo."""
         return False
+
+    def _livrea_3d(self, driver_id, colore) -> tuple:
+        """(seconda tinta, schema) della livrea di questa macchina."""
+        scura = tuple(int(c * 0.25) for c in colore[:3])
+        return (scura, 0)
+
+    def _gomma_3d(self, driver_id) -> tuple:
+        """Il colore della mescola montata, per la fascia sulla spalla."""
+        from .. import config as C
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        mescola = getattr(e, "tyre", "") if e is not None else ""
+        return tuple(C.COMPOUNDS.get(mescola, {}).get("colour", (255, 214, 0)))
 
     def _alone_3d(self, driver_id):
         """Un colore attorno al pallino, per chi ha qualcosa da far vedere."""
@@ -137,6 +153,9 @@ class Mappa3D:
                 self.v3d.segui(seguita[0], seguita[1], lat[seguita[0]] * metri)
             else:
                 self.v3d.segui(None)
+            # le monoposto vere, con la livrea di ognuna
+            self.v3d.auto = [(a[1], lat[a[0]] * metri, a[2]) + self._livrea_3d(a[0], a[2])
+                             + (self._gomma_3d(a[0]),) for a in auto]
             img = self.v3d.disegna(vista.size)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()
@@ -168,6 +187,18 @@ class Mappa3D:
                 continue
             x, y = int(vista.x + p[0]), int(vista.y + p[1])
             r = (7 if mio else 5) + (2 if vicino else 0)
+            # quando la macchina e' abbastanza grande da vedersi, il pallino
+            # lascia il posto alla monoposto: resta la sigla, e l'anello per
+            # chi si sta seguendo
+            grande = self.v3d.pixel_per_metro(f, lat[chi] * metri) * 5.4 >= MACCHINA_PX
+            if grande:
+                # la sigla va sopra alla macchina, non addosso
+                sopra = self.v3d.proietta(f, lat[chi] * metri, 1.6) or p
+                if vista.collidepoint(x, y):
+                    self._pallini.append((x, y, chi))
+                punti.append((int(vista.x + sopra[0]) - 8, int(vista.y + sopra[1]) + 4,
+                              code, mio, True))
+                continue
             if chi == self.segui_id:
                 pygame.draw.circle(surf, (255, 255, 255), (x, y), r + 5, 2)
             pygame.draw.circle(surf, (8, 10, 14), (x + 1, y + 2), r + 1)

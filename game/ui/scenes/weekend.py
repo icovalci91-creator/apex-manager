@@ -1350,6 +1350,14 @@ class WeekendScene(Mappa3D, Scene):
             return list(self.sim.entrants)
         return [p.e for p in self.turno.piste.values()] if self.turno else []
 
+    def _livrea_3d(self, driver_id, colore) -> tuple:
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        team = self.gs.teams.get(e.team_id) if e is not None else None
+        if team is None:
+            return super()._livrea_3d(driver_id, colore)
+        from ..livree import livrea_di
+        return livrea_di(team)
+
     def _meteo_3d(self):
         return self.sim.weather if self.sim else (self.turno.weather if self.turno else None)
 

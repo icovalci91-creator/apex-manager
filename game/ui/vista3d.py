@@ -23,7 +23,7 @@ from array import array
 
 import pygame
 
-from . import pista3d
+from . import monoposto, pista3d
 
 try:
     import moderngl
@@ -325,6 +325,131 @@ void main() {
 }
 """
 
+# Le macchine: una sola monoposto sulla scheda video, disegnata ventidue volte
+# con la posizione, la direzione e i colori di ognuna.
+_VS_AUTO = """
+#version 330
+uniform mat4 mvp;
+in vec3 in_pos; in vec3 in_nor; in float in_parte;
+in vec3 i_pos; in vec3 i_fwd; in vec3 i_col; in vec3 i_col2; in float i_stile; in vec3 i_gomma;
+out vec3 v_pos; out vec3 v_nor; out vec3 v_loc; flat out int v_parte;
+out vec3 v_col; out vec3 v_col2; flat out int v_stile; out vec3 v_gomma;
+void main() {
+    vec3 f = normalize(i_fwd);
+    vec3 r = normalize(vec3(-f.z, 0.0, f.x));
+    vec3 u = normalize(cross(r, f));
+    vec3 w = i_pos + f * in_pos.x + u * in_pos.y + r * in_pos.z;
+    gl_Position = mvp * vec4(w, 1.0);
+    v_pos = w;
+    v_nor = f * in_nor.x + u * in_nor.y + r * in_nor.z;
+    v_loc = in_pos;
+    v_parte = int(in_parte + 0.5);
+    v_col = i_col; v_col2 = i_col2; v_stile = int(i_stile + 0.5); v_gomma = i_gomma;
+}
+"""
+
+_FS_AUTO = """
+#version 330
+uniform vec3 sun; uniform vec3 sun_col; uniform vec3 amb_sky; uniform vec3 amb_ground;
+uniform vec3 fog_col; uniform vec3 zenit; uniform float fog_d; uniform vec3 eye;
+uniform float fari; uniform float bagnato;
+uniform sampler2DShadow ombre; uniform mat4 luce_vp; uniform float texel;
+in vec3 v_pos; in vec3 v_nor; in vec3 v_loc; flat in int v_parte;
+in vec3 v_col; in vec3 v_col2; flat in int v_stile; in vec3 v_gomma;
+out vec4 frag;
+
+float ombra(vec3 n) {
+    vec4 ls = luce_vp * vec4(v_pos + n * 0.3, 1.0);
+    vec3 q = ls.xyz / ls.w * 0.5 + 0.5;
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || q.z > 1.0) return 1.0;
+    float s = 0.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++)
+        s += texture(ombre, vec3(q.xy + vec2(i, j) * texel, q.z - 0.0015));
+    return s / 9.0;
+}
+
+// La livrea: dove va la seconda tinta dipende dallo schema della squadra
+vec3 livrea(out float lucido) {
+    vec3 p = v_loc;
+    lucido = 0.0;
+    if (v_parte == 2) { lucido = 0.25; return vec3(0.045, 0.048, 0.055); }   // carbonio
+    if (v_parte == 3) {                                                     // gomma
+        // sulla spalla, la fascia colorata della mescola montata
+        float r = length(vec2(p.x - sign(p.x) * 1.7, p.y - 0.355));
+        if (abs(p.z) > 0.66 && r > 0.262 && r < 0.300) return v_gomma;
+        return vec3(0.035, 0.035, 0.038);
+    }
+    if (v_parte == 4) { lucido = 0.55; return vec3(0.16, 0.16, 0.17); }      // cerchio
+    if (v_parte == 6) { lucido = 0.3; return vec3(0.08, 0.08, 0.09); }       // halo
+    if (v_parte == 5) { lucido = 0.8; return mix(v_col2, vec3(0.95), 0.35 * step(0.86, p.y)); }
+    lucido = 0.75;
+    vec3 c = v_parte == 1 ? mix(v_col, v_col2, 0.0) : v_col;
+    float due = 0.0;
+    if (v_stile == 0) {                 // punta e cofano nella seconda tinta
+        due = step(2.25, p.x) + step(0.80, p.y) * step(p.x, -0.2);
+    } else if (v_stile == 1) {          // una fascia diagonale lungo i fianchi
+        due = step(abs(p.x * 0.55 + p.y - 0.55), 0.09);
+    } else if (v_stile == 2) {          // pance e ali della seconda tinta
+        due = float(v_parte == 1);
+    } else {                            // meta' davanti e meta' dietro
+        due = smoothstep(-0.2, -0.1, -p.x - p.y * 0.4);
+    }
+    return mix(c, v_col2, clamp(due, 0.0, 1.0));
+}
+
+void main() {
+    vec3 n = normalize(v_nor);
+    vec3 vista = normalize(eye - v_pos);
+    float lucido;
+    vec3 a = livrea(lucido);
+    // sotto la pioggia tutto e' piu' scuro e piu' lucido
+    a *= 1.0 - 0.25 * bagnato;
+    lucido = min(1.0, lucido + 0.35 * bagnato);
+    float sole = ombra(n);
+    vec3 amb = mix(amb_ground, amb_sky, n.y * 0.5 + 0.5);
+    vec3 c = a * (amb + sun_col * max(dot(n, sun), 0.0) * sole);
+    // la vernice: il cielo riflesso di taglio e il sole che batte
+    float fres = pow(1.0 - max(dot(vista, n), 0.0), 4.0);
+    vec3 cielo = mix(fog_col, zenit, 0.5 + 0.5 * n.y);
+    c = mix(c, cielo, lucido * (0.04 + 0.45 * fres));
+    c += sun_col * pow(max(dot(reflect(-sun, n), vista), 0.0), 90.0) * lucido * 1.4 * sole;
+    // di notte i fari del circuito
+    c += a * fari * 0.35 * vec3(1.0, 0.9, 0.75);
+    float dist = length(v_pos - eye);
+    float f = 1.0 - exp(-pow(dist / fog_d, 1.6));
+    frag = vec4(mix(c, fog_col, clamp(f, 0.0, 1.0)), 1.0);
+}
+"""
+
+# L'ombra sotto a ogni macchina: una macchia morbida, spostata dalla parte
+# opposta al sole
+_VS_OMBRA_AUTO = """
+#version 330
+uniform mat4 mvp; uniform vec3 sole_xz;
+in vec2 in_q;
+in vec3 i_pos; in vec3 i_fwd;
+out vec2 v_q;
+void main() {
+    vec3 f = normalize(vec3(i_fwd.x, 0.0, i_fwd.z));
+    vec3 r = vec3(-f.z, 0.0, f.x);
+    vec3 w = i_pos + f * in_q.x * 3.0 + r * in_q.y * 1.25 + sole_xz + vec3(0.0, 0.05, 0.0);
+    gl_Position = mvp * vec4(w, 1.0);
+    v_q = in_q;
+}
+"""
+
+_FS_OMBRA_AUTO = """
+#version 330
+uniform float forza;
+in vec2 v_q;
+out vec4 frag;
+void main() {
+    vec2 q = v_q * vec2(1.0, 1.0);
+    float d = length(q * vec2(1.0, 1.15));
+    frag = vec4(0.0, 0.0, 0.0, forza * (1.0 - smoothstep(0.55, 1.0, d)));
+}
+"""
+
 _VS_PIENO = """
 #version 330
 in vec2 in_ndc;
@@ -398,6 +523,11 @@ void main() {
 """
 
 
+# quanto ci si puo' avvicinare a una macchina: 0.03 sono otto metri, abbastanza
+# da leggere la livrea
+ZOOM_MIN = 0.03
+
+
 class Elicottero:
     """La ripresa dall'alto, sul circuito o agganciata a una macchina.
 
@@ -457,7 +587,7 @@ class Elicottero:
 
     def rotella(self, y: float) -> None:
         if self.chi is not None:
-            self.zoom_auto = max(0.12, min(6.0, self.zoom_auto * (0.85 ** y)))
+            self.zoom_auto = max(ZOOM_MIN, min(6.0, self.zoom_auto * (0.85 ** y)))
         else:
             self.zoom = max(0.2, min(1.6, self.zoom * (0.87 ** y)))
         self.fermo = 15.0
@@ -500,6 +630,8 @@ def geometria(track) -> pista3d.Geometria:
 
 FOV = 34.0
 OMBRA_MISURA = 4096
+ISTANZE_MAX = 32            # quante macchine in pista al massimo
+ISTANZA = 16                # float per macchina: posizione, direzione, colori, mescola
 
 
 class Vista3D:
@@ -525,6 +657,21 @@ class Vista3D:
         self.vao_cielo = ctx.vertex_array(self.p_cielo, [(self.vbo_pieno, "2f", "in_ndc")])
         self.vao_sfoca = ctx.vertex_array(self.p_sfoca, [(self.vbo_pieno, "2f", "in_ndc")])
         self.vao_finale = ctx.vertex_array(self.p_finale, [(self.vbo_pieno, "2f", "in_ndc")])
+        # le macchine: la monoposto una volta, le istanze a ogni fotogramma
+        self.p_auto = ctx.program(vertex_shader=_VS_AUTO, fragment_shader=_FS_AUTO)
+        self.p_ombra_auto = ctx.program(vertex_shader=_VS_OMBRA_AUTO,
+                                        fragment_shader=_FS_OMBRA_AUTO)
+        self.vbo_auto = ctx.buffer(monoposto.mesh().tobytes())
+        self.vbo_istanze = ctx.buffer(reserve=ISTANZE_MAX * ISTANZA * 4, dynamic=True)
+        istanze = (self.vbo_istanze, "3f 3f 3f 3f 1f 3f/i", "i_pos", "i_fwd", "i_col", "i_col2",
+                   "i_stile", "i_gomma")
+        self.vao_auto = ctx.vertex_array(self.p_auto, [
+            (self.vbo_auto, "3f 3f 1f", "in_pos", "in_nor", "in_parte"), istanze])
+        self.vbo_macchia = ctx.buffer(array("f", [-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]).tobytes())
+        self.vao_ombra_auto = ctx.vertex_array(self.p_ombra_auto, [
+            (self.vbo_macchia, "2f", "in_q"),
+            (self.vbo_istanze, "3f 3f 40x/i", "i_pos", "i_fwd")])
+        self.auto = []
         self.elicottero = Elicottero()
         self.buffer = {}
         self.misura = None
@@ -536,6 +683,8 @@ class Vista3D:
 
     def rilascia(self) -> None:
         for o in list(self.buffer.values()) + [
+                self.vao_auto, self.vao_ombra_auto, self.vbo_auto, self.vbo_istanze,
+                self.vbo_macchia, self.p_auto, self.p_ombra_auto,
                 self.vao, self.vao_ombra, self.vbo, self.vao_cielo, self.vao_sfoca,
                 self.vao_finale, self.vbo_pieno, self.p_mondo, self.p_ombra, self.p_cielo,
                 self.p_sfoca, self.p_finale, self.tex_ombre, self.fbo_ombre]:
@@ -618,7 +767,10 @@ class Vista3D:
         self.elicottero.segui(chi, pos)
 
     def disegna(self, misura) -> pygame.Surface:
-        """Un fotogramma della pista, grande `misura`, senza le macchine."""
+        """Un fotogramma della pista, grande `misura`, con le macchine di `self.auto`.
+
+        `self.auto` e' una lista di (frazione del giro, spostamento laterale in
+        metri, colore, seconda tinta, schema della livrea[, colore della mescola])."""
         misura = (max(16, int(misura[0])), max(16, int(misura[1])))
         self._buffer(misura)
         geo, ctx, b = self.geo, self.ctx, self.buffer
@@ -665,6 +817,7 @@ class Vista3D:
         self.tex_ombre.use(0)
         pm["ombre"].value = 0
         self.vao.render(moderngl.TRIANGLES)
+        self._macchine(mvp, occhio, luce, fog_d)
         ctx.disable(moderngl.DEPTH_TEST)
         ctx.copy_framebuffer(b["scena"], b["ms"])
 
@@ -689,10 +842,75 @@ class Vista3D:
         pf["scena"].value = 0
         pf["sfocata"].value = 1
         pf["notte"].value = 1.0 if geo.notte else 0.0
-        pf["tilt"].value = 0.85
+        # l'effetto plastico serve da lontano: vicino a una macchina si toglie
+        vicino = self.elicottero.chi is not None and self.elicottero.zoom_auto < 0.5
+        pf["tilt"].value = 0.85 * (min(1.0, self.elicottero.zoom_auto / 0.5) if vicino else 1.0)
         self.vao_finale.render(moderngl.TRIANGLES)
         dati = b["fine"].read(components=3, alignment=1)
         return pygame.image.frombytes(dati, misura, "RGB")
+
+    def _macchine(self, mvp, occhio, luce, fog_d) -> None:
+        """Le monoposto, dove sono adesso: prima l'ombra, poi la macchina."""
+        if not self.auto:
+            return
+        ctx, geo = self.ctx, self.geo
+        dati = array("f")
+        for voce in self.auto[:ISTANZE_MAX]:
+            frazione, laterale, col, col2, stile = voce[:5]
+            gomma = voce[5] if len(voce) > 5 else (255, 214, 0)
+            (x, y, z), f = geo.sul_giro(frazione, laterale)
+            dati.extend((x, y + 0.12, z, f[0], f[1], f[2],
+                         col[0] / 255.0, col[1] / 255.0, col[2] / 255.0,
+                         col2[0] / 255.0, col2[1] / 255.0, col2[2] / 255.0, float(stile),
+                         gomma[0] / 255.0, gomma[1] / 255.0, gomma[2] / 255.0))
+        quante = len(dati) // ISTANZA
+        self.vbo_istanze.write(dati.tobytes())
+        sole = luce["sun"]
+        k = 0.9 / max(0.25, sole[1])
+        po = self.p_ombra_auto
+        po["mvp"].write(_f(mvp))
+        po["sole_xz"].value = (-sole[0] * k, 0.0, -sole[2] * k)
+        po["forza"].value = 0.35 if geo.notte else 0.55
+        ctx.enable(moderngl.BLEND)
+        ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
+        ctx.depth_mask = False
+        self.vao_ombra_auto.render(moderngl.TRIANGLES, instances=quante)
+        ctx.depth_mask = True
+        ctx.disable(moderngl.BLEND)
+        pa = self.p_auto
+        pa["mvp"].write(_f(mvp))
+        pa["luce_vp"].write(_f(self.luce_vp))
+        pa["eye"].value = occhio
+        for k2 in ("sun", "sun_col", "amb_sky", "amb_ground", "fari", "zenit"):
+            pa[k2].value = luce[k2]
+        pa["fog_col"].value = luce["orizzonte"]
+        pa["fog_d"].value = fog_d
+        pa["bagnato"].value = max(0.0, min(1.0, self.bagnato))
+        pa["texel"].value = 1.0 / OMBRA_MISURA
+        self.tex_ombre.use(0)
+        pa["ombre"].value = 0
+        self.vao_auto.render(moderngl.TRIANGLES, instances=quante)
+
+    def pixel_per_metro(self, frazione: float, laterale: float = 0.0) -> float:
+        """Quanto e' grande un metro, sullo schermo, in quel punto della pista."""
+        a = self.proietta(frazione, laterale)
+        if a is None:
+            return 0.0
+        (x, y, z), f = self.geo.sul_giro(frazione, laterale)
+        m = self.mvp
+
+        def schermo(px, py, pz):
+            cx = m[0] * px + m[4] * py + m[8] * pz + m[12]
+            cy = m[1] * px + m[5] * py + m[9] * pz + m[13]
+            cw = m[3] * px + m[7] * py + m[11] * pz + m[15]
+            if cw <= 0.1:
+                return None
+            return ((cx / cw * 0.5 + 0.5) * self.misura[0], (cy / cw * 0.5 + 0.5) * self.misura[1])
+        b = schermo(x + f[0] * 5.0, y + f[1] * 5.0, z + f[2] * 5.0)
+        c = schermo(x, y + 5.0, z)
+        if b is None or c is None:
+            return 0.0
+        return max(math.hypot(b[0] - a[0], b[1] - a[1]), math.hypot(c[0] - a[0], c[1] - a[1])) / 5.0
 
     def proietta(self, frazione: float, laterale: float = 0.0, alto: float = 0.0):
         """Dove cade sullo schermo un punto della pista, nell'ultimo fotogramma."""
