@@ -2160,6 +2160,17 @@ Tutto il contenuto sta in `data/` ed è JSON leggibile:
 - `teams.json` — 11 scuderie, motoristi, strutture, componenti di partenza e posizione nel costruttori 2025 (da cui escono ore di galleria, premi e valore per gli sponsor)
 - `drivers.json` — 22 titolari + svincolati, con attributi e contratti
 - `staff.json` — figure chiave nominate, staff libero, template dei ruoli
+- `sponsors.json` — 89 marchi veri: i 55 che corrono con una squadra a inizio 2026 (HP e
+  Shell sulla Ferrari, Oracle e Bybit sulla Red Bull, Mastercard sulla McLaren...) con il
+  valore stimato dell'accordo e gli anni che restano, e quelli liberi sul mercato, dai title
+  sponsor da decine di milioni ai piccoli fornitori che trattano anche con una squadra appena
+  fondata. Ognuno ha la sua **fascia di budget** (top, alta, media, base), la reputazione
+  sotto cui non tratta, la posizione che si aspetta e la **prospettiva**: quanto conta per
+  lui il futuro della squadra - un costruttore alle spalle, risultati in salita, la fabbrica,
+  i giovani forti - rispetto a quello che fa oggi. Revolut con l'Audi e Aramco con l'Aston
+  Martin comprano un progetto; Rolex e Oracle vogliono il vertice. Chi veste la squadra e'
+  esclusivo, i fornitori tecnici no. Ci sono anche i colori e la scritta di ogni marchio,
+  per le livree. Le cifre sono stime della stampa di settore
 - `regulations.json` — regolamento 2026 con i numeri ufficiali, cicli storici, catalogo delle proposte votabili
 
 ### Il regolamento 2026, e cosa ne fa il gioco

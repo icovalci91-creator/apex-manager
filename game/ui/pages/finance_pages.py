@@ -136,8 +136,8 @@ class FinancePage(Page):
                "secondary": T.OK, "technical": T.DIM}.get(s["tier"], T.DIM)
         pygame.draw.rect(surf, col, (rect.x + 6, rect.y + 8, 3, rect.h - 16))
         T.text(surf, s["name"], (rect.x + 18, rect.y + 3), 15, T.TEXT, maxw=190)
-        T.text(surf, f"{SP.TIER_LABEL[s['tier']]} - {s['sector']}",
-               (rect.x + 18, rect.y + 23), 12, T.DIM, maxw=230)
+        T.text(surf, f"{SP.TIER_LABEL[s['tier']]} - {s['sector']} - {SP.fascia(s).lower()}",
+               (rect.x + 18, rect.y + 23), 12, T.DIM, maxw=rect.w - 120)
         T.text(surf, f"{SP.offer_value(gs, team, s):.1f} M$", (rect.right - 14, rect.y + 3),
                15, T.GOLD, bold=True, align="right")
         lo, hi = s.get("years", [2, 4])
@@ -334,7 +334,17 @@ class FinancePage(Page):
         if s:
             equo = SP.offer_value(gs, team, s)
             T.text(surf, s["name"], (right.x + 16, oy), 18, T.TEXT, bold=True)
-            T.text(surf, s["desc"], (right.x + 16, oy + 24), 12, T.DIM, maxw=right.w - 32)
+            # la scritta del marchio, nei suoi colori, come andrebbe sulla macchina
+            colori = s.get("colori") or []
+            if len(colori) == 2:
+                scritta = T.render(s.get("scritta", s["name"]), 13, T.hex_rgb(colori[1]), bold=True)
+                box = pygame.Rect(0, 0, scritta.get_width() + 16, 22)
+                box.topright = (right.right - 16, oy + 1)
+                pygame.draw.rect(surf, T.hex_rgb(colori[0]), box, border_radius=4)
+                surf.blit(scritta, scritta.get_rect(center=box.center))
+            T.text(surf, f"{SP.fascia(s)} - {SP.cosa_guarda(s)}", (right.x + 16, oy + 24), 12,
+                   T.GOLD, bold=True, maxw=right.w - 32)
+            T.text(surf, s["desc"], (right.x + 16, oy + 42), 12, T.DIM, maxw=right.w - 32)
             col = T.OK if self.ask <= equo * 1.05 else (
                 T.WARN if self.ask <= equo * 1.35 else T.BAD)
             giudizio = ("dovrebbe accettare" if self.ask <= equo * 1.05 else

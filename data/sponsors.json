@@ -1,258 +1,1467 @@
 {
-  "_note": "Sponsor e accordi commerciali. I nomi sono di fantasia, le cifre e le durate no: sono calibrate sugli accordi reali riportati dalla stampa di settore, che restano stime non confermate dalle parti.",
-  "_riferimenti": [
-    "Title sponsor di vertice: 75-100 M$/anno su 4-5 anni (Oracle-Red Bull, HP-Ferrari, Petronas-Mercedes, Aramco-Aston Martin)",
-    "Title sponsor di meta' gruppo: 20-50 M$/anno su 3-5 anni (Atlassian-Williams, MoneyGram-Haas, Visa Cash App-Racing Bulls)",
-    "Partner principale: 15-40 M$/anno (Shell-Ferrari sul carburante, Google-McLaren, OKX-McLaren)",
-    "Partner secondario: 4-15 M$/anno su 2-3 anni",
-    "Fornitore tecnico: 1-8 M$/anno, spesso in parte come fornitura di beni e servizi"
-  ],
+  "_note": "Sponsor e accordi commerciali: i marchi veri, con le squadre con cui corrono a inizio 2026 (campo `accordo`). Le cifre sono stime della stampa di settore, non confermate dalle parti, e vanno lette come ordini di grandezza. Chi non ha `accordo` e' libero sul mercato. Il file si puo' modificare liberamente: il gioco lo rilegge a ogni partita nuova.",
   "_campi": {
     "tier": "title = sul nome della squadra | primary = grande spazio in vettura | secondary | technical = fornitore",
     "base": "valore di riferimento in M$/anno per una squadra che soddisfa le sue attese",
     "min_reputation": "sotto questa reputazione non si siede nemmeno al tavolo",
     "wants_position": "posizione nel costruttori che si aspetta: se fai peggio, l'offerta cala",
+    "prospettiva": "0-100, quanto conta per lui il futuro della squadra (costruttore alle spalle, risultati in crescita, giovani forti) rispetto a quello che fa oggi",
     "sector": "settore merceologico: due sponsor dello stesso settore non convivono",
     "bonus_win / bonus_podium / bonus_title": "premi di risultato, in M$",
     "prestige": "quanto e' selettivo: alza le pretese e il valore",
-    "loyalty": "quanto e' disposto a restare quando i risultati calano"
+    "loyalty": "quanto e' disposto a restare quando i risultati calano",
+    "colori": "i due colori del marchio, per la scritta sulle livree: sfondo e lettere",
+    "scritta": "come compare sulla macchina",
+    "accordo": "con chi corre a inizio partita: squadra, valore in M$/anno e anni di contratto rimasti"
   },
   "sponsors": [
     {
-      "id": "helion",
-      "name": "Helion Cloud",
-      "sector": "tecnologia",
+      "id": "hp",
+      "name": "HP",
+      "sector": "hardware",
       "tier": "title",
-      "base": 95.0,
+      "base": 80.0,
       "min_reputation": 88,
-      "wants_position": 2,
+      "wants_position": 3,
       "years": [
         4,
         5
       ],
-      "bonus_win": 1.2,
+      "bonus_win": 1.14,
       "bonus_podium": 0.4,
-      "bonus_title": 12.0,
+      "bonus_title": 11.4,
       "prestige": 95,
-      "loyalty": 55,
-      "desc": "Gruppo cloud globale: vuole il nome sulla squadra e la vittoria come vetrina."
+      "loyalty": 70,
+      "prospettiva": 30,
+      "colori": [
+        "#0096D6",
+        "#FFFFFF"
+      ],
+      "scritta": "HP",
+      "desc": "Il nome sulla Rossa dal 2025: vuole la Ferrari che vince, e la paga come poche.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 80.0,
+        "anni": 4
+      }
     },
     {
-      "id": "petrofinity",
-      "name": "Petrofinity",
-      "sector": "energia",
+      "id": "shell",
+      "name": "Shell",
+      "sector": "carburanti",
+      "tier": "primary",
+      "base": 40.0,
+      "min_reputation": 80,
+      "wants_position": 4,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.8,
+      "bonus_podium": 0.3,
+      "bonus_title": 8.0,
+      "prestige": 90,
+      "loyalty": 92,
+      "prospettiva": 15,
+      "colori": [
+        "#FBCE07",
+        "#DD1D21"
+      ],
+      "scritta": "Shell",
+      "desc": "Con Maranello da settant'anni: benzina e lubrificanti, e una fedelta' che non si discute.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 40.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "unicredit",
+      "name": "UniCredit",
+      "sector": "finanza",
+      "tier": "primary",
+      "base": 18.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.36,
+      "bonus_podium": 0.14,
+      "bonus_title": 3.6,
+      "prestige": 80,
+      "loyalty": 70,
+      "prospettiva": 25,
+      "colori": [
+        "#E2001A",
+        "#FFFFFF"
+      ],
+      "scritta": "UniCredit",
+      "desc": "La banca italiana sulla macchina italiana.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 18.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "ibm",
+      "name": "IBM",
+      "sector": "software",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 75,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.21,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.1,
+      "prestige": 80,
+      "loyalty": 65,
+      "prospettiva": 40,
+      "colori": [
+        "#0F62FE",
+        "#FFFFFF"
+      ],
+      "scritta": "IBM",
+      "desc": "Dati e intelligenza artificiale per il muretto, e il marchio in bella vista.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "rayban",
+      "name": "Ray-Ban",
+      "sector": "occhiali",
+      "tier": "secondary",
+      "base": 8.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 85,
+      "loyalty": 60,
+      "prospettiva": 20,
+      "colori": [
+        "#E31B23",
+        "#FFFFFF"
+      ],
+      "scritta": "Ray-Ban",
+      "desc": "Occhiali e un po' di Hollywood: cerca le squadre che si fotografano.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 8.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "richardmille",
+      "name": "Richard Mille",
+      "sector": "orologi",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 85,
+      "wants_position": 4,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.21,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.1,
+      "prestige": 95,
+      "loyalty": 75,
+      "prospettiva": 20,
+      "colori": [
+        "#000000",
+        "#E30613"
+      ],
+      "scritta": "RICHARD MILLE",
+      "desc": "Orologi da centinaia di migliaia di euro: solo il vertice.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "puma",
+      "name": "Puma",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 8.0,
+      "min_reputation": 80,
+      "wants_position": 5,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.1,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.0,
+      "prestige": 80,
+      "loyalty": 70,
+      "prospettiva": 30,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "PUMA",
+      "desc": "Le tute e le magliette: vende quello che la squadra indossa.",
+      "accordo": {
+        "squadra": "ferrari",
+        "valore": 8.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "mastercard",
+      "name": "Mastercard",
+      "sector": "pagamenti",
       "tier": "title",
-      "base": 88.0,
+      "base": 90.0,
+      "min_reputation": 86,
+      "wants_position": 3,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 1.29,
+      "bonus_podium": 0.45,
+      "bonus_title": 12.9,
+      "prestige": 92,
+      "loyalty": 70,
+      "prospettiva": 35,
+      "colori": [
+        "#EB001B",
+        "#F79E1B"
+      ],
+      "scritta": "mastercard",
+      "desc": "Il nome sulla squadra campione: carta, pagamenti, e una vetrina mondiale.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 90.0,
+        "anni": 5
+      }
+    },
+    {
+      "id": "google",
+      "name": "Google",
+      "sector": "internet",
+      "tier": "primary",
+      "base": 20.0,
+      "min_reputation": 80,
+      "wants_position": 4,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 4.0,
+      "prestige": 90,
+      "loyalty": 60,
+      "prospettiva": 55,
+      "colori": [
+        "#4285F4",
+        "#FFFFFF"
+      ],
+      "scritta": "Google",
+      "desc": "Chrome e Android sulle pance: sceglie chi e' giovane e fa parlare di se'.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 20.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "okx",
+      "name": "OKX",
+      "sector": "cripto",
+      "tier": "primary",
+      "base": 25.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.19,
+      "bonus_title": 5.0,
+      "prestige": 70,
+      "loyalty": 40,
+      "prospettiva": 50,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "OKX",
+      "desc": "Piattaforma di criptovalute: paga bene, resta poco.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 25.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "dell",
+      "name": "Dell Technologies",
+      "sector": "hardware",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 76,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.21,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.1,
+      "prestige": 75,
+      "loyalty": 65,
+      "prospettiva": 35,
+      "colori": [
+        "#007DB8",
+        "#FFFFFF"
+      ],
+      "scritta": "DELL",
+      "desc": "I calcolatori della fabbrica e il logo sull'ala.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "estrella",
+      "name": "Estrella Galicia 0,0",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 65,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 60,
+      "loyalty": 80,
+      "prospettiva": 30,
+      "colori": [
+        "#E30613",
+        "#FFFFFF"
+      ],
+      "scritta": "Estrella Galicia 0,0",
+      "desc": "La birra analcolica spagnola, legata ai piloti che parlano spagnolo.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 5.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "dpworld",
+      "name": "DP World",
+      "sector": "logistica",
+      "tier": "secondary",
+      "base": 8.0,
+      "min_reputation": 72,
+      "wants_position": 6,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 70,
+      "loyalty": 70,
+      "prospettiva": 30,
+      "colori": [
+        "#1E1450",
+        "#FFFFFF"
+      ],
+      "scritta": "DP WORLD",
+      "desc": "Porti e navi: porta la squadra in giro per il mondo.",
+      "accordo": {
+        "squadra": "mclaren",
+        "valore": 8.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "petronas",
+      "name": "Petronas",
+      "sector": "carburanti",
+      "tier": "title",
+      "base": 75.0,
       "min_reputation": 85,
       "wants_position": 3,
       "years": [
         4,
         5
       ],
-      "bonus_win": 1.0,
-      "bonus_podium": 0.35,
-      "bonus_title": 10.0,
-      "prestige": 92,
-      "loyalty": 75,
-      "desc": "Compagnia energetica di stato, rapporti lunghissimi e pretese di immagine."
+      "bonus_win": 1.07,
+      "bonus_podium": 0.37,
+      "bonus_title": 10.7,
+      "prestige": 90,
+      "loyalty": 90,
+      "prospettiva": 25,
+      "colori": [
+        "#00A19C",
+        "#FFFFFF"
+      ],
+      "scritta": "PETRONAS",
+      "desc": "La compagnia di stato malese: il verde acqua della Mercedes da tre generazioni.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 75.0,
+        "anni": 4
+      }
     },
     {
-      "id": "vantexbank",
-      "name": "Vantex Bank",
+      "id": "ineos",
+      "name": "INEOS",
+      "sector": "chimica",
+      "tier": "primary",
+      "base": 25.0,
+      "min_reputation": 82,
+      "wants_position": 4,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.19,
+      "bonus_title": 5.0,
+      "prestige": 80,
+      "loyalty": 90,
+      "prospettiva": 30,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "INEOS",
+      "desc": "Chimica e un terzo della squadra: non se ne va.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 25.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "ubs",
+      "name": "UBS",
       "sector": "finanza",
-      "tier": "title",
-      "base": 74.0,
+      "tier": "primary",
+      "base": 15.0,
+      "min_reputation": 82,
+      "wants_position": 4,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.11,
+      "bonus_title": 3.0,
+      "prestige": 85,
+      "loyalty": 70,
+      "prospettiva": 25,
+      "colori": [
+        "#E60000",
+        "#FFFFFF"
+      ],
+      "scritta": "UBS",
+      "desc": "La banca svizzera dei patrimoni grandi.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 15.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "qualcomm",
+      "name": "Snapdragon",
+      "sector": "hardware",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.21,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.1,
+      "prestige": 75,
+      "loyalty": 60,
+      "prospettiva": 55,
+      "colori": [
+        "#3253DC",
+        "#FFFFFF"
+      ],
+      "scritta": "Snapdragon",
+      "desc": "I chip dei telefoni, e i giovani da mostrare.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "sector": "software",
+      "tier": "secondary",
+      "base": 12.0,
       "min_reputation": 82,
       "wants_position": 4,
       "years": [
         3,
         5
       ],
-      "bonus_win": 0.9,
-      "bonus_podium": 0.3,
-      "bonus_title": 9.0,
-      "prestige": 88,
-      "loyalty": 60,
-      "desc": "Banca d'investimento: guarda ai numeri di audience prima che ai risultati."
+      "bonus_win": 0.26,
+      "bonus_podium": 0.09,
+      "bonus_title": 2.6,
+      "prestige": 90,
+      "loyalty": 65,
+      "prospettiva": 40,
+      "colori": [
+        "#737373",
+        "#FFFFFF"
+      ],
+      "scritta": "Microsoft",
+      "desc": "Cloud e dati per il muretto.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 12.0,
+        "anni": 3
+      }
     },
     {
-      "id": "aurorafly",
-      "name": "AuroraFly",
-      "sector": "trasporti",
-      "tier": "title",
-      "base": 52.0,
+      "id": "monster",
+      "name": "Monster Energy",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 10.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.21,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.1,
+      "prestige": 70,
+      "loyalty": 75,
+      "prospettiva": 45,
+      "colori": [
+        "#000000",
+        "#95D600"
+      ],
+      "scritta": "MONSTER",
+      "desc": "Bevande energetiche: la F1 e' il suo mondo.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "purestorage",
+      "name": "Pure Storage",
+      "sector": "software",
+      "tier": "technical",
+      "base": 5.0,
       "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.06,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.6,
+      "prestige": 65,
+      "loyalty": 60,
+      "prospettiva": 35,
+      "colori": [
+        "#FA4616",
+        "#FFFFFF"
+      ],
+      "scritta": "PURE STORAGE",
+      "desc": "Archivi dati per la galleria e il simulatore.",
+      "accordo": {
+        "squadra": "mercedes",
+        "valore": 5.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "oracle",
+      "name": "Oracle",
+      "sector": "software",
+      "tier": "title",
+      "base": 100.0,
+      "min_reputation": 88,
+      "wants_position": 2,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 1.43,
+      "bonus_podium": 0.5,
+      "bonus_title": 14.3,
+      "prestige": 95,
+      "loyalty": 65,
+      "prospettiva": 35,
+      "colori": [
+        "#C74634",
+        "#FFFFFF"
+      ],
+      "scritta": "ORACLE",
+      "desc": "Il contratto piu' ricco della griglia: vuole la macchina che vince.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 100.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "bybit",
+      "name": "Bybit",
+      "sector": "cripto",
+      "tier": "primary",
+      "base": 50.0,
+      "min_reputation": 84,
+      "wants_position": 3,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 1.0,
+      "bonus_podium": 0.38,
+      "bonus_title": 10.0,
+      "prestige": 70,
+      "loyalty": 40,
+      "prospettiva": 40,
+      "colori": [
+        "#000000",
+        "#F7A600"
+      ],
+      "scritta": "bybit",
+      "desc": "Cambiavalute di criptovalute: tanti soldi, poca pazienza.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 50.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "mobil1",
+      "name": "Mobil 1",
+      "sector": "lubrificanti",
+      "tier": "primary",
+      "base": 20.0,
+      "min_reputation": 82,
+      "wants_position": 4,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 4.0,
+      "prestige": 80,
+      "loyalty": 70,
+      "prospettiva": 25,
+      "colori": [
+        "#FF0000",
+        "#0033A0"
+      ],
+      "scritta": "Mobil 1",
+      "desc": "Lubrificanti: il marchio sul muso da una vita.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 20.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "rauch",
+      "name": "Rauch",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 55,
+      "loyalty": 85,
+      "prospettiva": 20,
+      "colori": [
+        "#004B87",
+        "#FFFFFF"
+      ],
+      "scritta": "Rauch",
+      "desc": "Succhi austriaci, di casa a Milton Keynes e al Red Bull Ring.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 5.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "hardrock",
+      "name": "Hard Rock",
+      "sector": "intrattenimento",
+      "tier": "secondary",
+      "base": 6.0,
+      "min_reputation": 72,
+      "wants_position": 6,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.13,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.3,
+      "prestige": 65,
+      "loyalty": 55,
+      "prospettiva": 40,
+      "colori": [
+        "#000000",
+        "#F5A623"
+      ],
+      "scritta": "Hard Rock",
+      "desc": "Hotel e casino': cerca spettacolo.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 6.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "mauijim",
+      "name": "Maui Jim",
+      "sector": "occhiali",
+      "tier": "secondary",
+      "base": 3.0,
+      "min_reputation": 65,
+      "wants_position": 7,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.06,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.6,
+      "prestige": 55,
+      "loyalty": 60,
+      "prospettiva": 30,
+      "colori": [
+        "#003A70",
+        "#FFFFFF"
+      ],
+      "scritta": "MAUI JIM",
+      "desc": "Occhiali da sole: un posto piccolo e ben visibile.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 3.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "castore",
+      "name": "Castore",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 6.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.08,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.8,
+      "prestige": 65,
+      "loyalty": 60,
+      "prospettiva": 45,
+      "colori": [
+        "#1A1A1A",
+        "#C8A45A"
+      ],
+      "scritta": "CASTORE",
+      "desc": "Abbigliamento tecnico inglese in crescita.",
+      "accordo": {
+        "squadra": "redbull",
+        "valore": 6.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "aramco",
+      "name": "Aramco",
+      "sector": "carburanti",
+      "tier": "title",
+      "base": 75.0,
+      "min_reputation": 76,
+      "wants_position": 5,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 1.07,
+      "bonus_podium": 0.37,
+      "bonus_title": 10.7,
+      "prestige": 85,
+      "loyalty": 85,
+      "prospettiva": 60,
+      "colori": [
+        "#00843D",
+        "#FFFFFF"
+      ],
+      "scritta": "aramco",
+      "desc": "Petrolio saudita: scommette sul progetto con Honda e Newey, non sulla classifica di oggi.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 75.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "cognizant",
+      "name": "Cognizant",
+      "sector": "software",
+      "tier": "primary",
+      "base": 20.0,
+      "min_reputation": 72,
       "wants_position": 6,
       "years": [
         3,
         4
       ],
-      "bonus_win": 0.8,
-      "bonus_podium": 0.3,
-      "bonus_title": 6.0,
-      "prestige": 74,
-      "loyalty": 70,
-      "desc": "Compagnia aerea in espansione: le basta essere vista, non vincere."
-    },
-    {
-      "id": "novaworks",
-      "name": "NovaWorks",
-      "sector": "software",
-      "tier": "title",
-      "base": 46.0,
-      "min_reputation": 66,
-      "wants_position": 7,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.7,
-      "bonus_podium": 0.25,
-      "bonus_title": 5.0,
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 4.0,
       "prestige": 70,
-      "loyalty": 78,
-      "desc": "Software per aziende: cerca credibilita' tecnica piu' che gloria sportiva."
+      "loyalty": 60,
+      "prospettiva": 55,
+      "colori": [
+        "#1A4CA1",
+        "#FFFFFF"
+      ],
+      "scritta": "cognizant",
+      "desc": "Consulenza informatica, con un occhio al futuro della squadra.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 20.0,
+        "anni": 3
+      }
     },
     {
-      "id": "sendline",
-      "name": "Sendline",
-      "sector": "pagamenti",
-      "tier": "title",
-      "base": 24.0,
-      "min_reputation": 55,
-      "wants_position": 9,
+      "id": "coinbase",
+      "name": "Coinbase",
+      "sector": "cripto",
+      "tier": "primary",
+      "base": 12.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.24,
+      "bonus_podium": 0.09,
+      "bonus_title": 2.4,
+      "prestige": 60,
+      "loyalty": 45,
+      "prospettiva": 55,
+      "colori": [
+        "#0052FF",
+        "#FFFFFF"
+      ],
+      "scritta": "coinbase",
+      "desc": "Criptovalute americane: vogliono il progetto che cresce.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 12.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "valvoline",
+      "name": "Valvoline",
+      "sector": "lubrificanti",
+      "tier": "secondary",
+      "base": 8.0,
+      "min_reputation": 68,
+      "wants_position": 7,
       "years": [
         3,
         4
       ],
-      "bonus_win": 0.6,
-      "bonus_podium": 0.25,
-      "bonus_title": 4.0,
-      "prestige": 56,
-      "loyalty": 65,
-      "desc": "Trasferimenti di denaro: title sponsor accessibile per una squadra di coda."
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 60,
+      "loyalty": 70,
+      "prospettiva": 40,
+      "colori": [
+        "#003A70",
+        "#E31837"
+      ],
+      "scritta": "Valvoline",
+      "desc": "Lubrificanti americani.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 8.0,
+        "anni": 3
+      }
     },
     {
-      "id": "kortex",
-      "name": "Kortex Exchange",
-      "sector": "cripto",
+      "id": "glenfiddich",
+      "name": "Glenfiddich",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 6.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.13,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.3,
+      "prestige": 70,
+      "loyalty": 65,
+      "prospettiva": 30,
+      "colori": [
+        "#1D3C34",
+        "#C9A961"
+      ],
+      "scritta": "Glenfiddich",
+      "desc": "Whisky scozzese per una squadra inglese.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 6.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "peroni",
+      "name": "Peroni Nastro Azzurro 0.0",
+      "sector": "birra",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 66,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 60,
+      "loyalty": 65,
+      "prospettiva": 35,
+      "colori": [
+        "#0033A0",
+        "#FFFFFF"
+      ],
+      "scritta": "Peroni 0.0",
+      "desc": "La birra analcolica italiana.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 5.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "pepejeans",
+      "name": "Pepe Jeans",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 3.0,
+      "min_reputation": 60,
+      "wants_position": 7,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.04,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.4,
+      "prestige": 50,
+      "loyalty": 55,
+      "prospettiva": 40,
+      "colori": [
+        "#002B5C",
+        "#FFFFFF"
+      ],
+      "scritta": "Pepe Jeans",
+      "desc": "Abbigliamento del paddock.",
+      "accordo": {
+        "squadra": "astonmartin",
+        "valore": 3.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "bwt",
+      "name": "BWT",
+      "sector": "acqua",
       "tier": "title",
-      "base": 40.0,
+      "base": 25.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.36,
+      "bonus_podium": 0.12,
+      "bonus_title": 3.6,
+      "prestige": 60,
+      "loyalty": 80,
+      "prospettiva": 45,
+      "colori": [
+        "#EC008C",
+        "#FFFFFF"
+      ],
+      "scritta": "BWT",
+      "desc": "Depuratori d'acqua austriaci: il rosa sulle macchine da piu' di dieci anni.",
+      "accordo": {
+        "squadra": "alpine",
+        "valore": 25.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "mercadolibre",
+      "name": "Mercado Libre",
+      "sector": "commercio",
+      "tier": "primary",
+      "base": 10.0,
       "min_reputation": 60,
       "wants_position": 8,
       "years": [
         2,
-        3
-      ],
-      "bonus_win": 1.5,
-      "bonus_podium": 0.5,
-      "bonus_title": 8.0,
-      "prestige": 62,
-      "loyalty": 25,
-      "desc": "Piattaforma di scambio cripto: paga molto e sparisce in fretta."
-    },
-    {
-      "id": "shellara",
-      "name": "Shellara Lubrificanti",
-      "sector": "energia",
-      "tier": "primary",
-      "base": 58.0,
-      "min_reputation": 80,
-      "wants_position": 4,
-      "years": [
-        4,
-        6
-      ],
-      "bonus_win": 0.8,
-      "bonus_podium": 0.3,
-      "bonus_title": 7.0,
-      "prestige": 90,
-      "loyalty": 92,
-      "desc": "Partner tecnico su carburante e lubrificanti: rapporti che durano decenni."
-    },
-    {
-      "id": "meridiantel",
-      "name": "Meridian Telecom",
-      "sector": "telecomunicazioni",
-      "tier": "primary",
-      "base": 34.0,
-      "min_reputation": 74,
-      "wants_position": 5,
-      "years": [
-        3,
         4
       ],
-      "bonus_win": 0.6,
-      "bonus_podium": 0.25,
-      "bonus_title": 4.5,
-      "prestige": 76,
-      "loyalty": 68,
-      "desc": "Operatore continentale: vuole visibilita' nei mercati dove sta crescendo."
+      "bonus_win": 0.2,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.0,
+      "prestige": 55,
+      "loyalty": 60,
+      "prospettiva": 60,
+      "colori": [
+        "#FFE600",
+        "#2D3277"
+      ],
+      "scritta": "mercado libre",
+      "desc": "Il commercio elettronico argentino: segue i piloti sudamericani.",
+      "accordo": {
+        "squadra": "alpine",
+        "valore": 10.0,
+        "anni": 3
+      }
     },
     {
-      "id": "orbitware",
-      "name": "Orbitware",
-      "sector": "tecnologia",
-      "tier": "primary",
-      "base": 27.0,
-      "min_reputation": 70,
-      "wants_position": 6,
+      "id": "bellross",
+      "name": "Bell & Ross",
+      "sector": "orologi",
+      "tier": "secondary",
+      "base": 4.0,
+      "min_reputation": 60,
+      "wants_position": 8,
       "years": [
         2,
         4
       ],
-      "bonus_win": 0.5,
-      "bonus_podium": 0.2,
-      "bonus_title": 3.5,
-      "prestige": 72,
-      "loyalty": 60,
-      "desc": "Software di collaborazione: cerca il pubblico giovane della categoria."
-    },
-    {
-      "id": "cronark",
-      "name": "Cronark",
-      "sector": "orologi",
-      "tier": "primary",
-      "base": 22.0,
-      "min_reputation": 78,
-      "wants_position": 5,
-      "years": [
-        4,
-        6
+      "bonus_win": 0.09,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.9,
+      "prestige": 60,
+      "loyalty": 65,
+      "prospettiva": 35,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
       ],
-      "bonus_win": 0.4,
-      "bonus_podium": 0.15,
-      "bonus_title": 3.0,
-      "prestige": 88,
-      "loyalty": 90,
-      "desc": "Manifattura di orologi: selettiva, ma quando entra non se ne va piu'."
+      "scritta": "BELL & ROSS",
+      "desc": "Orologi d'aviazione francesi.",
+      "accordo": {
+        "squadra": "alpine",
+        "valore": 4.0,
+        "anni": 3
+      }
     },
     {
-      "id": "voltarion",
-      "name": "Voltarion",
-      "sector": "bevande",
-      "tier": "primary",
-      "base": 30.0,
-      "min_reputation": 62,
-      "wants_position": 7,
+      "id": "kappa",
+      "name": "Kappa",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 4.0,
+      "min_reputation": 50,
+      "wants_position": 9,
       "years": [
         3,
         5
       ],
-      "bonus_win": 0.7,
-      "bonus_podium": 0.3,
-      "bonus_title": 4.0,
-      "prestige": 66,
-      "loyalty": 62,
-      "desc": "Energy drink: vuole piloti giovani e comunicazione aggressiva."
+      "bonus_win": 0.05,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.5,
+      "prestige": 50,
+      "loyalty": 70,
+      "prospettiva": 30,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "Kappa",
+      "desc": "Le tute torinesi.",
+      "accordo": {
+        "squadra": "alpine",
+        "valore": 4.0,
+        "anni": 3
+      }
     },
     {
-      "id": "steelbridge",
-      "name": "Steelbridge Assicurazioni",
-      "sector": "assicurazioni",
+      "id": "atlassian",
+      "name": "Atlassian",
+      "sector": "software",
+      "tier": "title",
+      "base": 40.0,
+      "min_reputation": 68,
+      "wants_position": 6,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.57,
+      "bonus_podium": 0.2,
+      "bonus_title": 5.7,
+      "prestige": 70,
+      "loyalty": 70,
+      "prospettiva": 65,
+      "colori": [
+        "#0052CC",
+        "#FFFFFF"
+      ],
+      "scritta": "ATLASSIAN",
+      "desc": "Software per chi lavora in gruppo: ha scommesso sulla rinascita della Williams.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 40.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "santander",
+      "name": "Santander",
+      "sector": "finanza",
       "tier": "primary",
-      "base": 19.0,
-      "min_reputation": 58,
+      "base": 15.0,
+      "min_reputation": 72,
+      "wants_position": 6,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.11,
+      "bonus_title": 3.0,
+      "prestige": 75,
+      "loyalty": 60,
+      "prospettiva": 45,
+      "colori": [
+        "#EC0000",
+        "#FFFFFF"
+      ],
+      "scritta": "Santander",
+      "desc": "La banca spagnola, arrivata con Sainz.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 15.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "komatsu",
+      "name": "Komatsu",
+      "sector": "macchinari",
+      "tier": "primary",
+      "base": 8.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.16,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.6,
+      "prestige": 55,
+      "loyalty": 80,
+      "prospettiva": 35,
+      "colori": [
+        "#1C2C5B",
+        "#FFFFFF"
+      ],
+      "scritta": "KOMATSU",
+      "desc": "Macchine movimento terra giapponesi.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 8.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "gulf",
+      "name": "Gulf",
+      "sector": "lubrificanti",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 65,
+      "loyalty": 75,
+      "prospettiva": 30,
+      "colori": [
+        "#6CACE4",
+        "#F58025"
+      ],
+      "scritta": "Gulf",
+      "desc": "L'azzurro e arancio piu' famoso delle corse.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 5.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "kraken",
+      "name": "Kraken",
+      "sector": "cripto",
+      "tier": "secondary",
+      "base": 8.0,
+      "min_reputation": 62,
+      "wants_position": 8,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 55,
+      "loyalty": 45,
+      "prospettiva": 55,
+      "colori": [
+        "#5741D9",
+        "#FFFFFF"
+      ],
+      "scritta": "kraken",
+      "desc": "Criptovalute americane.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 8.0,
+        "anni": 2
+      }
+    },
+    {
+      "id": "duracell",
+      "name": "Duracell",
+      "sector": "consumo",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 60,
+      "loyalty": 65,
+      "prospettiva": 40,
+      "colori": [
+        "#231F20",
+        "#C58B2B"
+      ],
+      "scritta": "DURACELL",
+      "desc": "Pile e pit stop: la gara dei cambi gomme porta il suo nome.",
+      "accordo": {
+        "squadra": "williams",
+        "valore": 5.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "visa",
+      "name": "Visa",
+      "sector": "pagamenti",
+      "tier": "title",
+      "base": 20.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.29,
+      "bonus_podium": 0.1,
+      "bonus_title": 2.9,
+      "prestige": 75,
+      "loyalty": 65,
+      "prospettiva": 50,
+      "colori": [
+        "#1A1F71",
+        "#FFFFFF"
+      ],
+      "scritta": "VISA",
+      "desc": "Metà del nome della squadra, e il blu della carta.",
+      "accordo": {
+        "squadra": "racingbulls",
+        "valore": 20.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "cashapp",
+      "name": "Cash App",
+      "sector": "fintech",
+      "tier": "primary",
+      "base": 10.0,
+      "min_reputation": 60,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.2,
+      "bonus_podium": 0.07,
+      "bonus_title": 2.0,
+      "prestige": 55,
+      "loyalty": 55,
+      "prospettiva": 60,
+      "colori": [
+        "#00D632",
+        "#FFFFFF"
+      ],
+      "scritta": "Cash App",
+      "desc": "L'altra meta' del nome: pagamenti dal telefono per i giovani americani.",
+      "accordo": {
+        "squadra": "racingbulls",
+        "valore": 10.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "boss",
+      "name": "BOSS",
+      "sector": "abbigliamento",
+      "tier": "primary",
+      "base": 8.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.16,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.6,
+      "prestige": 70,
+      "loyalty": 65,
+      "prospettiva": 45,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "BOSS",
+      "desc": "Moda tedesca in griglia.",
+      "accordo": {
+        "squadra": "racingbulls",
+        "valore": 8.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "toyota",
+      "name": "Toyota Gazoo Racing",
+      "sector": "automotive",
+      "tier": "title",
+      "base": 25.0,
+      "min_reputation": 55,
+      "wants_position": 8,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.36,
+      "bonus_podium": 0.12,
+      "bonus_title": 3.6,
+      "prestige": 75,
+      "loyalty": 80,
+      "prospettiva": 60,
+      "colori": [
+        "#EB0A1E",
+        "#000000"
+      ],
+      "scritta": "TOYOTA GAZOO Racing",
+      "desc": "La Toyota torna in Formula 1 dalla porta di servizio: tecnica, piloti giovani, e il nome sulla squadra.",
+      "accordo": {
+        "squadra": "haas",
+        "valore": 25.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "moneygram",
+      "name": "MoneyGram",
+      "sector": "pagamenti",
+      "tier": "primary",
+      "base": 20.0,
+      "min_reputation": 55,
       "wants_position": 8,
       "years": [
         3,
@@ -260,562 +1469,1051 @@
       ],
       "bonus_win": 0.4,
       "bonus_podium": 0.15,
-      "bonus_title": 2.5,
-      "prestige": 58,
-      "loyalty": 80,
-      "desc": "Gruppo assicurativo: prudente, affidabile, poco appariscente."
-    },
-    {
-      "id": "questlog",
-      "name": "Questlog",
-      "sector": "logistica",
-      "tier": "primary",
-      "base": 17.0,
-      "min_reputation": 55,
-      "wants_position": 8,
-      "years": [
-        2,
-        4
+      "bonus_title": 4.0,
+      "prestige": 55,
+      "loyalty": 60,
+      "prospettiva": 45,
+      "colori": [
+        "#DA291C",
+        "#FFFFFF"
       ],
-      "bonus_win": 0.35,
-      "bonus_podium": 0.15,
-      "bonus_title": 2.0,
-      "prestige": 54,
-      "loyalty": 72,
-      "desc": "Corriere internazionale: la Formula 1 e' la sua vetrina naturale."
+      "scritta": "MoneyGram",
+      "desc": "Trasferimenti di denaro: era il nome della Haas, adesso e' il partner principale.",
+      "accordo": {
+        "squadra": "haas",
+        "valore": 20.0,
+        "anni": 2
+      }
     },
     {
-      "id": "brightfoam",
-      "name": "Brightfoam",
-      "sector": "consumo",
+      "id": "palantir",
+      "name": "Palantir",
+      "sector": "software",
       "tier": "secondary",
-      "base": 12.0,
-      "min_reputation": 50,
-      "wants_position": 9,
+      "base": 5.0,
+      "min_reputation": 58,
+      "wants_position": 8,
       "years": [
         2,
         3
       ],
-      "bonus_win": 0.25,
-      "bonus_podium": 0.1,
-      "bonus_title": 1.5,
-      "prestige": 48,
-      "loyalty": 70,
-      "desc": "Prodotti per la casa: cerca il grande pubblico televisivo."
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 55,
+      "loyalty": 55,
+      "prospettiva": 50,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "PALANTIR",
+      "desc": "Analisi dei dati per la difesa e per il muretto.",
+      "accordo": {
+        "squadra": "haas",
+        "valore": 5.0,
+        "anni": 2
+      }
     },
     {
-      "id": "altavia",
-      "name": "Altavia Moda",
-      "sector": "abbigliamento",
+      "id": "revolut",
+      "name": "Revolut",
+      "sector": "fintech",
+      "tier": "title",
+      "base": 35.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.5,
+      "bonus_podium": 0.17,
+      "bonus_title": 5.0,
+      "prestige": 70,
+      "loyalty": 70,
+      "prospettiva": 80,
+      "colori": [
+        "#191C1F",
+        "#FFFFFF"
+      ],
+      "scritta": "Revolut",
+      "desc": "La banca digitale: compra il futuro di un costruttore che arriva.",
+      "accordo": {
+        "squadra": "audi",
+        "valore": 35.0,
+        "anni": 5
+      }
+    },
+    {
+      "id": "bp",
+      "name": "bp",
+      "sector": "carburanti",
+      "tier": "primary",
+      "base": 15.0,
+      "min_reputation": 62,
+      "wants_position": 8,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.3,
+      "bonus_podium": 0.11,
+      "bonus_title": 3.0,
+      "prestige": 75,
+      "loyalty": 80,
+      "prospettiva": 70,
+      "colori": [
+        "#009900",
+        "#FFE600"
+      ],
+      "scritta": "bp",
+      "desc": "La benzina del nuovo motore tedesco.",
+      "accordo": {
+        "squadra": "audi",
+        "valore": 15.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "castrol",
+      "name": "Castrol",
+      "sector": "lubrificanti",
       "tier": "secondary",
-      "base": 14.0,
+      "base": 8.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 70,
+      "loyalty": 80,
+      "prospettiva": 60,
+      "colori": [
+        "#009A44",
+        "#E30613"
+      ],
+      "scritta": "Castrol",
+      "desc": "Olio e fluidi, con bp.",
+      "accordo": {
+        "squadra": "audi",
+        "valore": 8.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "adidas",
+      "name": "adidas",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 10.0,
+      "min_reputation": 65,
+      "wants_position": 7,
+      "years": [
+        4,
+        5
+      ],
+      "bonus_win": 0.12,
+      "bonus_podium": 0.05,
+      "bonus_title": 1.2,
+      "prestige": 85,
+      "loyalty": 70,
+      "prospettiva": 70,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "adidas",
+      "desc": "Le tre strisce sulla squadra nuova.",
+      "accordo": {
+        "squadra": "audi",
+        "valore": 10.0,
+        "anni": 4
+      }
+    },
+    {
+      "id": "tommyhilfiger",
+      "name": "Tommy Hilfiger",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 6.0,
+      "min_reputation": 50,
+      "wants_position": 9,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.08,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.8,
+      "prestige": 70,
+      "loyalty": 60,
+      "prospettiva": 75,
+      "colori": [
+        "#002D72",
+        "#E4002B"
+      ],
+      "scritta": "TOMMY HILFIGER",
+      "desc": "Moda americana per la squadra americana.",
+      "accordo": {
+        "squadra": "cadillac",
+        "valore": 6.0,
+        "anni": 3
+      }
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "sector": "hardware",
+      "tier": "title",
+      "base": 70.0,
+      "min_reputation": 86,
+      "wants_position": 3,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 1.0,
+      "bonus_podium": 0.35,
+      "bonus_title": 10.0,
+      "prestige": 90,
+      "loyalty": 60,
+      "prospettiva": 70,
+      "colori": [
+        "#76B900",
+        "#000000"
+      ],
+      "scritta": "NVIDIA",
+      "desc": "I processori dell'intelligenza artificiale: cerca il vertice, o chi ci sta arrivando."
+    },
+    {
+      "id": "aws",
+      "name": "Amazon Web Services",
+      "sector": "internet",
+      "tier": "title",
+      "base": 60.0,
+      "min_reputation": 84,
+      "wants_position": 4,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.86,
+      "bonus_podium": 0.3,
+      "bonus_title": 8.6,
+      "prestige": 85,
+      "loyalty": 65,
+      "prospettiva": 60,
+      "colori": [
+        "#232F3E",
+        "#FF9900"
+      ],
+      "scritta": "aws",
+      "desc": "Il cloud di Amazon: dati, simulazioni, e il sorriso sulla macchina."
+    },
+    {
+      "id": "emirates",
+      "name": "Emirates",
+      "sector": "viaggi",
+      "tier": "title",
+      "base": 55.0,
+      "min_reputation": 82,
+      "wants_position": 5,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.79,
+      "bonus_podium": 0.27,
+      "bonus_title": 7.9,
+      "prestige": 85,
+      "loyalty": 70,
+      "prospettiva": 40,
+      "colori": [
+        "#D71921",
+        "#FFFFFF"
+      ],
+      "scritta": "Emirates",
+      "desc": "La compagnia aerea di Dubai: vuole una squadra di prestigio."
+    },
+    {
+      "id": "samsung",
+      "name": "Samsung",
+      "sector": "hardware",
+      "tier": "title",
+      "base": 50.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.71,
+      "bonus_podium": 0.25,
+      "bonus_title": 7.1,
+      "prestige": 80,
+      "loyalty": 60,
+      "prospettiva": 65,
+      "colori": [
+        "#1428A0",
+        "#FFFFFF"
+      ],
+      "scritta": "SAMSUNG",
+      "desc": "Telefoni e televisori: un colosso in cerca di una casa in Formula 1."
+    },
+    {
+      "id": "totalenergies",
+      "name": "TotalEnergies",
+      "sector": "carburanti",
+      "tier": "title",
+      "base": 40.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.57,
+      "bonus_podium": 0.2,
+      "bonus_title": 5.7,
+      "prestige": 75,
+      "loyalty": 75,
+      "prospettiva": 55,
+      "colori": [
+        "#ED0000",
+        "#0055A4"
+      ],
+      "scritta": "TotalEnergies",
+      "desc": "Energia francese, con una lunga storia nelle corse."
+    },
+    {
+      "id": "qatarairways",
+      "name": "Qatar Airways",
+      "sector": "viaggi",
+      "tier": "title",
+      "base": 45.0,
+      "min_reputation": 78,
+      "wants_position": 5,
+      "years": [
+        3,
+        4
+      ],
+      "bonus_win": 0.64,
+      "bonus_podium": 0.23,
+      "bonus_title": 6.4,
+      "prestige": 80,
+      "loyalty": 60,
+      "prospettiva": 45,
+      "colori": [
+        "#5C0632",
+        "#FFFFFF"
+      ],
+      "scritta": "QATAR AIRWAYS",
+      "desc": "La compagnia aerea del Qatar."
+    },
+    {
+      "id": "cryptocom",
+      "name": "Crypto.com",
+      "sector": "cripto",
+      "tier": "title",
+      "base": 30.0,
       "min_reputation": 64,
       "wants_position": 7,
       "years": [
         2,
         3
       ],
-      "bonus_win": 0.3,
-      "bonus_podium": 0.12,
-      "bonus_title": 2.0,
-      "prestige": 68,
-      "loyalty": 50,
-      "desc": "Marchio di moda: guarda all'immagine dei piloti piu' che ai risultati."
-    },
-    {
-      "id": "medisar",
-      "name": "Medisar",
-      "sector": "salute",
-      "tier": "secondary",
-      "base": 9.0,
-      "min_reputation": 52,
-      "wants_position": 9,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.2,
-      "bonus_podium": 0.08,
-      "bonus_title": 1.2,
-      "prestige": 52,
-      "loyalty": 84,
-      "desc": "Gruppo sanitario privato: paziente e poco esigente."
-    },
-    {
-      "id": "trailpeak",
-      "name": "Trailpeak",
-      "sector": "sport",
-      "tier": "secondary",
-      "base": 8.0,
-      "min_reputation": 48,
-      "wants_position": 10,
-      "years": [
-        2,
-        3
-      ],
-      "bonus_win": 0.2,
-      "bonus_podium": 0.1,
-      "bonus_title": 1.0,
-      "prestige": 46,
-      "loyalty": 66,
-      "desc": "Attrezzatura sportiva: budget piccolo, entusiasmo grande."
-    },
-    {
-      "id": "cindershift",
-      "name": "Cindershift Gaming",
-      "sector": "intrattenimento",
-      "tier": "secondary",
-      "base": 11.0,
-      "min_reputation": 50,
-      "wants_position": 9,
-      "years": [
-        1,
-        3
-      ],
-      "bonus_win": 0.3,
-      "bonus_podium": 0.12,
-      "bonus_title": 1.5,
-      "prestige": 50,
-      "loyalty": 40,
-      "desc": "Editore di videogiochi: entra e esce a seconda delle uscite in catalogo."
-    },
-    {
-      "id": "harboursalt",
-      "name": "Harbour & Salt",
-      "sector": "bevande",
-      "tier": "secondary",
-      "base": 10.0,
-      "min_reputation": 54,
-      "wants_position": 9,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.22,
-      "bonus_podium": 0.1,
-      "bonus_title": 1.2,
-      "prestige": 56,
-      "loyalty": 74,
-      "desc": "Distilleria storica: comunicazione sobria, rapporti stabili."
-    },
-    {
-      "id": "carbonek",
-      "name": "Carbonek Compositi",
-      "sector": "materiali",
-      "tier": "technical",
-      "base": 6.5,
-      "min_reputation": 45,
-      "wants_position": 11,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.1,
-      "bonus_podium": 0.05,
-      "bonus_title": 0.8,
+      "bonus_win": 0.43,
+      "bonus_podium": 0.15,
+      "bonus_title": 4.3,
       "prestige": 60,
-      "loyalty": 88,
-      "desc": "Fornitore di fibra di carbonio: in parte paga in materiale."
+      "loyalty": 35,
+      "prospettiva": 60,
+      "colori": [
+        "#002D74",
+        "#FFFFFF"
+      ],
+      "scritta": "crypto.com",
+      "desc": "Criptovalute: tanti soldi subito, e la valigia sempre pronta."
     },
     {
-      "id": "axlebrake",
-      "name": "Axle & Brake",
-      "sector": "componenti",
-      "tier": "technical",
-      "base": 5.0,
-      "min_reputation": 42,
-      "wants_position": 11,
+      "id": "rolex",
+      "name": "Rolex",
+      "sector": "orologi",
+      "tier": "primary",
+      "base": 25.0,
+      "min_reputation": 90,
+      "wants_position": 3,
       "years": [
-        3,
-        6
+        4,
+        5
       ],
-      "bonus_win": 0.1,
-      "bonus_podium": 0.04,
-      "bonus_title": 0.6,
-      "prestige": 58,
+      "bonus_win": 0.5,
+      "bonus_podium": 0.19,
+      "bonus_title": 5.0,
+      "prestige": 100,
       "loyalty": 90,
-      "desc": "Impianti frenanti: rapporto tecnico prima che commerciale."
-    },
-    {
-      "id": "datalume",
-      "name": "Datalume",
-      "sector": "software",
-      "tier": "technical",
-      "base": 7.5,
-      "min_reputation": 50,
-      "wants_position": 10,
-      "years": [
-        2,
-        4
+      "prospettiva": 10,
+      "colori": [
+        "#006039",
+        "#A37E2C"
       ],
-      "bonus_win": 0.12,
-      "bonus_podium": 0.05,
-      "bonus_title": 0.9,
-      "prestige": 64,
-      "loyalty": 70,
-      "desc": "Analisi dati e simulazione: porta strumenti oltre che soldi."
+      "scritta": "ROLEX",
+      "desc": "La corona: tratta solo con il vertice e resta per sempre."
     },
     {
-      "id": "thermion",
-      "name": "Thermion",
-      "sector": "materiali",
-      "tier": "technical",
-      "base": 4.0,
-      "min_reputation": 40,
-      "wants_position": 11,
-      "years": [
-        2,
-        5
-      ],
-      "bonus_win": 0.08,
-      "bonus_podium": 0.03,
-      "bonus_title": 0.5,
-      "prestige": 52,
-      "loyalty": 86,
-      "desc": "Trattamenti termici e leghe speciali per la power unit."
-    },
-    {
-      "id": "gridsafe",
-      "name": "Gridsafe",
-      "sector": "sicurezza",
-      "tier": "technical",
-      "base": 3.2,
-      "min_reputation": 38,
-      "wants_position": 11,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.06,
-      "bonus_podium": 0.03,
-      "bonus_title": 0.4,
-      "prestige": 48,
-      "loyalty": 88,
-      "desc": "Sistemi di sicurezza e antincendio: presenza discreta e costante."
-    },
-    {
-      "id": "loomtex",
-      "name": "Loomtex",
-      "sector": "abbigliamento",
-      "tier": "technical",
-      "base": 2.4,
-      "min_reputation": 36,
-      "wants_position": 11,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.05,
-      "bonus_podium": 0.02,
-      "bonus_title": 0.3,
-      "prestige": 44,
-      "loyalty": 82,
-      "desc": "Tute e abbigliamento tecnico per squadra e piloti."
-    },
-    {
-      "id": "verdanta",
-      "name": "Verdanta",
-      "sector": "energia",
-      "tier": "technical",
-      "base": 5.5,
-      "min_reputation": 46,
-      "wants_position": 10,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.1,
-      "bonus_podium": 0.04,
-      "bonus_title": 0.7,
-      "prestige": 62,
-      "loyalty": 76,
-      "desc": "Carburanti sostenibili: interesse tecnico sul nuovo regolamento."
-    },
-    {
-      "id": "quarrybuild",
-      "name": "Quarry & Build",
-      "sector": "costruzioni",
-      "tier": "title",
-      "base": 30.0,
-      "min_reputation": 52,
-      "wants_position": 10,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.5,
-      "bonus_podium": 0.2,
-      "bonus_title": 3.5,
-      "prestige": 50,
-      "loyalty": 85,
-      "desc": "Gruppo di costruzioni: title sponsor solido per una squadra che cresce."
-    },
-    {
-      "id": "orenta",
-      "name": "Orenta Motors",
-      "sector": "automotive",
-      "tier": "title",
-      "base": 34.0,
-      "min_reputation": 50,
-      "wants_position": 9,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.6,
-      "bonus_podium": 0.25,
-      "bonus_title": 4.0,
-      "prestige": 58,
-      "loyalty": 72,
-      "desc": "Costruttore automobilistico emergente: usa la categoria come laboratorio."
-    },
-    {
-      "id": "vireofoods",
-      "name": "Vireo Foods",
-      "sector": "alimentare",
-      "tier": "title",
-      "base": 26.0,
-      "min_reputation": 45,
-      "wants_position": 11,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.45,
-      "bonus_podium": 0.18,
-      "bonus_title": 3.0,
-      "prestige": 44,
-      "loyalty": 76,
-      "desc": "Gruppo alimentare: cerca visibilita' di massa a prezzo contenuto."
-    },
-    {
-      "id": "lumenpay",
-      "name": "Lumen Pay",
-      "sector": "pagamenti",
-      "tier": "title",
-      "base": 28.0,
-      "min_reputation": 48,
-      "wants_position": 10,
-      "years": [
-        2,
-        4
-      ],
-      "bonus_win": 0.5,
-      "bonus_podium": 0.2,
-      "bonus_title": 3.2,
-      "prestige": 52,
-      "loyalty": 58,
-      "desc": "Servizi di pagamento digitali in espansione sui mercati nuovi."
-    },
-    {
-      "id": "terrafil",
-      "name": "Terrafil",
-      "sector": "chimica",
+      "id": "cocacola",
+      "name": "Coca-Cola",
+      "sector": "bevande",
       "tier": "primary",
-      "base": 16.0,
-      "min_reputation": 45,
-      "wants_position": 10,
-      "years": [
-        3,
-        5
-      ],
-      "bonus_win": 0.3,
-      "bonus_podium": 0.12,
-      "bonus_title": 2.0,
-      "prestige": 50,
-      "loyalty": 82,
-      "desc": "Chimica industriale: presenza costante e poco rumorosa."
-    },
-    {
-      "id": "nordhaven",
-      "name": "Nordhaven Bank",
-      "sector": "finanza",
-      "tier": "primary",
-      "base": 21.0,
-      "min_reputation": 56,
-      "wants_position": 8,
+      "base": 20.0,
+      "min_reputation": 80,
+      "wants_position": 5,
       "years": [
         3,
         4
       ],
       "bonus_win": 0.4,
       "bonus_podium": 0.15,
-      "bonus_title": 2.6,
-      "prestige": 62,
-      "loyalty": 70,
-      "desc": "Banca regionale che punta sull'immagine internazionale."
+      "bonus_title": 4.0,
+      "prestige": 85,
+      "loyalty": 60,
+      "prospettiva": 40,
+      "colori": [
+        "#F40009",
+        "#FFFFFF"
+      ],
+      "scritta": "Coca-Cola",
+      "desc": "La bibita piu' famosa del mondo, tornata a guardarsi attorno."
     },
     {
-      "id": "skalatv",
-      "name": "Skala TV",
+      "id": "netflix",
+      "name": "Netflix",
       "sector": "intrattenimento",
       "tier": "primary",
       "base": 18.0,
-      "min_reputation": 50,
-      "wants_position": 9,
+      "min_reputation": 74,
+      "wants_position": 6,
       "years": [
         2,
-        4
+        3
       ],
-      "bonus_win": 0.35,
+      "bonus_win": 0.36,
       "bonus_podium": 0.14,
-      "bonus_title": 2.2,
-      "prestige": 54,
-      "loyalty": 60,
-      "desc": "Piattaforma di streaming: paga in visibilita' oltre che in denaro."
+      "bonus_title": 3.6,
+      "prestige": 75,
+      "loyalty": 45,
+      "prospettiva": 65,
+      "colori": [
+        "#E50914",
+        "#000000"
+      ],
+      "scritta": "NETFLIX",
+      "desc": "Chi ha fatto conoscere la Formula 1 a mezzo mondo: cerca le storie."
     },
     {
-      "id": "pinemark",
-      "name": "Pinemark",
-      "sector": "consumo",
-      "tier": "secondary",
-      "base": 7.5,
-      "min_reputation": 40,
-      "wants_position": 11,
+      "id": "eni",
+      "name": "Eni",
+      "sector": "carburanti",
+      "tier": "primary",
+      "base": 18.0,
+      "min_reputation": 70,
+      "wants_position": 6,
       "years": [
-        2,
-        4
+        3,
+        5
       ],
-      "bonus_win": 0.18,
-      "bonus_podium": 0.07,
-      "bonus_title": 0.9,
-      "prestige": 42,
-      "loyalty": 80,
-      "desc": "Catena di distribuzione: sponsorizzazione di prossimita'."
+      "bonus_win": 0.36,
+      "bonus_podium": 0.14,
+      "bonus_title": 3.6,
+      "prestige": 75,
+      "loyalty": 75,
+      "prospettiva": 50,
+      "colori": [
+        "#FFD100",
+        "#000000"
+      ],
+      "scritta": "eni",
+      "desc": "L'energia italiana, con il cane a sei zampe."
     },
     {
-      "id": "caldera",
-      "name": "Caldera Energy",
-      "sector": "energia",
-      "tier": "secondary",
-      "base": 13.0,
-      "min_reputation": 52,
-      "wants_position": 9,
+      "id": "lenovo",
+      "name": "Lenovo",
+      "sector": "hardware",
+      "tier": "primary",
+      "base": 15.0,
+      "min_reputation": 72,
+      "wants_position": 6,
       "years": [
-        2,
+        3,
         4
       ],
-      "bonus_win": 0.28,
+      "bonus_win": 0.3,
       "bonus_podium": 0.11,
-      "bonus_title": 1.6,
-      "prestige": 60,
-      "loyalty": 68,
-      "desc": "Rinnovabili: cerca l'accostamento al carburante sostenibile."
+      "bonus_title": 3.0,
+      "prestige": 70,
+      "loyalty": 60,
+      "prospettiva": 55,
+      "colori": [
+        "#E2231A",
+        "#FFFFFF"
+      ],
+      "scritta": "Lenovo",
+      "desc": "Computer e dati."
     },
     {
-      "id": "halvornsec",
-      "name": "Halvorn Security",
-      "sector": "sicurezza",
+      "id": "uber",
+      "name": "Uber",
+      "sector": "trasporti",
+      "tier": "primary",
+      "base": 12.0,
+      "min_reputation": 66,
+      "wants_position": 7,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.24,
+      "bonus_podium": 0.09,
+      "bonus_title": 2.4,
+      "prestige": 60,
+      "loyalty": 50,
+      "prospettiva": 60,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "Uber",
+      "desc": "Trasporti e consegne: vuole visibilita' nelle citta' del calendario."
+    },
+    {
+      "id": "binance",
+      "name": "Binance",
+      "sector": "cripto",
+      "tier": "primary",
+      "base": 20.0,
+      "min_reputation": 66,
+      "wants_position": 7,
+      "years": [
+        2,
+        3
+      ],
+      "bonus_win": 0.4,
+      "bonus_podium": 0.15,
+      "bonus_title": 4.0,
+      "prestige": 55,
+      "loyalty": 30,
+      "prospettiva": 60,
+      "colori": [
+        "#F3BA2F",
+        "#1E2026"
+      ],
+      "scritta": "BINANCE",
+      "desc": "Il cambiavalute di criptovalute piu' grande: paga molto, dura poco."
+    },
+    {
+      "id": "dhl",
+      "name": "DHL",
+      "sector": "logistica",
+      "tier": "primary",
+      "base": 12.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.24,
+      "bonus_podium": 0.09,
+      "bonus_title": 2.4,
+      "prestige": 70,
+      "loyalty": 80,
+      "prospettiva": 35,
+      "colori": [
+        "#FFCC00",
+        "#D40511"
+      ],
+      "scritta": "DHL",
+      "desc": "Le spedizioni del circo: ama i pit stop veloci."
+    },
+    {
+      "id": "repsol",
+      "name": "Repsol",
+      "sector": "lubrificanti",
+      "tier": "primary",
+      "base": 12.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.24,
+      "bonus_podium": 0.09,
+      "bonus_title": 2.4,
+      "prestige": 65,
+      "loyalty": 80,
+      "prospettiva": 45,
+      "colori": [
+        "#FF8200",
+        "#E4002B"
+      ],
+      "scritta": "REPSOL",
+      "desc": "Energia spagnola, di casa nel motociclismo."
+    },
+    {
+      "id": "salesforce",
+      "name": "Salesforce",
+      "sector": "internet",
       "tier": "secondary",
-      "base": 6.5,
-      "min_reputation": 38,
-      "wants_position": 11,
+      "base": 8.0,
+      "min_reputation": 70,
+      "wants_position": 6,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.17,
+      "bonus_podium": 0.06,
+      "bonus_title": 1.7,
+      "prestige": 65,
+      "loyalty": 55,
+      "prospettiva": 60,
+      "colori": [
+        "#00A1E0",
+        "#FFFFFF"
+      ],
+      "scritta": "salesforce",
+      "desc": "Software per le vendite."
+    },
+    {
+      "id": "lego",
+      "name": "LEGO",
+      "sector": "giocattoli",
+      "tier": "secondary",
+      "base": 6.0,
+      "min_reputation": 60,
+      "wants_position": 8,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.13,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.3,
+      "prestige": 70,
+      "loyalty": 70,
+      "prospettiva": 75,
+      "colori": [
+        "#E3000B",
+        "#FFD500"
+      ],
+      "scritta": "LEGO",
+      "desc": "I mattoncini: amano i progetti che crescono e i piloti giovani."
+    },
+    {
+      "id": "lavazza",
+      "name": "Lavazza",
+      "sector": "caffe",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 55,
+      "wants_position": 8,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 65,
+      "loyalty": 70,
+      "prospettiva": 40,
+      "colori": [
+        "#1C2B5A",
+        "#FFFFFF"
+      ],
+      "scritta": "LAVAZZA",
+      "desc": "Il caffe' torinese."
+    },
+    {
+      "id": "martini",
+      "name": "Martini",
+      "sector": "liquori",
+      "tier": "secondary",
+      "base": 6.0,
+      "min_reputation": 60,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.13,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.3,
+      "prestige": 75,
+      "loyalty": 70,
+      "prospettiva": 35,
+      "colori": [
+        "#E32119",
+        "#0A2240"
+      ],
+      "scritta": "MARTINI",
+      "desc": "Le strisce piu' eleganti della storia delle corse."
+    },
+    {
+      "id": "hublot",
+      "name": "Hublot",
+      "sector": "orologi",
+      "tier": "secondary",
+      "base": 5.0,
+      "min_reputation": 62,
+      "wants_position": 7,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.11,
+      "bonus_podium": 0.04,
+      "bonus_title": 1.1,
+      "prestige": 70,
+      "loyalty": 60,
+      "prospettiva": 40,
+      "colori": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "scritta": "HUBLOT",
+      "desc": "Orologi svizzeri."
+    },
+    {
+      "id": "gatorade",
+      "name": "Gatorade",
+      "sector": "bevande",
+      "tier": "secondary",
+      "base": 7.0,
+      "min_reputation": 64,
+      "wants_position": 7,
       "years": [
         2,
         3
       ],
       "bonus_win": 0.15,
-      "bonus_podium": 0.06,
-      "bonus_title": 0.8,
-      "prestige": 40,
-      "loyalty": 78,
-      "desc": "Sicurezza informatica: budget modesto, contratto senza pretese."
-    },
-    {
-      "id": "borgomeccanica",
-      "name": "Borgo Meccanica",
-      "sector": "utensili",
-      "tier": "technical",
-      "base": 1.1,
-      "min_reputation": 18,
-      "wants_position": 12,
-      "years": [
-        1,
-        2
+      "bonus_podium": 0.05,
+      "bonus_title": 1.5,
+      "prestige": 60,
+      "loyalty": 55,
+      "prospettiva": 50,
+      "colori": [
+        "#F96302",
+        "#000000"
       ],
-      "bonus_win": 0.04,
-      "bonus_podium": 0.02,
-      "bonus_title": 0.2,
-      "prestige": 22,
-      "loyalty": 90,
-      "desc": "Officina meccanica di provincia: ci mettono il nome perche' ci credono."
+      "scritta": "Gatorade",
+      "desc": "Bevande per sportivi."
     },
     {
-      "id": "tellurio",
-      "name": "Tellurio Logistica",
-      "sector": "logistica",
-      "tier": "technical",
-      "base": 1.6,
-      "min_reputation": 20,
-      "wants_position": 12,
-      "years": [
-        1,
-        3
-      ],
-      "bonus_win": 0.05,
-      "bonus_podium": 0.02,
-      "bonus_title": 0.25,
-      "prestige": 26,
-      "loyalty": 86,
-      "desc": "Trasporti su gomma: il camion ce l'hanno gia', il nome sopra e' gratis."
-    },
-    {
-      "id": "kestrelfuel",
-      "name": "Kestrel Fuel",
-      "sector": "carburanti",
+      "id": "acronis",
+      "name": "Acronis",
+      "sector": "software",
       "tier": "secondary",
-      "base": 2.6,
-      "min_reputation": 22,
-      "wants_position": 12,
+      "base": 4.0,
+      "min_reputation": 50,
+      "wants_position": 9,
       "years": [
         2,
         3
       ],
-      "bonus_win": 0.08,
+      "bonus_win": 0.09,
       "bonus_podium": 0.03,
-      "bonus_title": 0.4,
-      "prestige": 30,
-      "loyalty": 74,
-      "desc": "Distributore regionale che cerca visibilita' a poco prezzo."
+      "bonus_title": 0.9,
+      "prestige": 45,
+      "loyalty": 55,
+      "prospettiva": 55,
+      "colori": [
+        "#1A63AE",
+        "#FFFFFF"
+      ],
+      "scritta": "Acronis",
+      "desc": "Sicurezza informatica: cerca le squadre che vogliono crescere."
     },
     {
-      "id": "veltrisrl",
-      "name": "Veltri Compositi",
-      "sector": "materiali",
+      "id": "kaspersky",
+      "name": "Kaspersky",
+      "sector": "sicurezza",
       "tier": "secondary",
-      "base": 2.2,
-      "min_reputation": 24,
-      "wants_position": 11,
+      "base": 3.0,
+      "min_reputation": 40,
+      "wants_position": 10,
       "years": [
         2,
         3
       ],
       "bonus_win": 0.06,
-      "bonus_podium": 0.03,
-      "bonus_title": 0.3,
-      "prestige": 32,
-      "loyalty": 80,
-      "desc": "Fibra di carbonio per l'industria: vogliono dire che la fanno anche in Formula 1."
+      "bonus_podium": 0.02,
+      "bonus_title": 0.6,
+      "prestige": 40,
+      "loyalty": 55,
+      "prospettiva": 50,
+      "colori": [
+        "#006D5C",
+        "#FFFFFF"
+      ],
+      "scritta": "kaspersky",
+      "desc": "Antivirus: accetta anche le squadre piccole."
     },
     {
-      "id": "novaterra",
-      "name": "Novaterra Energia",
-      "sector": "energia",
-      "tier": "primary",
-      "base": 6.5,
+      "id": "wurth",
+      "name": "Würth",
+      "sector": "utensili",
+      "tier": "secondary",
+      "base": 3.5,
+      "min_reputation": 35,
+      "wants_position": 10,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.07,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.8,
+      "prestige": 45,
+      "loyalty": 75,
+      "prospettiva": 45,
+      "colori": [
+        "#CC0000",
+        "#FFFFFF"
+      ],
+      "scritta": "WÜRTH",
+      "desc": "Viti e attrezzi: presente in tutto il motorsport."
+    },
+    {
+      "id": "liquimoly",
+      "name": "Liqui Moly",
+      "sector": "lubrificanti",
+      "tier": "secondary",
+      "base": 2.5,
+      "min_reputation": 30,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.05,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.5,
+      "prestige": 40,
+      "loyalty": 70,
+      "prospettiva": 50,
+      "colori": [
+        "#004A99",
+        "#E30613"
+      ],
+      "scritta": "LIQUI MOLY",
+      "desc": "Additivi e lubrificanti tedeschi."
+    },
+    {
+      "id": "motul",
+      "name": "Motul",
+      "sector": "lubrificanti",
+      "tier": "secondary",
+      "base": 3.0,
+      "min_reputation": 35,
+      "wants_position": 10,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.06,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.6,
+      "prestige": 45,
+      "loyalty": 75,
+      "prospettiva": 45,
+      "colori": [
+        "#E4002B",
+        "#FFFFFF"
+      ],
+      "scritta": "MOTUL",
+      "desc": "Olio francese da corsa."
+    },
+    {
+      "id": "brembo",
+      "name": "Brembo",
+      "sector": "componenti",
+      "tier": "technical",
+      "base": 3.0,
+      "min_reputation": 40,
+      "wants_position": 10,
+      "years": [
+        3,
+        5
+      ],
+      "bonus_win": 0.04,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.4,
+      "prestige": 70,
+      "loyalty": 85,
+      "prospettiva": 40,
+      "colori": [
+        "#E30613",
+        "#000000"
+      ],
+      "scritta": "brembo",
+      "desc": "I freni italiani: stanno su mezza griglia."
+    },
+    {
+      "id": "sparco",
+      "name": "Sparco",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 1.5,
+      "min_reputation": 20,
+      "wants_position": 12,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.02,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.2,
+      "prestige": 45,
+      "loyalty": 75,
+      "prospettiva": 50,
+      "colori": [
+        "#003DA5",
+        "#FFFFFF"
+      ],
+      "scritta": "SPARCO",
+      "desc": "Tute e sedili da corsa torinesi: vestono chi comincia."
+    },
+    {
+      "id": "omp",
+      "name": "OMP",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 1.2,
+      "min_reputation": 18,
+      "wants_position": 12,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.01,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.1,
+      "prestige": 40,
+      "loyalty": 75,
+      "prospettiva": 50,
+      "colori": [
+        "#E30613",
+        "#FFFFFF"
+      ],
+      "scritta": "OMP",
+      "desc": "Equipaggiamento da corsa genovese."
+    },
+    {
+      "id": "alpinestars",
+      "name": "Alpinestars",
+      "sector": "abbigliamento",
+      "tier": "technical",
+      "base": 2.0,
+      "min_reputation": 30,
+      "wants_position": 11,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.03,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.2,
+      "prestige": 55,
+      "loyalty": 75,
+      "prospettiva": 50,
+      "colori": [
+        "#E30613",
+        "#000000"
+      ],
+      "scritta": "alpinestars",
+      "desc": "Tute e scarpe dei piloti, da Asolo."
+    },
+    {
+      "id": "beta",
+      "name": "Beta Utensili",
+      "sector": "utensili",
+      "tier": "technical",
+      "base": 1.2,
+      "min_reputation": 20,
+      "wants_position": 12,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.01,
+      "bonus_podium": 0.01,
+      "bonus_title": 0.1,
+      "prestige": 40,
+      "loyalty": 75,
+      "prospettiva": 45,
+      "colori": [
+        "#E30613",
+        "#FFFFFF"
+      ],
+      "scritta": "BETA",
+      "desc": "Attrezzi per i meccanici."
+    },
+    {
+      "id": "mapei",
+      "name": "Mapei",
+      "sector": "costruzioni",
+      "tier": "secondary",
+      "base": 2.5,
       "min_reputation": 25,
       "wants_position": 11,
       "years": [
         2,
         4
       ],
-      "bonus_win": 0.12,
-      "bonus_podium": 0.05,
-      "bonus_title": 0.6,
-      "prestige": 38,
-      "loyalty": 68,
-      "desc": "Fondo per le rinnovabili: sponsorizza chi comincia, e vuole crescerci insieme."
+      "bonus_win": 0.05,
+      "bonus_podium": 0.02,
+      "bonus_title": 0.5,
+      "prestige": 45,
+      "loyalty": 70,
+      "prospettiva": 50,
+      "colori": [
+        "#0055A4",
+        "#FFFFFF"
+      ],
+      "scritta": "MAPEI",
+      "desc": "Adesivi e chimica per l'edilizia: ama lo sport."
+    },
+    {
+      "id": "barilla",
+      "name": "Barilla",
+      "sector": "alimentare",
+      "tier": "secondary",
+      "base": 4.0,
+      "min_reputation": 45,
+      "wants_position": 9,
+      "years": [
+        2,
+        4
+      ],
+      "bonus_win": 0.09,
+      "bonus_podium": 0.03,
+      "bonus_title": 0.9,
+      "prestige": 55,
+      "loyalty": 70,
+      "prospettiva": 40,
+      "colori": [
+        "#003C8F",
+        "#FFFFFF"
+      ],
+      "scritta": "Barilla",
+      "desc": "La pasta di Parma."
     }
-
   ]
 }

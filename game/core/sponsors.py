@@ -67,9 +67,54 @@ def team_appeal(gs, team) -> float:
                          + REPUTATION_WEIGHT * rep + DRIVER_WEIGHT * star))
 
 
+def team_prospect(gs, team) -> float:
+    """Quanto promette questa squadra per il futuro, da 0 a 1.
+
+    E' quello che guarda chi compra un progetto invece di una classifica:
+    un costruttore alle spalle (una casa che investe non se ne va), i
+    risultati che salgono rispetto all'anno prima, la fabbrica su cui si
+    costruisce, i ragazzi forti in macchina.
+    """
+    n = max(1, len(gs.teams))
+    casa = {"works": 1.0, "partner": 0.7}.get(getattr(team, "pu_status", ""), 0.3)
+    pos = gs.position_of(team.id) if any(t.points for t in gs.teams.values()) else team.last_position
+    salita = max(-1.0, min(1.0, (team.last_position - pos) / max(1.0, n / 3.0)))
+    strutture = team.facilities or {}
+    fabbrica = (sum(strutture.values()) / max(1, len(strutture))) / 100.0 if strutture else 0.6
+    drivers = [gs.drivers[d] for d in team.drivers if d in gs.drivers]
+    giovani = max((d.potential for d in drivers if d.age <= 25), default=60.0) / 100.0
+    valore = 0.35 * casa + 0.25 * (0.5 + 0.5 * salita) + 0.20 * fabbrica + 0.20 * giovani
+    return max(0.05, min(1.0, valore))
+
+
+# Le fasce di budget: quanto porta un marchio a una squadra che gli va bene
+FASCE = ((50.0, "Fascia top"), (20.0, "Fascia alta"), (8.0, "Fascia media"), (0.0, "Fascia base"))
+
+
+def fascia(sponsor: dict) -> str:
+    base = float(sponsor.get("base", 0.0))
+    return next(nome for soglia, nome in FASCE if base >= soglia)
+
+
+def cosa_guarda(sponsor: dict) -> str:
+    """In una riga: che cosa conta per questo marchio."""
+    p = sponsor.get("prospettiva", 30)
+    if p >= 60:
+        return "guarda al progetto e al futuro"
+    if sponsor.get("min_reputation", 50) >= 82 or sponsor.get("prestige", 60) >= 88:
+        return "vuole il blasone e il vertice"
+    if sponsor.get("wants_position", 8) <= 5:
+        return "vuole i risultati, subito"
+    return "guarda un po' a tutto"
+
+
 def offer_value(gs, team, sponsor: dict) -> float:
     """Quanto e' disposto a mettere sul piatto questo sponsor, oggi."""
     appeal = team_appeal(gs, team)
+    # chi compra un progetto guarda anche dove andra' la squadra, non solo
+    # dove sta: per lui una casa nuova con la fabbrica giusta vale di piu'
+    q = 0.6 * sponsor.get("prospettiva", 30) / 100.0
+    appeal = (1.0 - q) * appeal + q * team_prospect(gs, team)
     atteso = sponsor.get("wants_position", 8)
     pos = gs.position_of(team.id) if any(t.points for t in gs.teams.values()) else team.last_position
     scarto = (atteso - pos) / max(1.0, len(gs.teams))       # positivo se facciamo meglio
@@ -88,9 +133,18 @@ def holder_of(gs, sid: str):
     return None
 
 
+# I fornitori di solito lavorano con mezza griglia, ma chi veste la squadra no:
+# le tute e le magliette sono di un marchio solo, e un marchio veste una squadra.
+SETTORI_ESCLUSIVI = ("abbigliamento",)
+
+
+def esclusivo(sponsor: dict) -> bool:
+    return sponsor["tier"] in EXCLUSIVE_TIERS or sponsor.get("sector") in SETTORI_ESCLUSIVI
+
+
 def will_talk(gs, team, sponsor: dict) -> tuple:
     """Se lo sponsor accetta di sedersi al tavolo, e perche' no."""
-    altro = holder_of(gs, sponsor["id"]) if sponsor["tier"] in EXCLUSIVE_TIERS else None
+    altro = holder_of(gs, sponsor["id"]) if esclusivo(sponsor) else None
     if altro is not None and altro is not team:
         return False, (f"{sponsor['name']} e' sotto contratto con {altro.short}: "
                        f"un marchio sta su una vettura sola.")
@@ -104,7 +158,7 @@ def will_talk(gs, team, sponsor: dict) -> tuple:
     for d in team.deals:
         altro = find(gs, d.sponsor)
         if (altro and altro["sector"] == sponsor["sector"]
-                and sponsor["tier"] in EXCLUSIVE_TIERS and d.tier in EXCLUSIVE_TIERS):
+                and esclusivo(sponsor) and esclusivo(altro)):
             return False, (f"Conflitto di settore con {altro['name']}: due marchi di "
                            f"{sponsor['sector']} non convivono sulla stessa vettura.")
     if any(d.sponsor == sponsor["id"] for d in team.deals):
@@ -270,7 +324,19 @@ def _fill_round(gs, teams: list, tier: str) -> None:
 
 
 def bootstrap(gs) -> None:
-    """Accordi di partenza: ogni squadra arriva al 2026 con i suoi contratti."""
+    """Accordi di partenza: ogni squadra arriva al 2026 con i suoi contratti.
+
+    Prima quelli veri, scritti nei dati (`accordo`): HP sulla Ferrari, Oracle
+    sulla Red Bull. Poi, dove resta uno spazio, lo si riempie dal mercato come
+    si e' sempre fatto.
+    """
+    for s in gs.sponsor_pool:
+        acc = s.get("accordo")
+        team = gs.teams.get(acc["squadra"]) if acc else None
+        if team is None or any(d.sponsor == s["id"] for d in team.deals):
+            continue
+        _sign(gs, team, s, float(acc.get("valore", s["base"])),
+              int(acc.get("anni", s.get("years", [2, 4])[0])))
     ordine = sorted(gs.teams.values(), key=lambda t: -team_appeal(gs, t))
     for tier in ("title", "primary", "secondary", "technical"):
         for _ in range(SLOTS[tier]):
