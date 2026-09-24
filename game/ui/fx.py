@@ -73,6 +73,64 @@ def entrata() -> float:
     return esce((ora() - _ENTRATA[0]) / ENTRATA_S)
 
 
+# I numeri che scorrono: un valore nuovo non compare, ci arriva contando.
+# Quando si apre una pagina i suoi numeri partono da zero; quando un numero
+# cambia mentre lo si guarda, scorre dal vecchio al nuovo.
+_ROTOLI: dict = {}
+ROTOLA_S = 0.9
+_NUMERO = __import__("re").compile(r"\d+(?:[.,]\d+)?")
+
+
+def rotola(chiave, valore: float, da_zero: bool = True) -> float:
+    """Il valore da mostrare adesso per `chiave`, che corre verso `valore`.
+
+    `da_zero` fa ripartire il conto da zero ogni volta che la schermata
+    ricompare; senza, il numero scorre solo quando cambia.
+    """
+    if not _VIVO[0]:
+        return valore
+    t = ora()
+    st = _ROTOLI.get(chiave)
+    if st is None or (da_zero and st[3] < _ENTRATA[0]):
+        partenza = 0.0 if da_zero else valore
+        st = (partenza, valore, t, _ENTRATA[0])
+    elif abs(st[1] - valore) > 1e-9:
+        # cambiato: si riparte da dove si era arrivati
+        q = esce((t - st[2]) / ROTOLA_S)
+        st = (st[0] + (st[1] - st[0]) * q, valore, t, st[3])
+    _ROTOLI[chiave] = st
+    if len(_ROTOLI) > 3000:
+        _ROTOLI.clear()
+    q = esce((t - st[2]) / ROTOLA_S)
+    return st[0] + (st[1] - st[0]) * q
+
+
+def rotola_testo(chiave, testo: str, da_zero: bool = True) -> str:
+    """Lo stesso testo, con i numeri che ci sono dentro che scorrono.
+
+    Il formato resta quello scritto: quanti decimali, la virgola o il punto,
+    quello che c'e' prima e dopo. "54.56 M$" conta fino a 54.56 e resta in
+    milioni; un nome senza numeri resta com'e'.
+    """
+    if not _VIVO[0] or not testo:
+        return testo
+    pezzi = []
+    fine = 0
+    for k, m in enumerate(_NUMERO.finditer(testo)):
+        cifre = m.group(0)
+        sep = "," if "," in cifre else "."
+        decimali = len(cifre.split(sep)[1]) if sep in cifre else 0
+        v = rotola((chiave, k), float(cifre.replace(",", ".")), da_zero)
+        scritto = f"{v:.{decimali}f}"
+        if sep == ",":
+            scritto = scritto.replace(".", ",")
+        pezzi.append(testo[fine:m.start()])
+        pezzi.append(scritto)
+        fine = m.end()
+    pezzi.append(testo[fine:])
+    return "".join(pezzi)
+
+
 # Quanto si e' avvicinato ognuno al suo obiettivo, per chi si anima da solo
 # (un pulsante sotto al mouse, una voce di menu). La chiave e' quella che
 # sceglie chi chiama: le schermate ricostruiscono i pulsanti spesso, e lo

@@ -36,8 +36,11 @@ piano - una luce del colore della scuderia che respira, le scie che passano, la 
 fibra di carbonio - e i pannelli grandi lo lasciano intravedere, con un'ombra morbida che li
 stacca l'uno dall'altro. I pulsanti si accendono sotto al mouse, fanno l'onda dove si clicca
 e quelli principali hanno un riflesso che ci passa sopra ogni tanto; le barre dei valori
-crescono quando si apre una pagina e hanno la punta accesa. Da una schermata all'altra passa
-una lama del colore della squadra.
+crescono quando si apre una pagina e hanno la punta accesa, e i numeri grandi contano fino al
+loro valore - quelli della barra in alto scorrono quando cambiano, cosi' i punti di una gara
+si vedono salire. Ogni pagina ha la sua intestazione, come un sottopancia televisivo: il
+distintivo acceso, la famiglia, il nome grande che entra da sinistra e a cosa serve la
+pagina. Da una schermata all'altra passa una lama del colore della squadra.
 
 E poi ci sono i momenti: il menu con un circuito vero che ci gira dietro e una luce che lo
 percorre, **il semaforo della partenza** - cinque rosse, un'attesa che nessuno conosce, e via

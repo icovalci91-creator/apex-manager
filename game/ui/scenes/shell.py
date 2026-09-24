@@ -39,6 +39,30 @@ NAV = [
 ]
 
 TOPBAR_H = 80
+# L'intestazione di ogni pagina: il nome grande, la famiglia sopra, una riga
+# che dice a cosa serve. E' quella che fa sapere dove si e' senza guardare la
+# barra a sinistra, come il sottopancia di una grafica televisiva.
+TESTA_H = 62
+DESCRIZIONI = {
+    "hq": "La squadra a colpo d'occhio: soldi, macchina, piloti, prossima gara",
+    "car": "I pezzi, le prestazioni e l'assetto per il prossimo weekend",
+    "dev": "Galleria, CFD e pacchetti: dove si trova il tempo",
+    "powerunit": "Il motore: banco, omologazioni e cosa arriva in pista",
+    "engineers": "Chi progetta, chi decide e chi fa girare la fabbrica",
+    "testing": "Giornate in pista fuori dai weekend, finche' ce ne sono",
+    "drivers": "I titolari, le riserve e chi si puo' prendere",
+    "academy": "I ragazzi del vivaio e le categorie in cui corrono",
+    "staff": "Direttore tecnico, capi reparto e ingegneri di pista",
+    "workforce": "Quanta gente lavora in ogni reparto, e quanto costa",
+    "formulae": "Il programma elettrico: squadra, piloti e campionato",
+    "wec": "L'endurance: la Hypercar e le otto tappe dell'anno",
+    "finance": "Entrate, uscite, sponsor e il tetto di spesa",
+    "facilities": "Galleria, simulatore, fabbrica: la base su cui si costruisce",
+    "rules": "Il regolamento in vigore e quello che si vota in Commissione",
+    "standings": "Il mondiale piloti e costruttori, gara dopo gara",
+    "calendar": "Le gare dell'anno, di Formula 1, Formula E ed endurance",
+    "history": "Gli albi d'oro e le stagioni passate",
+}
 NAV_W = 156
 NAV_ROW_H = 46
 # Quanto dura la dissolvenza quando si cambia pagina. Poco: serve a dire "sei
@@ -206,7 +230,7 @@ class GameShell(Scene):
         self.widgets.append(Button((12, save_y, (NAV_W - 28) // 2, 34), "Salva", self.save, "ghost"))
         self.widgets.append(Button((12 + (NAV_W - 24) // 2, h - 60, (NAV_W - 28) // 2, 34),
                                    "Menu", self.to_menu, "ghost"))
-        content = pygame.Rect(NAV_W, TOPBAR_H, w - NAV_W, h - TOPBAR_H)
+        content = pygame.Rect(NAV_W, TOPBAR_H + TESTA_H, w - NAV_W, h - TOPBAR_H - TESTA_H)
         for p in self.pages.values():
             p.layout(content.inflate(-32, -28))
 
@@ -398,12 +422,14 @@ class GameShell(Scene):
 
         # la pagina si disegna dentro la sua finestra: se e' piu' alta, quello
         # che esce sopra e sotto viene tagliato invece di finire sulla barra
+        self._testata(surf, w)
         pagina = self.pages[self.page_id]
         prev = surf.get_clip()
         # si taglia sull'area dei contenuti, non su quella della pagina: sopra
         # c'e' la barra con liquidita' e punti, e quando si scorre le pagine
         # ci finivano sopra
-        vista = pygame.Rect(NAV_W + 1, TOPBAR_H + 1, w - NAV_W - 1, h - TOPBAR_H - 1)
+        vista = pygame.Rect(NAV_W + 1, TOPBAR_H + TESTA_H, w - NAV_W - 1,
+                            h - TOPBAR_H - TESTA_H)
         surf.set_clip(vista.clip(prev) if prev else vista)
         T.ink_start()
         pagina.draw(surf)
@@ -430,6 +456,56 @@ class GameShell(Scene):
             pygame.draw.rect(surf, T.PANEL_3, (w - 9, y, 4, alt), border_radius=2)
         super().draw(surf)
 
+    def _testata(self, surf, w: int) -> None:
+        """L'intestazione della pagina aperta.
+
+        A sinistra il distintivo con l'icona, acceso del colore della squadra;
+        sopra al nome la famiglia (squadra, persone, programmi...), poi il nome
+        grande in condensato e, a destra, a cosa serve la pagina. Sotto, un filo
+        del colore della squadra che sfuma. Quando si cambia pagina il nome entra
+        da sinistra e il filo si allunga.
+        """
+        voce = next((v for v in NAV if v[0] == self.page_id), None)
+        if voce is None:
+            return
+        pid, nome, icona, gruppo = voce
+        col = T.squadra()
+        vivo = T.squadra_viva()
+        q = fx.entrata()
+        r = pygame.Rect(NAV_W + 16, TOPBAR_H + 10, w - NAV_W - 32, TESTA_H - 14)
+        # il distintivo
+        badge = pygame.Rect(r.x, r.y + 2, 42, 42)
+        fx.splendi(surf, badge.center, 44, col, 0.22 * q)
+        T.panel(surf, badge, T.mix(T.PANEL_2, col, 0.28), radius=10, rilievo=False,
+                border=T.mix(T.LINE, vivo, 0.6))
+        I.draw(surf, icona, badge.inflate(-18, -18), T.WHITE, 2)
+        # il nome, che entra da sinistra
+        x = badge.right + 14 - int(24 * (1.0 - q))
+        eyebrow = T.render("  ".join(gruppo), 10, vivo, bold=True)
+        eyebrow.set_alpha(int(255 * q))
+        surf.blit(eyebrow, (x, r.y + 1))
+        titolo = T.render(nome.upper(), 28, T.TEXT, bold=True)
+        titolo.set_alpha(int(255 * q))
+        surf.blit(titolo, (x, r.y + 12))
+        # a destra, a cosa serve; e le tre bande oblique del colore della squadra
+        fine = r.right
+        for k in range(3):
+            bx = fine - 12 - k * 11
+            pygame.draw.polygon(surf, T.mix(col, T.BG, 0.25 + 0.25 * k),
+                                [(bx, r.y + 6), (bx + 6, r.y + 6), (bx - 6, r.y + 40),
+                                 (bx - 12, r.y + 40)])
+        desc = DESCRIZIONI.get(pid, "")
+        spazio = fine - 60 - (x + titolo.get_width() + 30)
+        if desc and spazio > 120:
+            T.text(surf, desc, (fine - 52, r.y + 20), 14, T.DIM, align="right", maxw=spazio)
+        # il filo sotto, che si allunga
+        lungo = int((r.w) * q)
+        if lungo > 4:
+            surf.blit(fx.striscia_luce(max(8, lungo * 2), 3, col, 0.9), (r.x - lungo, r.bottom + 1),
+                      special_flags=pygame.BLEND_RGB_ADD)
+            pygame.draw.line(surf, T.mix(T.LINE, col, 0.5), (r.x, r.bottom + 2),
+                             (r.x + lungo, r.bottom + 2))
+
 
 def _kv(surf, x: int, w: int, label: str, value: str, colour=T.TEXT) -> None:
     """Un numero della barra superiore, dentro la sua scheda.
@@ -442,4 +518,7 @@ def _kv(surf, x: int, w: int, label: str, value: str, colour=T.TEXT) -> None:
     T.panel(surf, r, T.PANEL_3, radius=8, rilievo=False)
     inner = w - 16
     T.text(surf, label, (x, 17), 10, T.DIM_2, bold=True, mono=True, maxw=inner)
+    # i numeri della barra scorrono quando cambiano: una gara che porta punti
+    # si vede salire, un pagamento si vede scendere
+    value = fx.rotola_testo(("kv", label), value, da_zero=False)
     T.text(surf, value, (x, 33), 20, colour, bold=True, maxw=inner)

@@ -606,6 +606,8 @@ def card(surf, rect, title, value, sub="", colour=None, accent=T.ACCENT):
     pygame.draw.rect(surf, accent, (rect.x, rect.y + 8, 3, rect.h - 16))
     T.text(surf, title.upper(), (rect.x + 14, rect.y + 10), 11, T.DIM_2, bold=True,
            maxw=rect.w - 28)
+    # il numero conta fino al suo valore quando la pagina compare
+    value = fx.rotola_testo(("card", title, rect.x, rect.w), value)
     T.text(surf, value, (rect.x + 14, rect.y + 26), 24, colour or T.TEXT, bold=True,
            maxw=rect.w - 28)
     if sub:
