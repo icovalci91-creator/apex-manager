@@ -241,16 +241,77 @@ def _schiarisci(colour, q: float) -> tuple:
     return tuple(min(255, int(c + (255 - c) * q)) for c in colour[:3])
 
 
+# Le lastre sono vetro sotto una luce di studio: un filo piu' chiare in alto
+# e un filo piu' scure in basso, con il bordo di luce sopra e un contorno
+# appena acceso tutto attorno. Quelle grandi proiettano un'ombra morbida
+# sullo sfondo, ed e' l'ombra che le stacca l'una dall'altra meglio di una
+# riga. Ogni lastra si dipinge una volta per misura e colore e poi si incolla:
+# una schermata ne ha a centinaia, e a ogni fotogramma.
+_LASTRE: dict = {}
+_LASTRE_PIXEL = [0]
+LASTRE_MAX_PIXEL = 14_000_000
+OMBRA_DA = (140, 56)        # da questa misura in su una lastra fa ombra
+VETRO = 212                 # e quanto e' piena: il resto e' lo sfondo che passa
+
+
+def _lastra(w: int, h: int, colour, radius: int, border, width: int,
+            rilievo: bool) -> pygame.Surface:
+    chiave = (w, h, colour, radius, border, width, rilievo)
+    img = _LASTRE.get(chiave)
+    if img is not None:
+        return img
+    img = pygame.Surface((w, h), pygame.SRCALPHA)
+    if rilievo and h >= 12:
+        # le lastre grandi sono di vetro: lasciano passare un poco la luce
+        # dello sfondo, e lo sfondo si muove
+        vetro = VETRO if (w >= OMBRA_DA[0] and h >= OMBRA_DA[1]) else 255
+        alto = _schiarisci(colour, 0.07)
+        basso = mix(colour, (0, 0, 0), 0.12)
+        for y in range(h):
+            q = y / max(1.0, h - 1.0)
+            pygame.draw.line(img, (*mix(alto, basso, q ** 0.8), vetro), (0, y), (w, y))
+        maschera = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(maschera, (255, 255, 255, 255), (0, 0, w, h), border_radius=radius)
+        img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        if w >= 24:
+            # il contorno appena acceso, e il filo di luce in alto che sfuma
+            # verso i due lati, come un riflesso sul bordo di una lastra
+            pygame.draw.rect(img, (*_schiarisci(colour, 0.10), 255), (0, 0, w, h), 1,
+                             border_radius=radius)
+            filo = _schiarisci(colour, RILIEVO + 0.16)
+            for x in range(radius, w - radius):
+                q = 1.0 - abs((x - radius) / max(1, w - 2 * radius) * 2.0 - 1.0)
+                img.set_at((x, 0), (*mix(_schiarisci(colour, 0.10), filo, q ** 0.7), 255))
+    else:
+        pygame.draw.rect(img, colour, (0, 0, w, h), border_radius=radius)
+    if border:
+        pygame.draw.rect(img, border, (0, 0, w, h), width, border_radius=radius)
+    _LASTRE_PIXEL[0] += w * h
+    if _LASTRE_PIXEL[0] > LASTRE_MAX_PIXEL:
+        _LASTRE.clear()
+        _LASTRE_PIXEL[0] = w * h
+    _LASTRE[chiave] = img
+    return img
+
+
 def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 1,
           rilievo: bool = True):
     _ink(rect[1] + rect[3])
-    pygame.draw.rect(surf, colour, rect, border_radius=radius)
-    if rilievo and rect[3] >= 12 and rect[2] >= 24:
-        luce = _schiarisci(colour, RILIEVO)
-        pygame.draw.line(surf, luce, (rect[0] + radius, rect[1]),
-                         (rect[0] + rect[2] - radius - 1, rect[1]))
-    if border:
-        pygame.draw.rect(surf, border, rect, width, border_radius=radius)
+    r = pygame.Rect(rect)
+    if r.w <= 0 or r.h <= 0:
+        return
+    colour = tuple(colour)
+    if len(colour) > 3 or r.w * r.h > 3_000_000:
+        # trasparente, o grande come la finestra: si dipinge e basta
+        pygame.draw.rect(surf, colour, r, border_radius=radius)
+        if border:
+            pygame.draw.rect(surf, border, r, width, border_radius=radius)
+        return
+    if rilievo and r.w >= OMBRA_DA[0] and r.h >= OMBRA_DA[1]:
+        from . import fx
+        fx.proietta(surf, r, radius, 18, 7, 150)
+    surf.blit(_lastra(r.w, r.h, colour, radius, tuple(border) if border else None,
+                      width, rilievo), r.topleft)
 
 
 # --- il colore della squadra ----------------------------------------------
@@ -312,23 +373,14 @@ def squadra_viva() -> tuple:
 # Un fondo a tinta unita su tutta la finestra e' una parete. Una sfumatura
 # appena percettibile dall'alto in basso da' profondita' e non si nota: si
 # nota quando non c'e'.
-_FONDO: dict = {}
 FONDO_GIU = (6, 8, 13)
 
 
 def sfondo(surf) -> None:
-    """Riempie la finestra con la sfumatura di fondo, disegnata una volta sola."""
-    w, h = surf.get_size()
-    img = _FONDO.get((w, h))
-    if img is None:
-        img = pygame.Surface((1, h))
-        for y in range(h):
-            q = y / max(1.0, h - 1.0)
-            img.set_at((0, y), mix(BG, FONDO_GIU, q))
-        img = pygame.transform.scale(img, (w, h))
-        _FONDO.clear()
-        _FONDO[(w, h)] = img
-    surf.blit(img, (0, 0))
+    """Lo sfondo di tutte le schermate: la sfumatura, la trama, le luci dello
+    studio - una del colore della squadra - e le scie che passano piano."""
+    from . import fx
+    fx.sfondo(surf, BG, FONDO_GIU, squadra(), ACCENT)
 
 
 # Il segno del riferimento sulla barra: la tacca che dice dov'e' la media
@@ -345,12 +397,22 @@ TACCA_SOPRA = (18, 24, 34)
 
 def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3,
         radius: int = 4, riferimento: float | None = None):
+    from . import fx
     _ink(rect[1] + rect[3])
     pygame.draw.rect(surf, bg, rect, border_radius=radius)
     frac = max(0.0, min(1.0, value / maxv if maxv else 0.0))
-    if frac > 0:
-        r = pygame.Rect(rect[0], rect[1], max(2, int(rect[2] * frac)), rect[3])
-        pygame.draw.rect(surf, colour, r, border_radius=radius)
+    # quando la pagina e' appena comparsa la barra cresce fino al suo valore
+    mostra = frac * fx.entrata()
+    if mostra > 0:
+        r = pygame.Rect(rect[0], rect[1], max(2, int(rect[2] * mostra)), rect[3])
+        colour = tuple(colour[:3])
+        if r.w >= 6 and r.h >= 4:
+            surf.blit(_riempimento(r.w, r.h, colour, radius), r.topleft)
+            if r.h >= 5 and not fx.LEGGERO:
+                # la punta accesa
+                fx.splendi(surf, (r.right - 1, r.centery), max(6, r.h * 2), colour, 0.45)
+        else:
+            pygame.draw.rect(surf, colour, r, border_radius=radius)
     if riferimento is not None and maxv and rect[2] >= 30:
         q = max(0.02, min(0.98, riferimento / maxv))
         x = int(rect[0] + rect[2] * q)
@@ -358,6 +420,31 @@ def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3
         # confonderebbe con il riempimento proprio dove serve leggerla
         col = TACCA_SOPRA if q <= frac else TACCA
         pygame.draw.rect(surf, col, (x, rect[1] - 1, 2, rect[3] + 2))
+
+
+_RIEMPIMENTI: dict = {}
+
+
+def _riempimento(w: int, h: int, colour, radius: int) -> pygame.Surface:
+    """Il pieno di una barra: piu' scuro all'attacco, vivo in punta, con un
+    filo di luce sopra."""
+    chiave = (w, h, colour, radius)
+    img = _RIEMPIMENTI.get(chiave)
+    if img is None:
+        img = pygame.Surface((w, h), pygame.SRCALPHA)
+        scuro = mix(colour, (0, 0, 0), 0.35)
+        chiaro = _schiarisci(colour, 0.12)
+        for x in range(w):
+            q = x / max(1.0, w - 1.0)
+            pygame.draw.line(img, mix(scuro, chiaro, q ** 1.4), (x, 0), (x, h))
+        pygame.draw.line(img, _schiarisci(colour, 0.40), (0, 0), (w, 0))
+        maschera = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(maschera, (255, 255, 255, 255), (0, 0, w, h), border_radius=radius)
+        img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        if len(_RIEMPIMENTI) > 3000:
+            _RIEMPIMENTI.clear()
+        _RIEMPIMENTI[chiave] = img
+    return img
 
 
 def stat_colour(v: float, lo: float = 55.0, hi: float = 90.0):

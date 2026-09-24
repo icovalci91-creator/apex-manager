@@ -129,6 +129,9 @@ def _quote_settori(gs, team, track, cond) -> tuple:
     return quote
 
 
+FORMA_WEEKEND_S = 0.07     # quanto balla la forma di una squadra da un weekend all'altro
+
+
 def build_entrants(gs, track, cond, quali: bool = False) -> list:
     """Chi scende in pista, con che passo e in che condizioni."""
     from ..core.driving import FIDUCIA_BASE
@@ -144,8 +147,12 @@ def build_entrants(gs, track, cond, quali: bool = False) -> list:
     out = []
     terze = terze_vetture(gs)
     for team in gs.teams.values():
-        # il pacchetto lavora uguale per tutti e due, l'assetto no
-        pacchetto = gs.rng.gauss(0.0, 0.13)
+        # il pacchetto lavora uguale per tutti e due, l'assetto no. La forma
+        # del fine settimana balla poco: con tredici centesimi di scarto il
+        # rumore valeva quanto il distacco vero fra le prime quattro, e le
+        # vittorie giravano fra tutte a ogni gara. Quello che cambia da una
+        # pista all'altra lo fa gia' l'affinita' della macchina col circuito
+        pacchetto = gs.rng.gauss(0.0, FORMA_WEEKEND_S)
         quote = _quote_settori(gs, team, track, cond)
         pit = (3.30 - 1.15 * (team.pit_strength / 100.0)
                + float(gs.regulations.get("pit_lane_penalty_s", 0.0)))

@@ -22,7 +22,7 @@ from ...sim import eprix as EP
 from ...sim import muretto as MU
 from ...sim.weekend import Weather
 from .. import theme as T
-from .. import bandiere, trackdraw
+from .. import bandiere, fx, trackdraw
 from ..app import Scene
 from ..mappa3d import Mappa3D
 from ..widgets import Button
@@ -253,6 +253,7 @@ class EPrixScene(Mappa3D, Scene):
 
     def al_via(self) -> None:
         self.fase = "gara"
+        self.semaforo = fx.Semaforo(len(self.track.id))
         self.build()
 
     def esci(self) -> None:
@@ -266,6 +267,7 @@ class EPrixScene(Mappa3D, Scene):
         self.build()
 
     def salta(self) -> None:
+        self.semaforo = None
         if self.sim:
             self.sim.fast_forward()
             self._fine()
@@ -365,6 +367,17 @@ class EPrixScene(Mappa3D, Scene):
         self._dt = dt
         if self.v3d is not None:
             self.v3d.aggiorna(dt)
+        if getattr(self, "traguardo", None) is not None:
+            self.traguardo.update(dt)
+            if self.traguardo.finito:
+                self.traguardo = None
+        semaforo = getattr(self, "semaforo", None)
+        if semaforo is not None:
+            semaforo.update(dt)
+            if semaforo.finito:
+                self.semaforo = None
+            if semaforo.ferma:
+                return
         if not self.sim:
             return
         if self.fase == "quali":
@@ -403,6 +416,12 @@ class EPrixScene(Mappa3D, Scene):
         self.applicato = True
         sim = self.sim
         ordine = sim.order()
+        if ordine:
+            podio = any(e.is_player for e in ordine[:3])
+            self.traguardo = fx.Traguardo(f"VINCE {ordine[0].name.upper()}",
+                                          f"{self.track.gp}  -  {ordine[0].squadra}",
+                                          festa=podio, colore=tuple(ordine[0].colour[:3]),
+                                          seme=len(self.track.id))
         # il distacco si legge dal tempo del primo classificato: chi e'
         # ritirato non ne ha uno, chi ha vinto parte da zero
         vincitore = next((e for e in ordine if e.status == "finished"), None)
@@ -428,7 +447,6 @@ class EPrixScene(Mappa3D, Scene):
     # ----------------------------------------------------------------- disegno
     def draw(self, surf) -> None:
         w, h = surf.get_size()
-        surf.fill(T.BG)
         if self.sim is None:
             self._draw_prep(surf, w, h)
         elif self.fase == "quali":
@@ -438,6 +456,10 @@ class EPrixScene(Mappa3D, Scene):
         else:
             self._draw_gara(surf, w, h)
         super().draw(surf)
+        if getattr(self, "semaforo", None) is not None and self.fase == "gara":
+            self.semaforo.draw(surf, self._rect_gara(w, h)[0])
+        if getattr(self, "traguardo", None) is not None:
+            self.traguardo.draw(surf, surf.get_rect())
 
     def _draw_prep(self, surf, w: int, h: int) -> None:
         reg = FE.corrente()
@@ -630,6 +652,14 @@ class EPrixScene(Mappa3D, Scene):
         return (183, 96, 255) if e is not None and e.attack_attivo > 0 else None
 
     def handle(self, ev) -> None:
+        semaforo = getattr(self, "semaforo", None)
+        if semaforo is not None and semaforo.ferma and ev.type == pygame.MOUSEBUTTONDOWN:
+            w, h = self.app.screen.get_size()
+            if self._rect_gara(w, h)[0].collidepoint(ev.pos):
+                semaforo.salta()
+                return
+        if getattr(self, "traguardo", None) is not None and ev.type == pygame.MOUSEBUTTONDOWN:
+            self.traguardo = None
         if self.sim is not None and self.fase == "gara" and self._mano_3d(ev):
             return
         super().handle(ev)

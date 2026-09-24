@@ -29,6 +29,24 @@ fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il m
 sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
 il quale i pannelli non starebbero piu' in piedi.
 
+## La grafica
+
+Le schermate sono lastre di vetro sotto le luci di uno studio televisivo: lo sfondo si muove
+piano - una luce del colore della scuderia che respira, le scie che passano, la trama della
+fibra di carbonio - e i pannelli grandi lo lasciano intravedere, con un'ombra morbida che li
+stacca l'uno dall'altro. I pulsanti si accendono sotto al mouse, fanno l'onda dove si clicca
+e quelli principali hanno un riflesso che ci passa sopra ogni tanto; le barre dei valori
+crescono quando si apre una pagina e hanno la punta accesa. Da una schermata all'altra passa
+una lama del colore della squadra.
+
+E poi ci sono i momenti: il menu con un circuito vero che ci gira dietro e una luce che lo
+percorre, **il semaforo della partenza** - cinque rosse, un'attesa che nessuno conosce, e via
+(un clic sulla mappa lo salta) - e **la bandiera a scacchi** con il nome del vincitore, con i
+coriandoli se una delle nostre e' sul podio. Vale per il gran premio, la sprint e l'E-Prix.
+
+Tutto quello che si puo' preparare una volta si prepara una volta: a 1600x900 una schermata
+del quartier generale costa 8-9 millesimi a fotogramma. Nel browser lo sfondo resta fermo.
+
 ## Vista 3D delle sessioni
 
 Su PC le prove, le qualifiche e la gara - e l'E-Prix - si guardano anche in 3D: il circuito
@@ -2266,15 +2284,23 @@ Le dodici che fino a poco fa erano solo etichette:
 | Qualifica aggregata | conta la media dei due piloti: le squadre si schierano in coppia e una seconda guida lenta ti rovina la griglia |
 | Griglia invertita | nelle sprint si parte al contrario della classifica, e a inizio stagione al contrario della qualifica |
 
-I valori di piloti e scuderie sono ancorati alla forza espressa nella stagione 2025, che e'
-l'ultima cosa verificabile prima di un reset regolamentare: nel 2026 nessuno sa davvero
-l'ordine. Da li' si aggiungono i fattori strutturali - eta', chi ha cambiato squadra, chi e'
-stato fermo un anno.
+I valori di vetture e motori sono quelli dell'inizio della stagione 2026, il primo anno del
+nuovo regolamento: Mercedes davanti con la macchina e con la power unit, Ferrari e McLaren a
+seguire, Red Bull con il primo motore Ford un passo indietro, e in fondo Aston Martin e
+Cadillac. Honda parte ultima fra i motoristi - vibrazioni, batteria, affidabilita' - ma ha il
+banco che rende di piu' (il campo `sviluppo` del motorista, 1.8 contro l'1.0 degli altri) ed
+e' quella che recupera piu' in fretta. I piloti partono dalla forza espressa nel 2025, con i
+ritocchi di chi e' cresciuto da allora (Antonelli, Hadjar, Bortoleto, Bearman).
 
-La taratura e' verificata simulando: due stagioni complete danno McLaren campione
-costruttori, Red Bull-Ferrari-Mercedes a contendersi il secondo posto, Williams prima delle
-altre e Cadillac al debutto in fondo. Fra i piloti Verstappen vince quasi la meta' delle
-gare pur non avendo la macchina migliore, Norris e Piastri si dividono il resto.
+La taratura e' verificata simulando stagioni intere con le prove, la qualifica e la gara di
+ogni weekend: su tre stagioni Mercedes e' sempre campione costruttori, con dieci-venti
+vittorie, e Ferrari e McLaren se le prendono lo stesso quando la pista le aiuta. Honda sale
+da 79 a 82-84 entro meta' stagione, e Aston Martin dall'ultimo posto al nono-decimo.
+
+La forma di una squadra da un weekend all'altro balla di 7 centesimi al giro: prima erano
+13, cioe' quanto il distacco vero fra le prime quattro, e le vittorie giravano fra tutte a
+ogni gara senza che la macchina migliore si vedesse. Quello che cambia da una pista
+all'altra lo fa l'affinita' della vettura col circuito, che non e' un caso.
 
 Se qualcosa non ti torna, correggilo nel JSON e il gioco lo usa al riavvio. Per cambiare
 molti piloti insieme c'e' uno strumento:
@@ -2308,7 +2334,8 @@ game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
                      eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
                      pista3d e vista3d (il circuito in 3D), mappa3d (la mappa
-                     3D delle scene di gara), dintorni (i dintorni da OSM)
+                     3D delle scene di gara), dintorni (i dintorni da OSM),
+                     fx (luci, ombre, semaforo, bandiera, coriandoli, passaggi)
 data/                database JSON (regulations.json, formulae.json e wec.json
                      sono i tre regolamenti: Formula 1, Formula E, endurance)
 saves/               salvataggi

@@ -1,10 +1,13 @@
 """Schermata principale del gioco: barra superiore, navigazione e pagine."""
 from __future__ import annotations
 
+import math
+
 import pygame
 
 from ... import storage
 from ...core import economy, season as SEASON
+from .. import fx
 from .. import icons as I
 from .. import theme as T
 from ..app import Scene
@@ -224,10 +227,22 @@ class GameShell(Scene):
                   maxw=rect.w - 18)
             top += 13
         corpo = pygame.Rect(rect.x, top, rect.w, rect.bottom - top)
+        sopra = corpo.collidepoint(pygame.mouse.get_pos()) and not attivo
+        h = fx.verso(("nav", pid), 1.0 if sopra else 0.0, 14.0)
         if attivo:
-            pygame.draw.rect(surf, T.squadra_viva(), (rect.x + 1, corpo.y + 2, 3, corpo.h - 4))
+            # la voce aperta e' una pillola accesa del colore della squadra
+            pill = corpo.inflate(-4, -4)
+            fx.splendi(surf, (pill.x + 8, pill.centery), 46, T.squadra_viva(), 0.20)
+            T.panel(surf, pill, T.mix(T.PANEL_2, T.squadra(), 0.22), radius=8, rilievo=False)
+            pygame.draw.rect(surf, T.squadra_viva(), (rect.x + 1, corpo.y + 4, 3, corpo.h - 8),
+                             border_radius=2)
+        elif h > 0.02:
+            pill = corpo.inflate(-4, -4)
+            pill.x += int(3 * (1.0 - h))
+            T.panel(surf, pill, T.mix(T.PANEL, T.PANEL_2, h), radius=8, rilievo=False)
+            colore = T.mix(T.TEXT, T.WHITE, h)
         icona = pygame.Rect(0, 0, 20, 20)
-        icona.center = (rect.x + 24, corpo.centery)
+        icona.center = (rect.x + 24 + int(2 * h), corpo.centery)
         I.draw(surf, icon_name, icona, colore, 2)
         T.text(surf, label, (icona.right + 10, corpo.centery - 9), 14, colore,
               bold=attivo, maxw=rect.right - icona.right - 16)
@@ -243,6 +258,7 @@ class GameShell(Scene):
         # aspettare nessuno. Solo se si cambia davvero pagina
         if pid != self.page_id:
             self.entrata = DISSOLVENZA
+            fx.entra()
         self.page_id = pid
         if self.rail is not None:
             self.rail.selected = next((i for i, v in enumerate(NAV) if v[0] == pid), -1)
@@ -320,8 +336,10 @@ class GameShell(Scene):
         T.set_squadra(col)
         vivo = T.squadra_viva()
 
-        # barra laterale
-        pygame.draw.rect(surf, T.PANEL, (0, TOPBAR_H, NAV_W, h - TOPBAR_H))
+        # barra laterale: vetro scuro sopra allo sfondo, che si vede appena
+        lato = pygame.Surface((NAV_W, h - TOPBAR_H), pygame.SRCALPHA)
+        lato.fill((*T.PANEL, 225))
+        surf.blit(lato, (0, TOPBAR_H))
         pygame.draw.line(surf, T.LINE, (NAV_W, TOPBAR_H), (NAV_W, h))
 
         # Barra superiore. Il colore della scuderia non e' piu' un filo di sei
@@ -329,8 +347,14 @@ class GameShell(Scene):
         # bordo di sotto, che e' la riga che separa il gioco da chi lo gioca.
         # Una partita con la Ferrari e una con la Williams si devono
         # riconoscere da lontano.
-        pygame.draw.rect(surf, T.PANEL_2, (0, 0, w, TOPBAR_H))
-        pygame.draw.rect(surf, T.mix(T.PANEL_2, col, 0.16), (0, 0, NAV_W, TOPBAR_H))
+        T.panel(surf, (0, 0, w, TOPBAR_H), T.PANEL_2, radius=0)
+        # il blocco del nome prende il colore della squadra, con la sua luce
+        blocco = pygame.Surface((NAV_W, TOPBAR_H))
+        for x in range(NAV_W):
+            blocco.fill(T.mix(T.mix(T.PANEL_2, col, 0.30), T.PANEL_2, x / NAV_W),
+                        (x, 0, 1, TOPBAR_H))
+        surf.blit(blocco, (0, 0))
+        fx.splendi(surf, (30, TOPBAR_H // 2), 120, col, 0.16)
         pygame.draw.rect(surf, col, (0, 0, 5, TOPBAR_H))
         T.text(surf, team.short.upper(), (22, 12), 21, vivo, bold=True)
         T.text(surf, f"Stagione {gs.season}", (22, 38), 13, T.DIM)
@@ -362,7 +386,15 @@ class GameShell(Scene):
         for x, tw, label, value, colour in kpi:
             _kv(surf, x, tw, label, value, colour)
         pygame.draw.line(surf, T.LINE, (0, TOPBAR_H), (w, TOPBAR_H))
+        # il filo del colore della squadra sotto la barra, acceso: una luce
+        # corre avanti e indietro lungo il filo, piano
+        surf.blit(fx.striscia_luce(w, 14, col, 0.35), (0, TOPBAR_H - 8),
+                  special_flags=pygame.BLEND_RGB_ADD)
         pygame.draw.rect(surf, col, (0, TOPBAR_H - 2, w, 2))
+        if not fx.LEGGERO:
+            corre = (math.sin(fx.ora() * 0.6) * 0.5 + 0.5) * w
+            surf.blit(fx.striscia_luce(260, 6, T.mix(col, T.WHITE, 0.5), 0.8),
+                      (int(corre) - 130, TOPBAR_H - 4), special_flags=pygame.BLEND_RGB_ADD)
 
         # la pagina si disegna dentro la sua finestra: se e' piu' alta, quello
         # che esce sopra e sotto viene tagliato invece di finire sulla barra

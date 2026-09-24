@@ -13,7 +13,7 @@ from ...sim import pace as PACE
 from ...sim import benzina
 from ...sim import muretto as MU
 from .. import theme as T
-from .. import bandiere, trackdraw
+from .. import bandiere, fx, trackdraw
 from ..app import Scene
 from ..mappa3d import Mappa3D
 from ..widgets import Button
@@ -661,6 +661,8 @@ class WeekendScene(Mappa3D, Scene):
         kind = "sprint" if self.stage == "sprint" else "gp"
         self.sim = S.make_race(self.gs, self.ws, kind=kind)
         self.applied = False
+        # si parte dal semaforo: cinque rosse, e poi via
+        self.semaforo = fx.Semaforo(self.gs.round * 31 + len(kind))
         self.speed_idx = 2
         self.build()
 
@@ -669,6 +671,7 @@ class WeekendScene(Mappa3D, Scene):
         self.build()
 
     def skip_to_end(self) -> None:
+        self.semaforo = None
         if self.sim:
             self.sim.fast_forward()
             self._on_race_end()
@@ -724,6 +727,18 @@ class WeekendScene(Mappa3D, Scene):
         self._dt = dt
         if self.v3d is not None:
             self.v3d.aggiorna(dt)
+        if getattr(self, "traguardo", None) is not None:
+            self.traguardo.update(dt)
+            if self.traguardo.finito:
+                self.traguardo = None
+        semaforo = getattr(self, "semaforo", None)
+        if semaforo is not None:
+            semaforo.update(dt)
+            if semaforo.finito:
+                self.semaforo = None
+            if semaforo.ferma:
+                # col rosso acceso non si muove nessuno
+                return
         if self.turno and not self.turno.finita:
             mult = SPEEDS[self.speed_idx]
             if mult:
@@ -754,6 +769,14 @@ class WeekendScene(Mappa3D, Scene):
         SEASON.apply_result(self.gs, self.ws, self.sim, kind=kind)
         win = self.sim.result_order()[0]
         dove = f"Sprint di {self.track.gp}" if kind == "sprint" else self.track.gp
+        # la bandiera a scacchi; e se una delle nostre e' sul podio, la festa
+        podio = any(e.team_id == self.gs.player_team for e in self.sim.result_order()[:3])
+        squadra = self.gs.teams.get(win.team_id)
+        self.traguardo = fx.Traguardo(
+            f"VINCE {win.name.upper()}",
+            f"{dove}  -  {squadra.short if squadra else ''}",
+            festa=podio, colore=T.hex_rgb(squadra.colour) if squadra else T.ACCENT,
+            seme=self.gs.round)
         self.gs.push(f"{dove}: vince {win.name} ({self.gs.teams[win.team_id].short}).", "gara")
         self.result_rows = self.sim.result_order()
         if kind == "sprint":
@@ -785,6 +808,11 @@ class WeekendScene(Mappa3D, Scene):
         else:
             self._draw_prep(surf)
         super().draw(surf)
+        w, h = surf.get_size()
+        if getattr(self, "semaforo", None) is not None and self.sim:
+            self.semaforo.draw(surf, self._race_rects(w, h)[0])
+        if getattr(self, "traguardo", None) is not None:
+            self.traguardo.draw(surf, surf.get_rect())
 
     # ------------------------------------------------------------ preparazione
     def _draw_tyres(self, surf) -> None:
@@ -1329,6 +1357,14 @@ class WeekendScene(Mappa3D, Scene):
         return self.piano_aperto
 
     def handle(self, ev) -> None:
+        semaforo = getattr(self, "semaforo", None)
+        if (semaforo is not None and semaforo.ferma and ev.type == pygame.MOUSEBUTTONDOWN
+                and self._race_rects(*self.app.screen.get_size())[0].collidepoint(ev.pos)):
+            # chi ha fretta clicca sulla mappa e il semaforo si spegne subito
+            semaforo.salta()
+            return
+        if getattr(self, "traguardo", None) is not None and ev.type == pygame.MOUSEBUTTONDOWN:
+            self.traguardo = None
         if self._mano_3d(ev):
             return
         super().handle(ev)

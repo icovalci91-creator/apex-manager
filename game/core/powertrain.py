@@ -273,6 +273,17 @@ def ceiling(gs, team) -> float:
     return min(PU_MAX, 58.0 + 0.45 * team.pu_strength)
 
 
+def resa_banco(eng: dict) -> float:
+    """Quanto rende il lavoro al banco di questa casa, rispetto a una normale.
+
+    Sta nei dati del motorista (`sviluppo`). Una casa puo' partire indietro con
+    un regolamento nuovo e avere pero' tutto quello che serve per recuperare -
+    gente, banchi, metodo - ed e' la storia di Honda: nel 2015 ultima, nel 2021
+    campione. Il divario lo chiude piu' in fretta degli altri.
+    """
+    return max(0.3, float(eng.get("sviluppo", 1.0)))
+
+
 def locked(gs) -> bool:
     return bool(gs.regulations.get("pu_development_locked"))
 
@@ -496,7 +507,8 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
                 continue
             ref = partner or max(gs.teams.values(), key=lambda t: t.reputation)
             _advance(gs, eid, eng, min(PU_MAX, 58.0 + 0.45 * max(70.0, ref.reputation)),
-                     EXTERNAL_DEV_RATE * EXTERNAL_DEV_PENALTY * _equalisation_boost(gs, eng),
+                     EXTERNAL_DEV_RATE * EXTERNAL_DEV_PENALTY * _equalisation_boost(gs, eng)
+                     * resa_banco(eng),
                      EXTERNAL_BUDGET, gs.rng, team=ref)
             ai_homologate(gs, eid)
             continue
@@ -514,7 +526,7 @@ def develop(gs, player_budget: float = 0.0) -> list[str]:
                              category="powertrain")
         if budget <= 0:
             continue
-        rate = dev_rate(gs, team) * _equalisation_boost(gs, eng)
+        rate = dev_rate(gs, team) * _equalisation_boost(gs, eng) * resa_banco(eng)
         _advance(gs, eid, eng, ceiling(gs, team), rate, budget, gs.rng, team=team)
         if team.is_player:
             sp = spec(gs, eid)

@@ -1,46 +1,47 @@
 {
-  "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori.",
+  "_note": "Griglia 2026 (11 scuderie). Valori 0-100 salvo dove indicato. budget_base = milioni di dollari/anno di ricavi propri (sponsor + soci). I premi FOM vengono calcolati dalla classifica costruttori. Vetture e power unit sono quelle dell'inizio della stagione 2026, il primo anno del nuovo regolamento: Mercedes davanti, Ferrari e McLaren a seguire, Aston Martin-Honda e Cadillac in fondo.",
   "_pu_note": "pu_capable: se falso la squadra non potra' mai fondare un reparto motori. Un programma power unit richiede una casa automobilistica o un gruppo industriale alle spalle: costa una fondazione piu' decine di milioni l'anno di gestione, fuori dalla portata di una squadra indipendente.",
   "_pu_status_note": "pu_status: 'works' costruisce la propria power unit e ne paga il reparto; 'partner' e' team ufficiale di una casa che non corre in proprio (Aston Martin-Honda): non costruisce nulla, paga una fornitura agevolata e riceve un motore disegnato attorno alla sua vettura; 'customer' compra a listino. Il campo works viene derivato da qui.",
   "_group_note": "parent_team: squadra maggiore dello stesso gruppo. Una satellite compra la power unit a prezzo interno, monta i componenti trasferibili della sorella maggiore (cambio, sospensione posteriore), ne condivide l'indirizzo tecnico e le fa da vivaio piloti. In cambio vota spesso con lei in Commissione e si vede portare via i talenti migliori.",
   "engine_manufacturers": {
     "mercedes": {
       "name": "Mercedes-AMG HPP",
-      "power": 92,
-      "ers": 90,
+      "power": 94,
+      "ers": 92,
       "reliability": 88,
-      "efficiency": 89,
+      "efficiency": 90,
       "cost_per_customer": 26.0
     },
     "ferrari": {
       "name": "Ferrari",
       "power": 91,
-      "ers": 87,
-      "reliability": 84,
-      "efficiency": 86,
+      "ers": 90,
+      "reliability": 86,
+      "efficiency": 87,
       "cost_per_customer": 25.0
     },
     "redbullford": {
       "name": "Red Bull Ford Powertrains",
-      "power": 87,
-      "ers": 85,
-      "reliability": 80,
-      "efficiency": 84,
+      "power": 88,
+      "ers": 87,
+      "reliability": 86,
+      "efficiency": 85,
       "cost_per_customer": 24.0
     },
     "honda": {
       "name": "Honda Racing Corporation",
-      "power": 89,
-      "ers": 89,
-      "reliability": 87,
-      "efficiency": 88,
-      "cost_per_customer": 25.0
+      "power": 82,
+      "ers": 80,
+      "reliability": 72,
+      "efficiency": 82,
+      "cost_per_customer": 25.0,
+      "sviluppo": 1.8
     },
     "audi": {
       "name": "Audi Formula Racing",
-      "power": 84,
+      "power": 85,
       "ers": 86,
-      "reliability": 78,
+      "reliability": 81,
       "efficiency": 85,
       "cost_per_customer": 24.0
     }
@@ -72,16 +73,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 91,
-        "rear_wing": 90,
-        "floor": 93,
-        "sidepods": 89,
-        "suspension": 90,
-        "gearbox": 87,
-        "brakes": 88,
-        "chassis": 91,
-        "active_aero": 86,
-        "cooling": 88
+        "front_wing": 88.7,
+        "rear_wing": 87.7,
+        "floor": 90.7,
+        "sidepods": 86.7,
+        "suspension": 87.7,
+        "gearbox": 84.7,
+        "brakes": 85.7,
+        "chassis": 88.7,
+        "active_aero": 83.7,
+        "cooling": 85.7
       },
       "philosophy": "aero",
       "titles": {
@@ -126,16 +127,16 @@
         "private_track": 84
       },
       "car": {
-        "front_wing": 86.7,
-        "rear_wing": 87.7,
-        "floor": 87.7,
-        "sidepods": 86.7,
-        "suspension": 85.7,
-        "gearbox": 87.7,
-        "brakes": 88.7,
-        "chassis": 87.7,
-        "active_aero": 83.7,
-        "cooling": 85.7
+        "front_wing": 88.5,
+        "rear_wing": 89.5,
+        "floor": 89.5,
+        "sidepods": 88.5,
+        "suspension": 87.5,
+        "gearbox": 89.5,
+        "brakes": 90.5,
+        "chassis": 89.5,
+        "active_aero": 85.5,
+        "cooling": 87.5
       },
       "philosophy": "balanced",
       "titles": {
@@ -184,16 +185,16 @@
         "private_track": 76
       },
       "car": {
-        "front_wing": 87.4,
-        "rear_wing": 86.4,
-        "floor": 88.4,
-        "sidepods": 88.4,
-        "suspension": 89.4,
-        "gearbox": 84.4,
-        "brakes": 85.4,
-        "chassis": 88.4,
-        "active_aero": 85.4,
-        "cooling": 84.4
+        "front_wing": 86.8,
+        "rear_wing": 85.8,
+        "floor": 87.8,
+        "sidepods": 87.8,
+        "suspension": 88.8,
+        "gearbox": 83.8,
+        "brakes": 84.8,
+        "chassis": 87.8,
+        "active_aero": 84.8,
+        "cooling": 83.8
       },
       "philosophy": "mechanical",
       "titles": {
@@ -240,16 +241,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 87.2,
-        "rear_wing": 87.2,
-        "floor": 87.2,
-        "sidepods": 88.2,
-        "suspension": 87.2,
-        "gearbox": 89.2,
-        "brakes": 87.2,
-        "chassis": 89.2,
-        "active_aero": 87.2,
-        "cooling": 89.2
+        "front_wing": 91.3,
+        "rear_wing": 91.3,
+        "floor": 91.3,
+        "sidepods": 92.3,
+        "suspension": 91.3,
+        "gearbox": 93.3,
+        "brakes": 91.3,
+        "chassis": 93.3,
+        "active_aero": 91.3,
+        "cooling": 93.3
       },
       "philosophy": "powertrain",
       "titles": {
@@ -291,16 +292,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 80.6,
-        "rear_wing": 79.6,
-        "floor": 81.6,
-        "sidepods": 80.6,
-        "suspension": 79.6,
-        "gearbox": 80.6,
-        "brakes": 81.6,
-        "chassis": 81.6,
-        "active_aero": 80.6,
-        "cooling": 81.6
+        "front_wing": 79.6,
+        "rear_wing": 78.6,
+        "floor": 80.6,
+        "sidepods": 79.6,
+        "suspension": 78.6,
+        "gearbox": 79.6,
+        "brakes": 80.6,
+        "chassis": 80.6,
+        "active_aero": 79.6,
+        "cooling": 80.6
       },
       "philosophy": "aero",
       "titles": {
@@ -342,16 +343,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 76.1,
-        "rear_wing": 75.1,
-        "floor": 76.1,
-        "sidepods": 77.1,
-        "suspension": 76.1,
-        "gearbox": 78.1,
-        "brakes": 78.1,
-        "chassis": 77.1,
-        "active_aero": 74.1,
-        "cooling": 78.1
+        "front_wing": 80.9,
+        "rear_wing": 79.9,
+        "floor": 80.9,
+        "sidepods": 81.9,
+        "suspension": 80.9,
+        "gearbox": 82.9,
+        "brakes": 82.9,
+        "chassis": 81.9,
+        "active_aero": 78.9,
+        "cooling": 82.9
       },
       "philosophy": "balanced",
       "titles": {
@@ -395,16 +396,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 83.2,
-        "rear_wing": 84.2,
-        "floor": 82.2,
-        "sidepods": 82.2,
-        "suspension": 81.2,
-        "gearbox": 84.2,
-        "brakes": 83.2,
-        "chassis": 83.2,
-        "active_aero": 80.2,
-        "cooling": 82.2
+        "front_wing": 81.0,
+        "rear_wing": 82.0,
+        "floor": 80.0,
+        "sidepods": 80.0,
+        "suspension": 79.0,
+        "gearbox": 82.0,
+        "brakes": 81.0,
+        "chassis": 81.0,
+        "active_aero": 78.0,
+        "cooling": 80.0
       },
       "philosophy": "efficiency",
       "titles": {
@@ -449,16 +450,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 80.6,
-        "rear_wing": 79.6,
-        "floor": 80.6,
-        "sidepods": 80.6,
-        "suspension": 81.6,
-        "gearbox": 82.6,
-        "brakes": 80.6,
-        "chassis": 80.6,
-        "active_aero": 77.6,
-        "cooling": 79.6
+        "front_wing": 81.4,
+        "rear_wing": 80.4,
+        "floor": 81.4,
+        "sidepods": 81.4,
+        "suspension": 82.4,
+        "gearbox": 83.4,
+        "brakes": 81.4,
+        "chassis": 81.4,
+        "active_aero": 78.4,
+        "cooling": 80.4
       },
       "philosophy": "mechanical",
       "titles": {
@@ -500,16 +501,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 78.2,
-        "rear_wing": 78.2,
-        "floor": 77.2,
-        "sidepods": 78.2,
-        "suspension": 77.2,
-        "gearbox": 82.2,
-        "brakes": 80.2,
-        "chassis": 78.2,
-        "active_aero": 74.2,
-        "cooling": 79.2
+        "front_wing": 81.5,
+        "rear_wing": 81.5,
+        "floor": 80.5,
+        "sidepods": 81.5,
+        "suspension": 80.5,
+        "gearbox": 85.5,
+        "brakes": 83.5,
+        "chassis": 81.5,
+        "active_aero": 77.5,
+        "cooling": 82.5
       },
       "philosophy": "efficiency",
       "titles": {
@@ -551,16 +552,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 78.9,
-        "rear_wing": 78.9,
-        "floor": 78.9,
-        "sidepods": 79.9,
-        "suspension": 77.9,
-        "gearbox": 78.9,
-        "brakes": 79.9,
-        "chassis": 79.9,
-        "active_aero": 77.9,
-        "cooling": 79.9
+        "front_wing": 80.6,
+        "rear_wing": 80.6,
+        "floor": 80.6,
+        "sidepods": 81.6,
+        "suspension": 79.6,
+        "gearbox": 80.6,
+        "brakes": 81.6,
+        "chassis": 81.6,
+        "active_aero": 79.6,
+        "cooling": 81.6
       },
       "philosophy": "powertrain",
       "titles": {
@@ -602,16 +603,16 @@
         "private_track": 0
       },
       "car": {
-        "front_wing": 73.5,
-        "rear_wing": 73.5,
-        "floor": 72.5,
-        "sidepods": 74.5,
-        "suspension": 73.5,
-        "gearbox": 79.5,
-        "brakes": 77.5,
-        "chassis": 74.5,
-        "active_aero": 69.5,
-        "cooling": 76.5
+        "front_wing": 75.6,
+        "rear_wing": 75.6,
+        "floor": 74.6,
+        "sidepods": 76.6,
+        "suspension": 75.6,
+        "gearbox": 81.6,
+        "brakes": 79.6,
+        "chassis": 76.6,
+        "active_aero": 71.6,
+        "cooling": 78.6
       },
       "philosophy": "balanced",
       "titles": {
@@ -628,5 +629,6 @@
       "proprieta": "costruttore"
     }
   ],
-  "_proprieta_note": "Di chi e' la squadra: costruttore (corre per vendere macchine, l'utile risale al gruppo), marchio (budget di marketing, nessun dividendo), fondo (ci ha messo soldi per rivederli, poco apporto e utile che esce), padrone (una persona sola, i suoi soldi)."
+  "_proprieta_note": "Di chi e' la squadra: costruttore (corre per vendere macchine, l'utile risale al gruppo), marchio (budget di marketing, nessun dividendo), fondo (ci ha messo soldi per rivederli, poco apporto e utile che esce), padrone (una persona sola, i suoi soldi).",
+  "_sviluppo_note": "sviluppo (facoltativo, per motorista): quanto rende il lavoro al banco rispetto a una casa normale. Honda parte indietro nel 2026 - vibrazioni, batteria, affidabilita' - ma e' la casa che recupera piu' in fretta: 1.8 vuol dire che un milione speso li' vale l'80% in piu'."
 }

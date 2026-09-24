@@ -7,6 +7,7 @@ import pygame
 from ... import config as C
 from ... import storage
 from ...core.state import GameState
+from .. import fx
 from .. import theme as T
 from ..app import Scene
 from ..widgets import Button, TextInput, Toggle
@@ -22,14 +23,14 @@ class MenuScene(Scene):
         w, h = self.app.screen.get_size()
         cx = w // 2
         self.widgets = []
-        y = h // 2 - 40
-        self.widgets.append(Button((cx - 150, y, 300, 52), "Nuova carriera", self.new_game, "primary"))
+        y = h // 2 - 10
+        self.widgets.append(Button((cx - 170, y, 340, 58), "Nuova carriera", self.new_game, "primary"))
         saves = storage.list_saves()
-        self.widgets.append(Button((cx - 150, y + 64, 300, 46), "Continua",
+        self.widgets.append(Button((cx - 170, y + 72, 340, 50), "Continua",
                                    self.load_game, "normal" if saves else "ghost"))
         self.widgets[-1].enabled = bool(saves)
         if not storage.IS_WEB:
-            self.widgets.append(Button((cx - 150, y + 120, 300, 46), "Esci", self.quit, "ghost"))
+            self.widgets.append(Button((cx - 170, y + 134, 340, 50), "Esci", self.quit, "ghost"))
 
     def on_resize(self) -> None:
         self.build()
@@ -56,16 +57,75 @@ class MenuScene(Scene):
     def update(self, dt: float) -> None:
         self.t += dt
 
+    # il circuito che gira dietro al titolo: uno vero, disegnato grande e
+    # appena accennato, con una luce che ci corre sopra come una macchina
+    _PISTA = None
+
+    @classmethod
+    def _pista(cls) -> list:
+        if cls._PISTA is None:
+            try:
+                import json
+                from ...model.track import Track
+                dati = json.loads((C.ROOT / "data" / "tracks.json").read_text(encoding="utf-8"))
+                voce = next(t for t in dati["tracks"] if t["id"] == "suzuka")
+                cls._PISTA = list(Track.from_dict(voce).points)
+            except Exception:
+                cls._PISTA = []
+        return cls._PISTA
+
     def draw(self, surf) -> None:
         w, h = surf.get_size()
-        for i in range(h // 3):
-            c = T.mix((10, 13, 20), (18, 26, 42), i / max(1, h // 3))
-            pygame.draw.line(surf, c, (0, i * 3), (w, i * 3), 3)
-        for i in range(7):
-            y = h * 0.62 + i * 26 + math.sin(self.t * 0.6 + i) * 5
-            pygame.draw.line(surf, (18, 24, 34), (0, y), (w, y), 2)
-        T.text(surf, C.GAME_TITLE.upper(), (w // 2, h // 2 - 190), 78, T.TEXT, bold=True, align="center")
-        T.text(surf, "MANAGER DI FORMULA 1", (w // 2, h // 2 - 110), 22, T.ACCENT, bold=True, align="center")
+        t = self.t
+        # la pista, a destra, grande e scura
+        punti = self._pista()
+        if punti:
+            lato = min(w, h) * 0.95
+            ox, oy = w * 0.5 - lato * 0.5, h * 0.5 - lato * 0.52
+            pts = [(ox + x * lato, oy + y * lato) for x, y in punti[::2]]
+            pygame.draw.lines(surf, (24, 32, 46), True, pts, 9)
+            pygame.draw.lines(surf, (32, 42, 60), True, pts, 3)
+            n = len(pts)
+            testa = (t * 0.07 % 1.0) * n
+            # la scia: una fila di luci che si spengono dietro alla testa
+            if not fx.LEGGERO:
+                for k in range(40, 0, -1):
+                    i = int(testa - k * 1.6) % n
+                    q = 1.0 - k / 40.0
+                    fx.splendi(surf, pts[i], int(8 + 22 * q), T.ACCENT, 0.10 + 0.35 * q * q)
+            p = pts[int(testa) % n]
+            fx.splendi(surf, p, 70, T.ACCENT, 0.9)
+            pygame.draw.circle(surf, (230, 250, 255), (int(p[0]), int(p[1])), 5)
+        # il titolo, con la sua luce e il riflesso che ci passa sopra
+        cy = h // 2 - 170
+        fx.splendi(surf, (w // 2, cy + 40), 360, T.ACCENT, 0.10 + 0.03 * math.sin(t * 1.3))
+        titolo = T.render(C.GAME_TITLE.upper(), 96, (240, 246, 255), bold=True)
+        tr = titolo.get_rect(center=(w // 2, cy + 36))
+        ombra = T.render(C.GAME_TITLE.upper(), 96, (0, 0, 0), bold=True)
+        ombra.set_alpha(140)
+        surf.blit(ombra, tr.move(0, 6))
+        surf.blit(titolo, tr)
+        if not fx.LEGGERO:
+            q = (t % 5.0) / 5.0
+            if q < 0.5:
+                lama = pygame.Surface(titolo.get_size(), pygame.SRCALPHA)
+                larga = tr.h
+                x0 = int(-larga + (tr.w + 2 * larga) * fx.dolce(q / 0.5))
+                for i in range(larga):
+                    a = int(230 * (1.0 - abs(i / (larga - 1) * 2 - 1)) ** 2)
+                    pygame.draw.line(lama, (120, 230, 255, a), (x0 + i, 0), (x0 + i - tr.h // 3, tr.h))
+                lama.blit(titolo, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+                surf.blit(lama, tr)
+        # sotto, il sottotitolo spaziato fra due fili
+        sotto = "M A N A G E R   D I   F O R M U L A   1"
+        img = T.render(sotto, 18, T.ACCENT, bold=True)
+        sr = img.get_rect(center=(w // 2, tr.bottom + 16))
+        surf.blit(img, sr)
+        for verso in (-1, 1):
+            x0 = sr.left - 24 if verso < 0 else sr.right + 24
+            x1 = x0 + verso * 120
+            surf.blit(fx.striscia_luce(120, 3, T.ACCENT, 0.9),
+                      (min(x0, x1), sr.centery - 1), special_flags=pygame.BLEND_RGB_ADD)
         from ... import version
         T.text(surf, version.etichetta(), (w // 2, h - 40), 13, T.DIM_2, align="center")
         super().draw(surf)
@@ -149,12 +209,24 @@ class TeamSelectScene(Scene):
         T.text(surf, "La reputazione determina budget, strutture e qualita' dello staff di partenza.",
                (w // 2, 88), 15, T.DIM, align="center")
         mouse = pygame.mouse.get_pos()
-        for i, (r, t) in enumerate(self.cards):
+        for i, (r0, t) in enumerate(self.cards):
             col = T.hex_rgb(t.colour)
             sel = (i == self.sel)
-            hov = r.collidepoint(mouse)
-            T.panel(surf, r, T.PANEL_2 if (sel or hov) else T.PANEL, radius=10,
-                    border=col if sel else T.LINE, width=2 if sel else 1)
+            hov = r0.collidepoint(mouse)
+            # la carta sotto al mouse si alza, quella scelta si accende
+            su = fx.verso(("carta", t.id), 1.0 if (hov or sel) else 0.0, 12.0)
+            r = r0.move(0, -int(round(4 * su)))
+            if sel:
+                fx.splendi(surf, r.center, int(r.w * 0.75), col, 0.30)
+            T.panel(surf, r, T.mix(T.PANEL, T.PANEL_2, su), radius=10,
+                    border=col if sel else T.mix(T.LINE, col, 0.5 * su), width=2 if sel else 1)
+            # la livrea: una banda obliqua del colore della squadra sul lato
+            banda = [(r.right - 70, r.y + 1), (r.right - 40, r.y + 1),
+                     (r.right - 90, r.bottom - 1), (r.right - 120, r.bottom - 1)]
+            livrea = pygame.Surface(r.size, pygame.SRCALPHA)
+            pygame.draw.polygon(livrea, (*col, int(40 + 50 * su)),
+                                [(x - r.x, y - r.y) for x, y in banda])
+            surf.blit(livrea, r.topleft)
             pygame.draw.rect(surf, col, (r.x, r.y, r.w, 5), border_top_left_radius=10,
                              border_top_right_radius=10)
             T.text(surf, t.short, (r.x + 14, r.y + 16), 20, T.TEXT, bold=True, maxw=r.w - 28)

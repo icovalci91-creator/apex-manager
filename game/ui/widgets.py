@@ -5,6 +5,7 @@ import sys
 
 import pygame
 
+from . import fx
 from . import theme as T
 
 # Nel browser la tastiera non la comanda il gioco: la comanda la pagina.
@@ -63,49 +64,90 @@ class Button(Widget):
             self.hover = tocco(self.rect).collidepoint(ev.pos)
         elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             if tocco(self.rect).collidepoint(ev.pos):
+                _PREMUTI[self._chiave()] = (fx.ora(), ev.pos)
                 if self.on_click:
                     self.on_click()
                 return True
         return False
 
+    def _chiave(self) -> tuple:
+        # le schermate ricostruiscono i pulsanti anche a ogni fotogramma: lo
+        # stato delle animazioni sta fuori, legato a dove sta il pulsante e a
+        # cosa c'e' scritto
+        return (self.rect.x, self.rect.y, self.rect.w, self.rect.h, self.label)
+
     def draw(self, surf) -> None:
         if not self.visible:
             return
+        r = self.rect
         if self.style == "invisible":
             # zona cliccabile sopra qualcosa che si disegna da solo: si limita a
             # far capire che ci si puo' cliccare
             if self.hover:
-                pygame.draw.rect(surf, T.ACCENT, self.rect, 2, border_radius=10)
+                pygame.draw.rect(surf, T.ACCENT, r, 2, border_radius=10)
             return
+        chiave = self._chiave()
+        sopra = (self.enabled and not IS_WEB
+                 and tocco(r).collidepoint(pygame.mouse.get_pos())) or self.hover
+        h = fx.verso(("h",) + chiave, 1.0 if sopra else 0.0, 14.0)
+        vivo = T.squadra_viva()
         bg, fg, border = T.PANEL_2, T.TEXT, None
+        luce = None
         if self.style == "primary":
-            bg, fg = (T.ACCENT if not self.hover else (60, 220, 255)), (8, 14, 22)
+            bg, fg = T.mix(T.ACCENT, (120, 235, 255), 0.35 * h), (6, 12, 20)
+            luce = T.ACCENT
         elif self.style == "ghost":
-            bg, fg, border = (T.PANEL_2 if self.hover else T.PANEL), T.DIM, T.LINE
+            bg, fg, border = T.mix(T.PANEL, T.PANEL_2, h), T.mix(T.DIM, T.TEXT, h), \
+                T.mix(T.LINE, T.mix(T.LINE, vivo, 0.5), h)
         elif self.style == "danger":
-            bg, fg = (T.BAD if not self.hover else (245, 110, 115)), T.WHITE
+            bg, fg = T.mix(T.BAD, (255, 120, 125), 0.4 * h), T.WHITE
+            luce = T.BAD
         elif self.style == "tab":
-            bg = T.PANEL_3 if self.active else (T.PANEL_2 if self.hover else T.PANEL)
-            fg = T.TEXT if self.active else T.DIM
-        elif self.hover:
-            bg = T.PANEL_3
+            bg = T.PANEL_3 if self.active else T.mix(T.PANEL, T.PANEL_2, h)
+            fg = T.TEXT if self.active else T.mix(T.DIM, T.TEXT, h)
+        else:
+            bg = T.mix(T.PANEL_2, T.PANEL_3, h)
+            border = T.mix(T.PANEL_2, T.mix(T.LINE, vivo, 0.35), h) if h > 0.02 else None
         if not self.enabled:
             # senza il bordo un pulsante spento sparisce dentro il pannello,
             # e non si capisce che c'e' qualcosa che non si puo' fare
-            bg, fg, border = T.PANEL, T.DIM_2, T.LINE
-        # niente filo di luce sui pulsanti: il rilievo serve alle lastre
-        # grandi, su quindici voci di menu in fila diventa una grata
-        T.panel(surf, self.rect, bg, radius=8, border=border, rilievo=False)
+            bg, fg, border, luce = T.PANEL, T.DIM_2, T.LINE, None
+        if luce is not None and h > 0.02:
+            # il pulsante acceso fa luce attorno a se' quando ci si passa sopra
+            fx.splendi(surf, r.center, int(max(r.w, r.h) * 0.75), luce, 0.22 * h)
+        T.panel(surf, r, bg, radius=8, border=border, rilievo=self.style in ("primary", "danger"))
+        if luce is not None and self.enabled and not IS_WEB:
+            fx.riflesso(surf, r, 5.5, (r.x * 0.013 + r.y * 0.007), 0.28 + 0.2 * h, 8)
         if self.style == "tab" and self.active:
             # la voce aperta la segna il colore della scuderia: e' l'unico
             # posto della schermata che dice sempre per chi si sta lavorando
-            pygame.draw.rect(surf, T.squadra_viva(),
-                             (self.rect.x, self.rect.bottom - 3, self.rect.w, 3),
-                             border_radius=2)
+            if not IS_WEB:
+                fx.splendi(surf, (r.centerx, r.bottom - 1), max(16, r.w // 2), vivo, 0.18)
+            pygame.draw.rect(surf, vivo, (r.x + 4, r.bottom - 3, r.w - 8, 3), border_radius=2)
+        premuto = _PREMUTI.get(chiave)
+        if premuto is not None:
+            # l'onda del clic, che parte da dove si e' premuto
+            q = (fx.ora() - premuto[0]) / 0.4
+            if q >= 1.0:
+                _PREMUTI.pop(chiave, None)
+            else:
+                onda = pygame.Surface(r.size, pygame.SRCALPHA)
+                raggio = int(max(r.w, r.h) * fx.esce(q))
+                pygame.draw.circle(onda, (255, 255, 255, int(70 * (1.0 - q))),
+                                   (premuto[1][0] - r.x, premuto[1][1] - r.y), raggio)
+                maschera = pygame.Surface(r.size, pygame.SRCALPHA)
+                pygame.draw.rect(maschera, (255, 255, 255, 255), maschera.get_rect(),
+                                 border_radius=8)
+                onda.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+                surf.blit(onda, r.topleft)
         lbl = (self.icon + "  " if self.icon else "") + self.label
-        f = T.font(15, self.style == "primary")
-        img = f.render(T.ellipsize(lbl, f, self.rect.w - 16), True, fg)
-        surf.blit(img, img.get_rect(center=self.rect.center))
+        f = T.font(15, self.style in ("primary", "danger"))
+        img = f.render(T.ellipsize(lbl, f, r.w - 16), True, fg)
+        surf.blit(img, img.get_rect(center=(r.centerx, r.centery - int(round(h * 0.6)))))
+
+
+# dove e quando e' stato premuto ogni pulsante, per l'onda del clic
+_PREMUTI: dict = {}
 
 
 def _passo_tondo(x: float) -> float:

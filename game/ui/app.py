@@ -7,6 +7,7 @@ import sys
 import pygame
 
 from .. import config as C
+from . import fx
 from . import theme as T
 
 IS_WEB = sys.platform == "emscripten"
@@ -124,26 +125,42 @@ class App:
     def scene(self) -> Scene | None:
         return self.scenes[-1] if self.scenes else None
 
+    def _passaggio(self) -> None:
+        """Si fotografa quello che c'e' adesso: la nuova schermata ci passera'
+        sopra con la lama del colore della squadra."""
+        fx.entra()
+        if getattr(self, "screen", None) is None or not self.scenes:
+            return
+        try:
+            self.passaggio = fx.Passaggio(self.screen.copy(), T.squadra_viva())
+        except pygame.error:
+            self.passaggio = None
+
     def push(self, scene: Scene) -> None:
+        self._passaggio()
         if self.scene:
             self.scene.leave()
         self.scenes.append(scene)
         scene.enter()
 
     def pop(self) -> None:
+        self._passaggio()
         if self.scenes:
             self.scenes.pop().leave()
         if self.scene:
             self.scene.enter()
 
     def replace(self, scene: Scene) -> None:
+        self._passaggio()
         while self.scenes:
             self.scenes.pop().leave()
-        self.push(scene)
+        self.scenes.append(scene)
+        scene.enter()
 
     def toast(self, msg: str, seconds: float = 3.0) -> None:
         self.toast_text = msg
         self.toast_t = seconds
+        self._toast_durata = seconds
 
     # ------------------------------------------------------------------ loop
     async def run(self) -> None:
@@ -154,6 +171,7 @@ class App:
         """
         while self.running:
             dt = self.clock.tick(C.FPS) / 1000.0
+            fx.tick(dt)
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     self.running = False
@@ -172,6 +190,12 @@ class App:
                 self.scene.update(dt)
                 T.sfondo(self.screen)
                 self.scene.draw(self.screen)
+            passaggio = getattr(self, "passaggio", None)
+            if passaggio is not None:
+                passaggio.update(dt)
+                passaggio.draw(self.screen)
+                if passaggio.finito:
+                    self.passaggio = None
             if self.toast_t > 0:
                 self.toast_t -= dt
                 self._draw_toast()
@@ -180,13 +204,21 @@ class App:
         pygame.quit()
 
     def _draw_toast(self) -> None:
+        """Il messaggio in basso: sale, resta, e scende via."""
         f = T.font(16, True)
         img = f.render(self.toast_text, True, T.TEXT)
         w, h = img.get_size()
-        sw = self.screen.get_width()
-        r = pygame.Rect(sw // 2 - w // 2 - 20, self.screen.get_height() - 78, w + 40, h + 20)
+        sw, sh = self.screen.get_size()
+        # entra nei primi due decimi, esce negli ultimi tre
+        passato = getattr(self, "_toast_durata", self.toast_t) - self.toast_t
+        dentro = fx.esce(min(1.0, passato / 0.22)) * fx.dolce(min(1.0, self.toast_t / 0.3))
+        r = pygame.Rect(sw // 2 - w // 2 - 26, sh - 60 - int(22 * dentro), w + 52, h + 22)
         s = pygame.Surface(r.size, pygame.SRCALPHA)
-        s.fill((26, 34, 48, 240))
+        pygame.draw.rect(s, (20, 27, 40, int(236 * dentro)), s.get_rect(), border_radius=r.h // 2)
+        pygame.draw.rect(s, (*T.squadra_viva(), int(255 * dentro)), s.get_rect(), 1,
+                         border_radius=r.h // 2)
+        fx.proietta(self.screen, r, r.h // 2, 16, 6, int(150 * dentro))
         self.screen.blit(s, r.topleft)
-        pygame.draw.rect(self.screen, T.ACCENT, r, 1, border_radius=8)
-        self.screen.blit(img, (r.x + 20, r.y + 10))
+        pygame.draw.circle(self.screen, T.squadra_viva(), (r.x + 16, r.centery), 4)
+        img.set_alpha(int(255 * dentro))
+        self.screen.blit(img, (r.x + 30, r.y + 11))
