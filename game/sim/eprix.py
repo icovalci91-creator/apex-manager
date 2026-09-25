@@ -31,9 +31,10 @@ stesso mestiere: si guarda cosa resta in cassa e si decide chi spende e quando.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..core import formulae as FE
+from . import manovre as MV
 from . import muretto as MU
 from .weekend import Weather, follow_gap
 
@@ -77,7 +78,6 @@ SORPASSO_COPERTO = 0.70
 SORPASSO_APERTO = 1.30
 COSTO_DIFESA_M = 1.5
 COSTO_ATTACCO_M = 2.5
-MANOVRA_S = 3.0
 TIRO_S = 0.8                # entro quanto ci si puo' provare
 # Quanto si riesce a passare stando semplicemente attaccati, senza avere il
 # passo. In Formula 1 e' quasi zero; qui e' la maggior parte dei sorpassi.
@@ -152,6 +152,17 @@ class Corridore:
     aria: float = 0.0              # scia (+) o aria sporca (-) in questo istante
     manovra: float = 0.0           # di quanto si e' spostato per attaccare o difendere
     manovra_t: float = 0.0         # e per quanto ancora
+    # le manovre in corso: vedi `manovre`
+    spinte: list = field(default_factory=list)
+    annunci: list = field(default_factory=list)
+    duello_con: str = ""
+    duello_t: float = 0.0
+    fuori_t: float = 0.0            # fuori traiettoria: un errore, un passaggio largo
+    scatto: float = -1.0            # il ritardo al via: riflessi e stacco di frizione
+    pit_metri: float = 0.0          # la corsia box da percorrere, dopo la linea
+    pit_fatti: float = 0.0
+    pit_sosta: float = 0.0
+    pit_totale: float = 0.0
     status: str = "running"        # running | pitting | retired | finished
     dnf_reason: str = ""
     pit_timer: float = 0.0
@@ -339,6 +350,12 @@ class EPrix:
             if hasattr(self.track, "speed_at") else 150.0
         return v * 0.82        # una Formula E va piu' piano di una Formula 1
 
+    def safety_car_dist(self):
+        """Dove sta la safety car (None se non c'e' o e' la virtuale)."""
+        if self.safety_car <= 0 or self.vsc or not self._coda:
+            return None
+        return self._coda[0].dist + MV.SC_DAVANTI_M
+
     def zone_of(self, e) -> str:
         if e.status == "pitting":
             return "box"
@@ -491,7 +508,7 @@ class EPrix:
         e.attack_usi += 1
         e.attack_chiesto = False
         # il tempo perso passando largo si paga subito, sul posto
-        e.dist -= ATTACK_COSTO * (self.track_len / max(20.0, lt))
+        MV.fuori(e, ATTACK_COSTO, self.track_len / max(20.0, lt), 1.0)
         self.log(f"{e.name} prende l'Attack Mode ({durata / 60:.0f}')", "attack")
         self.radio_say(e, f"Attack Mode attivo: {durata:.0f} secondi.", "muretto")
 
@@ -562,7 +579,8 @@ class EPrix:
     def _fai_boost(self, e: Corridore) -> None:
         e.status = "pitting"
         perdita = self.perdita_box * (0.55 if self.safety_car > 0 else 1.0)
-        e.pit_timer = BOOST_S + perdita
+        e.pit_timer = MV.entra_box(e, BOOST_S, perdita, self.track,
+                                   self.track_len / max(20.0, e.base_lap))
         e.energia = min(e.energia_max, e.energia + self.boost_kwh)
         e.boost_fatto = True
         e.boost_chiesto = False
@@ -608,12 +626,14 @@ class EPrix:
                 self.vsc = False
 
         self._aria()
+        rincorsa = MV.rincorsa_sc(self._coda) if self.safety_car > 0 and not self.vsc else {}
         for e in self.entrants:
             if e.status in ("retired", "finished"):
                 continue
             if e.status == "pitting":
                 e.pit_timer -= dt
                 e.total_time += dt
+                MV.in_box(e)
                 if e.pit_timer <= 0:
                     e.status = "running"
                 continue
@@ -622,7 +642,10 @@ class EPrix:
             e.clean_lap = lt
             # la scia e l'aria sporca non cambiano il passo sul giro: cambiano
             # la velocita' in quel punto, e quindi la distanza da chi sta davanti
-            e.dist += (self.track_len / lt) * (1.0 + e.aria) * dt
+            e.dist += ((self.track_len / lt) * (1.0 + e.aria) * dt
+                       * MV.lancio(e, self.time, self.rng) * rincorsa.get(e.driver_id, 1.0))
+            for testo, tipo, dati in MV.avanza(e, dt):
+                self.log(testo, tipo, **dati)
             e.total_time += dt
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
             e.manovra_t = max(0.0, e.manovra_t - dt)
@@ -639,7 +662,7 @@ class EPrix:
                 e.lap = nuovo
                 self._giro_chiuso(e, lt)
 
-        self._coda_dietro()
+        self._coda_dietro(dt)
         self._duelli(dt)
         self._posizioni()
         self._forse_incidente(dt)
@@ -702,13 +725,15 @@ class EPrix:
         for i, e in enumerate(self.order(), 1):
             e.position = i
 
-    def _coda_dietro(self) -> None:
+    def _coda_dietro(self, dt: float = 1.0) -> None:
+        if self.time < MV.PARTENZA_S:
+            return
         coda = [e for e in self._coda if e.status == "running"]
         for i in range(1, len(coda)):
             davanti, dietro = coda[i - 1], coda[i]
-            limite = davanti.dist - DISTANZA_MINIMA_M
-            if dietro.dist > limite:
-                dietro.dist = limite
+            if MV.in_duello(davanti, dietro):
+                continue
+            MV.accoda(dietro, davanti, DISTANZA_MINIMA_M, dt)
 
     def _aria(self) -> None:
         """Scia e aria sporca di ognuno, in questo istante.
@@ -759,6 +784,8 @@ class EPrix:
         ha centocinquanta kilowatt in piu' per otto minuti, che sul dritto non
         si tengono dietro in nessun modo.
         """
+        if self.time < MV.PARTENZA_S:
+            return
         vivi = [e for e in self.entrants if e.status == "running"]
         vivi.sort(key=lambda e: -e.dist)
         ot = float(self.track.traits.get("overtaking", 0.5))
@@ -774,7 +801,7 @@ class EPrix:
                 # "lascialo passare", quando il pilota ha deciso di farlo
                 if MU.scambio_pronto(self, davanti, dietro):
                     MU.chiudi_scambio(davanti)
-                    davanti.dist, dietro.dist = dietro.dist, davanti.dist
+                    MV.scambio(davanti, dietro, gap_m, -self._interno(davanti) * 0.8)
                     self.log(f"Ordine di squadra: {davanti.code} lascia passare "
                              f"{dietro.code}", "team")
                     self.radio_say(davanti, f"Fatto, {dietro.code} e' passato.",
@@ -791,10 +818,12 @@ class EPrix:
                 dietro.bloccato_giri = 0
             if self.safety_car > 0 or dietro.overtake_cd > 0 or gap_t > TIRO_S:
                 continue
+            if MV.occupato(dietro) or MV.occupato(davanti):
+                continue
             if dietro.tentativi_giro >= MU.tentativi(dietro, TENTATIVI_GIRO):
                 continue
             # i posti per passare, col metro di qui: dritti corti e staccate
-            posto = self.track.zona_di(dietro.lap_fraction(self.track_len), corta=True)
+            posto = MV.zona(self.track, dietro.lap_fraction(self.track_len), corta=True)
             if posto <= 0.0:
                 continue
             if self.rng.random() > INGAGGIO_MINIMO + (1.0 - INGAGGIO_MINIMO) * posto:
@@ -806,11 +835,13 @@ class EPrix:
             interno = self._interno(dietro)
             chiude = self.rng.random() < (COPERTURA_BASE + COPERTURA_MESTIERE
                                           * davanti.racecraft / 100.0)
+            staccata = MV.secondi_alla_staccata(
+                self.track, dietro.lap_fraction(self.track_len),
+                max(20.0, dietro.last_lap or dietro.base_lap), corta=True)
+            lato_difesa = interno * 0.8 if chiude else None
+            lato = (-interno if chiude else interno) * 0.8
             if chiude:
-                davanti.manovra, davanti.manovra_t = interno * 0.8, MANOVRA_S
-                davanti.dist -= COSTO_DIFESA_M
-            dietro.manovra = (-interno if chiude else interno) * 0.8
-            dietro.manovra_t = MANOVRA_S
+                MV.difesa(davanti, COSTO_DIFESA_M, staccata, lato_difesa)
             vantaggio = davanti.clean_lap - dietro.clean_lap + self.rng.gauss(0.0, 0.25)
             # l'Attack Mode: centocinquanta kilowatt in piu' non sono un
             # dettaglio, e sono la ragione per cui in Formula E si passa
@@ -840,21 +871,25 @@ class EPrix:
             p /= max(0.60, MU.di(davanti)["difesa"])
             p *= SORPASSO_COPERTO if chiude else SORPASSO_APERTO
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot, p):
-                # frenato tardi e uscito storto: si perde qualche metro
-                dietro.dist -= COSTO_ATTACCO_M
+                # affiancato, frenato tardi, uscito storto: rientra dietro
+                MV.attacco_fallito(dietro, davanti, gap_m, COSTO_ATTACCO_M, staccata, lato,
+                                   lato_difesa)
                 continue
-            dietro.dist, davanti.dist = davanti.dist + 6.0, davanti.dist - self.follow * 0.6
+            durata = MV.sorpasso(dietro, davanti, gap_m, self.follow * 0.6, staccata, lato,
+                                 lato_difesa)
             dietro.energia = max(0.0, dietro.energia - COSTO_SORPASSO)
             dietro.overtake_cd = max(20.0, dietro.last_lap * 1.1)
             davanti.overtake_cd = 6.0
-            self.log(f"SORPASSO: {dietro.name} passa {davanti.name}", "pass",
-                     chi=dietro.driver_id, su=davanti.driver_id)
+            quando = durata * 0.7
+            MV.annuncia(dietro, quando, f"SORPASSO: {dietro.name} passa {davanti.name}", "pass",
+                        chi=dietro.driver_id, su=davanti.driver_id)
             if self.rng.random() < (RISCHIO_CONTATTO * (dietro.aggression / 100.0)
                                     * (1.0 + self.weather.wet) * MU.rischio(dietro)):
                 danno = self.rng.uniform(5, 28)
                 dietro.damage = min(100.0, dietro.damage + danno)
                 davanti.damage = min(100.0, davanti.damage + danno * 0.8)
-                self.log(f"Contatto tra {dietro.name} e {davanti.name}!", "warn")
+                MV.annuncia(dietro, quando + 0.05, f"Contatto tra {dietro.name} e {davanti.name}!",
+                            "warn")
                 for x, quota in ((dietro, 0.26), (davanti, 0.20)):
                     if danno > 18 and x.status == "running" and self.rng.random() < quota:
                         x.status = "retired"
@@ -1034,7 +1069,14 @@ def _colore(gs, team_id: str, squadra: str):
             return _T.hex_rgb(t.colour)
         except Exception:
             pass
-    # le squadre di Formula E che non sono nostre hanno un colore loro, stabile
+    # le squadre di Formula E che non sono nostre hanno il colore della livrea
+    try:
+        from ..ui.livree import colore_fe
+        c = colore_fe(squadra)
+        if c is not None:
+            return c
+    except Exception:
+        pass
     h = abs(hash(squadra)) % 360
     import colorsys
     r, g, b = colorsys.hsv_to_rgb(h / 360.0, 0.55, 0.92)

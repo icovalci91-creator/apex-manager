@@ -203,8 +203,16 @@ class Mappa3D:
         si disegna per ultimo e resta sopra. False se la scheda video non ce
         la fa: chi chiama torna alla mappa 2D.
         """
-        lat = self._laterali([(a[0], a[1]) for a in auto], self._manovre())
         metri = pista3d.MEZZA_PISTA - 1.2
+        forzati = self._manovre()
+        if self.v3d is not None and self.v3d.geo.track is self.track:
+            # chi e' ai box scorre nella corsia accanto alla pista
+            for a in auto:
+                if a[5]:
+                    lato = self._lato_box_3d(a[1])
+                    if lato is not None:
+                        forzati[a[0]] = lato / metri
+        lat = self._laterali([(a[0], a[1]) for a in auto], forzati)
         t_sim = self._tempo_3d()
         dt_sim = 0.0 if self._t_sim_3d is None else max(0.0, t_sim - self._t_sim_3d)
         self._t_sim_3d = t_sim
@@ -249,6 +257,11 @@ class Mappa3D:
             self.v3d.auto = [(pos[a[0]][0], pos[a[0]][1], a[2]) + self._livrea_3d(a[0], a[2])[:2]
                              + (self._gomma_3d(a[0]), self._livrea_3d(a[0], a[2])[2])
                              for a in auto if a[0] in pos]
+            # e la safety car, davanti al primo
+            sc = self._safety_car() if not (tv and self.regista and self.regista.replay) else None
+            if sc is not None:
+                self.v3d.auto.append((sc, self.track.linea_a(sc) * metri, (250, 176, 20),
+                                      (24, 24, 28), 0, (250, 176, 20), -1))
             img = self.v3d.disegna(vista.size)
             self._audio_3d = (pygame.time.get_ticks(), pos, tv, dt_sim, vista.w)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
@@ -267,6 +280,10 @@ class Mappa3D:
         img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         surf.blit(img, vista.topleft)
         pygame.draw.rect(surf, T.LINE, vista, 1, border_radius=10)
+        if sc is not None:
+            q = self.v3d.proietta(sc, self.track.linea_a(sc) * metri, 1.8)
+            if q is not None and vista.collidepoint(vista.x + q[0], vista.y + q[1]):
+                self._etichetta_sc(surf, int(vista.x + q[0]), int(vista.y + q[1]))
         if tv:
             self._grafica_tv(surf, vista, auto, pos)
             return True
@@ -637,3 +654,62 @@ class Mappa3D:
         if q is None or larga <= 0:
             return 0.0
         return max(-0.8, min(0.8, (q[0] / larga - 0.5) * 1.6))
+
+    # ---------------------------------------------------- box e safety car
+    def _lato_box_3d(self, f: float):
+        """Di quanti metri spostarsi di lato per stare nella corsia box."""
+        geo = self.v3d.geo
+        box = getattr(geo, "box_P", None) or []
+        if len(box) < 2:
+            return None
+        (x, _y, z), _fw = geo.sul_giro(f, 0.0)
+        q = trackdraw.piu_vicino([(b[0], b[2]) for b in box], x, z)
+        if q is None:
+            return None
+        r = geo.R[int((f % 1.0) * geo.n) % geo.n]
+        return (q[0] - x) * r[0] + (q[1] - z) * r[2]
+
+    def _forzati_2d(self, quote: dict, vista, mezzo: float) -> dict:
+        """Chi si e' spostato di lato sulla mappa 2D: le manovre, e chi e' ai
+        box, che scorre nella corsia."""
+        forzati = self._manovre()
+        box = [e.driver_id for e in self._entranti_3d()
+               if e.status == "pitting" and e.driver_id in quote]
+        if box and mezzo > 0 and self.pts:
+            chiave = tuple(vista)
+            if getattr(self, "_pit_px", (None, None))[0] != chiave:
+                self._pit_px = (chiave, trackdraw.fit_pit(self.track, vista.inflate(-30, -30)))
+            for chi in box:
+                lato = trackdraw.lato_box(self.pts, self._pit_px[1], quote[chi])
+                if lato is not None:
+                    forzati[chi] = lato / mezzo
+        return forzati
+
+    def _safety_car(self):
+        """Dove sta la safety car sul giro (frazione in distanza), o None."""
+        sim = getattr(self, "sim", None)
+        dove = getattr(sim, "safety_car_dist", None)
+        d = dove() if dove else None
+        if d is None:
+            return None
+        giro = max(1.0, sim.track_len)
+        return self.track.pos_at((d % giro) / giro)
+
+    def _etichetta_sc(self, surf, x: int, y: int) -> None:
+        larga = T.width("SAFETY CAR", 11, bold=True) + 12
+        T.panel(surf, (x - larga // 2, y - 20, larga, 17), (250, 176, 20), radius=4,
+                rilievo=False)
+        T.text(surf, "SAFETY CAR", (x, y - 19), 11, (20, 20, 24), bold=True, align="center")
+
+    def _safety_car_2d(self, surf, mezzo: float) -> None:
+        """La safety car sulla mappa 2D: un pallino arancione davanti al gruppo."""
+        f = self._safety_car()
+        if f is None or not self.pts:
+            return
+        x, y = trackdraw.car_pos(self.pts, f, self.track.linea_a(f) * mezzo)
+        x, y = int(x), int(y)
+        acceso = (pygame.time.get_ticks() // 350) % 2 == 0
+        pygame.draw.circle(surf, (8, 10, 14), (x + 1, y + 2), 7)
+        pygame.draw.circle(surf, (250, 176, 20) if acceso else (200, 120, 10), (x, y), 6)
+        pygame.draw.circle(surf, (20, 20, 24), (x, y), 6, 1)
+        self._etichetta_sc(surf, x, y - 4)

@@ -362,6 +362,29 @@ class EPrixScene(Mappa3D, Scene):
         self.build()
 
     # -------------------------------------------------------------------- loop
+    def _livree_3d(self) -> tuple:
+        """Una tela per squadra: la nostra con i nostri sponsor, le altre con
+        i colori e i marchi che hanno davvero."""
+        from .. import livree
+        tele, indice = [], {}
+        for e in self._entranti_3d():
+            if e.team_id in indice:
+                continue
+            team = self.gs.teams.get(e.team_id)
+            tele.append(livree.disegna(self.gs, team) if team is not None
+                        else livree.disegna_fe(e.squadra, e.colour))
+            indice[e.team_id] = len(tele) - 1
+        return tele, indice
+
+    def _livrea_3d(self, driver_id, colore) -> tuple:
+        from .. import livree
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        if e is None:
+            return super()._livrea_3d(driver_id, colore)
+        team = self.gs.teams.get(e.team_id)
+        base = livree.livrea_di(team) if team is not None else livree.livrea_fe(e.squadra, colore)
+        return base + (getattr(self, "_indice_livree", {}).get(e.team_id, -1),)
+
     def in_pista(self) -> bool:
         return self.fase == "gara" and self.sim is not None and not self.sim.finished
 
@@ -688,8 +711,9 @@ class EPrixScene(Mappa3D, Scene):
             self.pts_rect = tuple(vista)
         trackdraw.draw_track(surf, self.track, vista, width=14, pts=self.pts)
         self._etichette = []
-        lat = self._laterali(list(quote.items()), self._manovre())
         mezzo = max(0.0, trackdraw.nastro_px(self.track, vista, 14) / 2 - 1.0)
+        lat = self._laterali(list(quote.items()), self._forzati_2d(quote, vista, mezzo))
+        self._safety_car_2d(surf, mezzo)
         for e in reversed(vive):
             quota = quote[e.driver_id]
             x, y = trackdraw.car_pos(self.pts, quota, lat[e.driver_id] * mezzo)

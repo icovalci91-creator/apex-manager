@@ -424,6 +424,39 @@ def nastro_px(track, rect, width: int = 12) -> float:
     return max(NASTRO_MINIMO, min(width, int(round(vero))))
 
 
+def piu_vicino(poli: list, x: float, y: float):
+    """Il punto di una spezzata piu' vicino a (x, y)."""
+    meglio, dm = None, 1e30
+    for (ax, ay), (bx, by) in zip(poli, poli[1:]):
+        vx, vy = bx - ax, by - ay
+        ll = vx * vx + vy * vy
+        u = 0.0 if ll <= 0 else max(0.0, min(1.0, ((x - ax) * vx + (y - ay) * vy) / ll))
+        qx, qy = ax + vx * u, ay + vy * u
+        d = (qx - x) ** 2 + (qy - y) ** 2
+        if d < dm:
+            meglio, dm = (qx, qy), d
+    return meglio
+
+
+def lato_box(pts, pit, frac: float):
+    """Di quanti pixel spostarsi di lato, da quel punto del tracciato, per
+    stare sulla corsia box: la macchina che si ferma non resta sulla pista,
+    scorre nella corsia accanto. None se la corsia non c'e'."""
+    if not pit or len(pit) < 2:
+        return None
+    n = len(pts)
+    f = frac % 1.0
+    i = int(f * n) % n
+    j = (i + 1) % n
+    x, y = car_pos(pts, frac, 0.0)
+    q = piu_vicino(pit, x, y)
+    if q is None:
+        return None
+    dx, dy = pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]
+    d = math.hypot(dx, dy) or 1.0
+    return (q[0] - x) * (-dy / d) + (q[1] - y) * (dx / d)
+
+
 def car_pos(pts, frac: float, offset: float = 0.0):
     """Posizione lungo il tracciato con uno scostamento laterale in pixel."""
     n = len(pts)

@@ -76,7 +76,10 @@ Da vicino le macchine smettono di essere pallini: quando la ripresa si avvicina 
 monoposto, costruita dal codice sulle quote del regolamento 2026 (`game/ui/monoposto.py`) -
 muso, halo e casco, pance scavate, fondo con il diffusore, ali a piu' elementi, ruote con la
 fascia del colore della mescola montata. Ogni squadra ha la sua livrea
-(`game/ui/livree.py`), ripresa dalla macchina vera, con sopra le scritte degli sponsor che
+(`game/ui/livree.py`), ripresa dalla macchina vera - anche in Formula E, dove le undici
+squadre hanno i loro colori e i loro marchi (TAG Heuer sulla Porsche, TCS sulla Jaguar,
+Mahindra, Lola Yamaha ABT, Envision, Andretti...) e i pallini sulla mappa prendono il
+colore della livrea - con sopra le scritte degli sponsor che
 ha sotto contratto in quel momento: il title sul cofano e sull'ala posteriore, i partner
 sulle pance e sul muso, i secondari sull'ala anteriore. Se si firma con un marchio nuovo, dal
 weekend dopo la macchina lo porta. La ripresa si avvicina fino a otto metri.
@@ -109,9 +112,8 @@ regia tiene a mente l'ultimo minuto e mezzo di gara, macchina per macchina. Il p
 Un replay ogni venticinque secondi al massimo, e solo fino a x4: piu' veloce, la gara
 scapperebbe mentre si guarda indietro. Sopra x6 restano le riprese larghe.
 
-La gara decide un sorpasso in un colpo solo (chi attacca si ritrova davanti), e da vicino
-si vedrebbe la macchina saltare in avanti: la vista 3D mette da parte lo strappo e lo
-restituisce in sette decimi, cosi' chi passa sembra uscire dalla scia piu' forte.
+I sorpassi in gara sono manovre che durano qualche secondo (vedi *Come si muovono le
+macchine*), e la vista 3D smussa quello che resta di brusco in sette decimi.
 
 Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
 c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
@@ -949,6 +951,36 @@ l'ultimo giro buono lo si comincia con la bandiera che sta gia' cadendo.
   dietro alla safety car si gela. Con l'asfalto a 50 °C a Budapest si finisce a 125 °C e si
   fanno 1,7 soste; con l'asfalto a 22 °C a Monza si resta a 84 °C e si perdono tre decimi al
   giro senza mai riuscire ad accenderle.
+- **Come si muovono le macchine** (`game/sim/manovre.py`): nessuna macchina salta piu'
+  da un punto all'altro. Un sorpasso e' una manovra: chi attacca esce dalla scia, si
+  affianca lungo il dritto con al massimo una trentina di km/h in piu' - quanto valgono
+  scia, override e staccata ritardata - e lo chiude **in staccata**, dove finisce la zona
+  (a Monza le zone finiscono a 0,152 del giro e i sorpassi si chiudono a 0,148); chi lo
+  subisce perde il suo uscendo dalla curva. Un attacco che non riesce arriva col muso a
+  meta' macchina e in frenata si rimette in fila, con i metri persi per aver frenato tardi;
+  a volte e' solo un'occhiata: esce, vede che non c'e', rientra. Chi difende si sposta
+  all'interno prima della staccata. In cronaca il sorpasso compare quando e' fatto, non
+  quando e' deciso. Anche il resto si muove come in pista: un errore e' un lungo o un
+  testacoda in cui si va piano fuori traiettoria mentre gli altri passano di fianco; lo
+  scambio fra compagni e' uno che si sposta e alza il piede; il passaggio per l'Attack Mode
+  e' una traiettoria larga. Misurato a passo fine: nessuna macchina si sposta mai piu' di
+  due metri oltre il suo passo in un trentesimo di secondo.
+- **I posti dove si passa, al posto giusto**: la tabella delle zone di sorpasso e' fatta
+  sul tracciato in metri, ma la gara la leggeva col cronometro - e sul dritto, dove si va
+  forte, le due cose non coincidono. I tentativi cadevano prima della staccata vera, e i
+  sorpassi erano troppi: contati tutti (il vecchio conto si fermava agli ultimi sessanta
+  fatti della cronaca), Monza ne faceva 73 e il Red Bull Ring 89. Adesso: **Monaco 8,
+  Budapest 13, Silverstone 38, Monza 42, Red Bull Ring 49, Interlagos 43, Baku 53**, contro
+  i sei, quindici, quaranta, cinquanta e quarantacinque veri.
+- **La partenza da fermi**: ognuno ha i suoi riflessi al semaforo e il suo stacco di
+  frizione (chi e' costante parte bene piu' spesso); nei primi otto secondi non c'e' coda e
+  si va affiancati alla prima curva, ed e' li' che le posizioni cambiano.
+- **La safety car** si vede, davanti al primo, e il gruppo le si mette in fila dietro: chi
+  e' staccato la raggiunge, e alla ripartenza i distacchi non ci sono piu'. La virtuale
+  invece rallenta tutti uguale, come quella vera.
+- **I box**: chi si ferma scorre nella corsia box accanto alla pista, si ferma al garage e
+  riparte, invece di restare immobile sulla linea del traguardo. Il tempo perso e' lo
+  stesso di prima.
 - **Il controsorpasso**: passare costa energia — si arriva in fondo al dritto in attacco e
   si spende l'override — e chi ti sei appena lasciato dietro quell'energia ce l'ha ancora.
   Misurato: chi ha appena passato resta con **0,54 MJ** contro gli **1,50** di chi si è
@@ -2419,6 +2451,7 @@ game/core/           state (mondo e salvataggi), economy, development,
                      elettrico), wec (il mondiale endurance)
 game/storage.py      salvataggi: file su desktop, localStorage nel browser
 game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
+                     manovre (sorpassi, difese, partenza, box, safety car),
                      muretto (ordini al pilota e ordini di squadra),
                      eprix (la gara di Formula E: energia, Attack Mode, Pit Boost)
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,

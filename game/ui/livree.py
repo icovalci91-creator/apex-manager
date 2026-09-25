@@ -73,14 +73,142 @@ SCHEMI = {
 }
 
 
+# ------------------------------------------------------------ la Formula E
+# Le undici squadre del mondiale elettrico, con i loro colori e i marchi che
+# portano: il title, i partner, e il costruttore del motore dove non e' gia'
+# nel nome. Non hanno un mercato degli sponsor nel gioco: la livrea e' questa.
+def _m(scritta, *colori):
+    return {"name": scritta, "scritta": scritta, "colori": list(colori)}
+
+
+SCHEMI_FE = {
+    "Porsche": dict(fondo="#F2F2F2", accento="#101010", terzo="#D5001C",
+                    zone={"meta": "accento", "fascia": "terzo", "ali": "accento"},
+                    sponsor={"title": [_m("TAG HEUER", "#101010", "#FFFFFF")],
+                             "primary": [_m("PORSCHE", "#D5001C", "#FFFFFF"),
+                                         _m("MOBIL 1", "#E4002B", "#FFFFFF")],
+                             "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Jaguar": dict(fondo="#0B0B0B", accento="#FFFFFF", terzo="#1F6FEB",
+                   zone={"basso": "accento", "fascia": "terzo", "ali": "fondo"},
+                   sponsor={"title": [_m("TCS", "#FFFFFF", "#0B0B0B")],
+                            "primary": [_m("JAGUAR", "#FFFFFF", "#0B0B0B"),
+                                        _m("CASTROL", "#009343", "#FFFFFF")],
+                            "secondary": [_m("DOW", "#E80033", "#FFFFFF"),
+                                          _m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Nissan": dict(fondo="#F4F4F4", accento="#C3002F", terzo="#141414",
+                   zone={"meta": "terzo", "fascia": "accento", "muso": "accento",
+                         "ali": "terzo"},
+                   sponsor={"title": [_m("NISSAN", "#C3002F", "#FFFFFF")],
+                            "primary": [_m("NISMO", "#141414", "#FFFFFF"),
+                                        _m("SHISEIDO", "#C3002F", "#FFFFFF")],
+                            "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Stellantis": dict(fondo="#0C1B3A", accento="#FFFFFF", terzo="#6CA8E0",
+                       zone={"fascia": "accento", "basso": "terzo", "ali": "fondo"},
+                       sponsor={"title": [_m("MASERATI", "#FFFFFF", "#0C1B3A")],
+                                "primary": [_m("MSG", "#6CA8E0", "#0C1B3A"),
+                                            _m("STELLANTIS", "#FFFFFF", "#0C1B3A")],
+                                "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Lola": dict(fondo="#101010", accento="#E10600", terzo="#FFFFFF",
+                 zone={"pance": "accento", "cofano": "accento", "muso": "terzo",
+                       "ali": "accento"},
+                 sponsor={"title": [_m("LOLA", "#FFFFFF", "#101010")],
+                          "primary": [_m("YAMAHA", "#FFFFFF", "#4B1E78"),
+                                      _m("ABT", "#FFFFFF", "#101010")],
+                          "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Citroen": dict(fondo="#F5F5F5", accento="#DA291C", terzo="#1A1A1A",
+                    zone={"meta": "accento", "basso": "terzo", "ali": "accento"},
+                    sponsor={"title": [_m("CITROEN", "#DA291C", "#FFFFFF")],
+                             "primary": [_m("STELLANTIS", "#1A1A1A", "#FFFFFF"),
+                                         _m("TOTALENERGIES", "#ED0000", "#FFFFFF")],
+                             "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Mahindra": dict(fondo="#141414", accento="#B87333", terzo="#E31837",
+                     zone={"fascia": "accento", "cofano": "accento", "ali": "fondo"},
+                     sponsor={"title": [_m("MAHINDRA", "#FFFFFF", "#141414")],
+                              "primary": [_m("TECH MAHINDRA", "#E31837", "#FFFFFF"),
+                                          _m("CLUB MAHINDRA", "#B87333", "#141414")],
+                              "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Opel": dict(fondo="#F7D117", accento="#111111", terzo="#FFFFFF",
+                 zone={"basso": "accento", "fascia": "accento", "ali": "accento"},
+                 sponsor={"title": [_m("OPEL", "#111111", "#F7D117")],
+                          "primary": [_m("GSE", "#111111", "#FFFFFF"),
+                                      _m("STELLANTIS", "#111111", "#FFFFFF")],
+                          "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Envision": dict(fondo="#0A2240", accento="#7AC143", terzo="#00A9E0",
+                     zone={"pance": "accento", "fascia": "terzo", "ali": "fondo"},
+                     sponsor={"title": [_m("ENVISION", "#7AC143", "#0A2240")],
+                              "primary": [_m("AESC", "#FFFFFF", "#0A2240"),
+                                          _m("JAGUAR POWERED", "#FFFFFF", "#0A2240")],
+                              "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "Andretti": dict(fondo="#FFFFFF", accento="#002D72", terzo="#D22630",
+                     zone={"basso": "accento", "fascia": "terzo", "muso": "accento",
+                           "ali": "accento"},
+                     sponsor={"title": [_m("ANDRETTI", "#002D72", "#FFFFFF")],
+                              "primary": [_m("PORSCHE POWERED", "#D22630", "#FFFFFF"),
+                                          _m("MAPEI", "#004B93", "#FFFFFF")],
+                              "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+    "ERT": dict(fondo="#111111", accento="#00C2C7", terzo="#FF3E8A",
+                zone={"meta": "accento", "fascia": "terzo", "ali": "fondo"},
+                sponsor={"title": [_m("ERT", "#00C2C7", "#111111")],
+                         "primary": [_m("NIO 333", "#FFFFFF", "#111111"),
+                                     _m("BIOLIFE", "#FF3E8A", "#FFFFFF")],
+                         "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]}),
+}
+
+
+def _tinte(s: dict) -> dict:
+    return {"fondo": T.hex_rgb(s["fondo"]), "accento": T.hex_rgb(s["accento"]),
+            "terzo": T.hex_rgb(s["terzo"]), "zone": s["zone"]}
+
+
+def schema_fe(squadra: str, colore=None) -> dict | None:
+    """Lo schema di una squadra di Formula E; una sconosciuta prende il suo colore."""
+    s = SCHEMI_FE.get(squadra)
+    if s is None:
+        if colore is None:
+            return None
+        s = dict(fondo="#%02x%02x%02x" % tuple(colore[:3]), accento="#141414",
+                 terzo="#FFFFFF", zone={"fascia": "accento", "basso": "accento",
+                                        "ali": "accento"},
+                 sponsor={"title": [_m(squadra.upper(), "#FFFFFF", "#141414")],
+                          "secondary": [_m("HANKOOK", "#F47B20", "#FFFFFF")]})
+    return s
+
+
+def colore_fe(squadra: str):
+    """Il colore della squadra sul tabellone e sulla mappa: quello della
+    livrea, ma che si veda sul fondo scuro (non il bianco, non il nero)."""
+    s = SCHEMI_FE.get(squadra)
+    if s is None:
+        return None
+    for k in ("fondo", "accento", "terzo"):
+        c = T.hex_rgb(s[k])
+        luce = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255.0
+        if 0.12 <= luce <= 0.80:
+            return c
+    return T.hex_rgb(s["fondo"])
+
+
+def livrea_fe(squadra: str, colore) -> tuple:
+    """(seconda tinta, schema) di una macchina di Formula E."""
+    s = schema_fe(squadra, colore)
+    return (_tinte(s)["accento"], 2)
+
+
+def disegna_fe(squadra: str, colore=None) -> pygame.Surface:
+    """La livrea di una squadra di Formula E, con i suoi marchi."""
+    s = schema_fe(squadra, colore or (120, 120, 130))
+    sp = {"title": [], "primary": [], "secondary": [], "technical": []}
+    sp.update({k: list(v) for k, v in s.get("sponsor", {}).items()})
+    return _dipingi(_tinte(s), sp)
+
+
 def _schema(team) -> dict:
     s = SCHEMI.get(team.id)
     if s is None:
         # una squadra nuova: i suoi due colori, e il nero dove va il nero
         s = dict(fondo=team.colour, accento=getattr(team, "accent", "") or "#202020",
                  terzo="#111111", zone={"fascia": "accento", "basso": "terzo", "ali": "fondo"})
-    return {"fondo": T.hex_rgb(s["fondo"]), "accento": T.hex_rgb(s["accento"]),
-            "terzo": T.hex_rgb(s["terzo"]), "zone": s["zone"]}
+    return _tinte(s)
 
 
 def livrea_di(team) -> tuple:
@@ -169,7 +297,11 @@ def _metti(tela, s, box: pygame.Rect, fondo, grande: bool = False) -> None:
 # ------------------------------------------------------------------ la tela
 def disegna(gs, team) -> pygame.Surface:
     """La livrea intera della squadra, con gli sponsor di adesso."""
-    sch = _schema(team)
+    return _dipingi(_schema(team), _sponsor_ordinati(gs, team))
+
+
+def _dipingi(sch: dict, sp: dict) -> pygame.Surface:
+    """La tela: i colori dello schema e i marchi `sp` (per fascia)."""
     tinta = {k: sch[k] for k in ("fondo", "accento", "terzo")}
     zone = sch["zone"]
     fondo = tinta["fondo"]
@@ -215,7 +347,6 @@ def disegna(gs, team) -> pygame.Surface:
     pygame.draw.rect(tela, ali, (0, FIANCO_H + SOPRA_H, LARGA, ALI_H))
 
     # --- gli sponsor, dove stanno sulle macchine vere
-    sp = _sponsor_ordinati(gs, team)
     title = sp["title"][:1]
     primari = sp["primary"][:2]
     secondari = sp["secondary"][:3]

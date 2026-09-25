@@ -1423,8 +1423,9 @@ class WeekendScene(Mappa3D, Scene):
         # rettilineo copre trecento metri in tre secondi e nel tornante ne
         # copre trenta. La mappa del giro nel tempo dice il punto giusto
         quote = {e.driver_id: self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
-        lat = self._laterali(list(quote.items()), self._manovre())
         mezzo = max(0.0, trackdraw.nastro_px(self.track, vista, 14) / 2 - 1.0)
+        lat = self._laterali(list(quote.items()), self._forzati_2d(quote, vista, mezzo))
+        self._safety_car_2d(surf, mezzo)
         for e in reversed(vive):
             quota = quote[e.driver_id]
             x, y = trackdraw.car_pos(self.pts, quota, lat[e.driver_id] * mezzo)

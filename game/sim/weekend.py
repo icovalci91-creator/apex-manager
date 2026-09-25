@@ -16,6 +16,7 @@ from . import energia as EN
 from . import freni as FR
 from . import benzina as BZ
 from . import gomme as GO
+from . import manovre as MV
 from . import muretto as MU
 
 PENALTY_LABELS = {k: v["label"] for k, v in PENALTY_RULES.items()}
@@ -129,7 +130,6 @@ SORPASSO_COPERTO = 0.80     # attaccare da fuori, con l'interno chiuso
 SORPASSO_APERTO = 1.60      # trovarsi l'interno libero
 COSTO_DIFESA_M = 2.0
 COSTO_ATTACCO_M = 3.0
-MANOVRA_S = 3.0             # quanto dura, a vedersi, una manovra
 # Entro quanto si puo' provare a passare: un secondo, come la finestra del DRS.
 # Prima era una distanza in metri tarata sulla coda fissa, stretta proprio sui
 # circuiti dove si passa di piu'; adesso che la distanza la fa l'aria serve
@@ -491,6 +491,18 @@ class Entrant:
     aria: float = 0.0             # scia (+) o aria sporca (-) in questo istante
     manovra: float = 0.0          # dove si e' spostato per attaccare o difendere
     manovra_t: float = 0.0        # e per quanto ancora
+    # le manovre in corso (vedi `manovre`): i metri da guadagnare o perdere un
+    # po' alla volta, con chi ci si sta battendo e la cronaca da scrivere
+    spinte: list = field(default_factory=list)
+    annunci: list = field(default_factory=list)
+    duello_con: str = ""
+    duello_t: float = 0.0
+    fuori_t: float = 0.0            # fuori traiettoria: un errore, un passaggio largo
+    scatto: float = -1.0            # il ritardo al via: riflessi e stacco di frizione
+    pit_metri: float = 0.0          # la corsia box da percorrere, dopo la linea
+    pit_fatti: float = 0.0
+    pit_sosta: float = 0.0
+    pit_totale: float = 0.0
     clean_lap: float = 90.0     # passo in aria libera, usato per valutare i duelli
     damage: float = 0.0
     push_mode: float = 1.0        # 0.9 conserva .. 1.1 attacca
@@ -724,6 +736,13 @@ class RaceSim:
         scala = e.vmax / tr.speed_peak if tr.speed_peak else 1.0
         return v * scala
 
+    def safety_car_dist(self):
+        """Dove sta la safety car, in metri come le macchine; None se non c'e'
+        (o se e' la virtuale, che in pista non si vede)."""
+        if self.safety_car <= 0 or self.vsc or not self._coda:
+            return None
+        return self._coda[0].dist + MV.SC_DAVANTI_M
+
     def zone_of(self, e) -> str:
         """Che cosa sta facendo in questo momento: tirare, frenare, girare."""
         if e.status == "pitting":
@@ -814,6 +833,8 @@ class RaceSim:
                 self.vsc = False
 
         self._aria()
+        # sotto safety car il gruppo si mette in fila dietro a lei
+        rincorsa = MV.rincorsa_sc(self._coda) if self.safety_car > 0 and not self.vsc else {}
         for e in self.entrants:
             if e.status in ("retired", "finished"):
                 continue
@@ -821,6 +842,8 @@ class RaceSim:
             if e.status == "pitting":
                 e.pit_timer -= dt
                 e.total_time += dt
+                # lungo la corsia box, fermo al garage, e di nuovo fuori
+                MV.in_box(e)
                 if e.pit_timer <= 0:
                     e.status = "running"
                 continue
@@ -828,7 +851,12 @@ class RaceSim:
             lt = self.lap_time_of(e)
             e.last_lap = lt
             v = self.track_len / lt * (1.0 + e.aria)
+            # al via si parte da fermi, ognuno col suo scatto
+            v *= MV.lancio(e, self.time, self.rng) * rincorsa.get(e.driver_id, 1.0)
             e.dist += v * dt
+            # e le manovre: chi si affianca, chi rientra, chi perde l'uscita
+            for testo, tipo, dati in MV.avanza(e, dt):
+                self.log(testo, tipo, **dati)
             e.total_time += dt
             e.overtake_cd = max(0.0, e.overtake_cd - dt)
             e.riscossa = max(0.0, e.riscossa - dt)
@@ -853,7 +881,7 @@ class RaceSim:
                 e.lap = new_lap
                 self._on_lap_complete(e, lt)
 
-        self._queue()
+        self._queue(dt)
         self._resolve_battles(dt)
         self._resolve_reviews(dt)
         self._update_positions()
@@ -975,7 +1003,7 @@ class RaceSim:
         """Quanta acqua c'e' sulla linea: e' questo che decide l'aderenza."""
         return max(0.0, self.weather.wet * (1.0 - 0.85 * self.linea_asciutta))
 
-    def _queue(self) -> None:
+    def _queue(self, dt: float = 1.0) -> None:
         """Dietro si resta finche' il sorpasso non lo si fa davvero.
 
         Le monoposto avanzano in metri, e due macchine con lo stesso passo si
@@ -985,12 +1013,16 @@ class RaceSim:
         di passare. Chi sta davanti fa da tappo, e il tempo che il secondo
         perde in coda e' tempo vero.
         """
+        if self.time < MV.PARTENZA_S:
+            # lo scatto al via: fino alla prima curva si sta affiancati
+            return
         coda = [e for e in self._coda if e.status == "running"]
         for i in range(1, len(coda)):
             davanti, dietro = coda[i - 1], coda[i]
-            limite = davanti.dist - DISTANZA_MINIMA_M
-            if dietro.dist > limite:
-                dietro.dist = limite
+            if MV.in_duello(davanti, dietro):
+                # si stanno battendo: sono affiancati, nessuno fa da tappo
+                continue
+            MV.accoda(dietro, davanti, DISTANZA_MINIMA_M, dt)
 
     def _aria(self) -> None:
         """Scia e aria sporca di ognuno, in questo istante.
@@ -1108,7 +1140,9 @@ class RaceSim:
                 self._maybe_safety_car(0.35)
             else:
                 loss = self.rng.uniform(1.5, 6.0)
-                e.dist -= loss * (self.track_len / lt)
+                # un lungo, un testacoda: si perde il tempo andando piano fuori
+                # traiettoria, e chi arriva passa di fianco
+                MV.fuori(e, loss, self.track_len / lt, self.rng.choice((-1.0, 1.0)))
                 e.damage = min(100.0, e.damage + self.rng.uniform(2, 14))
                 self.log(f"Errore di {e.name}: perde {loss:.1f}s", "warn")
 
@@ -1733,7 +1767,8 @@ class RaceSim:
         # la vettura resta ferma per tutta la durata della sosta mentre gli
         # altri avanzano: e' gia' l'intera perdita di tempo. Toglierle anche
         # la distanza equivalente la farebbe pagare due volte.
-        e.pit_timer = stop + loss
+        e.pit_timer = MV.entra_box(e, stop, loss, self.track,
+                                   self.track_len / max(20.0, e.base_lap))
         e.tyre = target
         e.used_compounds.add(target)
         if e.stock and target in e.stock:
@@ -1809,7 +1844,7 @@ class RaceSim:
         if not MU.scambio_pronto(self, davanti, dietro):
             return False
         MU.chiudi_scambio(davanti)
-        davanti.dist, dietro.dist = dietro.dist, davanti.dist
+        MV.scambio(davanti, dietro, davanti.dist - dietro.dist, -self._interno(davanti) * 0.8)
         davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
         self.log(f"Ordine di squadra: {davanti.code} lascia passare {dietro.code}", "team")
         self.radio_say(davanti, f"Fatto, {dietro.code} e' passato.", "pilota")
@@ -1849,7 +1884,7 @@ class RaceSim:
         # il muretto deve anche essere di quelli che li danno, gli ordini
         if self.rng.random() > 0.04 + 0.0022 * davanti.strategy_skill:
             return False
-        davanti.dist, dietro.dist = dietro.dist, davanti.dist
+        MV.scambio(davanti, dietro, davanti.dist - dietro.dist, -self._interno(davanti) * 0.8)
         davanti.ordine_cd = dietro.ordine_cd = ORDINE_ATTESA
         # non e' un sorpasso e non va segnato come tale: e' una posizione che
         # cambia senza che nessuno abbia passato nessuno, e contarlo fra i
@@ -1870,6 +1905,8 @@ class RaceSim:
         decimi al giro, a Monaco non basta un secondo - e poi contano il mestiere
         di chi attacca e quello di chi si difende.
         """
+        if self.time < MV.PARTENZA_S:
+            return
         live = [e for e in self.entrants if e.status == "running"]
         live.sort(key=lambda e: -e.dist)
         ot_track = facilita(self.track.traits.get("overtaking", 0.5))
@@ -1894,6 +1931,9 @@ class RaceSim:
             if (self.safety_car > 0 or behind.overtake_cd > 0
                     or gap_t > TIRO_S):
                 continue
+            # chi e' gia' dentro a una manovra la finisce prima di cominciarne un'altra
+            if MV.occupato(behind) or MV.occupato(ahead):
+                continue
             # quante volte al giro ci si prova e' un numero piccolo, e non
             # dipende da quanti posti buoni ci sono: si sceglie il migliore e
             # si aspetta quello
@@ -1907,7 +1947,7 @@ class RaceSim:
             # mezzo a una curva, capita in fondo a un dritto lungo abbastanza
             # da prendere la scia e con una staccata vera in cui infilarsi. Il
             # circuito dice dove sono quei posti e quanto valgono
-            posto = self.track.zona_di(behind.lap_fraction(self.track_len))
+            posto = MV.zona(self.track, behind.lap_fraction(self.track_len))
             if posto <= 0.0:
                 continue
             # e in una zona mediocre spesso non ci si prova nemmeno: si tiene il
@@ -1923,11 +1963,14 @@ class RaceSim:
             interno = self._interno(behind)
             chiude = self.rng.random() < (COPERTURA_BASE + COPERTURA_MESTIERE
                                           * ahead.racecraft / 100.0)
+            # quanto manca alla staccata: e' li' che il sorpasso si chiude
+            staccata = MV.secondi_alla_staccata(
+                self.track, behind.lap_fraction(self.track_len),
+                max(20.0, behind.last_lap or behind.base_lap))
+            lato_difesa = interno * 0.8 if chiude else None
+            lato = (-interno if chiude else interno) * 0.8
             if chiude:
-                ahead.manovra, ahead.manovra_t = interno * 0.8, MANOVRA_S
-                ahead.dist -= COSTO_DIFESA_M
-            behind.manovra = (-interno if chiude else interno) * 0.8
-            behind.manovra_t = MANOVRA_S
+                MV.difesa(ahead, COSTO_DIFESA_M, staccata, lato_difesa)
             # l'override: stando entro un secondo si possono chiedere i
             # trecentocinquanta kilowatt pieni fin quasi in fondo al dritto, e
             # costano mezzo megajoule. Se chi sta davanti e' a secco non ha
@@ -1945,6 +1988,9 @@ class RaceSim:
             # velocita', si passano quando capita l'occasione
             vantaggio = ahead.clean_lap - behind.clean_lap + self.rng.gauss(0.0, 0.22)
             if vantaggio <= 0.0:
+                # esce dalla scia, guarda, non c'e': rientra
+                MV.attacco_fallito(behind, ahead, gap_m, 0.0, staccata, lato, lato_difesa,
+                                   quanto=0.35)
                 continue
             # quanto vantaggio serve: in fondo al rettifilo di Monza poco, in
             # fondo a una curva veloce tantissimo
@@ -1998,10 +2044,14 @@ class RaceSim:
             # e comunque, per quanto uno sia piu' veloce, il posto per passare
             # non lo inventa: e' il tetto che separa Monza da Monte Carlo
             if self.rng.random() >= min(TETTO_BASE + TETTO_PISTA * ot_track, p):
-                # andato a vuoto: si e' frenato tardi, si esce storti
-                behind.dist -= COSTO_ATTACCO_M
+                # andato a vuoto: si e' affiancato, ha frenato tardi, e rientra
+                # dietro uscendo storto
+                MV.attacco_fallito(behind, ahead, gap_m, COSTO_ATTACCO_M, staccata, lato,
+                                   lato_difesa)
                 continue
-            behind.dist, ahead.dist = ahead.dist + 6.0, ahead.dist - self.follow * 0.6
+            # riuscito: si affianca lungo il dritto e lo chiude in staccata
+            durata = MV.sorpasso(behind, ahead, gap_m, self.follow * 0.6, staccata, lato,
+                                 lato_difesa)
             # passare costa: si e' arrivati in fondo al dritto in attacco, e
             # quello che si e' speso adesso non ce l'hai piu' per difenderti
             behind.carica = max(0.0, behind.carica - COSTO_SORPASSO_MJ * EN.scala(self))
@@ -2011,14 +2061,17 @@ class RaceSim:
             ahead.overtake_cd = RISPOSTA_ATTESA
             ahead.riscossa = RISCOSSA_S
             ahead.riscossa_su = behind.driver_id
-            self.log(f"SORPASSO: {behind.name} passa {ahead.name}", "pass",
-                     chi=behind.driver_id, su=ahead.driver_id)
+            # e in cronaca ci va quando e' fatto, non quando e' deciso
+            quando = durata * 0.7
+            MV.annuncia(behind, quando, f"SORPASSO: {behind.name} passa {ahead.name}", "pass",
+                        chi=behind.driver_id, su=ahead.driver_id)
             if self.rng.random() < (0.075 * (behind.aggression / 100.0)
                                    * (1.0 + self.weather.wet) * MU.rischio(behind)):
                 dmg = self.rng.uniform(4, 26)
                 behind.damage = min(100.0, behind.damage + dmg)
                 ahead.damage = min(100.0, ahead.damage + dmg * 0.8)
-                self.log(f"Contatto tra {behind.name} e {ahead.name}!", "warn")
+                MV.annuncia(behind, quando + 0.05, f"Contatto tra {behind.name} e {ahead.name}!",
+                            "warn")
                 grave = dmg > 12
                 self._investigate(behind, "contatto" if grave else "contatto_lieve")
                 # una toccata forte non e' un'ala da cambiare: e' la gara finita
