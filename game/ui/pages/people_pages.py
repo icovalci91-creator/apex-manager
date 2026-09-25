@@ -122,6 +122,14 @@ class DriversPage(Page):
         self.free_btn = Button((c.x + 40 + 2 * bw, by, bw, 38), "Libera il pilota",
                                self.release, "danger")
         self.widgets += [self.neg_btn, self.drop_btn, self.free_btn]
+        # per i nostri il tavolo non serve: al suo posto si decide chi corre.
+        # Uno per ogni cambio possibile, ce ne sono al massimo tre
+        self.posto_buttons = []
+        for i in range(3):
+            b = Button((c.x + 16, self.sy + 8 + i * 46, c.w - 32, 38), "")
+            b.visible = False
+            self.posto_buttons.append(b)
+            self.widgets.append(b)
         self._fill()
 
     def _fill(self) -> None:
@@ -173,6 +181,40 @@ class DriversPage(Page):
         self.neg_btn.label = "Proponi" if aperta else "Trattativa"
         self.drop_btn.visible = aperta
         self.drop_btn.enabled = aperta
+        # i nostri: niente trattativa, si sceglie il posto
+        for w in (list(self.sliders.values()) + self.seat_buttons + [self.neg_btn]):
+            w.visible = not nostro
+        mosse = self._mosse() if nostro else []
+        libero = self._weekend_in_corso() is None
+        for b, mossa in zip(self.posto_buttons, mosse + [None] * 3):
+            b.visible = mossa is not None
+            if mossa is None:
+                continue
+            b.label, b.style, chi, con = mossa
+            b.on_click = (lambda d=chi, x=con: self.cambia_posto(d, x))
+            b.enabled = libero
+
+    def _mosse(self) -> list:
+        """I cambi di posto possibili per il pilota scelto:
+        (testo, stile, chi, con chi)."""
+        gs, team, d = self.gs, self.team, self.sel
+        out = []
+        if d.id in team.drivers:
+            for r in gs.reserves_of(team.id):
+                out.append((f"Scambia con {r.name}  ({r.overall:.0f})", "normal", d, r))
+            if len(team.reserves) < 2:
+                out.append(("Manda in panchina (terzo pilota)", "normal", d, None))
+        elif d.id in team.reserves:
+            titolari = gs.drivers_of(team.id)
+            if len(team.drivers) < 2:
+                out.append(("Promuovi a titolare", "primary", d, None))
+            else:
+                for t in titolari:
+                    out.append((f"Al posto di {t.name}  ({t.overall:.0f})", "normal", d, t))
+        return out[:3]
+
+    def _weekend_in_corso(self):
+        return getattr(self.app, "weekend", None)
 
     # ------------------------------------------------------------------ azioni
     def _set(self, key, v) -> None:
@@ -250,6 +292,17 @@ class DriversPage(Page):
         if ok:
             self.gs.push(msg, "mercato")
             self.sel = None
+            self.build()
+
+    def cambia_posto(self, chi, con) -> None:
+        if self._weekend_in_corso() is not None:
+            self.app.toast("Weekend in corso: i posti si cambiano a weekend finito.")
+            return
+        ok, msg = market.cambia_posto(self.gs, self.team, chi, con)
+        self.app.toast(msg)
+        if ok:
+            self.gs.push(msg, "mercato")
+            self.neg = None
             self.build()
 
     def refresh(self) -> None:
@@ -423,6 +476,9 @@ class DriversPage(Page):
 
         # --- il tavolo (ty e' quello di sopra: e' lui a dire dove finisce la
         # scheda, cosi' i due non possono piu' scollarsi)
+        if nostro:
+            self._draw_posto(surf, d, ty)
+            return
         T.text(surf, "TRATTATIVA", (c.x + 16, ty), 12, T.DIM_2, bold=True)
         ok_posto, perche = market.can_offer_seat(gs, team, d, self.seat)
         if not ok_posto:
@@ -444,6 +500,33 @@ class DriversPage(Page):
         elif c.w > 470:
             T.text(surf, "Apri la trattativa per sentire cosa chiede.",
                    (c.right - 16, ty + 18), 11, T.DIM_2, align="right")
+
+    def _draw_posto(self, surf, d, ty) -> None:
+        """Al posto del tavolo, per i nostri: cosa fa adesso e cosa costa
+        cambiargli posto."""
+        c, team = self.colC, self.team
+        T.text(surf, "POSTO IN SQUADRA", (c.x + 16, ty), 12, T.DIM_2, bold=True)
+        if d.id in team.drivers:
+            righe = [("Titolare: corre la domenica.", T.TEXT),
+                     (f"In panchina tiene contratto e stipendio, ma il morale "
+                      f"scende di {market.costo_panchina(d):.0f}.", T.WARN)]
+        else:
+            nuovo = market.stipendio_da_titolare(d)
+            if getattr(d, "contratto_titolare", False):
+                soldi = f"Torna titolare con il suo contratto ({d.salary:.1f} M$)"
+            else:
+                soldi = (f"Da titolare chiede {nuovo:.1f} M$ l'anno"
+                         + (f" (oggi {d.salary:.1f})" if nuovo > d.salary + 0.05 else ""))
+            righe = [("Terzo pilota: libere, simulatore, e sostituisce chi e' squalificato.",
+                      T.TEXT),
+                     (soldi + f", e il morale sale di {market.PROMOZIONE_MORALE:.0f}.",
+                      T.GOLD)]
+        if self._weekend_in_corso() is not None:
+            righe.append(("Weekend in corso: i posti si cambiano a weekend finito.", T.BAD))
+        elif not self._mosse():
+            righe.append(("Nessun cambio possibile adesso.", T.DIM))
+        for i, (testo, col) in enumerate(righe):
+            T.text(surf, testo, (c.x + 16, ty + 20 + i * 18), 12, col, maxw=c.w - 32)
 
     # ------------------------------------------------------------------ draw
     def draw(self, surf) -> None:

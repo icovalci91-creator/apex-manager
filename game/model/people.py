@@ -59,6 +59,11 @@ class Driver:
     # tengono tutti - per le prove libere, per i test e per il giorno in cui
     # un titolare non e' in condizione di salire in macchina
     seat: str = "titolare"        # titolare | riserva | academy
+    # Un titolare mandato in panchina resta con il contratto da titolare: se
+    # poi torna a correre non chiede niente di piu', perche' e' gia' pagato
+    # per quello. Un terzo pilota firmato da riserva, invece, per salire vuole
+    # lo stipendio da titolare.
+    contratto_titolare: bool = False
     # La squadra di Formula E che lo ha sotto contratto, per nome. Non e' un
     # `team`: quelle squadre non sono scuderie di Formula 1 e non stanno in
     # `gs.teams`. Ma il contratto e' un contratto vero, e per portarlo via da

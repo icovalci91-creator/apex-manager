@@ -2038,6 +2038,13 @@ piu' vuole essere pagato per aspettare. Serve davvero: quando un titolare sconta
 squalifica prende il suo posto invece di far correre una macchina sola, e nei test privati
 e' lui che sale in macchina.
 
+I posti si cambiano dalla scheda del pilota, in **Piloti e mercato**: un titolare si manda
+in panchina, da solo o scambiandolo con uno dei terzi piloti, e una riserva si promuove al
+posto di uno dei titolari. Chi scende tiene contratto e stipendio, ma perde morale, tanto
+piu' quanto piu' e' forte. Chi sale ne guadagna, e se era stato firmato da riserva chiede
+lo stipendio da titolare. Un titolare messo in panchina, invece, torna su con il suo
+contratto. A weekend iniziato i posti non si toccano piu': si cambiano a weekend finito.
+
 **Il vivaio.** Otto squadre su undici ne hanno uno, con i ragazzi che ci stanno davvero -
 Camara, Taponen e Wharton in Ferrari, Ugochukwu e Dunne in McLaren, Goethe e Tramnitz in
 Red Bull, Browning e Voisin in Williams. Racing Bulls, Haas e Cadillac no.

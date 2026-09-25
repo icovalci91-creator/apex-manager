@@ -193,7 +193,8 @@ def can_offer_seat(gs, team, driver, seat: str) -> tuple:
             return False, (f"{driver.short} corre in Formula E con la {fe_nome}: "
                            f"un volante ce l'ha, e non lo lascia per la panchina.")
         if driver.id in team.drivers:
-            return False, "E' un nostro titolare: per retrocederlo va prima liberato."
+            return False, ("E' un nostro titolare: per mandarlo in panchina basta "
+                           "cambiargli posto dalla scheda.")
     return True, ""
 
 
@@ -242,6 +243,7 @@ def _sign(gs, team, driver: Driver, salary: float, years: int,
     driver.salary = salary
     driver.contract_until = gs.season + years
     driver.seat = seat
+    driver.contratto_titolare = False
     posti = seats_of(team, seat)
     if driver.id not in posti:
         posti.append(driver.id)
@@ -254,11 +256,106 @@ def release_driver(gs, team, driver: Driver) -> tuple:
         return False, why
     team.add_expense(f"Rescissione {driver.last}", fee, in_cap=False,
                      category="cessioni")
-    if driver.id in team.drivers:
-        team.drivers.remove(driver.id)
+    for lista in (team.drivers, team.reserves):
+        if driver.id in lista:
+            lista.remove(driver.id)
     driver.team = None
+    driver.seat = "titolare"
+    driver.contratto_titolare = False
     gs.free_agents.append(driver)
     return True, f"{driver.name} liberato per {fee:.1f} M$."
+
+
+# ------------------------------------------------- titolari e terzi piloti
+# Chi va in panchina non la prende bene, e piu' e' forte peggio la prende:
+# un ragazzo lo accetta, uno che si gioca il mondiale no. Chi sale ne guadagna
+# un po', ma meno di quanto perde l'altro: la fiducia si toglie in fretta.
+PANCHINA_MORALE = 6.0
+PANCHINA_PER_PUNTO = 0.6
+PANCHINA_MAX = 22.0
+PROMOZIONE_MORALE = 6.0
+
+
+def costo_panchina(driver: Driver) -> float:
+    """Quanto morale perde un titolare mandato a fare il terzo pilota."""
+    return round(min(PANCHINA_MAX, PANCHINA_MORALE
+                     + PANCHINA_PER_PUNTO * max(0.0, driver.overall - 70.0)), 1)
+
+
+def stipendio_da_titolare(driver: Driver) -> float:
+    """Quanto chiede un terzo pilota per salire: il suo, o quanto vale da
+    titolare se e' di piu'. Altrimenti basterebbe firmare tutti da riserva,
+    al trenta per cento, e poi promuoverli. Chi era titolare e ha il
+    contratto da titolare torna su con quello."""
+    if getattr(driver, "contratto_titolare", False):
+        return round(driver.salary, 2)
+    return round(max(driver.salary, driver.market_value), 2)
+
+
+def _in_formula_e(gs, driver) -> str:
+    for t in gs.teams.values():
+        if driver.id in (getattr(t, "fe_piloti", None) or []):
+            return getattr(t, "fe_nome", "") or "Formula E"
+    return getattr(driver, "fe_squadra", "") or ""
+
+
+def cambia_posto(gs, team, driver: Driver, con: Driver | None = None) -> tuple:
+    """Sposta un nostro pilota fra titolari e terzi piloti.
+
+    Con `con` e' uno scambio: i due si danno il cambio e chi sale prende il
+    volante - e il numero di macchina - di chi scende. Senza, il pilota passa
+    dall'altra parte se li' c'e' un posto libero. Il contratto resta quello:
+    stessa scadenza, e chi scende tiene lo stipendio; chi sale lo porta a
+    quello da titolare. Ritorna (fatto, messaggio).
+    """
+    if driver.id in team.drivers:
+        giu, su = driver, con
+    elif driver.id in team.reserves:
+        giu, su = con, driver
+    else:
+        return False, f"{driver.short} non e' uno dei nostri piloti."
+    if con is not None:
+        if giu is None or su is None or giu.id not in team.drivers \
+                or su.id not in team.reserves:
+            return False, "Lo scambio si fa fra un titolare e un terzo pilota."
+    elif driver is giu and len(team.reserves) >= 2:
+        return False, "Hai gia' due terzi piloti: scegli chi sale al suo posto."
+    elif driver is su and len(team.drivers) >= 2:
+        return False, "I due volanti sono occupati: scegli chi scende."
+    if su is not None:
+        fe = _in_formula_e(gs, su)
+        if fe:
+            return False, (f"{su.short} corre in Formula E con la {fe}: prima "
+                           f"liberagli quel sedile.")
+
+    if giu is not None and su is not None:
+        i = team.drivers.index(giu.id)
+        j = team.reserves.index(su.id)
+        team.drivers[i], team.reserves[j] = su.id, giu.id
+    elif giu is not None:
+        team.drivers.remove(giu.id)
+        team.reserves.append(giu.id)
+    else:
+        team.reserves.remove(su.id)
+        team.drivers.append(su.id)
+
+    parti = []
+    if giu is not None:
+        giu.seat = "riserva"
+        giu.contratto_titolare = True
+        perso = costo_panchina(giu)
+        giu.morale = max(5.0, giu.morale - perso)
+        parti.append(f"{giu.name} passa terzo pilota (morale -{perso:.0f})")
+    if su is not None:
+        su.seat = "titolare"
+        su.salary = stipendio_da_titolare(su)
+        su.contratto_titolare = False
+        su.morale = min(100.0, su.morale + PROMOZIONE_MORALE)
+        parti.append(f"{su.name} sale titolare a {su.salary:.1f} M$ l'anno")
+    msg = "; ".join(parti) + "."
+    if len(team.drivers) < 2:
+        msg += " Resta un volante libero: serve un titolare prima della gara."
+    return True, msg
 
 
 # ------------------------------------------------------------------- staff
