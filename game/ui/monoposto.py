@@ -119,9 +119,9 @@ class _Mesh:
                       parte, dentro)
 
     def ruota(self, cx, cy, z0, z1, esterno: int, parte_gomma, parte_cerchio,
-              lati: int = 24) -> None:
+              lati: int = 24, raggi=None) -> None:
         """La ruota: battistrada, spalla e cerchio, con il mozzo al centro."""
-        r, rc = RAGGIO_RUOTA, RAGGIO_CERCHIO
+        r, rc = raggi or (RAGGIO_RUOTA, RAGGIO_CERCHIO)
         c = (cx, cy, (z0 + z1) / 2)
         ang = [2 * math.pi * k / lati for k in range(lati)]
         tondo = [(cx + math.cos(a), cy + math.sin(a)) for a in ang]
@@ -366,3 +366,132 @@ def mesh() -> array:
     if _MESH[0] is None:
         _MESH[0] = costruisci()
     return _MESH[0]
+
+
+# ------------------------------------------------------------ la Gen3
+# La Formula E del 2026, la Gen3 Evo: piu' corta, piu' stretta e piu' bassa di
+# una Formula 1 - cinque metri, un metro e settanta, passo 2,97 - e fatta a
+# spigoli. Il muso basso e piatto con l'ala larga davanti alle ruote, niente
+# presa d'aria sopra la testa (non c'e' niente da far respirare), le pance
+# strette e squadrate, e dietro le carenature che coprono le ruote posteriori,
+# unite dall'ala bassa. Le ruote sono piu' piccole, con la spalla alta.
+PASSO_FE = 2.97
+CARREGGIATA_FE = 1.44
+RAGGIO_RUOTA_FE = 0.33
+RAGGIO_CERCHIO_FE = 0.215
+LUNGHEZZA_FE = 5.02
+
+
+def costruisci_fe() -> array:
+    m = _Mesh()
+    fronte, retro = PASSO_FE / 2, -PASSO_FE / 2
+    # la scocca: il muso piatto e largo che scende quasi a terra, l'abitacolo,
+    # il roll-bar sopra la testa e il cofano che cala fino al fondo
+    scocca = [
+        (2.56, 0.16, 0.12, 0.09, 0.19),
+        (2.30, 0.18, 0.13, 0.10, 0.27),
+        (1.90, 0.20, 0.15, 0.11, 0.37),
+        (1.40, 0.23, 0.18, 0.12, 0.49),
+        (0.95, 0.27, 0.22, 0.10, 0.60),
+        (0.50, 0.31, 0.26, 0.10, 0.65),
+        (0.05, 0.34, 0.27, 0.10, 0.67),
+        (-0.28, 0.33, 0.10, 0.10, 0.96),
+        (-0.50, 0.31, 0.10, 0.10, 0.90),
+        (-0.95, 0.26, 0.10, 0.10, 0.72),
+        (-1.45, 0.20, 0.08, 0.12, 0.54),
+        (-1.95, 0.14, 0.07, 0.15, 0.42),
+        (-2.22, 0.10, 0.05, 0.18, 0.36),
+    ]
+    m.loft([(x, _sezione(wb, wt, y0, y1, 2.2)) for x, wb, wt, y0, y1 in scocca], LIVREA,
+           LIVREA, CARBONIO)
+    # l'abitacolo, il pilota, l'halo
+    m.loft([(0.50, _sezione(0.21, 0.23, 0.50, 0.672, 3.0, 12)),
+            (0.10, _sezione(0.24, 0.26, 0.50, 0.682, 3.0, 12)),
+            (-0.22, _sezione(0.23, 0.23, 0.50, 0.70, 3.0, 12))], CARBONIO, CARBONIO, CARBONIO)
+    m.sfera((0.02, 0.76, 0.0), 0.15, 0.14, 0.13, CASCO)
+    anello = []
+    for k in range(15):
+        t = math.radians(-105 + 210 * k / 14)
+        anello.append((0.03 + 0.33 * math.cos(t), 0.88 - 0.03 * (1 - math.cos(t)),
+                       0.26 * math.sin(t)))
+    for a, b in zip(anello, anello[1:]):
+        m.trave(a, b, 0.027, HALO)
+    m.trave((0.42, 0.65, 0.0), anello[7], 0.03, HALO)
+    for estremo in (anello[0], anello[-1]):
+        m.trave(estremo, (estremo[0] - 0.04, 0.66, estremo[2] * 1.02), 0.027, HALO)
+    # gli specchietti
+    for lato in (-1, 1):
+        m.scatola(0.38, 0.46, 0.68, 0.76, *sorted((lato * 0.44, lato * 0.58)), SECONDA)
+        m.trave((0.42, 0.64, lato * 0.28), (0.42, 0.71, lato * 0.45), 0.012, CARBONIO)
+
+    # le pance: strette, squadrate, con lo spigolo in alto che scende dietro
+    for lato in (-1, 1):
+        def pancia(x, zi, zo, y0, y1):
+            sez = [(y0 + 0.06, zi), (y0, zi + (zo - zi) * 0.5), (y0 + 0.04, zo),
+                   (y1 - 0.10, zo), (y1, zo - 0.10), (y1, zi)]
+            return (x, [(y, lato * z) for y, z in sez])
+        sezioni = [pancia(0.80, 0.27, 0.50, 0.26, 0.48), pancia(0.50, 0.28, 0.64, 0.16, 0.52),
+                   pancia(0.00, 0.28, 0.66, 0.15, 0.50), pancia(-0.55, 0.26, 0.58, 0.15, 0.42),
+                   pancia(-1.05, 0.22, 0.42, 0.15, 0.33), pancia(-1.35, 0.18, 0.26, 0.15, 0.25)]
+        m.loft(sezioni, SECONDA, CARBONIO, None)
+
+    # il fondo piatto
+    fondo = [(1.20, 0.34), (0.90, 0.62), (-1.10, 0.66), (-1.40, 0.50), (-2.10, 0.46)]
+    for (xa, wa), (xb, wb) in zip(fondo, fondo[1:]):
+        m.quad((xa, 0.035, -wa), (xa, 0.035, wa), (xb, 0.035, wb), (xb, 0.035, -wb),
+               CARBONIO, ((xa + xb) / 2, 1.0, 0.0))
+        m.quad((xa, 0.06, -wa), (xa, 0.06, wa), (xb, 0.06, wb), (xb, 0.06, -wb),
+               CARBONIO, ((xa + xb) / 2, -1.0, 0.0))
+    m.quad((-1.60, 0.06, -0.44), (-1.60, 0.06, 0.44), (-2.20, 0.22, 0.44),
+           (-2.20, 0.22, -0.44), CARBONIO, (-1.9, 0.0, 0.0))
+
+    # l'ala anteriore: larga quanto la macchina, davanti alle ruote, col bordo
+    # che rientra verso i lati; sopra, un secondo profilo corto
+    m.scatola(2.24, 2.60, 0.05, 0.08, -0.30, 0.30, LIVREA)
+    for lato in (-1, 1):
+        a, b = sorted((lato * 0.30, lato * 0.84))
+        m.scatola(2.14, 2.50, 0.05, 0.08, a, b, LIVREA)
+        a, b = sorted((lato * 0.34, lato * 0.80))
+        m.scatola(2.16, 2.34, 0.12, 0.145, a, b, SECONDA)
+        m.piastra([(2.06, 0.04), (2.52, 0.04), (2.52, 0.10), (2.30, 0.24), (2.06, 0.24)],
+                  0.02, LIVREA, lato * 0.845)
+    for lato in (-1, 1):
+        m.trave((2.42, 0.08, lato * 0.08), (2.42, 0.16, lato * 0.07), 0.012, CARBONIO)
+
+    # dietro: le carenature che coprono le ruote posteriori da dietro, e l'ala
+    # bassa che le unisce, con il supporto al centro
+    larga_post = 0.30
+    for lato in (-1, 1):
+        zc = lato * CARREGGIATA_FE / 2
+        m.piastra([(-1.84, 0.06), (-2.28, 0.06), (-2.30, 0.44), (-2.12, 0.66), (-1.76, 0.66),
+                   (-1.86, 0.48)], larga_post + 0.04, LIVREA, zc)
+    m.scatola(-2.32, -2.06, 0.66, 0.70, -0.86, 0.86, LIVREA)
+    m.scatola(-2.38, -2.26, 0.73, 0.76, -0.72, 0.72, SECONDA)
+    m.trave((-2.10, 0.38, 0.0), (-2.20, 0.68, 0.0), 0.03, CARBONIO)
+    m.scatola(-2.28, -2.24, 0.30, 0.36, -0.05, 0.05, SECONDA)
+
+    # le ruote, piu' piccole e con la spalla alta, e le sospensioni
+    raggi = (RAGGIO_RUOTA_FE, RAGGIO_CERCHIO_FE)
+    for x, larga, attacco_y in ((fronte, 0.26, (0.28, 0.42)), (retro, larga_post, (0.25, 0.40))):
+        for lato in (-1, 1):
+            zc = lato * CARREGGIATA_FE / 2
+            z0, z1 = zc - larga / 2, zc + larga / 2
+            m.ruota(x, RAGGIO_RUOTA_FE, z0, z1, lato, GOMMA, CERCHIO, raggi=raggi)
+            interno = zc - lato * larga / 2
+            corpo = 0.21 if x > 0 else 0.19
+            for y in attacco_y:
+                m.trave((x + 0.28, y - 0.05, lato * corpo), (x, y, interno), 0.016, CARBONIO)
+                m.trave((x - 0.26, y - 0.05, lato * corpo), (x, y, interno), 0.016, CARBONIO)
+            m.trave((x + 0.05, 0.46 if x > 0 else 0.42, lato * corpo), (x, 0.26, interno),
+                    0.013, CARBONIO)
+    return m.vertici()
+
+
+_MESH_FE = [None]
+
+
+def mesh_fe() -> array:
+    """La Gen3 di Formula E, costruita una volta sola."""
+    if _MESH_FE[0] is None:
+        _MESH_FE[0] = costruisci_fe()
+    return _MESH_FE[0]

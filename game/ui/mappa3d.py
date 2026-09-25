@@ -223,8 +223,12 @@ class Mappa3D:
             self.segui_id = None
             self.build()
         try:
-            if self.v3d is None or self.v3d.geo.track is not self.track:
-                self.v3d = vista3d.Vista3D(self.track)
+            tipo = "fe" if self._elettrico_3d() else "f1"
+            if (self.v3d is None or self.v3d.geo.track is not self.track
+                    or getattr(self.v3d, "tipo", "f1") != tipo):
+                if self.v3d is not None:
+                    self.v3d.rilascia()
+                self.v3d = vista3d.Vista3D(self.track, tipo)
                 # le livree si dipingono una volta per weekend, con gli
                 # sponsor che le squadre hanno adesso
                 tele, self._indice_livree = self._livree_3d()

@@ -79,7 +79,10 @@ fascia del colore della mescola montata. Ogni squadra ha la sua livrea
 (`game/ui/livree.py`), ripresa dalla macchina vera - anche in Formula E, dove le undici
 squadre hanno i loro colori e i loro marchi (TAG Heuer sulla Porsche, TCS sulla Jaguar,
 Mahindra, Lola Yamaha ABT, Envision, Andretti...) e i pallini sulla mappa prendono il
-colore della livrea - con sopra le scritte degli sponsor che
+colore della livrea, e con la forma della Gen3 Evo: piu' corta, stretta e bassa (cinque
+metri, un metro e settanta, passo 2,97), il muso piatto con l'ala larga davanti alle ruote,
+niente presa d'aria sopra la testa, le pance squadrate, le carenature dietro le ruote
+posteriori unite dall'ala bassa, le ruote piccole con la spalla alta - con sopra le scritte degli sponsor che
 ha sotto contratto in quel momento: il title sul cofano e sull'ala posteriore, i partner
 sulle pance e sul muso, i secondari sull'ala anteriore. Se si firma con un marchio nuovo, dal
 weekend dopo la macchina lo porta. La ripresa si avvicina fino a otto metri.
@@ -2457,7 +2460,8 @@ game/sim/            weekend (motore gara), session (prove, qualifica, griglia),
 game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
                      pista3d e vista3d (il circuito in 3D), mappa3d (la mappa
                      3D delle scene di gara), regia (le telecamere della TV e
-                     i replay), monoposto e livree (le macchine in 3D),
+                     i replay), monoposto e livree (le macchine in 3D: la
+                     Formula 1 2026 e la Gen3 della Formula E),
                      sintesi e audio (il suono: i motori, i fondi, la musica),
                      dintorni (i dintorni da OSM),
                      fx (luci, ombre, semaforo, bandiera, coriandoli, passaggi)

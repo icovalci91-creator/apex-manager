@@ -667,7 +667,8 @@ ISTANZA = 17                # float per macchina: posizione, direzione, colori, 
 class Vista3D:
     """Una pista caricata sulla scheda video, pronta da disegnare."""
 
-    def __init__(self, track):
+    def __init__(self, track, tipo: str = "f1"):
+        """`tipo`: "f1" per le monoposto di Formula 1, "fe" per la Gen3."""
         if not disponibile():
             raise RuntimeError("OpenGL non disponibile")
         ctx = self.ctx = _CTX
@@ -691,7 +692,9 @@ class Vista3D:
         self.p_auto = ctx.program(vertex_shader=_VS_AUTO, fragment_shader=_FS_AUTO)
         self.p_ombra_auto = ctx.program(vertex_shader=_VS_OMBRA_AUTO,
                                         fragment_shader=_FS_OMBRA_AUTO)
-        self.vbo_auto = ctx.buffer(monoposto.mesh().tobytes())
+        self.tipo = tipo
+        forma = monoposto.mesh_fe() if tipo == "fe" else monoposto.mesh()
+        self.vbo_auto = ctx.buffer(forma.tobytes())
         self.vbo_istanze = ctx.buffer(reserve=ISTANZE_MAX * ISTANZA * 4, dynamic=True)
         istanze = (self.vbo_istanze, "3f 3f 3f 3f 1f 3f 1f/i", "i_pos", "i_fwd", "i_col",
                    "i_col2", "i_stile", "i_gomma", "i_livrea")
