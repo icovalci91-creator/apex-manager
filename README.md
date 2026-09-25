@@ -104,6 +104,26 @@ e' acceso) e il distacco dal primo, o BOX.
 
 I pulsanti in alto a sinistra sulla mappa sono quattro: **2D**, **PLASTICO**, **3D** e **TV**.
 
+### La schermata di gara
+
+La mappa prende tutto lo schermo fra la testata e i pannelli delle nostre macchine, e sopra
+ci stanno le grafiche della televisione (`game/ui/grafica_gara.py`, uguali in Formula 1 e in
+Formula E):
+
+- **il tabellone** a sinistra, stretto come quello della F1 in TV: la testata con la striscia
+  rossa e il giro (in Formula E il tempo che manca), i primi tre nel riquadro bianco, il colore
+  della squadra, la sigla, le pastiglie per chi ha qualcosa in corso (OVR, CLIP, penalita',
+  ATTACK), il quadratino viola del giro veloce e, a destra, la gomma montata (in Formula E la
+  batteria). Il numero e' l'**intervallo** da chi sta davanti; un clic sulla testata lo passa
+  al **distacco** dal primo e alle **gomme** (in Formula E all'**energia**). Le nostre righe
+  sono accese nel colore della squadra, e un clic su una riga fa seguire quella macchina;
+- **la cronaca** in una riga sola in fondo alla mappa: l'ultimo fatto, che entra da sinistra
+  con l'etichetta del suo colore (SORPASSO, BOX, SAFETY CAR, PENALITA'...);
+- **i pannelli** delle nostre due macchine: il blocco inclinato della posizione nel colore della
+  squadra, il cognome in grande, il tachimetro ad arco, la gomma con la sua vita e la benzina a
+  tacche, i parziali in pastiglie colorate (viola, verde, giallo), la batteria a tacche con lo
+  stato (CLIPPING, OVERRIDE...), e sotto i comandi di sempre.
+
 ### La regia televisiva
 
 Il terzo pulsante, **TV**, passa la mappa al regista (`game/ui/regia.py`): la gara come la
@@ -2480,6 +2500,7 @@ game/ui/             app, theme, widgets, trackdraw, scenes/, pages/,
                      i replay), monoposto e livree (le macchine in 3D: la
                      Formula 1 2026 e la Gen3 della Formula E),
                      sintesi e audio (il suono: i motori, i fondi, la musica),
+                     grafica_gara (tabellone, cronaca e pannelli in stile TV),
                      dintorni (i dintorni da OSM),
                      fx (luci, ombre, semaforo, bandiera, coriandoli, passaggi)
 data/                database JSON (regulations.json, formulae.json e wec.json

@@ -12,6 +12,7 @@ from ...sim.weekend import Weather
 from ...sim import pace as PACE
 from ...sim import benzina
 from ...sim import muretto as MU
+from .. import grafica_gara as GG
 from .. import theme as T
 from .. import bandiere, fx, trackdraw
 from ..app import Scene
@@ -239,7 +240,9 @@ class WeekendScene(Mappa3D, Scene):
             # sopra alla gara, non una finestra da cui sfuggono i click
             self._build_piano(w, h)
             return
-        self._comandi_vista(self._race_rects(w, h)[0])
+        mappa, _riga, torre = self._race_rects(w, h)
+        self._comandi_vista(pygame.Rect(torre.right + 4, mappa.y, mappa.right - torre.right - 4,
+                                        mappa.h))
         # i comandi dell'energia stanno dentro al pannello della vettura, che
         # e' dove si guardano i megajoule: non in fondo insieme a tutto il resto
         from ...sim import energia as EN
@@ -1259,35 +1262,30 @@ class WeekendScene(Mappa3D, Scene):
     ALTEZZA_DUE_RIGHE = 700
     CRONACA_H = 62
 
-    def _race_rects(self, w: int, h: int) -> tuple:
-        """Dove stanno la mappa e la cronaca durante la gara.
+    TORRE_W = 270
 
-        La mappa si prende tutta l'altezza fino alla barra dei comandi, e la
-        cronaca le sta di fianco invece che sotto: un circuito e' quasi
-        quadrato, e un pannello largo e schiacciato lo disegnava in un angolo.
-        Su una finestra stretta la colonna non ci sta e la cronaca torna una
-        striscia sotto, che e' meglio di due pannelli inservibili.
+    def _race_rects(self, w: int, h: int) -> tuple:
+        """Dove stanno la mappa, la cronaca e il tabellone durante la gara.
+
+        La mappa si prende tutto lo schermo fra la testata e i pannelli delle
+        nostre macchine; il tabellone le sta sopra a sinistra, come in
+        televisione, e la cronaca e' una riga sola in fondo alla mappa.
         """
-        tower_w = max(336, min(460, int(w * 0.30)))
         barra_y = h - 84 - self.barra_h(h)
-        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
-        cronaca_w = int(min(300, max(0, vista.w * 0.34)))
-        if cronaca_w >= 190:
-            return (pygame.Rect(vista.x, vista.y, vista.w - cronaca_w - 8, vista.h),
-                    pygame.Rect(vista.right - cronaca_w, vista.y, cronaca_w, vista.h))
-        alta = vista.h - self.CRONACA_H - 8
-        return (pygame.Rect(vista.x, vista.y, vista.w, alta),
-                pygame.Rect(vista.x, vista.y + alta + 8, vista.w, self.CRONACA_H))
+        mappa = pygame.Rect(12, 64, w - 24, barra_y - 72)
+        torre = pygame.Rect(mappa.x + 10, mappa.y + 10, self.TORRE_W, mappa.h - 20)
+        riga = pygame.Rect(torre.right + 14, mappa.bottom - 42,
+                           mappa.right - torre.right - 28, 32)
+        return mappa, riga, torre
 
     def _draw_race(self, surf) -> None:
         w, h = surf.get_size()
-        tower_w = max(336, min(460, int(w * 0.30)))
         self._race_header(surf, w)
         barra_y = h - 84 - self.barra_h(h)
-        mappa, cronaca = self._race_rects(w, h)
+        mappa, riga, torre = self._race_rects(w, h)
         self._race_map(surf, mappa)
-        self._race_events(surf, cronaca)
-        self._race_tower(surf, pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76))
+        self._race_tower(surf, torre)
+        self._race_events(surf, riga)
         self._race_bar(surf, pygame.Rect(20, barra_y, w - 40, self.barra_h(h)))
         if self.piano_aperto:
             self._draw_piano(surf)
@@ -1408,6 +1406,11 @@ class WeekendScene(Mappa3D, Scene):
         return self.piano_aperto
 
     def handle(self, ev) -> None:
+        if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.sim
+                and getattr(self, "_torre_testa", None) is not None
+                and self._torre_testa.collidepoint(ev.pos)):
+            self.cambia_torre()
+            return
         semaforo = getattr(self, "semaforo", None)
         if (semaforo is not None and semaforo.ferma and ev.type == pygame.MOUSEBUTTONDOWN
                 and self._race_rects(*self.app.screen.get_size())[0].collidepoint(ev.pos)):
@@ -1423,6 +1426,11 @@ class WeekendScene(Mappa3D, Scene):
     # ------------------------------------------------------------ la pista 2D
     def _race_map(self, surf, vista) -> None:
         sim, gs = self.sim, self.gs
+        # il tabellone sta sopra alla mappa, a sinistra: il circuito si
+        # inquadra nel resto, e le scritte della regia si spostano di la'
+        occupato = self.TORRE_W + 20
+        self._margine_sx = occupato
+        self._senza_aiuto = True
         if self._in_3d():
             auto = []
             for e in reversed(sim.order()):
@@ -1434,6 +1442,7 @@ class WeekendScene(Mappa3D, Scene):
             if self._mappa_3d(surf, vista, auto):
                 return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
+        vista = pygame.Rect(vista.x + occupato, vista.y, vista.w - occupato, vista.h - 44)
         if self.pts is None or self.pts_rect != tuple(vista):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
             self.pts_rect = tuple(vista)
@@ -1500,129 +1509,65 @@ class WeekendScene(Mappa3D, Scene):
             self._etichette.append((int(x2) + 3, int(y2) - 7))
             T.text(surf, lab, (int(x2) + 3, int(y2) - 7), 10, (110, 128, 156), bold=True)
 
-    def _race_events(self, surf, ev) -> None:
-        """La cronaca della gara. In colonna se c'e' spazio, a striscia se no.
-
-        Le righe che ci stanno le dice l'altezza del pannello: in colonna sono
-        una quindicina e la gara si legge come si legge un giornale, a striscia
-        tornano tre come prima.
-        """
-        T.panel(surf, ev, T.PANEL, radius=10, border=T.LINE)
-        cols = {"pass": T.OK, "team": T.ACCENT, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
-                "warn": T.WARN, "flag": T.WHITE, "pen": (255, 120, 90)}
-        colonna = ev.h > 120
-        y = ev.y + 8
-        if colonna:
-            T.text(surf, "CRONACA", (ev.x + 14, y), 11, T.DIM_2, bold=True)
-            y += 20
-        if not colonna:
-            for e in self.sim.events[:3]:
-                T.text(surf, f"g{e['lap']:>2}", (ev.x + 14, y), 12, T.DIM_2, mono=True)
-                T.text(surf, e["text"], (ev.x + 52, y), 13,
-                       cols.get(e["kind"], T.TEXT), maxw=ev.w - 74)
-                y += 18
-            return
-        # in colonna la frase va a capo invece di essere tagliata dai puntini:
-        # una cronaca che finisce con "..." non e' una cronaca
-        for e in self.sim.events:
-            if y + 16 > ev.bottom - 6:
-                break
-            T.text(surf, f"g{e['lap']:>2}", (ev.x + 14, y), 12, T.DIM_2, mono=True)
-            alto = T.paragraph(surf, e["text"], (ev.x + 46, y), 12,
-                               cols.get(e["kind"], T.TEXT), maxw=ev.w - 60)
-            y += max(18, alto) + 6
+    def _race_events(self, surf, riga) -> None:
+        """La cronaca: una riga sola in fondo alla mappa (vedi grafica_gara)."""
+        GG.riga_cronaca(surf, riga, self.sim.events, self)
 
     # -------------------------------------------------------- torre dei tempi
-    def _race_tower(self, surf, tower) -> None:
-        """Il tabellone, con le colonne al loro posto qualunque sia la finestra.
+    MODI_TORRE = ("INTERVALLO", "DISTACCO", "GOMME")
 
-        Da destra: distacco, ultimo giro, i tre parziali colorati, quanto le
-        resta alla gomma, da quanti giri e' su. Il nome per esteso compare solo
-        se ci sta davvero: in televisione bastano tre lettere.
-        """
+    def cambia_torre(self) -> None:
+        """Il tabellone gira fra intervallo, distacco dal primo e gomme."""
+        modi = self.MODI_TORRE
+        self.modo_torre = modi[(modi.index(getattr(self, "modo_torre", modi[0])) + 1)
+                               % len(modi)]
+
+    def _race_tower(self, surf, tower) -> None:
+        """Il tabellone come in televisione: la testata col giro, e sotto una
+        riga per macchina - posizione, colore della squadra, sigla, e a destra
+        l'intervallo da chi sta davanti (o il distacco dal primo, o le gomme:
+        si cambia con un clic sulla testata). Le nostre righe sono accese."""
         sim, gs = self.sim, self.gs
-        T.panel(surf, tower, T.PANEL, radius=10, border=T.LINE)
         order = sim.order()
-        x_gap = tower.right - 14
-        x_lap = tower.right - 76
-        x_pip = tower.right - 168
-        x_bar = tower.right - 206
-        x_age = tower.right - 210
-        x_dot = tower.right - 236
-        x_nome = tower.x + 92
-        largo_nome = x_dot - 24 - x_nome
-        T.text(surf, "POS  PILOTA", (tower.x + 16, tower.y + 12), 11, T.DIM_2, bold=True)
-        T.text(surf, "GOMMA", (x_dot - 10, tower.y + 12), 11, T.DIM_2, bold=True)
-        T.text(surf, "ULTIMO GIRO", (x_lap, tower.y + 12), 11, T.DIM_2, bold=True,
-               align="right")
-        T.text(surf, "DISTACCO", (x_gap, tower.y + 12), 11, T.DIM_2, bold=True,
-               align="right")
-        y = tower.y + 34
+        modo = getattr(self, "modo_torre", self.MODI_TORRE[0])
         leader = order[0] if order else None
-        rh = min(26.0, (tower.h - 46) / max(1, len(order)))
-        self._righe_torre = (tower, tower.y + 34, rh, [e.driver_id for e in order])
-        dim = 14 if rh >= 21 else (13 if rh >= 17 else 12)
-        pic = min(12, dim)
+        migliore = getattr(sim, "best_lap_by", "")
+        righe = []
         for i, e in enumerate(order, 1):
-            mio = (e.team_id == gs.player_team)
-            if mio:
-                T.panel(surf, (tower.x + 8, y - 1, tower.w - 16, rh - 1), T.PANEL_3, radius=5)
-            T.text(surf, str(i), (tower.x + 32, y), dim, T.DIM, align="right")
-            pygame.draw.rect(surf, e.colour, (tower.x + 42, y + 2, 3, max(9, int(rh) - 6)))
-            T.text(surf, e.code, (tower.x + 52, y), dim, T.TEXT if mio else T.DIM,
-                   bold=mio, mono=True)
-            # il posto accanto al codice: prima chi ha un conto aperto con i
-            # commissari, poi - se ci sta - il nome per esteso
+            fuori = e.status == "retired"
+            tag = None
             if e.under_review > 0:
-                T.text(surf, "INV", (x_nome, y + 1), 11, T.WARN, bold=True)
+                tag = ("INV", T.WARN)
             elif e.penalty_pending > 0:
-                T.text(surf, f"+{e.penalty_pending:.0f}s", (x_nome, y + 1), 11,
-                       (255, 120, 90), bold=True)
+                tag = (f"+{e.penalty_pending:.0f}s", (255, 120, 90))
             elif e.override_t > 0:
-                T.text(surf, "OVR", (x_nome, y + 1), 11, VIOLA, bold=True)
+                tag = ("OVR", VIOLA)
             elif e.scarica:
-                T.text(surf, "0 MJ", (x_nome, y + 1), 11, T.BAD, bold=True)
-            elif e.superclip:
-                T.text(surf, "SUP", (x_nome, y + 1), 11, T.ACCENT, bold=True)
+                tag = ("0 MJ", T.BAD)
             elif e.clipping:
-                T.text(surf, "CLIP", (x_nome, y + 1), 11, T.WARN, bold=True)
-            elif largo_nome >= 70:
-                T.text(surf, e.name, (x_nome, y), 13, T.TEXT if mio else T.DIM,
-                       maxw=largo_nome)
-            comp = C.COMPOUNDS[e.tyre]
-            pygame.draw.circle(surf, comp["colour"], (x_dot, int(y) + 8), 6)
-            pygame.draw.circle(surf, (12, 16, 24), (x_dot, int(y) + 8), 6, 1)
-            T.text(surf, f"{int(e.tyre_age)}", (x_age, y + 1), 11, T.DIM_2, align="right")
-            vita = e.vita_gomma()
-            T.bar(surf, (x_bar, y + 5, 30, 6), vita * 100, 100,
-                  T.OK if vita > 0.45 else (T.WARN if vita > 0.18 else T.BAD))
-            vista = sim.sector_view(e)
-            for k, (val, vivo) in enumerate(vista):
-                col = sim.sector_colour(e, k, val) if val > 0 else None
-                c = _SETT.get(col, (46, 58, 78))
-                if not vivo and col:
-                    c = T.mix(c, (18, 24, 34), 0.55)
-                pygame.draw.rect(surf, c, (x_pip + k * 10, int(y) + 5, 7, 7))
-            if e.sectors[2] > 0 and e.status != "retired":
-                giro = sum(e.sectors)
-                col = VIOLA if abs(giro - sim.best_lap) < 0.002 else (
-                    T.OK if abs(giro - e.best_lap) < 0.002 else T.DIM)
-                T.text(surf, T.fmt_time(giro), (x_lap, y), pic, col, mono=True,
-                       align="right")
-            if e.status == "retired":
-                T.text(surf, "RIT", (x_gap, y), pic, T.BAD, align="right")
+                tag = ("CLIP", T.WARN)
+            if fuori:
+                valore = ("RIT", T.BAD)
             elif e.status == "pitting":
-                T.text(surf, "BOX", (x_gap, y), pic, T.ACCENT, align="right", bold=True)
+                valore = ("BOX", T.ACCENT)
+            elif modo == "GOMME":
+                valore = (f"{int(e.tyre_age)} giri", (200, 206, 218))
             elif i == 1:
-                T.text(surf, "leader", (x_gap, y), pic, T.GOLD, align="right")
-            elif leader:
-                gap_m = leader.dist - e.dist
-                gap_s = gap_m / max(20.0, sim.track_len / max(30.0, e.last_lap))
-                giri = int(gap_m // sim.track_len)
-                txt = (f"+{giri} giro" if giri == 1 else f"+{giri} giri") \
-                    if giri >= 1 else f"+{gap_s:.1f}"
-                T.text(surf, txt, (x_gap, y), pic, T.DIM, align="right", mono=True)
-            y += rh
+                valore = ("LEADER" if modo == "INTERVALLO" else "PRIMO", (200, 206, 218))
+            else:
+                rif = leader if modo == "DISTACCO" else order[i - 2]
+                valore = (GG.distacco(rif.dist - e.dist, sim.track_len,
+                                      max(20.0, sim.track_len / max(30.0, e.last_lap))),
+                          T.WHITE)
+            righe.append({"code": e.code, "colour": e.colour, "fuori": fuori, "tag": tag,
+                          "mio": e.team_id == gs.player_team,
+                          "viola": e.code == migliore and not fuori, "valore": valore,
+                          "icona": ("gomma", C.COMPOUNDS[e.tyre]["colour"],
+                                    e.tyre[:1].upper())})
+        giro = min(sim.leader_lap + 1, sim.laps)
+        self._torre_testa, y0, rh = GG.torre(surf, tower, ("GIRO", f"{giro}", f"/{sim.laps}"),
+                                             modo, righe)
+        self._righe_torre = (tower, y0, rh, [e.driver_id for e in order])
 
     # ------------------------------------------------- la barra delle due auto
     def _draw_piano(self, surf) -> None:
@@ -1702,114 +1647,117 @@ class WeekendScene(Mappa3D, Scene):
             self._pannello_vettura(surf, r, e)
 
     def _pannello_vettura(self, surf, r, e) -> None:
+        """Il pannello di una nostra macchina, come una grafica di gara.
+
+        In alto il blocco della posizione nel colore della squadra, il nome in
+        grande e il tachimetro; sotto gomma, benzina, i tempi con i parziali
+        colorati e la batteria, a segmenti. I comandi stanno sotto, al loro
+        posto: li mette build()."""
         sim = self.sim
-        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
-        pygame.draw.rect(surf, e.colour, (r.x, r.y + 8, 4, r.h - 16))
+        colore = tuple(e.colour[:3])
+        GG.fondo_pannello(surf, r, colore)
         stretto = r.w < 430
-        # ---- riga uno: chi e', dov'e', a quanto va
-        T.text(surf, f"P{e.position}", (r.x + 16, r.y + 8), 15, T.GOLD, bold=True)
-        T.text(surf, e.name, (r.x + 54, r.y + 8), 16, T.TEXT, bold=True, maxw=150)
-        stato = {"pitting": "AI BOX", "retired": "RITIRATO"}.get(e.status, "")
+        # ---- riga uno: la posizione, il nome, il tachimetro
+        pos = f"P{e.position}"
+        GG.parallelogramma(surf, pygame.Rect(r.x + 12, r.y + 8, 58, 28), colore)
+        T.text(surf, pos, (r.x + 41, r.y + 11), 20, T.WHITE, bold=True, align="center")
+        parti = e.name.split()
+        cognome = GG.cognome(e.name)
+        T.text(surf, cognome, (r.x + 80, r.y + 7), 19, T.WHITE, bold=True, maxw=170)
+        larga_c = min(170, T.width(cognome, 19, bold=True))
+        squadra = self.gs.teams.get(e.team_id)
+        T.text(surf, (parti[0] + "  -  " if len(parti) > 1 else "")
+               + (squadra.short.upper() if squadra else ""),
+               (r.x + 80, r.y + 29), 10, (170, 178, 194), bold=True)
+        stato = {"pitting": ("AI BOX", T.ACCENT), "retired": ("RITIRATO", T.BAD)}.get(e.status)
+        tx = r.x + 92 + larga_c
         if stato:
-            T.text(surf, stato, (r.x + 210, r.y + 10), 12,
-                   T.ACCENT if e.status == "pitting" else T.BAD, bold=True)
+            GG.pastiglia(surf, tx, r.y + 11, stato[0], stato[1])
         elif not stretto:
-            T.text(surf, _ZONA.get(sim.zone_of(e), ""), (r.x + 210, r.y + 10), 12, T.DIM_2)
+            T.text(surf, _ZONA.get(sim.zone_of(e), "").upper(), (tx, r.y + 13), 10,
+                   (150, 160, 178), bold=True)
         if e.damage > 6:
-            # i danni stanno in alto accanto al tachimetro: in fondo, su una
-            # finestra stretta, finivano sopra al giro migliore
-            T.text(surf, f"DANNI {e.damage:.0f}%", (r.right - 104, r.y + 10), 12, T.BAD,
-                   bold=True, align="right")
+            GG.pastiglia(surf, r.right - 176, r.y + 11, f"DANNI {e.damage:.0f}%", T.BAD)
         v = sim.speed_of(e)
-        T.text(surf, f"{v:.0f}", (r.right - 46, r.y + 4), 24, T.TEXT, bold=True,
-               mono=True, align="right")
-        T.text(surf, "km/h", (r.right - 14, r.y + 14), 11, T.DIM_2, align="right")
-        # ---- riga due: gomme e benzina
-        y = r.y + 36
+        GG.arco(surf, (r.right - 140, r.y + 22), 13, min(1.0, v / 350.0), colore)
+        T.text(surf, f"{v:.0f}", (r.right - 42, r.y + 4), 26, T.WHITE, bold=True, mono=True,
+               align="right")
+        T.text(surf, "KM/H", (r.right - 12, r.y + 16), 10, (150, 160, 178), bold=True,
+               align="right")
+        # ---- riga due: gomma e benzina
+        y = r.y + 40
         comp = C.COMPOUNDS[e.tyre]
-        pygame.draw.circle(surf, comp["colour"], (r.x + 22, y + 7), 7)
-        pygame.draw.circle(surf, (12, 16, 24), (r.x + 22, y + 7), 7, 1)
+        GG.gomma(surf, (r.x + 24, y + 7), 8, comp["colour"], e.tyre[:1].upper())
         eta = int(e.tyre_age)
-        T.text(surf, f"{comp['label'].upper()}  {eta} {'giro' if eta == 1 else 'giri'}",
-               (r.x + 36, y), 12, T.DIM)
-        # la barra dice quanta vita resta alla gomma, non quanto rende: il
-        # rendimento dentro allo stint scende di pochi centesimi e la barra
-        # sarebbe rimasta piena fino alla fine, che e' l'informazione sbagliata
+        T.text(surf, f"{comp['label'].upper()}  {eta} {'GIRO' if eta == 1 else 'GIRI'}",
+               (r.x + 38, y + 1), 11, (215, 222, 234), bold=True)
         vita = e.vita_gomma()
-        T.bar(surf, (r.x + 150, y + 4, 74, 7), vita * 100, 100,
-              T.OK if vita > 0.45 else (T.WARN if vita > 0.18 else T.BAD))
+        GG.segmenti(surf, pygame.Rect(r.x + 150, y + 3, 78, 9), vita,
+                  T.OK if vita > 0.45 else (T.WARN if vita > 0.18 else T.BAD), 10)
         giri_b = e.fuel / max(0.01, sim.burn_per_lap)
         restano = sim.laps - e.lap
         if getattr(sim, "senza_benzina", False):
             T.text(surf, "SENZA BENZINA: tutto quello che c'e' e' in batteria",
                    (r.x + 240, y), 12, T.DIM_2, maxw=r.w - 260)
-            giri_b = restano + 1     # cosi' nessuna spia si accende per niente
         else:
-            T.text(surf, "BENZINA", (r.x + 240, y + 1), 11, T.DIM_2, bold=True)
-            T.bar(surf, (r.x + 300, y + 4, 70, 7),
-                  min(100.0, giri_b / max(1, restano) * 100), 100,
-                  T.OK if giri_b >= restano else T.BAD)
-            T.text(surf, f"{e.fuel:.0f} kg", (r.x + 380, y), 12,
-                   T.DIM if giri_b >= restano else T.BAD)
+            T.text(surf, "BENZINA", (r.x + 240, y + 1), 10, (150, 160, 178), bold=True)
+            GG.segmenti(surf, pygame.Rect(r.x + 296, y + 3, 72, 9),
+                      min(1.0, giri_b / max(1, restano)), T.OK if giri_b >= restano else T.BAD, 10)
+            T.text(surf, f"{e.fuel:.0f} kg", (r.x + 376, y), 12,
+                   T.DIM if giri_b >= restano else T.BAD, mono=True)
             if r.w >= 520:
-                # il numero che guarda davvero il muretto non e' quanta ne
-                # resta: e' di quanti giri si e' avanti o indietro sul bisogno.
-                # Sotto zero si deve alzare il piede, sopra c'e' da spendere
                 marg = benzina.margine_giri(sim, e)
                 col = T.OK if marg > 0.4 else (T.WARN if marg > -0.2 else T.BAD)
                 T.text(surf, f"{marg:+.1f} giri", (r.right - 14, y), 12, col,
                        mono=True, align="right")
                 if e.push_mode < 0.995:
-                    T.text(surf, "RISPARMIO", (r.right - 74, y + 1), 11, T.WARN,
-                           bold=True, align="right")
+                    GG.pastiglia(surf, r.right - 150, y - 1, "RISPARMIO", T.WARN)
                 elif e.push_mode > 1.005:
-                    T.text(surf, "SPINGE", (r.right - 74, y + 1), 11, T.OK,
-                           bold=True, align="right")
-        # ---- riga tre: tempi e distacchi
-        y = r.y + 56
+                    GG.pastiglia(surf, r.right - 150, y - 1, "SPINGE", T.OK)
+        # ---- riga tre: il giro, i parziali, il migliore
+        y = r.y + 60
         giro = sum(e.sectors) if e.sectors[2] > 0 else 0.0
-        T.text(surf, "GIRO", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
-        T.text(surf, T.fmt_time(giro) if giro else "--:--.---", (r.x + 56, y), 13,
-               T.TEXT, mono=True)
-        sx = r.x + 140
+        T.text(surf, "GIRO", (r.x + 16, y + 2), 10, (150, 160, 178), bold=True)
+        T.text(surf, T.fmt_time(giro) if giro else "--:--.---", (r.x + 50, y), 13,
+               T.WHITE, mono=True, bold=True)
+        sx = r.x + 136
         for k, (val, vivo) in enumerate(sim.sector_view(e)):
             col = sim.sector_colour(e, k, val) if val > 0 else None
-            c = _SETT.get(col, T.DIM_2)
+            c = _SETT.get(col, (58, 64, 80))
             if not vivo and col:
-                c = T.mix(c, T.PANEL, 0.55)
-            T.text(surf, f"{val:.3f}" if val > 0 else "--.---",
-                   (sx + k * 62, y + 1), 11, c, mono=True)
-        T.text(surf, "MIGLIORE", (r.x + 330, y + 2), 11, T.DIM_2, bold=True)
+                c = T.mix(c, (30, 34, 44), 0.5)
+            pygame.draw.rect(surf, c, (sx + k * 62, y, 58, 17), border_radius=4)
+            T.text(surf, f"{val:.3f}" if val > 0 else "--.---", (sx + k * 62 + 29, y + 2), 11,
+                   (12, 14, 20) if col else (190, 196, 208), mono=True, bold=True,
+                   align="center")
+        T.text(surf, "MIGLIORE", (r.x + 330, y + 2), 10, (150, 160, 178), bold=True)
         T.text(surf, T.fmt_time(e.best_lap) if e.best_lap < 900 else "--:--.---",
                (r.x + 392, y), 13,
-               VIOLA if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002 else T.TEXT,
-               mono=True)
-
-        # ---- riga quattro: l'energia, che e' meta' della macchina
-        y = r.y + 80
+               VIOLA if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002 else T.WHITE,
+               mono=True, bold=True)
+        # ---- riga quattro: la batteria e il motore
+        y = r.y + 82
         piena = getattr(sim, "batteria_max", 4.0)
         quota = e.carica / max(0.1, piena)
         col = T.OK if quota > 0.55 else (T.WARN if quota > 0.25 else T.BAD)
-        T.text(surf, "BATTERIA", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
-        T.bar(surf, (r.x + 78, y + 4, 86, 9), quota * 100, 100, col)
-        T.text(surf, f"{e.carica:.1f} MJ", (r.x + 172, y), 12, col, mono=True)
+        T.text(surf, "BATTERIA", (r.x + 16, y + 1), 10, (150, 160, 178), bold=True)
+        GG.segmenti(surf, pygame.Rect(r.x + 76, y + 1, 96, 11), quota, col, 12)
+        T.text(surf, f"{e.carica:.1f} MJ", (r.x + 180, y - 1), 12, col, mono=True, bold=True)
         if e.scarica:
-            T.text(surf, "BATTERIA A TERRA", (r.x + 232, y + 1), 11, T.BAD, bold=True)
+            GG.pastiglia(surf, r.x + 240, y - 2, "BATTERIA A TERRA", T.BAD)
         elif e.clipping:
-            T.text(surf, "CLIPPING", (r.x + 232, y + 1), 11, T.BAD, bold=True)
+            GG.pastiglia(surf, r.x + 240, y - 2, "CLIPPING", T.BAD)
         elif e.override_t > 0:
-            T.text(surf, "OVERRIDE", (r.x + 232, y + 1), 11, VIOLA, bold=True)
+            GG.pastiglia(surf, r.x + 240, y - 2, "OVERRIDE", VIOLA)
         elif e.superclip:
-            T.text(surf, "SUPERCLIPPING", (r.x + 232, y + 1), 11, T.ACCENT)
+            GG.pastiglia(surf, r.x + 240, y - 2, "SUPERCLIPPING", T.ACCENT)
         elif e.lift_coast:
-            T.text(surf, "LIFT & COAST", (r.x + 232, y + 1), 11, T.ACCENT)
-        # e in fondo alla stessa riga quanto si sta tirando il motore: sotto
-        # c'e' la riga dei comandi, la mappatura la si sceglie guardando qui
+            GG.pastiglia(surf, r.x + 240, y - 2, "LIFT & COAST", T.ACCENT)
         usura = min(1.0, e.motore_usura)
         cu = T.OK if usura < 0.35 else (T.WARN if usura < 0.65 else T.BAD)
-        T.text(surf, "MOTORE", (r.right - 152, y + 2), 11, T.DIM_2, bold=True)
-        T.bar(surf, (r.right - 100, y + 4, 44, 9), usura * 100, 100, cu)
-        T.text(surf, f"{usura * 100:.0f}%", (r.right - 14, y), 12, cu, mono=True,
+        T.text(surf, "MOTORE", (r.right - 152, y + 1), 10, (150, 160, 178), bold=True)
+        GG.segmenti(surf, pygame.Rect(r.right - 100, y + 1, 48, 11), usura, cu, 6)
+        T.text(surf, f"{usura * 100:.0f}%", (r.right - 14, y - 1), 12, cu, mono=True,
                align="right")
         # ---- riga cinque: cosa gli e' stato chiesto, e se c'e' uno scambio
         # in aria. I pulsanti li mette build(), qui va quello che raccontano
@@ -2140,3 +2088,4 @@ def _orologio(secondi: float) -> str:
     """Il tempo che resta, come lo scrive il tabellone: minuti e secondi."""
     m, sec = divmod(max(0.0, secondi), 60.0)
     return f"{int(m)}:{int(sec):02d}"
+

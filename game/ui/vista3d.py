@@ -775,6 +775,7 @@ class Vista3D:
             (self.vbo_istanze, "3f 3f 44x/i", "i_pos", "i_fwd")])
         self.auto = []
         self.scala_auto = 1.0
+        self.spostamento = 0.0
         self.tex_livree = None
         # senza livree (l'E-Prix) il campionatore deve comunque puntare a una
         # tela del suo tipo: se resta sull'unita' delle ombre la scheda video
@@ -908,6 +909,8 @@ class Vista3D:
             occhio, bersaglio, vicino, lontano, fov, fuoco = ripresa
             regia = True
         proj = _prospettiva(fov, aspetto, vicino, lontano)
+        # il centro dell'immagine spostato a destra, se a sinistra c'e' qualcosa sopra
+        proj[8] = -self.spostamento
         # la y si ribalta qui: OpenGL scrive le righe dal fondo, pygame le
         # legge dall'alto, e cosi' l'immagine esce gia' dritta
         mvp = _per(proj, _guarda(occhio, bersaglio))

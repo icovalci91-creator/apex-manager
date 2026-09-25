@@ -242,6 +242,9 @@ class Mappa3D:
                 self.v3d.carica_livree(tele)
                 self.regista = None
             self.v3d.plastico = self._modo_vista() == "plastico"
+            # quello che sta sopra alla mappa a sinistra (il tabellone) sposta
+            # il centro dell'inquadratura nel resto
+            self.v3d.spostamento = getattr(self, "_margine_sx", 0) / max(1, vista.w)
             meteo = self._meteo_3d()
             self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
             self.v3d.bagnato = getattr(meteo, "wet", 0.0)
@@ -369,13 +372,27 @@ class Mappa3D:
         aiuto = ("trascina: gira attorno  -  rotella: zoom" if self.segui_id else
                  "clic su un pallino o sul tabellone: segui  -  trascina: gira  -  "
                  "destro: sposta  -  rotella: zoom")
-        T.text(surf, aiuto, (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240),
-               align="right")
+        if not getattr(self, "_senza_aiuto", False):
+            T.text(surf, aiuto, (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240),
+                   align="right")
         if self.v3d.geo.fonte:
             # la licenza dei dati chiede di dire da dove vengono, e sulla mappa
             T.text(surf, "Mappa: (c) OpenStreetMap contributors",
                    (vista.x + 12, vista.bottom - 22), 11, (225, 230, 240))
         return True
+
+    def _clic_torre(self, ev) -> bool:
+        """Un clic su una riga del tabellone: si segue quella macchina. Il
+        tabellone puo' stare sopra alla mappa, quindi viene prima di lei."""
+        if ev.type != pygame.MOUSEBUTTONDOWN or ev.button != 1 or not self._righe_torre:
+            return False
+        torre, y0, rh, ids = self._righe_torre
+        if torre.collidepoint(ev.pos) and ev.pos[1] >= y0:
+            i = int((ev.pos[1] - y0) // rh)
+            if 0 <= i < len(ids):
+                self.segui(ids[i])
+                return True
+        return False
 
     def _mano_3d(self, ev) -> bool:
         """Il mouse sulla vista 3D: girarla, spostarla, avvicinarsi."""
@@ -383,6 +400,8 @@ class Mappa3D:
             return False
         if self._mano_bloccata():
             return False
+        if self._clic_torre(ev):
+            return True
         if self._in_tv():
             return self._mano_tv(ev)
         cam = self.v3d.elicottero
@@ -490,8 +509,9 @@ class Mappa3D:
         if self._stacco < 0.5:
             self._stinger(surf, vista, self._stacco / 0.5)
         surf.set_clip(prima)
-        T.text(surf, "clic su una macchina o sul tabellone: la regia la segue",
-               (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
+        if not getattr(self, "_senza_aiuto", False):
+            T.text(surf, "clic su una macchina o sul tabellone: la regia la segue",
+                   (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
 
     def _terzo_basso(self, surf, vista, d, per_id) -> None:
         """In basso a sinistra: posizione, colore della squadra, sigla. Se
@@ -500,7 +520,8 @@ class Mappa3D:
         if a is None:
             return
         info = self.regista.info.get(d["chi"], {})
-        x, y = vista.x + 14, vista.bottom - 70
+        x = vista.x + 14 + getattr(self, "_margine_sx", 0)
+        y = vista.bottom - 70 - (46 if getattr(self, "_senza_aiuto", False) else 0)
         riga = [(info.get("pos"), a)]
         for c in d["altri"]:
             b = per_id.get(c)
@@ -750,7 +771,8 @@ class Mappa3D:
         e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
         if e is None:
             return None
-        return {"pos": getattr(e, "position", ""), "nome": e.name.split()[-1].upper(),
+        from .grafica_gara import cognome
+        return {"pos": getattr(e, "position", ""), "nome": cognome(e.name),
                 "dato": "", "colore": T.WHITE, "distacco": ""}
 
     def _scheda(self, surf, vista, chi, f: float, laterale: float, k: int) -> None:

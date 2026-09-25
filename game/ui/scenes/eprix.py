@@ -21,6 +21,7 @@ from ...core import formulae as FE
 from ...sim import eprix as EP
 from ...sim import muretto as MU
 from ...sim.weekend import Weather
+from .. import grafica_gara as GG
 from .. import theme as T
 from .. import bandiere, fx, trackdraw
 from ..app import Scene
@@ -42,7 +43,6 @@ class EPrixScene(Mappa3D, Scene):
     BARRA_H = 200
     BARRA_STRETTA = 168
     ALTEZZA_DUE_RIGHE = 700
-    CRONACA_W = 280
 
     def __init__(self, app, track, formato: str = "eprix"):
         super().__init__(app)
@@ -137,19 +137,27 @@ class EPrixScene(Mappa3D, Scene):
             self.widgets.append(b)
         for e, r in self._pannelli(w, h):
             self._comandi(e, r)
-        self._comandi_vista(self._rect_gara(w, h)[0])
+        mappa, _riga, torre = self._rect_gara(w, h)
+        self._comandi_vista(pygame.Rect(torre.right + 4, mappa.y, mappa.right - torre.right - 4,
+                                        mappa.h))
+
+    TORRE_W = 270
+    MODI_TORRE = ("INTERVALLO", "DISTACCO", "ENERGIA")
 
     def _rect_gara(self, w: int, h: int) -> tuple:
-        """Dove vanno la mappa, la cronaca (se c'e' posto) e il tabellone."""
+        """La mappa a tutto schermo, il tabellone sopra a sinistra come in
+        televisione, la cronaca in una riga in fondo alla mappa."""
         barra_y = h - 84 - self.barra_h(h)
-        tower_w = max(300, min(420, int(w * 0.28)))
-        vista = pygame.Rect(20, 68, w - tower_w - 48, barra_y - 76)
-        cronaca = int(min(self.CRONACA_W, max(0, vista.w * 0.34)))
-        torre = pygame.Rect(w - tower_w - 20, 68, tower_w, barra_y - 76)
-        if cronaca >= 180:
-            return (pygame.Rect(vista.x, vista.y, vista.w - cronaca - 8, vista.h),
-                    pygame.Rect(vista.right - cronaca, vista.y, cronaca, vista.h), torre)
-        return vista, None, torre
+        mappa = pygame.Rect(12, 64, w - 24, barra_y - 72)
+        torre = pygame.Rect(mappa.x + 10, mappa.y + 10, self.TORRE_W, mappa.h - 20)
+        riga = pygame.Rect(torre.right + 14, mappa.bottom - 42,
+                           mappa.right - torre.right - 28, 32)
+        return mappa, riga, torre
+
+    def cambia_torre(self) -> None:
+        modi = self.MODI_TORRE
+        self.modo_torre = modi[(modi.index(getattr(self, "modo_torre", modi[0])) + 1)
+                               % len(modi)]
 
     def due_righe(self, h: int = 0) -> bool:
         h = h or self.app.screen.get_size()[1]
@@ -660,11 +668,10 @@ class EPrixScene(Mappa3D, Scene):
     # ------------------------------------------------------------- la gara viva
     def _draw_gara(self, surf, w: int, h: int) -> None:
         self._header(surf, w)
-        mappa, cronaca, torre = self._rect_gara(w, h)
+        mappa, riga, torre = self._rect_gara(w, h)
         self._disegna_mappa(surf, mappa)
-        if cronaca is not None:
-            self._cronaca(surf, cronaca)
         self._torre(surf, torre)
+        GG.riga_cronaca(surf, riga, self.sim.events, self)
         for e, r in self._pannelli(w, h):
             self._pannello(surf, r, e)
 
@@ -704,6 +711,11 @@ class EPrixScene(Mappa3D, Scene):
         return (183, 96, 255) if e is not None and e.attack_attivo > 0 else None
 
     def handle(self, ev) -> None:
+        if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.sim is not None
+                and self.fase == "gara" and getattr(self, "_torre_testa", None) is not None
+                and self._torre_testa.collidepoint(ev.pos)):
+            self.cambia_torre()
+            return
         semaforo = getattr(self, "semaforo", None)
         if semaforo is not None and semaforo.ferma and ev.type == pygame.MOUSEBUTTONDOWN:
             w, h = self.app.screen.get_size()
@@ -718,6 +730,9 @@ class EPrixScene(Mappa3D, Scene):
 
     def _disegna_mappa(self, surf, vista) -> None:
         sim = self.sim
+        occupato = self.TORRE_W + 20
+        self._margine_sx = occupato
+        self._senza_aiuto = True
         vive = [e for e in sim.order() if e.status != "retired"]
         quote = {e.driver_id: self.track.pos_at(e.lap_fraction(sim.track_len)) for e in vive}
         if self._in_3d():
@@ -727,6 +742,7 @@ class EPrixScene(Mappa3D, Scene):
             if self._mappa_3d(surf, vista, auto):
                 return
         T.panel(surf, vista, (13, 17, 24), radius=10, border=T.LINE)
+        vista = pygame.Rect(vista.x + occupato, vista.y, vista.w - occupato, vista.h - 44)
         if self.pts is None or self.pts_rect != tuple(vista):
             self.pts = trackdraw.fit_points(self.track, vista.inflate(-30, -30))
             self.pts_rect = tuple(vista)
@@ -761,65 +777,45 @@ class EPrixScene(Mappa3D, Scene):
         self._etichette.append(r)
         return True
 
-    def _cronaca(self, surf, r) -> None:
-        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "CRONACA", (r.x + 14, r.y + 12), 11, T.DIM_2, bold=True)
-        cols = {"pass": T.OK, "dnf": T.BAD, "pit": T.ACCENT, "sc": T.GOLD,
-                "attack": (183, 96, 255), "warn": T.WARN, "flag": T.GOLD,
-                "pen": (255, 120, 90), "info": T.DIM}
-        y = r.y + 34
-        for ev in self.sim.events:
-            if y > r.bottom - 20:
-                break
-            c = cols.get(ev["kind"], T.DIM)
-            T.text(surf, f"g{ev['lap']}", (r.x + 14, y), 11, T.DIM_2, mono=True)
-            righe = T.wrap(ev["text"], 12, r.w - 62)
-            for k, riga in enumerate(righe[:2]):
-                T.text(surf, riga, (r.x + 48, y + k * 14), 12, c)
-            y += 14 * min(2, len(righe)) + 4
-
     def _torre(self, surf, r) -> None:
-        """Il tabellone. Le colonne sono quelle che contano qui: energia,
-        Attack Mode e Boost, non gomme e distacchi."""
+        """Il tabellone come in televisione. A destra la batteria di ognuno;
+        il numero e' l'intervallo, il distacco dal primo o l'energia (si
+        cambia con un clic sulla testata). L'Attack Mode acceso si vede."""
         sim = self.sim
-        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "POS  PILOTA", (r.x + 14, r.y + 12), 11, T.DIM_2, bold=True)
-        T.text(surf, "ENERGIA", (r.right - 118, r.y + 12), 11, T.DIM_2, bold=True)
-        T.text(surf, "AM", (r.right - 46, r.y + 12), 11, T.DIM_2, bold=True)
-        T.text(surf, "PB", (r.right - 20, r.y + 12), 11, T.DIM_2, bold=True,
-               align="right")
         ordine = sim.order()
-        y = r.y + 34
-        rh = min(24.0, (r.h - 46) / max(1, len(ordine)))
-        self._righe_torre = (r, y, rh, [e.driver_id for e in ordine])
-        dim = 13 if rh >= 20 else (12 if rh >= 15 else 11)
+        modo = getattr(self, "modo_torre", self.MODI_TORRE[0])
+        leader = ordine[0] if ordine else None
+        righe = []
         for i, e in enumerate(ordine, 1):
-            mio = e.is_player
-            if mio:
-                T.panel(surf, (r.x + 8, y - 1, r.w - 16, rh - 1), T.PANEL_3, radius=5)
-            T.text(surf, str(i), (r.x + 30, y), dim, T.DIM, align="right")
-            pygame.draw.rect(surf, e.colour, (r.x + 38, y + 2, 3, max(8, int(rh) - 6)))
-            col = T.BAD if e.status == "retired" else (T.TEXT if mio else T.DIM)
-            T.text(surf, e.code, (r.x + 48, y), dim, col, bold=mio, mono=True)
-            T.text(surf, e.squadra, (r.x + 94, y + 1), 11, T.DIM_2,
-                   maxw=r.w - 230)
-            if e.status == "retired":
-                T.text(surf, "RIT", (r.right - 20, y), 11, T.BAD, align="right")
-                y += rh
-                continue
+            fuori = e.status == "retired"
             q = e.carica()
             cq = T.OK if q > 0.35 else (T.WARN if q > 0.15 else T.BAD)
-            T.bar(surf, (r.right - 118, y + 5, 44, 7), q * 100, 100, cq)
-            T.text(surf, f"{q * 100:.0f}", (r.right - 66, y), 11, cq, mono=True,
-                   align="right")
-            am = "ON" if e.attack_attivo > 0 else str(
-                sim.attack_usi_max - e.attack_usi)
-            T.text(surf, am, (r.right - 40, y), 11,
-                   (183, 96, 255) if e.attack_attivo > 0 else T.DIM_2)
-            if sim.col_boost:
-                T.text(surf, "si" if e.boost_fatto else "-", (r.right - 20, y), 11,
-                       T.OK if e.boost_fatto else T.WARN, align="right")
-            y += rh
+            tag = None
+            if e.attack_attivo > 0:
+                tag = ("ATTACK", GG.VIOLA)
+            elif sim.col_boost and e.boost_fatto and modo == "ENERGIA":
+                tag = ("BOOST", T.OK)
+            if fuori:
+                valore = ("RIT", T.BAD)
+            elif e.status == "pitting":
+                valore = ("BOOST", T.ACCENT)
+            elif modo == "ENERGIA":
+                valore = (f"{q * 100:.0f}%", cq)
+            elif i == 1:
+                valore = ("LEADER" if modo == "INTERVALLO" else "PRIMO", (200, 206, 218))
+            else:
+                rif = leader if modo == "DISTACCO" else ordine[i - 2]
+                valore = (GG.distacco(rif.dist - e.dist, sim.track_len,
+                                      max(20.0, sim.track_len / max(30.0, e.last_lap or 60.0))),
+                          T.WHITE)
+            righe.append({"code": e.code, "colour": e.colour, "fuori": fuori, "tag": tag,
+                          "mio": e.is_player, "viola": e.code == sim.best_lap_by and not fuori,
+                          "valore": valore, "icona": ("batteria", q, cq)})
+        resta = sim.tempo_restante()
+        testa = (("ULTIMO", "GIRO", "") if sim.ultimo_giro
+                 else ("FINE", _orologio(resta), ""))
+        self._torre_testa, y0, rh = GG.torre(surf, r, testa, modo, righe)
+        self._righe_torre = (r, y0, rh, [e.driver_id for e in ordine])
 
     def _pannello(self, surf, r, e) -> None:
         """Le nostre due macchine viste dal muretto.
@@ -829,92 +825,82 @@ class EPrixScene(Mappa3D, Scene):
         si ha ancora in mano, e se il Boost e' fatto.
         """
         sim = self.sim
-        T.panel(surf, r, T.PANEL, radius=10, border=T.LINE)
-        pygame.draw.rect(surf, e.colour, (r.x, r.y + 8, 4, r.h - 16))
-        # ---- riga uno
-        T.text(surf, f"P{e.position}", (r.x + 16, r.y + 8), 15, T.GOLD, bold=True)
-        T.text(surf, e.name, (r.x + 54, r.y + 8), 16, T.TEXT, bold=True, maxw=170)
-        stato = {"pitting": "AL BOOST", "retired": "RITIRATO"}.get(e.status, "")
+        colore = tuple(e.colour[:3])
+        GG.fondo_pannello(surf, r, colore)
+        # ---- riga uno: la posizione, il nome, il tachimetro
+        GG.parallelogramma(surf, pygame.Rect(r.x + 12, r.y + 8, 58, 28), colore)
+        T.text(surf, f"P{e.position}", (r.x + 41, r.y + 11), 20, T.WHITE, bold=True,
+               align="center")
+        parti = e.name.split()
+        cognome = GG.cognome(e.name)
+        T.text(surf, cognome, (r.x + 80, r.y + 7), 19, T.WHITE, bold=True, maxw=170)
+        larga_c = min(170, T.width(cognome, 19, bold=True))
+        T.text(surf, (parti[0] + "  -  " if len(parti) > 1 else "") + e.squadra.upper(),
+               (r.x + 80, r.y + 29), 10, GG.GRIGIO, bold=True)
+        stato = {"pitting": ("AL BOOST", T.ACCENT), "retired": ("RITIRATO", T.BAD)}.get(e.status)
         if stato:
-            T.text(surf, stato, (r.x + 230, r.y + 10), 12,
-                   T.ACCENT if e.status == "pitting" else T.BAD, bold=True)
+            GG.pastiglia(surf, r.x + 92 + larga_c, r.y + 11, stato[0], stato[1])
+        elif e.attack_attivo > 0:
+            GG.pastiglia(surf, r.x + 92 + larga_c, r.y + 11, "ATTACK MODE", GG.VIOLA)
         if e.damage > 6:
-            T.text(surf, f"DANNI {e.damage:.0f}%", (r.right - 100, r.y + 10), 12,
-                   T.BAD, bold=True, align="right")
-        T.text(surf, f"{sim.speed_of(e):.0f}", (r.right - 44, r.y + 4), 22, T.TEXT,
-               bold=True, mono=True, align="right")
-        T.text(surf, "km/h", (r.right - 14, r.y + 14), 11, T.DIM_2, align="right")
+            GG.pastiglia(surf, r.right - 176, r.y + 11, f"DANNI {e.damage:.0f}%", T.BAD)
+        v = sim.speed_of(e)
+        GG.arco(surf, (r.right - 140, r.y + 22), 13, min(1.0, v / 300.0), colore)
+        T.text(surf, f"{v:.0f}", (r.right - 42, r.y + 4), 26, T.WHITE, bold=True, mono=True,
+               align="right")
+        T.text(surf, "KM/H", (r.right - 12, r.y + 16), 10, GG.GRIGIO, bold=True, align="right")
         # ---- riga due: l'energia, che qui e' tutto
-        y = r.y + 36
+        y = r.y + 42
         q = e.carica()
         cq = T.OK if q > 0.35 else (T.WARN if q > 0.15 else T.BAD)
-        T.text(surf, "ENERGIA", (r.x + 16, y + 1), 11, T.DIM_2, bold=True)
-        T.bar(surf, (r.x + 74, y + 4, 96, 9), q * 100, 100, cq)
-        T.text(surf, f"{e.energia:.1f} kWh", (r.x + 180, y), 12, cq, mono=True)
+        T.text(surf, "ENERGIA", (r.x + 16, y + 1), 10, GG.GRIGIO, bold=True)
+        GG.segmenti(surf, pygame.Rect(r.x + 72, y + 1, 120, 11), q, cq, 14)
+        T.text(surf, f"{e.energia:.1f} kWh", (r.x + 200, y - 1), 12, cq, mono=True, bold=True)
         margine = sim.margine_energia(e)
         cm = T.OK if margine > 0.4 else (T.WARN if margine > -0.2 else T.BAD)
-        T.text(surf, f"{margine:+.1f} giri", (r.right - 14, y), 13, cm, mono=True,
+        T.text(surf, f"{margine:+.1f} giri", (r.right - 14, y - 1), 13, cm, mono=True,
                align="right", bold=True)
         if e.push_mode < 0.995:
-            T.text(surf, "RISPARMIO", (r.right - 86, y + 1), 11, T.WARN, bold=True,
-                   align="right")
+            GG.pastiglia(surf, r.right - 150, y - 2, "RISPARMIO", T.WARN)
         elif e.push_mode > 1.005:
-            T.text(surf, "SPINGE", (r.right - 86, y + 1), 11, T.OK, bold=True,
-                   align="right")
+            GG.pastiglia(surf, r.right - 150, y - 2, "SPINGE", T.OK)
         # ---- riga tre: Attack Mode e Pit Boost
-        y = r.y + 60
+        y = r.y + 64
         if e.attack_attivo > 0:
-            T.text(surf, "ATTACK MODE", (r.x + 16, y + 1), 11, (183, 96, 255),
-                   bold=True)
-            T.bar(surf, (r.x + 100, y + 4, 70, 9), e.attack_attivo,
-                  max(1.0, sim.attack_durata), (183, 96, 255))
-            T.text(surf, f"{e.attack_attivo:.0f}s", (r.x + 180, y), 12,
-                   (183, 96, 255), mono=True)
+            T.text(surf, "ATTACK MODE", (r.x + 16, y + 1), 10, GG.VIOLA, bold=True)
+            GG.segmenti(surf, pygame.Rect(r.x + 100, y + 1, 92, 11),
+                        e.attack_attivo / max(1.0, sim.attack_durata), GG.VIOLA, 10)
+            T.text(surf, f"{e.attack_attivo:.0f}s", (r.x + 200, y - 1), 12, GG.VIOLA,
+                   mono=True, bold=True)
         else:
             resta = sim.attack_usi_max - e.attack_usi
-            T.text(surf, "ATTACK MODE", (r.x + 16, y + 1), 11, T.DIM_2, bold=True)
-            T.text(surf, f"{resta} da prendere, {e.attack_resta / 60:.0f}' in mano",
-                   (r.x + 100, y), 12, T.DIM if resta else T.BAD)
+            T.text(surf, "ATTACK MODE", (r.x + 16, y + 1), 10, GG.GRIGIO, bold=True)
+            for k in range(sim.attack_usi_max):
+                pygame.draw.rect(surf, GG.VIOLA if k < resta else (44, 48, 60),
+                                 (r.x + 100 + k * 20, y + 1, 16, 11), border_radius=3)
+            T.text(surf, f"{e.attack_resta / 60:.0f}' in mano",
+                   (r.x + 108 + sim.attack_usi_max * 20, y - 1), 12,
+                   T.DIM if resta else T.BAD)
         if sim.col_boost:
             if e.boost_fatto:
-                T.text(surf, "BOOST FATTO", (r.right - 14, y), 12, T.OK, bold=True,
-                       align="right")
+                GG.pastiglia(surf, r.right - 96, y - 2, "BOOST FATTO", T.OK)
             elif sim.finestra_boost(e):
-                T.text(surf, "IN FINESTRA", (r.right - 14, y), 12, T.GOLD, bold=True,
-                       align="right")
+                GG.pastiglia(surf, r.right - 96, y - 2, "IN FINESTRA", T.GOLD)
             elif q > sim.boost_max:
-                T.text(surf, f"finestra a {sim.boost_max * 100:.0f}%",
-                       (r.right - 14, y), 12, T.DIM_2, align="right")
+                T.text(surf, f"boost sotto il {sim.boost_max * 100:.0f}%",
+                       (r.right - 14, y - 1), 12, T.DIM_2, align="right")
             else:
-                T.text(surf, "FINESTRA PERSA", (r.right - 14, y), 12, T.BAD,
-                       bold=True, align="right")
+                GG.pastiglia(surf, r.right - 112, y - 2, "FINESTRA PERSA", T.BAD)
         # ---- riga quattro: i tempi
-        y = r.y + 84
-        T.text(surf, "GIRO", (r.x + 16, y + 2), 11, T.DIM_2, bold=True)
+        y = r.y + 88
+        T.text(surf, "GIRO", (r.x + 16, y + 2), 10, GG.GRIGIO, bold=True)
         T.text(surf, T.fmt_time(e.giro_scorso) if e.giro_scorso else "--:--.---",
-               (r.x + 56, y), 13, T.TEXT, mono=True)
-        T.text(surf, "MIGLIORE", (r.x + 160, y + 2), 11, T.DIM_2, bold=True)
+               (r.x + 50, y), 13, T.WHITE, mono=True, bold=True)
+        T.text(surf, "MIGLIORE", (r.x + 160, y + 2), 10, GG.GRIGIO, bold=True)
         T.text(surf, T.fmt_time(e.best_lap) if e.best_lap < 900 else "--:--.---",
                (r.x + 224, y), 13,
-               (183, 96, 255) if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002
-               else T.TEXT, mono=True)
-        T.text(surf, f"piano {e.piano}", (r.right - 14, y), 12, T.DIM_2,
-               align="right")
-        # ---- le etichette dei comandi
-        if self.due_righe():
-            T.text(surf, "PASSO", (r.x + 16, r.y + 148), 11, T.DIM_2, bold=True)
-        if e.delegato:
-            T.text(surf, "TEAM PRINCIPAL", (r.right - 14, r.y + 96), 11, T.ACCENT,
-                   bold=True, align="right")
-        elif e.scambio_a and e.scambio_rifiuto:
-            T.text(surf, "NON CEDE", (r.right - 14, r.y + 96), 11, T.BAD,
-                   bold=True, align="right")
-        elif e.scambio_a:
-            T.text(surf, "CEDE IL POSTO", (r.right - 14, r.y + 96), 11, T.ACCENT,
-                   bold=True, align="right")
-        elif e.tieni_posizioni:
-            T.text(surf, "POSIZIONI FERME", (r.right - 14, r.y + 96), 11, T.WARN,
-                   bold=True, align="right")
+               GG.VIOLA if e.best_lap and abs(e.best_lap - sim.best_lap) < 0.002
+               else T.WHITE, mono=True, bold=True)
         # ---- la radio
         if e.domanda:
             resta = e.domanda["scadenza"] - e.lap
