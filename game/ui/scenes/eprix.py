@@ -362,6 +362,27 @@ class EPrixScene(Mappa3D, Scene):
         self.build()
 
     # -------------------------------------------------------------------- loop
+    def _scheda_3d(self, driver_id):
+        """La scheda sul plastico: posizione, nome, batteria, distacco."""
+        info = super()._scheda_3d(driver_id)
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        if info is None or e is None:
+            return info
+        carica = e.carica()
+        info["dato"] = ("ATTACK " if e.attack_attivo > 0 else "") + f"{int(round(carica * 100))}%"
+        info["colore"] = ((183, 96, 255) if e.attack_attivo > 0 else
+                          (90, 220, 120) if carica > 0.25 else (255, 170, 60))
+        sim = self.sim
+        if e.status == "pitting":
+            info["distacco"] = "BOX"
+        elif e.position == 1:
+            info["distacco"] = "PRIMO"
+        elif sim is not None:
+            primo = sim.order()[0]
+            passo = sim.track_len / max(20.0, e.last_lap or e.base_lap)
+            info["distacco"] = f"+{(primo.dist - e.dist) / passo:.1f}"
+        return info
+
     def _livree_3d(self) -> tuple:
         """Una tela per squadra: la nostra con i nostri sponsor, le altre con
         i colori e i marchi che hanno davvero."""

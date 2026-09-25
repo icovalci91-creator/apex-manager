@@ -87,6 +87,23 @@ ha sotto contratto in quel momento: il title sul cofano e sull'ala posteriore, i
 sulle pance e sul muso, i secondari sull'ala anteriore. Se si firma con un marchio nuovo, dal
 weekend dopo la macchina lo porta. La ripresa si avvicina fino a otto metri.
 
+### Il plastico
+
+La vista da cui si parte in gara e' il **PLASTICO**: il circuito come un modellino su un
+tavolo. Il mondo 3D si taglia a un blocco rettangolare attorno alla pista - la citta', i
+campi, il mare fino al bordo - con le pareti di terra che scuriscono scendendo (o l'acqua,
+dove il bordo passa in mare), e il blocco galleggia su un tavolo chiaro con la griglia e la
+sua ombra morbida. Lo si guarda dall'alto di sbieco, lo si gira trascinando e ci si
+avvicina con la rotellina, come nella vista 3D.
+
+Le monoposto, viste da lontano, sono ingrandite (fino a due volte e mezza) perche' si
+vedano, e tornano della loro misura quando ci si avvicina. Sopra ognuna c'e' una puntina
+del colore della squadra; sopra le nostre, appesa a un filo, la scheda: posizione, nome,
+la gomma con la vita che le resta (in Formula E la batteria, e ATTACK quando l'Attack Mode
+e' acceso) e il distacco dal primo, o BOX.
+
+I pulsanti in alto a sinistra sulla mappa sono quattro: **2D**, **PLASTICO**, **3D** e **TV**.
+
 ### La regia televisiva
 
 Il terzo pulsante, **TV**, passa la mappa al regista (`game/ui/regia.py`): la gara come la

@@ -158,6 +158,7 @@ uniform vec3 fog_col; uniform vec3 zenit; uniform float fog_d; uniform float far
 uniform vec3 eye; uniform float tempo; uniform float nuvole; uniform float bagnato;
 uniform vec2 origine; uniform float blocco; uniform int stile; uniform float riva;
 uniform sampler2DShadow ombre; uniform mat4 luce_vp; uniform float texel;
+uniform vec4 taglio; uniform float plastico;
 in vec3 v_pos; in vec3 v_nor; in vec3 v_col; in float v_glow; flat in int v_mat; in float v_par;
 in float v_aux;
 out vec4 frag;
@@ -292,6 +293,9 @@ void main() {
     vec3 vista = normalize(eye - v_pos);
     float dist = length(v_pos - eye);
     vec2 p = v_pos.xz;
+    // il plastico: il mondo finisce ai bordi del blocco
+    if (plastico > 0.5 && (p.x < taglio.x || p.x > taglio.y || p.y < taglio.z
+                           || p.y > taglio.w)) discard;
     // le nuvole passano e lasciano la loro ombra sui campi
     float nube = smoothstep(0.42, 0.72, fbm(p / 900.0 + vec2(tempo * 0.010, tempo * 0.004)));
     float sole = ombra(n) * (1.0 - nube * (0.35 + 0.45 * nuvole));
@@ -329,7 +333,7 @@ void main() {
 # con la posizione, la direzione e i colori di ognuna.
 _VS_AUTO = """
 #version 330
-uniform mat4 mvp;
+uniform mat4 mvp; uniform float scala;
 in vec3 in_pos; in vec3 in_nor; in float in_parte;
 in vec3 i_pos; in vec3 i_fwd; in vec3 i_col; in vec3 i_col2; in float i_stile; in vec3 i_gomma;
 in float i_livrea;
@@ -339,7 +343,7 @@ void main() {
     vec3 f = normalize(i_fwd);
     vec3 r = normalize(vec3(-f.z, 0.0, f.x));
     vec3 u = normalize(cross(r, f));
-    vec3 w = i_pos + f * in_pos.x + u * in_pos.y + r * in_pos.z;
+    vec3 w = i_pos + (f * in_pos.x + u * in_pos.y + r * in_pos.z) * scala;
     gl_Position = mvp * vec4(w, 1.0);
     v_pos = w;
     v_nor = f * in_nor.x + u * in_nor.y + r * in_nor.z;
@@ -447,14 +451,14 @@ void main() {
 # opposta al sole
 _VS_OMBRA_AUTO = """
 #version 330
-uniform mat4 mvp; uniform vec3 sole_xz;
+uniform mat4 mvp; uniform vec3 sole_xz; uniform float scala;
 in vec2 in_q;
 in vec3 i_pos; in vec3 i_fwd;
 out vec2 v_q;
 void main() {
     vec3 f = normalize(vec3(i_fwd.x, 0.0, i_fwd.z));
     vec3 r = vec3(-f.z, 0.0, f.x);
-    vec3 w = i_pos + f * in_q.x * 3.0 + r * in_q.y * 1.25 + sole_xz + vec3(0.0, 0.05, 0.0);
+    vec3 w = i_pos + (f * in_q.x * 3.0 + r * in_q.y * 1.25 + sole_xz) * scala + vec3(0.0, 0.05, 0.0);
     gl_Position = mvp * vec4(w, 1.0);
     v_q = in_q;
 }
@@ -495,6 +499,61 @@ void main() {
     c += sun_col * (pow(s, 900.0) * 1.5 + pow(s, 8.0) * 0.18);
     vec2 cella = floor(dir.xz / max(dir.y, 0.05) * 90.0);
     c += vec3(0.9) * step(0.9975, h21(cella)) * stelle * h;
+    frag = vec4(c, 1.0);
+}
+"""
+
+# Il tavolo del plastico: un piano chiaro con la griglia, sotto al blocco, e
+# l'ombra morbida del blocco spostata dalla parte opposta al sole. Il raggio
+# di ogni pixel si fa scendere fino al piano, come per il cielo.
+_FS_TAVOLO = """
+#version 330
+uniform mat4 inv_vp; uniform vec3 eye; uniform vec4 taglio; uniform float quota;
+uniform vec2 ombra_dx; uniform float passo; uniform vec3 carta;
+in vec2 v_ndc; in vec2 v_uv;
+out vec4 frag;
+void main() {
+    vec4 p = inv_vp * vec4(v_ndc, 1.0, 1.0);
+    vec3 dir = normalize(p.xyz / p.w - eye);
+    vec3 c = carta;
+    if (dir.y < -0.001) {
+        float t = (quota - eye.y) / dir.y;
+        vec2 q = eye.xz + dir.xz * t;
+        // la griglia: una riga ogni `passo` metri, piu' leggera lontano
+        vec2 g = abs(fract(q / passo + 0.5) - 0.5) * passo;
+        float riga = 1.0 - smoothstep(0.0, passo * 0.02 + t * 0.0016, min(g.x, g.y));
+        float lontano = exp(-t / (passo * 60.0));
+        c = mix(c, carta * 0.76, riga * 0.75 * lontano);
+        // l'ombra del blocco, morbida, spostata dal sole
+        vec2 centro = vec2(taglio.x + taglio.y, taglio.z + taglio.w) * 0.5 + ombra_dx;
+        vec2 mezzo = vec2(taglio.y - taglio.x, taglio.w - taglio.z) * 0.5;
+        vec2 d = abs(q - centro) - mezzo;
+        float fuori = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+        float morbida = max(mezzo.x, mezzo.y) * 0.18;
+        c *= 1.0 - 0.38 * (1.0 - smoothstep(-morbida * 0.3, morbida, fuori));
+        c = mix(carta, c, lontano * 0.85 + 0.15);
+    }
+    frag = vec4(c, 1.0);
+}
+"""
+
+# Le pareti del blocco: la terra tagliata, piu' scura man mano che si scende.
+_VS_PARETI = """
+#version 330
+uniform mat4 mvp;
+in vec3 in_pos; in vec3 in_col; in vec3 in_nor;
+out vec3 v_col; out vec3 v_nor;
+void main() { gl_Position = mvp * vec4(in_pos, 1.0); v_col = in_col; v_nor = in_nor; }
+"""
+
+_FS_PARETI = """
+#version 330
+uniform vec3 sun; uniform vec3 sun_col; uniform vec3 amb_sky;
+in vec3 v_col; in vec3 v_nor;
+out vec4 frag;
+void main() {
+    vec3 n = normalize(v_nor);
+    vec3 c = v_col * (amb_sky * 1.1 + sun_col * max(dot(n, sun), 0.0) * 0.8);
     frag = vec4(c, 1.0);
 }
 """
@@ -578,6 +637,7 @@ class Elicottero:
         self.pan = [0.0, 0.0]
         self.fermo = 0.0
         self.chi = None             # chi si segue: None e' il circuito intero
+        self.ingombro = None        # sul plastico: (raggio da inquadrare, centro)
         self.auto = None            # dov'e' adesso, nel mondo
         self._volo = 0.0
         self._da = None
@@ -627,9 +687,10 @@ class Elicottero:
             bersaglio = self.auto
             dist = 260.0 * self.zoom_auto
         else:
-            bersaglio = (geo.cx + self.pan[0], geo.cy, geo.cz + self.pan[1])
+            raggio, centro = self.ingombro or (geo.span * 0.66, (geo.cx, geo.cy, geo.cz))
+            bersaglio = (centro[0] + self.pan[0], centro[1], centro[2] + self.pan[1])
             mezzo = math.tan(math.radians(fov) / 2.0) * min(aspetto, 1.3)
-            dist = geo.span * 0.66 / mezzo * self.zoom
+            dist = raggio / mezzo * self.zoom
         if self._volo > 0 and self._da:
             t = 1.0 - self._volo / self.VOLO
             t = t * t * (3 - 2 * t)
@@ -659,6 +720,7 @@ def geometria(track) -> pista3d.Geometria:
 
 
 FOV = 34.0
+CARTA = (0.93, 0.93, 0.92)      # il tavolo del plastico
 OMBRA_MISURA = 4096
 ISTANZE_MAX = 32            # quante macchine in pista al massimo
 ISTANZA = 17                # float per macchina: posizione, direzione, colori, mescola, livrea
@@ -676,6 +738,8 @@ class Vista3D:
         self.p_mondo = ctx.program(vertex_shader=_VS_MONDO, fragment_shader=_FS_MONDO)
         self.p_ombra = ctx.program(vertex_shader=_VS_OMBRA, fragment_shader=_FS_OMBRA)
         self.p_cielo = ctx.program(vertex_shader=_VS_PIENO, fragment_shader=_FS_CIELO)
+        self.p_tavolo = ctx.program(vertex_shader=_VS_PIENO, fragment_shader=_FS_TAVOLO)
+        self.p_pareti = ctx.program(vertex_shader=_VS_PARETI, fragment_shader=_FS_PARETI)
         self.p_sfoca = ctx.program(vertex_shader=_VS_PIENO, fragment_shader=_FS_SFOCA)
         self.p_finale = ctx.program(vertex_shader=_VS_PIENO, fragment_shader=_FS_FINALE)
         self.vbo = ctx.buffer(self.geo.vert.tobytes())
@@ -686,6 +750,11 @@ class Vista3D:
             (self.vbo, "3f 40x", "in_pos")])
         self.vbo_pieno = ctx.buffer(array("f", [-1, -1, 3, -1, -1, 3]).tobytes())
         self.vao_cielo = ctx.vertex_array(self.p_cielo, [(self.vbo_pieno, "2f", "in_ndc")])
+        self.vao_tavolo = ctx.vertex_array(self.p_tavolo, [(self.vbo_pieno, "2f", "in_ndc")])
+        # il plastico: il blocco e le sue pareti si fanno la prima volta che servono
+        self.plastico = False
+        self.tavola = None
+        self.vbo_pareti = self.vao_pareti = None
         self.vao_sfoca = ctx.vertex_array(self.p_sfoca, [(self.vbo_pieno, "2f", "in_ndc")])
         self.vao_finale = ctx.vertex_array(self.p_finale, [(self.vbo_pieno, "2f", "in_ndc")])
         # le macchine: la monoposto una volta, le istanze a ogni fotogramma
@@ -705,6 +774,7 @@ class Vista3D:
             (self.vbo_macchia, "2f", "in_q"),
             (self.vbo_istanze, "3f 3f 44x/i", "i_pos", "i_fwd")])
         self.auto = []
+        self.scala_auto = 1.0
         self.tex_livree = None
         # senza livree (l'E-Prix) il campionatore deve comunque puntare a una
         # tela del suo tipo: se resta sull'unita' delle ombre la scheda video
@@ -723,6 +793,9 @@ class Vista3D:
         self._ombre()
 
     def rilascia(self) -> None:
+        for o in (self.vao_pareti, self.vbo_pareti):
+            if o is not None:
+                o.release()
         if self.tex_livree is not None:
             self.tex_livree.release()
             self.tex_livree = None
@@ -731,6 +804,7 @@ class Vista3D:
                 self.vbo_macchia, self.p_auto, self.p_ombra_auto, self.tex_vuota,
                 self.vao, self.vao_ombra, self.vbo, self.vao_cielo, self.vao_sfoca,
                 self.vao_finale, self.vbo_pieno, self.p_mondo, self.p_ombra, self.p_cielo,
+                self.vao_tavolo, self.p_tavolo, self.p_pareti,
                 self.p_sfoca, self.p_finale, self.tex_ombre, self.fbo_ombre]:
             o.release()
 
@@ -819,6 +893,13 @@ class Vista3D:
         self._buffer(misura)
         geo, ctx, b = self.geo, self.ctx, self.buffer
         aspetto = misura[0] / misura[1]
+        if self.plastico:
+            # sul plastico si inquadra il blocco intero, non solo la pista
+            x0, x1, z0, z1, fondo, _ = self._tavola()
+            self.elicottero.ingombro = (max(x1 - x0, z1 - z0) * 0.62,
+                                        ((x0 + x1) / 2, (geo.cy + fondo) / 2, (z0 + z1) / 2))
+        else:
+            self.elicottero.ingombro = None
         ripresa = self.camera.inquadra(geo, aspetto) if self.camera is not None else None
         if ripresa is None:
             occhio, bersaglio, vicino, lontano = self.elicottero.inquadra(geo, aspetto, FOV)
@@ -835,17 +916,40 @@ class Vista3D:
         self.mvp = mvp
         luce = self._luce()
         fog_d = geo.span * 4.6
+        plastico = self.plastico and ripresa is None
+        # le macchine, sul plastico visto da lontano, si fanno piu' grandi del
+        # vero: se no sarebbero granelli. Da vicino tornano della loro misura
+        lontananza = math.dist(occhio, bersaglio)
+        self.scala_auto = (max(1.0, min(2.4, 1.0 + (lontananza - 120.0) / 380.0))
+                           if plastico else 1.0)
 
         b["ms"].use()
         ctx.viewport = (0, 0, misura[0], misura[1])
-        ctx.clear(*luce["orizzonte"], 1.0)
         ctx.disable(moderngl.DEPTH_TEST | moderngl.CULL_FACE | moderngl.BLEND)
-        pc = self.p_cielo
-        pc["inv_vp"].write(_f(_inversa(mvp)))
-        pc["eye"].value = occhio
-        for k in ("zenit", "orizzonte", "sun", "sun_col", "stelle"):
-            pc[k].value = luce[k]
-        self.vao_cielo.render(moderngl.TRIANGLES)
+        if plastico:
+            tav = self._tavola()
+            ctx.clear(*CARTA, 1.0)
+            pt = self.p_tavolo
+            pt["inv_vp"].write(_f(_inversa(mvp)))
+            pt["eye"].value = occhio
+            pt["taglio"].value = tav[:4]
+            pt["quota"].value = tav[5]
+            sole = luce["sun"]
+            salto = tav[4] - tav[5]
+            pt["ombra_dx"].value = (-sole[0] / max(0.2, sole[1]) * salto,
+                                    -sole[2] / max(0.2, sole[1]) * salto)
+            pt["passo"].value = max(20.0, round(geo.span / 30.0, -1))
+            pt["carta"].value = CARTA
+            self.vao_tavolo.render(moderngl.TRIANGLES)
+            fog_d = geo.span * 14.0
+        else:
+            ctx.clear(*luce["orizzonte"], 1.0)
+            pc = self.p_cielo
+            pc["inv_vp"].write(_f(_inversa(mvp)))
+            pc["eye"].value = occhio
+            for k in ("zenit", "orizzonte", "sun", "sun_col", "stelle"):
+                pc[k].value = luce[k]
+            self.vao_cielo.render(moderngl.TRIANGLES)
 
         ctx.enable(moderngl.DEPTH_TEST)
         pm = self.p_mondo
@@ -864,9 +968,19 @@ class Vista3D:
         pm["stile"].value = {"parco": 0, "bosco": 1, "dune": 2}.get(geo.bioma, 0)
         pm["riva"].value = 1.0 if geo.acqua else 0.0
         pm["texel"].value = 1.0 / OMBRA_MISURA
+        pm["plastico"].value = 1.0 if plastico else 0.0
+        pm["taglio"].value = self.tavola[:4] if plastico else (-1e9, 1e9, -1e9, 1e9)
+        if plastico:
+            pm["fog_col"].value = CARTA
         self.tex_ombre.use(0)
         pm["ombre"].value = 0
         self.vao.render(moderngl.TRIANGLES)
+        if plastico:
+            pp = self.p_pareti
+            pp["mvp"].write(_f(mvp))
+            for k in ("sun", "sun_col", "amb_sky"):
+                pp[k].value = luce[k]
+            self.vao_pareti.render(moderngl.TRIANGLES)
         self._macchine(mvp, occhio, luce, fog_d)
         ctx.disable(moderngl.DEPTH_TEST)
         ctx.copy_framebuffer(b["scena"], b["ms"])
@@ -926,6 +1040,7 @@ class Vista3D:
         po["mvp"].write(_f(mvp))
         po["sole_xz"].value = (-sole[0] * k, 0.0, -sole[2] * k)
         po["forza"].value = 0.35 if geo.notte else 0.55
+        po["scala"].value = self.scala_auto
         ctx.enable(moderngl.BLEND)
         ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
         ctx.depth_mask = False
@@ -941,12 +1056,65 @@ class Vista3D:
         pa["fog_col"].value = luce["orizzonte"]
         pa["fog_d"].value = fog_d
         pa["bagnato"].value = max(0.0, min(1.0, self.bagnato))
+        pa["scala"].value = self.scala_auto
         pa["texel"].value = 1.0 / OMBRA_MISURA
         self.tex_ombre.use(0)
         pa["ombre"].value = 0
         (self.tex_livree or self.tex_vuota).use(1)
         pa["livree"].value = 1
         self.vao_auto.render(moderngl.TRIANGLES, instances=quante)
+
+    def _tavola(self) -> tuple:
+        """Il blocco del plastico: (x0, x1, z0, z1, fondo, quota del tavolo).
+
+        Un rettangolo attorno al circuito con un po' di margine, tagliato giu'
+        fino a una trentina di metri sotto il punto piu' basso; le pareti
+        seguono il terreno sul bordo, con la terra che scurisce scendendo e
+        l'acqua dove il bordo passa in mare."""
+        if self.tavola is not None:
+            return self.tavola
+        geo = self.geo
+        xs = [p[0] for p in geo.P]
+        zs = [p[2] for p in geo.P]
+        margine = max(140.0, geo.span * 0.10)
+        x0, x1 = min(xs) - margine, max(xs) + margine
+        z0, z1 = min(zs) - margine, max(zs) + margine
+        basso = min(min(p[1] for p in geo.P), pista3d.LIVELLO_ACQUA)
+        fondo = basso - max(45.0, geo.span * 0.05)
+        tavolo = fondo - max(40.0, geo.span * 0.05)
+        acqua = bool(geo.acqua)
+
+        def cima(x, z):
+            y = geo.terra(x, z)
+            if acqua and y < pista3d.LIVELLO_ACQUA:
+                return pista3d.LIVELLO_ACQUA, True
+            return y, False
+        dati = array("f")
+        terra_su, terra_giu = (0.46, 0.35, 0.24), (0.20, 0.16, 0.12)
+        mare_su = (0.10, 0.24, 0.32)
+        lati = ((x0, z0, x1, z0, (0.0, 0.0, -1.0)), (x1, z0, x1, z1, (1.0, 0.0, 0.0)),
+                (x1, z1, x0, z1, (0.0, 0.0, 1.0)), (x0, z1, x0, z0, (-1.0, 0.0, 0.0)))
+        for ax, az, bx, bz, n in lati:
+            lungo = math.hypot(bx - ax, bz - az)
+            passi = max(2, int(lungo / 6.0))
+            for k in range(passi):
+                u0, u1 = k / passi, (k + 1) / passi
+                pa = (ax + (bx - ax) * u0, az + (bz - az) * u0)
+                pb = (ax + (bx - ax) * u1, az + (bz - az) * u1)
+                ya, ma = cima(*pa)
+                yb, mb = cima(*pb)
+                ca = mare_su if ma else terra_su
+                cb = mare_su if mb else terra_su
+                v = [(pa[0], ya + 0.3, pa[1], ca), (pb[0], yb + 0.3, pb[1], cb),
+                     (pb[0], fondo, pb[1], terra_giu), (pa[0], fondo, pa[1], terra_giu)]
+                for i in (0, 1, 2, 0, 2, 3):
+                    x, y, z, c = v[i]
+                    dati.extend((x, y, z, c[0], c[1], c[2], n[0], n[1], n[2]))
+        self.vbo_pareti = self.ctx.buffer(dati.tobytes())
+        self.vao_pareti = self.ctx.vertex_array(self.p_pareti, [
+            (self.vbo_pareti, "3f 3f 3f", "in_pos", "in_col", "in_nor")])
+        self.tavola = (x0, x1, z0, z1, fondo, tavolo)
+        return self.tavola
 
     def carica_livree(self, tele: list) -> None:
         """Le livree delle squadre, una tela per squadra (vedi `livree`): la

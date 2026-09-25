@@ -1374,6 +1374,31 @@ class WeekendScene(Mappa3D, Scene):
     def _meteo_3d(self):
         return self.sim.weather if self.sim else (self.turno.weather if self.turno else None)
 
+    def _scheda_3d(self, driver_id):
+        """La scheda sul plastico: posizione, nome, gomma e vita, distacco."""
+        info = super()._scheda_3d(driver_id)
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        if info is None or e is None:
+            return info
+        mescola = C.COMPOUNDS.get(e.tyre, {})
+        vita = e.vita_gomma() if hasattr(e, "vita_gomma") else 1.0
+        info["dato"] = f"{e.tyre[:1].upper()} {int(round(vita * 100))}%"
+        info["colore"] = tuple(mescola.get("colour", (255, 255, 255)))
+        sim = self.sim
+        if sim is None:
+            return info
+        if e.status == "pitting":
+            info["distacco"] = "BOX"
+        elif e.position == 1:
+            info["distacco"] = "PRIMO"
+        else:
+            primo = sim.order()[0]
+            passo = sim.track_len / max(20.0, e.last_lap or e.base_lap)
+            giri = int((primo.dist - e.dist) // sim.track_len)
+            info["distacco"] = (f"+{giri} {'giro' if giri == 1 else 'giri'}" if giri >= 1
+                                else f"+{(primo.dist - e.dist) / passo:.1f}")
+        return info
+
     def _tempo_3d(self) -> float:
         if self.sim:
             return self.sim.time

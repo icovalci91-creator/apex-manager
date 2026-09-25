@@ -95,15 +95,19 @@ class Mappa3D:
         return None
 
     def _modo_vista(self) -> str:
-        """2d, 3d o tv. La scelta resta per tutta la partita."""
+        """2d, plastico, 3d o tv. La scelta resta per tutta la partita; si
+        comincia dal plastico, che e' la vista da cui si gioca."""
         modo = getattr(self.app, "vista_gara", None)
-        if modo not in ("2d", "3d", "tv"):
-            modo = "3d" if vista3d.disponibile() else "2d"
+        if modo not in ("2d", "plastico", "3d", "tv"):
+            modo = "plastico" if vista3d.disponibile() else "2d"
         return modo if (modo == "2d" or vista3d.disponibile()) else "2d"
 
     def _in_3d(self) -> bool:
-        """La pista in 3D: dall'elicottero o con la regia."""
-        return self._modo_vista() in ("3d", "tv") and vista3d.disponibile()
+        """La pista in 3D: il plastico, l'elicottero o la regia."""
+        return self._modo_vista() in ("plastico", "3d", "tv") and vista3d.disponibile()
+
+    def _in_plastico(self) -> bool:
+        return self._modo_vista() == "plastico" and vista3d.disponibile()
 
     def _in_tv(self) -> bool:
         return self._modo_vista() == "tv" and vista3d.disponibile()
@@ -119,14 +123,17 @@ class Mappa3D:
         modo = self._modo_vista()
         x = mappa.x + 10
         for chiave, lab, tip in (("2d", "2D", "La mappa vista da sopra"),
+                                 ("plastico", "PLASTICO", "Il circuito come un plastico sul "
+                                                          "tavolo, con le schede dei piloti"),
                                  ("3d", "3D", "Il circuito dall'elicottero"),
                                  ("tv", "TV", "La regia: la gara come in televisione, "
                                               "con i replay dei sorpassi")):
-            b = Button((x, mappa.y + 10, 44, 26), lab, style="tab", tip=tip)
+            larga = max(44, T.width(lab, 15) + 22)
+            b = Button((x, mappa.y + 10, larga, 26), lab, style="tab", tip=tip)
             b.on_click = (lambda m=chiave: self.set_vista(m))
-            b.active = (modo == chiave and not (chiave == "3d" and self.segui_id))
+            b.active = (modo == chiave and not (chiave in ("3d", "plastico") and self.segui_id))
             self.widgets.append(b)
-            x += 50
+            x += larga + 6
         if modo == "tv":
             x += 6
 
@@ -148,7 +155,7 @@ class Mappa3D:
                                        tip="Rivedi l'ultimo sorpasso. Durante un replay: "
                                            "torna in diretta"))
             return
-        if modo == "3d" and self.segui_id:
+        if modo in ("3d", "plastico") and self.segui_id:
             codice = self._codice(self.segui_id)
             b = Button((x + 6, mappa.y + 10, 104, 26), f"SEGUI {codice}", style="tab",
                        tip="La ripresa resta sopra a questa macchina")
@@ -234,6 +241,7 @@ class Mappa3D:
                 tele, self._indice_livree = self._livree_3d()
                 self.v3d.carica_livree(tele)
                 self.regista = None
+            self.v3d.plastico = self._modo_vista() == "plastico"
             meteo = self._meteo_3d()
             self.v3d.nuvole = max(getattr(meteo, "cloud", 0.0), getattr(meteo, "wet", 0.0) * 1.3)
             self.v3d.bagnato = getattr(meteo, "wet", 0.0)
@@ -298,6 +306,8 @@ class Mappa3D:
         self._etichette = []
         self._pallini = []
         punti = []
+        schede = []
+        plastico = self.v3d.plastico
         vicino = self.segui_id is not None
         for chi, _f, col, mio, code, box, nome in auto:
             f, laterale = pos[chi]
@@ -309,14 +319,27 @@ class Mappa3D:
             # quando la macchina e' abbastanza grande da vedersi, il pallino
             # lascia il posto alla monoposto: resta la sigla, e l'anello per
             # chi si sta seguendo
-            grande = self.v3d.pixel_per_metro(f, laterale) * 5.4 >= MACCHINA_PX
+            scala = self.v3d.scala_auto
+            grande = plastico or (self.v3d.pixel_per_metro(f, laterale) * 5.4 * scala
+                                  >= MACCHINA_PX)
             if grande:
                 # la sigla va sopra alla macchina, non addosso
-                sopra = self.v3d.proietta(f, laterale, 1.6) or p
+                sopra = self.v3d.proietta(f, laterale, 1.6 * scala) or p
                 if vista.collidepoint(x, y):
                     self._pallini.append((x, y, chi))
-                punti.append((int(vista.x + sopra[0]) - 8, int(vista.y + sopra[1]) + 4,
-                              code, mio, True))
+                sx, sy = int(vista.x + sopra[0]), int(vista.y + sopra[1])
+                if plastico:
+                    # sul plastico: una puntina del colore della squadra sopra a
+                    # ognuna, la sigla per chi conta, la scheda per le nostre
+                    if mio:
+                        schede.append((chi, f, laterale))
+                        continue
+                    pygame.draw.circle(surf, (10, 12, 16), (sx, sy - 3), 5)
+                    pygame.draw.circle(surf, col, (sx, sy - 3), 4)
+                    if nome or chi == self.segui_id:
+                        punti.append((sx - 8, sy - 2, code, mio, True))
+                    continue
+                punti.append((sx - 8, sy + 4, code, mio, True))
                 continue
             if chi == self.segui_id:
                 pygame.draw.circle(surf, (255, 255, 255), (x, y), r + 5, 2)
@@ -340,6 +363,8 @@ class Mappa3D:
                     T.squadra_viva() if mio else (16, 20, 30), radius=4, rilievo=False)
             T.text(surf, code, (x + 8 + larga // 2, y - 19), 12, T.WHITE, bold=True,
                    align="center")
+        for k, (chi, f, laterale) in enumerate(schede):
+            self._scheda(surf, vista, chi, f, laterale, k)
         surf.set_clip(prima)
         aiuto = ("trascina: gira attorno  -  rotella: zoom" if self.segui_id else
                  "clic su un pallino o sul tabellone: segui  -  trascina: gira  -  "
@@ -717,3 +742,50 @@ class Mappa3D:
         pygame.draw.circle(surf, (250, 176, 20) if acceso else (200, 120, 10), (x, y), 6)
         pygame.draw.circle(surf, (20, 20, 24), (x, y), 6, 1)
         self._etichetta_sc(surf, x, y - 4)
+
+    # ---------------------------------------------------------- le schede
+    def _scheda_3d(self, driver_id):
+        """Cosa scrivere sulla scheda di una nostra macchina, sul plastico:
+        dict con pos, nome, dato (e colore), distacco. None: niente scheda."""
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        if e is None:
+            return None
+        return {"pos": getattr(e, "position", ""), "nome": e.name.split()[-1].upper(),
+                "dato": "", "colore": T.WHITE, "distacco": ""}
+
+    def _scheda(self, surf, vista, chi, f: float, laterale: float, k: int) -> None:
+        """La scheda appesa sopra una nostra macchina, col filo che la lega."""
+        info = self._scheda_3d(chi)
+        if info is None:
+            return
+        scala = self.v3d.scala_auto
+        base = self.v3d.proietta(f, laterale, 1.0 * scala)
+        if base is None:
+            return
+        bx, by = int(vista.x + base[0]), int(vista.y + base[1])
+        # le due schede non si coprono: la seconda sta piu' in alto
+        alto = 46 + k * 40
+        nome = info["nome"]
+        pos = str(info["pos"])
+        larga = (30 + T.width(nome, 13, bold=True) + 12 + T.width(info["dato"], 12, bold=True)
+                 + 12 + T.width(info["distacco"], 12, mono=True) + 12)
+        x0 = max(vista.x + 4, min(vista.right - larga - 4, bx - larga // 2))
+        y0 = max(vista.y + 40, by - alto)
+        pygame.draw.line(surf, (240, 244, 250), (bx, by), (bx, y0 + 26), 2)
+        pygame.draw.circle(surf, (240, 244, 250), (bx, by), 3)
+        T.panel(surf, (x0, y0, larga, 26), (14, 18, 26), radius=5, rilievo=False)
+        colore = next((a for a in [self._colore_di(chi)] if a), T.squadra_viva())
+        T.panel(surf, (x0, y0, 26, 26), colore, radius=5, rilievo=False)
+        T.text(surf, pos, (x0 + 13, y0 + 5), 13, T.WHITE, bold=True, align="center")
+        x = x0 + 32
+        T.text(surf, nome, (x, y0 + 5), 13, T.WHITE, bold=True)
+        x += T.width(nome, 13, bold=True) + 12
+        if info["dato"]:
+            T.text(surf, info["dato"], (x, y0 + 6), 12, info["colore"], bold=True)
+            x += T.width(info["dato"], 12, bold=True) + 12
+        if info["distacco"]:
+            T.text(surf, info["distacco"], (x, y0 + 6), 12, (200, 210, 225), mono=True)
+
+    def _colore_di(self, driver_id):
+        e = next((x for x in self._entranti_3d() if x.driver_id == driver_id), None)
+        return tuple(e.colour[:3]) if e is not None and getattr(e, "colour", None) else None
