@@ -118,7 +118,10 @@ class Button(Widget):
         if luce is not None and h > 0.02:
             # il pulsante acceso fa luce attorno a se' quando ci si passa sopra
             fx.splendi(surf, r.center, int(max(r.w, r.h) * 0.75), luce, 0.22 * h)
-        T.panel(surf, r, bg, radius=8, border=border, rilievo=self.style in ("primary", "danger"))
+        # i pulsanti sono pillole: gli angoli tondi quanto meta' dell'altezza
+        tondo = int(min(r.h // 2, 22) / T.RAGGIO)
+        T.panel(surf, r, bg, radius=tondo, border=border,
+                rilievo=self.style in ("primary", "danger"))
         if luce is not None and self.enabled and not IS_WEB:
             fx.riflesso(surf, r, 5.5, (r.x * 0.013 + r.y * 0.007), 0.28 + 0.2 * h, 8)
         if self.style == "tab" and self.active:
@@ -126,7 +129,8 @@ class Button(Widget):
             # posto della schermata che dice sempre per chi si sta lavorando
             if not IS_WEB:
                 fx.splendi(surf, (r.centerx, r.bottom - 1), max(16, r.w // 2), vivo, 0.18)
-            pygame.draw.rect(surf, vivo, (r.x + 4, r.bottom - 3, r.w - 8, 3), border_radius=2)
+            pygame.draw.rect(surf, vivo, (r.x + r.h // 2, r.bottom - 3, r.w - r.h, 3),
+                             border_radius=2)
         premuto = _PREMUTI.get(chiave)
         if premuto is not None:
             # l'onda del clic, che parte da dove si e' premuto

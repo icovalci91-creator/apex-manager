@@ -22,34 +22,49 @@ WHITE     = (255, 255, 255)
 
 # I caratteri viaggiano col gioco invece di essere presi dal sistema: su
 # Windows si vedeva il font di Windows, su Linux un altro e nel browser un
-# altro ancora, e le stesse schermate venivano fuori diverse. Adesso sono tre
-# facce sole, tutte a licenza aperta e impacchettate qui dentro:
-#   Barlow            per il testo, stretto quel tanto che serve a far stare
-#                     una tabella di ventidue righe senza tagliare i nomi
-#   Barlow Condensed  per i titoli grandi, che e' il taglio dei tabelloni
-#   IBM Plex Mono     per i numeri, con le cifre tutte della stessa larghezza:
-#                     i tempi sul giro non ballano piu' mentre scorrono
+# altro ancora, e le stesse schermate venivano fuori diverse. Sono tutti a
+# licenza aperta e impacchettati qui dentro:
+#   Nunito            per il testo e i titoli: tondo, moderno, e con le
+#                     lettere aperte si legge bene anche piccolo
+#   IBM Plex Mono     per i numeri che scorrono, con le cifre tutte della
+#                     stessa larghezza: i tempi sul giro non ballano
+#   Titillium Web     per la grafica della televisione in gara: e' il
+#                     carattere che la Formula 1 ha usato in TV dal 2011 al 2017
 _FONTS: dict = {}
 _DIR = C.ROOT / "assets" / "fonts"
 _FILE = {
-    ("sans", False): "Barlow-Medium.ttf",
-    ("sans", True): "Barlow-SemiBold.ttf",
+    ("sans", False): "Nunito-SemiBold.ttf",
+    ("sans", True): "Nunito-ExtraBold.ttf",
     ("mono", False): "IBMPlexMono-Regular.ttf",
     ("mono", True): "IBMPlexMono-SemiBold.ttf",
-    ("titolo", True): "BarlowCondensed-Bold.ttf",
+    ("titolo", True): "Nunito-Black.ttf",
+    ("tv", False): "TitilliumWeb-SemiBold.ttf",
+    ("tv", True): "TitilliumWeb-Bold.ttf",
+    ("tv_nero", True): "TitilliumWeb-Black.ttf",
 }
-# Il corpo resta quello di prima: misurato sull'altezza della x e sulla
-# larghezza di una frase intera, Barlow allo stesso corpo si legge come il
-# carattere che c'era - e le pagine, che sono tarate al pixel, non si muovono.
 SCALA = 1.0
-# Da qui in su una scritta in grassetto e' un titolo, e i titoli vanno in
-# condensato: e' la stessa distinzione che fa una grafica televisiva.
+# Da qui in su una scritta in grassetto e' un titolo, e i titoli vanno nel
+# taglio piu' pieno.
 TITOLO_DA = 20
+# Il corpo minimo. Le pagine chiedevano scritte da nove, dieci, undici pixel:
+# su un portatile non si leggevano. Adesso i corpi piccoli crescono - di piu'
+# i piu' piccoli - e da quindici in su si resta come si e' chiesto.
+_CORPO = {8: 11, 9: 11, 10: 12, 11: 12, 12: 13, 13: 14, 14: 15}
+# Nunito nei titoli e' piu' largo del condensato che c'era: lo si tiene un
+# poco piu' piccolo, cosi' i titoli restano nel loro spazio.
+TITOLO_SCALA = 0.88
 
 # quando i file non ci sono - un sorgente incompleto - si torna al sistema
 _FALLBACK = {"sans": "Segoe UI,Inter,DejaVu Sans,Arial",
              "mono": "Consolas,DejaVu Sans Mono,Courier New",
-             "titolo": "Segoe UI Semibold,Inter,DejaVu Sans,Arial"}
+             "titolo": "Segoe UI Semibold,Inter,DejaVu Sans,Arial",
+             "tv": "Segoe UI Semibold,Inter,DejaVu Sans,Arial",
+             "tv_nero": "Segoe UI Black,Inter,DejaVu Sans,Arial"}
+
+
+def corpo(size: int) -> int:
+    """Il corpo vero di una scritta chiesta a `size`."""
+    return _CORPO.get(size, max(11, size))
 
 
 def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
@@ -57,12 +72,22 @@ def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
     f = _FONTS.get(key)
     if f is None:
         if mono:
-            faccia, corpo = "mono", size
+            faccia, c = "mono", corpo(size)
         elif bold and size >= TITOLO_DA:
-            faccia, corpo = "titolo", int(round(size * SCALA))
+            faccia, c = "titolo", int(round(size * TITOLO_SCALA * SCALA))
         else:
-            faccia, corpo = "sans", int(round(size * SCALA))
-        f = _carica(faccia, bold, corpo)
+            faccia, c = "sans", int(round(corpo(size) * SCALA))
+        f = _carica(faccia, bold, c)
+        _FONTS[key] = f
+    return f
+
+
+def font_tv(size: int, bold: bool = True, nero: bool = False) -> pygame.font.Font:
+    """Il carattere della grafica televisiva di gara, al corpo esatto."""
+    key = ("tv", size, bold, nero)
+    f = _FONTS.get(key)
+    if f is None:
+        f = _carica("tv_nero" if nero else "tv", True if nero else bold, size)
         _FONTS[key] = f
     return f
 
@@ -250,6 +275,7 @@ def _schiarisci(colour, q: float) -> tuple:
 _LASTRE: dict = {}
 _LASTRE_PIXEL = [0]
 LASTRE_MAX_PIXEL = 14_000_000
+RAGGIO = 1.6               # quanto si arrotondano gli angoli rispetto a quelli chiesti
 OMBRA_DA = (140, 56)        # da questa misura in su una lastra fa ombra
 VETRO = 212                 # e quanto e' piena: il resto e' lo sfondo che passa
 
@@ -300,6 +326,9 @@ def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 
     r = pygame.Rect(rect)
     if r.w <= 0 or r.h <= 0:
         return
+    # tutto piu' tondo: gli angoli chiesti crescono di meta', senza mai
+    # superare la meta' del lato corto
+    radius = min(int(round(radius * RAGGIO)), min(r.w, r.h) // 2)
     colour = tuple(colour)
     if len(colour) > 3 or r.w * r.h > 3_000_000:
         # trasparente, o grande come la finestra: si dipinge e basta

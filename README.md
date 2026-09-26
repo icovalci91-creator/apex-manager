@@ -47,6 +47,15 @@ percorre, **il semaforo della partenza** - cinque rosse, un'attesa che nessuno c
 (un clic sulla mappa lo salta) - e **la bandiera a scacchi** con il nome del vincitore, con i
 coriandoli se una delle nostre e' sul podio. Vale per il gran premio, la sprint e l'E-Prix.
 
+**Si legge.** Il testo e' in **Nunito**, un carattere tondo e moderno con le lettere aperte,
+e nessuna scritta scende sotto gli 11 pixel: quelle che prima erano da 9 o 10 crescono, e i
+pulsanti sono pillole con gli angoli tondi. Le sezioni della barra a sinistra sono sette, con
+il nome intero e grande: dentro ognuna, le schede in cima alla pagina (vedi sotto). Le pagine
+con molte cose - piloti, staff - non si dividono piu' in tre colonne strette: la prima
+schermata e' una lista larga quanto la pagina, e un clic su un nome apre la sua scheda a tutto
+schermo, con **Torna** per tornare indietro. Su una finestra stretta i pannelli di una scheda
+si mettono uno sopra l'altro e la pagina scorre.
+
 Tutto quello che si puo' preparare una volta si prepara una volta: a 1600x900 una schermata
 del quartier generale costa 8-9 millesimi a fotogramma. Nel browser lo sfondo resta fermo.
 
@@ -415,7 +424,21 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 
 ### Le sezioni
 
-| Sezione | Cosa fai |
+La barra a sinistra ha sette voci; ognuna apre le sue schede, in cima alla pagina:
+
+| Voce | Schede |
+|---|---|
+| Home | Quartier generale |
+| Vettura | Assetto e pezzi, Sviluppo, Power unit, Test privati |
+| Piloti | Piloti e mercato, Vivaio |
+| Staff | Staff tecnico, Ingegneri, Organico reparti |
+| Societa' | Finanze e sponsor, Infrastrutture |
+| Programmi | Formula E, Endurance |
+| Campionato | Classifiche, Calendario, Storico, Regolamento |
+
+Tornando su una voce si ritrova l'ultima scheda aperta.
+
+| Scheda | Cosa fai |
 |---|---|
 | Quartier Generale | Cruscotto: cassa, budget cap, piloti, reparti, notizie |
 | Vettura e assetto | La monoposto vista dall'alto: si clicca un pezzo e si vede com'e' messo, cosa c'e' di nuovo in fabbrica e su quale macchina montarlo. Sotto, power unit e cambio da sostituire prima che cedano e un assetto per pilota con il riferimento corretto per il suo stile |
@@ -423,8 +446,8 @@ circuiti invecchia: cambia la macchina, e il lavoro va rifatto.
 | Power unit | Confronto fra i motoristi, specifica in lavorazione al banco e quando omologarla con i cinque assi su cui si sviluppa (potenza, recupero, software, affidabilità, efficienza) e quanto banco puntare su ognuno, programma per costruirsi la propria unità, e il programma sull'architettura del ciclo che verrà |
 | Ingegneri | Riunione con i tuoi uomini: dove sei rispetto alla griglia, su cosa lavorare, e la linea per la vettura dell'anno prossimo |
 | Vivaio | I ragazzi che crescono in casa: due schede, una per il ragazzo e una per decidere **in che categoria corre** — con il costo del posto, cosa insegna e perché una categoria è preclusa — oppure per lasciare la scelta al responsabile del vivaio. Come è finito il loro campionato e a che punto sono con la superlicenza. Quando promuoverlo a terzo pilota o a titolare. Chi il vivaio non ce l'ha può aprirlo, se se lo può permettere |
-| Piloti e mercato | La scheda di ogni pilota - attributi col numero accanto alla barra, potenziale residuo, indennizzo per portarlo via, licenza e carriera - e sotto il tavolo della trattativa: ingaggio, durata, bonus vittoria/podio/punto, clausola |
-| Staff tecnico | Organigramma, mercato e la scheda di chiunque: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso e probabilita' che accetti |
+| Piloti e mercato | In cima i nostri - due titolari e due terzi piloti, una scheda grande per ognuno - e sotto il mercato largo quanto la pagina (svincolati, griglia, giovani) con eta', squadra, valutazione, potenziale, valore e scadenza. Un clic apre la scheda del pilota a tutto schermo: attributi col numero accanto alla barra, potenziale residuo, indennizzo, licenza e carriera; a destra il posto in squadra per i nostri, o il tavolo della trattativa per gli altri (ingaggio, durata, bonus vittoria/podio/punto, clausola) |
+| Staff tecnico | Due viste, l'organigramma e il mercato, ognuna a tutta pagina. Un clic apre la scheda: attributi con il numero accanto alla barra, valore nel ruolo, confronto con chi quel posto ce l'ha adesso, probabilita' che accetti e l'offerta |
 | Organico reparti | Quante persone lavorano in aerodinamica, progettazione, powertrain, simulazione e affidabilita': si assume, si taglia, e si paga |
 | Infrastrutture | Dieci strutture da potenziare o costruire, budget capitale a parte dal cap, obsolescenza, confronto con gli avversari |
 | Test privati | Otto giornate l'anno (dieci con una pista di proprieta') piu' le prove collettive di inizio stagione: dove girare, con chi, per quale programma |
