@@ -46,7 +46,9 @@ a = Analysis(
     # e i dintorni dei circuiti per la vista 3D, se qualcuno li ha scaricati
     # con tools/fetch_dintorni.py: finche' la cartella non c'e' si fa senza
     datas=[('data', 'data'), ('assets', 'assets')]
-          + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else []),
+          + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else [])
+          # e le texture e i cieli fotografici, se tools/fetch_grafica.py li ha scaricati
+          + ([('grafica', 'grafica')] if __import__('os').path.isdir('grafica') else []),
     hiddenimports=['moderngl', '_moderngl'] + collect_submodules('glcontext'),
     hookspath=[],
     hooksconfig={},

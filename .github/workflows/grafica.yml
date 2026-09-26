@@ -1,0 +1,53 @@
+name: Scarica la grafica 3D
+
+# Va a prendere da Poly Haven le texture fotografiche (asfalto, prato,
+# ghiaia, sabbia, cemento, terra) e i cieli a 360 gradi per la vista 3D, con
+# tools/fetch_grafica.py, e le salva nel progetto in grafica/: da li' le usa il
+# gioco e l'installatore se le porta dentro.
+#
+# Gira qui perche' qui internet c'e' sempre. Parte da solo quando cambia lo
+# strumento o questo file, oppure a mano da Actions. Scarica solo quello che
+# manca. Tutto e' sotto licenza CC0.
+
+on:
+  push:
+    branches: [main, claude/game-analysis-l4v034]
+    paths:
+      - '.github/workflows/grafica.yml'
+      - 'tools/fetch_grafica.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # serve a salvare grafica/ nel progetto
+
+concurrency:
+  group: grafica-${{ github.ref }}
+
+jobs:
+  scarica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Scarica
+        run: python tools/fetch_grafica.py
+
+      - name: Salva nel progetto
+        run: |
+          du -sh grafica grafica/* || true
+          cat grafica/elenco.json || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add grafica
+          if git diff --cached --quiet; then
+            echo "niente di nuovo da salvare"
+            exit 0
+          fi
+          git commit -m "Grafica 3D da Poly Haven: texture e cieli" -m "Licenza CC0. Scaricati da tools/fetch_grafica.py, elenco in grafica/elenco.json."
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

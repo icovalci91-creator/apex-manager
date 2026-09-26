@@ -45,6 +45,8 @@ DATA = ROOT / "data"
 # quello che c'e' attorno ai circuiti, scaricato da OpenStreetMap: sta fuori da
 # data/ perche' serve solo alla vista 3D, e la versione web non se lo porta dietro
 DINTORNI = ROOT / "dintorni"
+# le texture e i cieli fotografici della vista 3D (tools/fetch_grafica.py)
+GRAFICA = ROOT / "grafica"
 UTENTE = _cartella_utente()
 SAVES = UTENTE / "saves"
 
