@@ -5,8 +5,15 @@ name: Build Windows e allega alla release
 # sistema diverso da quello su cui gira, quindi un .exe lo puo' produrre solo
 # una macchina Windows. Questa e' quella macchina.
 #
-# Ne esce un file solo, ApexManager.exe, che si porta dentro Python, pygame e
-# tutti i dati del gioco: chi lo riceve non installa niente.
+# Ne escono due cose:
+#
+#   * ApexManager.exe, un file solo che si porta dentro Python, pygame e tutti
+#     i dati del gioco: si copia dove si vuole e si lancia, senza installare;
+#   * ApexManager-Setup.exe, l'installatore (installer/apex.iss, Inno Setup):
+#     mette il gioco su disco gia' scompattato - parte subito, e gli
+#     antivirus lo guardano meno storto - con il collegamento nel menu Start
+#     e la disinstallazione da "App installate". I salvataggi stanno altrove
+#     e aggiornare non li tocca.
 #
 #   * a ogni push si trova in fondo alla pagina Actions, sotto "Artifacts",
 #     e serve a provare in fretta che quello che si e' scritto funziona;
@@ -82,9 +89,50 @@ jobs:
           path: dist/ApexManager.exe
           if-no-files-found: error
 
+      - name: Impacchetta la cartella per l'installatore
+        # la stessa ricetta, ma in una cartella invece che in un file solo
+        env:
+          APEX_CARTELLA: "1"
+        run: python -m PyInstaller --noconfirm --distpath dist_cartella --workpath build_cartella apex.spec
+
+      - name: Controlla che parta anche la versione in cartella
+        shell: pwsh
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          $p = Start-Process -FilePath dist_cartella\ApexManager\ApexManager.exe -PassThru
+          Start-Sleep -Seconds 25
+          if ($p.HasExited) {
+            Write-Host "si e' chiuso da solo con codice $($p.ExitCode)"
+            exit 1
+          }
+          Write-Host "e' ancora vivo dopo venticinque secondi: bene"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Costruisci l'installatore
+        # Inno Setup di solito c'e' gia' sulla macchina di GitHub; se manca si
+        # installa al volo
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DVersione=0.1.${{ github.run_number }}" installer\apex.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApexManager-installatore
+          path: dist/ApexManager-Setup.exe
+          if-no-files-found: error
+
       - name: Allega alla release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ApexManager.exe
+          files: |
+            dist/ApexManager.exe
+            dist/ApexManager-Setup.exe
           generate_release_notes: true

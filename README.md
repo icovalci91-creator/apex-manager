@@ -236,8 +236,18 @@ Chi deve solo giocare non installa Python: scarica **ApexManager.exe**, lo mette
 e ci clicca sopra. E' un file solo - Python, pygame e tutti i dati del gioco stanno dentro -
 e pesa una ventina di megabyte.
 
-Lo si trova in due posti: in fondo alla pagina **Actions** sotto "Artifacts" dopo ogni push,
-e allegato a una **release** ogni volta che si mette un tag che comincia per `v`.
+**Oppure lo si installa.** **ApexManager-Setup.exe** e' l'installatore (Inno Setup,
+ricetta in `installer/apex.iss`): mette il gioco su disco gia' scompattato, in
+`%LOCALAPPDATA%\Programs\Apex Manager`, senza chiedere i permessi di amministratore, con il
+collegamento nel menu Start (e sul desktop, se si vuole) e la disinstallazione da "App
+installate". Rispetto al file singolo parte subito - quello a ogni avvio si scompatta in
+una cartella temporanea - e gli antivirus lo guardano meno storto. Per aggiornare si lancia
+l'installatore nuovo sopra al vecchio; i salvataggi stanno altrove (vedi sotto) e non li
+tocca ne' l'aggiornamento ne' la disinstallazione.
+
+Si trovano in due posti: in fondo alla pagina **Actions** sotto "Artifacts" dopo ogni push
+(`ApexManager-windows` e `ApexManager-installatore`), e allegati a una **release** ogni
+volta che si mette un tag che comincia per `v`.
 
 ```bash
 git tag v0.2 && git push origin v0.2     # e la release si fa da sola

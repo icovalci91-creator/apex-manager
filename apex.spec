@@ -7,6 +7,10 @@ Ne esce un file solo - dist/ApexManager.exe su Windows, dist/ApexManager su
 Linux e Mac - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
 lo riceve non deve installare niente: lo copia dove vuole e ci clicca sopra.
 
+Con APEX_CARTELLA=1 ne esce invece una cartella, dist/ApexManager/, con i dati
+gia' scompattati accanto all'eseguibile: e' quella che l'installatore
+(installer/apex.iss) mette su disco.
+
 Due cose vale la pena spiegare, perche' non sono ovvie.
 
 **I dati viaggiano dentro.** `datas` mette `data/` e `assets/` dentro
@@ -56,28 +60,59 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name='ApexManager',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    # UPX comprime l'eseguibile ma su Windows fa insospettire piu' di un
-    # antivirus, e un gioco che l'antivirus mette in quarantena non lo apre
-    # nessuno. Meglio venti megabyte in piu'
-    upx=False,
-    runtime_tmpdir=None,
-    # niente finestra del terminale dietro al gioco: si apre la finestra e
-    # basta, come ci si aspetta da un programma
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon='assets/apex.ico' if __import__('os').path.exists('assets/apex.ico') else None,
-)
+# Due modi di impacchettare, dalla stessa ricetta:
+#   * un file solo (di norma): dist/ApexManager.exe, da copiare e lanciare;
+#   * una cartella (APEX_CARTELLA=1): dist/ApexManager/ con l'eseguibile e
+#     tutto il resto gia' scompattato accanto. E' quella che mette su disco
+#     l'installatore (installer/apex.iss): il gioco parte subito, senza
+#     scompattarsi in una cartella temporanea a ogni avvio.
+import os
+CARTELLA = os.environ.get("APEX_CARTELLA") == "1"
+ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
+
+if CARTELLA:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name='ApexManager',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICONA,
+    )
+    coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='ApexManager')
+else:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        a.binaries,
+        a.datas,
+        [],
+        name='ApexManager',
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        # UPX comprime l'eseguibile ma su Windows fa insospettire piu' di un
+        # antivirus, e un gioco che l'antivirus mette in quarantena non lo
+        # apre nessuno. Meglio venti megabyte in piu'
+        upx=False,
+        runtime_tmpdir=None,
+        # niente finestra del terminale dietro al gioco: si apre la finestra e
+        # basta, come ci si aspetta da un programma
+        console=False,
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICONA,
+    )
