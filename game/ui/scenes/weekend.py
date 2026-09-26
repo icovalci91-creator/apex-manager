@@ -814,10 +814,14 @@ class WeekendScene(Mappa3D, Scene):
         if self.turno:
             self._draw_turno(surf)
         elif self.sim:
-            self._draw_race(surf)
+            # la gara si guarda come in televisione, anche nel carattere
+            with T.stile_tv():
+                self._draw_race(surf)
+                super().draw(surf)
         else:
             self._draw_prep(surf)
-        super().draw(surf)
+        if not self.sim or self.turno:
+            super().draw(surf)
         w, h = surf.get_size()
         if getattr(self, "semaforo", None) is not None and self.sim:
             self.semaforo.draw(surf, self._race_rects(w, h)[0])

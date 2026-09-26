@@ -514,8 +514,12 @@ class EPrixScene(Mappa3D, Scene):
         elif self.sim.finished:
             self._draw_fine(surf, w, h)
         else:
-            self._draw_gara(surf, w, h)
-        super().draw(surf)
+            # la gara si guarda come in televisione, anche nel carattere
+            with T.stile_tv():
+                self._draw_gara(surf, w, h)
+                super().draw(surf)
+        if self.sim is None or self.fase == "quali" or self.sim.finished:
+            super().draw(surf)
         if getattr(self, "semaforo", None) is not None and self.fase == "gara":
             self.semaforo.draw(surf, self._rect_gara(w, h)[0])
         if getattr(self, "traguardo", None) is not None:

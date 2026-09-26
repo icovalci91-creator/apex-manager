@@ -17,6 +17,7 @@ from . import theme as T
 
 VIOLA = (183, 96, 255)
 ROSSO_TV = (225, 6, 0)
+CARBONE = (21, 21, 30)          # il nero della grafica ufficiale
 GRIGIO = (150, 160, 178)
 
 
@@ -43,24 +44,26 @@ def torre(surf, tower, testa: tuple, modo: str, righe: list) -> tuple:
     colour, mio, fuori, tag, viola, valore (testo, colore) e icona - ("gomma",
     colore, lettera) o ("batteria", quota, colore). Restituisce (riquadro del
     modo, y della prima riga, altezza di una riga)."""
-    testa_h = 46
+    testa_h = 50
     n = max(1, len(righe))
     rh = max(13.0, min(24.0, (tower.h - testa_h - 6) / n))
     alta = int(testa_h + 4 + rh * n)
+    # il nero carbone della grafica ufficiale, con la testata rossa
     velo = pygame.Surface((tower.w, alta), pygame.SRCALPHA)
-    pygame.draw.rect(velo, (10, 11, 16, 228), velo.get_rect(), border_radius=8)
+    pygame.draw.rect(velo, (*CARBONE, 236), velo.get_rect(), border_radius=10)
     surf.blit(velo, tower.topleft)
-    pygame.draw.rect(surf, ROSSO_TV, (tower.x, tower.y, tower.w, 4),
-                     border_top_left_radius=8, border_top_right_radius=8)
+    pygame.draw.rect(surf, ROSSO_TV, (tower.x, tower.y, tower.w, 36),
+                     border_top_left_radius=10, border_top_right_radius=10)
     etichetta, grande, dopo = testa
-    T.text(surf, etichetta, (tower.x + 14, tower.y + 12), 11, (160, 168, 182), bold=True)
-    x = tower.x + 18 + T.width(etichetta, 11, bold=True)
-    T.text(surf, grande, (x, tower.y + 7), 22, T.WHITE, bold=True)
-    T.text(surf, dopo, (x + 2 + T.width(grande, 22, bold=True), tower.y + 15), 13,
-           (160, 168, 182), bold=True)
-    riquadro = pygame.Rect(tower.right - 116, tower.y + 8, 108, 26)
-    T.panel(surf, riquadro, (34, 36, 46), radius=5, rilievo=False)
-    T.text(surf, modo, (riquadro.centerx, riquadro.y + 7), 11, T.WHITE, bold=True,
+    T.text(surf, etichetta, (tower.x + 14, tower.y + 12), 12, (255, 220, 218), bold=True)
+    x = tower.x + 18 + T.width(etichetta, 12, bold=True)
+    T.text(surf, grande, (x, tower.y + 5), 24, T.WHITE, bold=True)
+    T.text(surf, dopo, (x + 2 + T.width(grande, 24, bold=True), tower.y + 13), 14,
+           (255, 220, 218), bold=True)
+    riquadro = pygame.Rect(tower.right - 112, tower.y + 6, 104, 24)
+    pygame.draw.rect(surf, (150, 0, 0), riquadro, border_radius=12)
+    pygame.draw.rect(surf, (255, 120, 110), riquadro, 1, border_radius=12)
+    T.text(surf, modo, (riquadro.centerx, riquadro.y + 5), 12, T.WHITE, bold=True,
            align="center")
     y0 = tower.y + testa_h
     dim = 15 if rh >= 21 else (13 if rh >= 17 else 11)
@@ -74,19 +77,12 @@ def torre(surf, tower, testa: tuple, modo: str, righe: list) -> tuple:
                 a = int(150 * (1.0 - k / larga) + 40)
                 pygame.draw.rect(acceso, (*r["colour"][:3], a), (k, 0, 2, acceso.get_height()))
             surf.blit(acceso, (tower.x + 4, y))
-        elif i % 2 == 0:
-            striscia = pygame.Surface((tower.w - 8, int(rh) - 1), pygame.SRCALPHA)
-            striscia.fill((255, 255, 255, 10))
-            surf.blit(striscia, (tower.x + 4, y))
+        elif i > 1:
+            # il filo fra una riga e l'altra, come sul tabellone vero
+            pygame.draw.line(surf, (44, 44, 58), (tower.x + 10, y), (tower.right - 10, y))
         ty = y + (rh - dim) / 2 - 1
         chiaro = (110, 116, 128) if fuori else T.WHITE
-        if i <= 3 and not fuori:
-            pygame.draw.rect(surf, (240, 242, 246), (tower.x + 8, y + 2, 26, int(rh) - 4),
-                             border_radius=3)
-            T.text(surf, str(i), (tower.x + 21, ty), dim, (12, 14, 20), bold=True,
-                   align="center")
-        else:
-            T.text(surf, str(i), (tower.x + 21, ty), dim, chiaro, bold=True, align="center")
+        T.text(surf, str(i), (tower.x + 21, ty), dim, chiaro, bold=True, align="center")
         pygame.draw.rect(surf, r["colour"], (tower.x + 40, y + 3, 4, max(6, int(rh) - 6)),
                          border_radius=2)
         T.text(surf, r["code"], (tower.x + 52, ty), dim, chiaro, bold=True)
@@ -121,7 +117,9 @@ def torre(surf, tower, testa: tuple, modo: str, righe: list) -> tuple:
         else:
             xv = gx
         testo, col = r["valore"]
-        T.text(surf, testo, (xv, ty + 1), max(11, dim - 2), col, bold=True, mono=True,
+        # in televisione i distacchi sono nel carattere della grafica, che ha
+        # le cifre tutte larghe uguali: non ballano mentre cambiano
+        T.text(surf, testo, (xv, ty), dim, col, bold=False, mono=not T.in_tv(),
                align="right")
     return riquadro, y0, rh
 

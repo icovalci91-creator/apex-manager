@@ -148,8 +148,13 @@ fra quattro telecamere:
 - **onboard**: la telecamera sopra l'airbox, con l'halo e il muso davanti;
 - **elicottero**: sopra la macchina, girandole piano attorno.
 
-In basso a sinistra c'e' la grafica: posizione, colore della squadra e sigla, e "battaglia
-per P5" quando le macchine sono due; in alto a destra la camera in onda. Un clic su una
+La grafica e' quella della televisione: il tabellone in nero carbone con la testata rossa
+del giro, e in basso a sinistra il **sottopancia** - il riquadro bianco con la posizione, il
+filo del colore della squadra, il nome, il **COGNOME** grande e la squadra - con i due piloti
+uno sopra l'altro e la linguetta rossa "battaglia per P5" quando si battono; in alto a
+destra la camera in onda. Durante la gara tutto il testo passa a **Titillium Web**, il
+carattere che la Formula 1 ha usato in televisione dal 2011 al 2017 (quello di oggi non si
+puo' distribuire), con i distacchi nelle sue cifre tutte larghe uguali. Un clic su una
 macchina, o su una riga del tabellone, dice al regista di guardare solo quella (**REGIA
 LIBERA** lo lascia di nuovo scegliere).
 

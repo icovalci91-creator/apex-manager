@@ -62,15 +62,45 @@ _FALLBACK = {"sans": "Segoe UI,Inter,DejaVu Sans,Arial",
              "tv_nero": "Segoe UI Black,Inter,DejaVu Sans,Arial"}
 
 
+# Lo stile della televisione: mentre si disegna la gara, tutto il testo che
+# non e' un numero incolonnato passa a Titillium Web, al corpo esatto che si
+# chiede. La gara e' tarata al pixel, e Titillium e' largo quanto il
+# carattere per cui e' stata disegnata: le scritte restano nel loro spazio.
+_TV = [False]
+
+
+class stile_tv:
+    """`with T.stile_tv():` - quello che si disegna dentro ha il carattere
+    della grafica televisiva."""
+
+    def __enter__(self):
+        self._prima = _TV[0]
+        _TV[0] = True
+        return self
+
+    def __exit__(self, *_a):
+        _TV[0] = self._prima
+        return False
+
+
+def in_tv() -> bool:
+    return _TV[0]
+
+
 def corpo(size: int) -> int:
     """Il corpo vero di una scritta chiesta a `size`."""
     return _CORPO.get(size, max(11, size))
 
 
 def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
-    key = (size, bold, mono)
+    key = (size, bold, mono, _TV[0])
     f = _FONTS.get(key)
     if f is None:
+        if _TV[0] and not mono:
+            faccia = "tv_nero" if bold and size >= TITOLO_DA else "tv"
+            f = _carica(faccia, bold, size)
+            _FONTS[key] = f
+            return f
         if mono:
             faccia, c = "mono", corpo(size)
         elif bold and size >= TITOLO_DA:
@@ -116,12 +146,19 @@ _SURF_MAX = 3000
 
 def render(s: str, size: int = 16, colour=TEXT, bold: bool = False,
            mono: bool = False) -> pygame.Surface:
-    key = (s, size, bold, mono, tuple(colour))
+    key = (s, size, bold, mono, tuple(colour), _TV[0])
     img = _SURFS.get(key)
     if img is None:
         if len(_SURFS) >= _SURF_MAX:
             _SURFS.clear()
         img = font(size, bold, mono).render(s, True, colour)
+        if _TV[0] and not mono:
+            # Titillium ha sopra le lettere un margine piu' alto: lo si toglie,
+            # cosi' la scritta cade dove cadeva quella per cui e' tarata la gara
+            taglio = min(img.get_height() - 1, int(round(size * 0.14)))
+            if taglio > 0:
+                img = img.subsurface((0, taglio, img.get_width(),
+                                      img.get_height() - taglio)).copy()
         _SURFS[key] = img
     return img
 
@@ -206,7 +243,7 @@ def wrap(s: str, size: int = 13, maxw: int = 200, bold: bool = False,
     misura si fa una volta sola e si tiene in cache, e chi scrive sa quante
     righe occupera'.
     """
-    key = (s, size, maxw, bold, mono)
+    key = (s, size, maxw, bold, mono, _TV[0])
     out = _WRAP.get(key)
     if out is not None:
         return out

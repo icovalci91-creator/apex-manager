@@ -14,6 +14,7 @@ import math
 
 import pygame
 
+from . import grafica_gara as GG
 from . import theme as T
 from . import audio, pista3d, regia, trackdraw, vista3d
 from .widgets import Button
@@ -513,39 +514,73 @@ class Mappa3D:
             T.text(surf, "clic su una macchina o sul tabellone: la regia la segue",
                    (vista.right - 12, vista.bottom - 22), 11, (225, 230, 240), align="right")
 
+    def _nome_tv(self, chi, a) -> tuple:
+        """(nome, COGNOME, squadra) di una macchina, per il sottopancia."""
+        gs = getattr(self, "gs", None)
+        e = next((x for x in self._entranti_3d() if x.driver_id == chi), None)
+        d = gs.drivers.get(chi) if gs is not None else None
+        if d is not None:
+            nome, cognome = d.first, GG.cognome(d.name)
+        else:
+            parti = (getattr(e, "name", "") or a[4]).split()
+            nome = " ".join(parti[:-1]) if len(parti) > 1 and "." not in parti[0] else ""
+            cognome = (parti[-1] if parti else a[4]).upper()
+        squadra = getattr(e, "squadra", "") if e is not None else ""
+        if not squadra and e is not None and gs is not None and e.team_id in gs.teams:
+            squadra = gs.teams[e.team_id].name
+        return nome, cognome, squadra
+
     def _terzo_basso(self, surf, vista, d, per_id) -> None:
-        """In basso a sinistra: posizione, colore della squadra, sigla. Se
-        c'e' una battaglia, anche chi c'e' davanti."""
+        """Il sottopancia della televisione, in basso a sinistra: il riquadro
+        bianco con la posizione, il filo del colore della squadra, il nome e
+        il cognome grande, la squadra sotto. In una battaglia i piloti sono
+        uno sopra l'altro, con il titolo nella linguetta rossa."""
         a = per_id.get(d["chi"])
         if a is None:
             return
-        info = self.regista.info.get(d["chi"], {})
-        x = vista.x + 14 + getattr(self, "_margine_sx", 0)
-        y = vista.bottom - 70 - (46 if getattr(self, "_senza_aiuto", False) else 0)
-        riga = [(info.get("pos"), a)]
+        riga = [(self.regista.info.get(d["chi"], {}).get("pos"), d["chi"], a)]
         for c in d["altri"]:
             b = per_id.get(c)
             if b is not None:
-                riga.append((self.regista.info.get(c, {}).get("pos"), b))
+                riga.append((self.regista.info.get(c, {}).get("pos"), c, b))
+        riga.sort(key=lambda v: v[0] or 99)
         if d["replay"] and d["sorpasso"]:
             titolo = "IL SORPASSO"
         elif len(riga) > 1:
-            posti = sorted(p for p, _ in riga if p)
+            posti = sorted(p for p, _c, _a in riga if p)
             titolo = f"BATTAGLIA PER P{posti[0]}" if posti else "BATTAGLIA"
         else:
-            titolo = "IN PISTA"
-        T.text(surf, titolo, (x + 2, y - 16), 11, (235, 240, 250), bold=True)
-        for posto, b in riga:
-            larga = 44 + T.width(b[4], 16, bold=True) + 18
-            T.panel(surf, (x, y, larga, 30), (10, 14, 22), radius=5, rilievo=False)
-            T.panel(surf, (x, y, 30, 30), T.WHITE if b[3] else (232, 236, 244), radius=5,
-                    rilievo=False)
-            T.text(surf, str(posto or "-"), (x + 15, y + 6), 15, (10, 14, 22), bold=True,
+            titolo = ""
+        alto, passo = 58, 64
+        x = vista.x + 14 + getattr(self, "_margine_sx", 0)
+        fondo = vista.bottom - 24 - (46 if getattr(self, "_senza_aiuto", False) else 0)
+        y = fondo - alto - passo * (len(riga) - 1)
+        if titolo:
+            larga = T.width(titolo, 12, bold=True) + 24
+            pygame.draw.rect(surf, GG.ROSSO_TV, (x, y - 24, larga, 22),
+                             border_top_left_radius=6, border_top_right_radius=6)
+            T.text(surf, titolo, (x + 12, y - 21), 12, T.WHITE, bold=True)
+        for posto, chi, b in riga:
+            nome, cognome, squadra = self._nome_tv(chi, b)
+            largo = max(T.width(cognome, 24, bold=True),
+                        T.width(f"{nome}   {squadra}", 14)) + 96
+            velo = pygame.Surface((largo, alto), pygame.SRCALPHA)
+            pygame.draw.rect(velo, (*GG.CARBONE, 238), velo.get_rect(), border_radius=6)
+            surf.blit(velo, (x, y))
+            pygame.draw.rect(surf, T.WHITE, (x, y, alto, alto), border_top_left_radius=6,
+                             border_bottom_left_radius=6)
+            T.text(surf, str(posto or "-"), (x + alto // 2, y + 12), 30, GG.CARBONE, bold=True,
                    align="center")
-            pygame.draw.rect(surf, b[2], (x + 32, y + 5, 4, 20))
-            T.text(surf, b[4], (x + 44, y + 5), 16, T.squadra_viva() if b[3] else T.WHITE,
+            pygame.draw.rect(surf, b[2], (x + alto, y, 6, alto))
+            tx = x + alto + 18
+            T.text(surf, nome, (tx, y + 7), 14, (200, 204, 214))
+            if squadra:
+                T.text(surf, squadra.upper(), (tx + T.width(nome, 14) + (12 if nome else 0),
+                                                y + 8), 12, b[2] if sum(b[2][:3]) > 180
+                       else (170, 176, 190), bold=True)
+            T.text(surf, cognome, (tx, y + 24), 24, T.squadra_viva() if b[3] else T.WHITE,
                    bold=True)
-            x += larga + 8
+            y += passo
 
     def _etichetta_camera(self, surf, vista, d) -> None:
         """In alto a destra: DIRETTA o REPLAY, e da che camera."""
