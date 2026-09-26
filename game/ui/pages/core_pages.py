@@ -678,31 +678,61 @@ class DevPage(Page):
         self.sel_part = "floor"
         self.sel_size = "medio"
         self.sel_focus = ""      # su che parte del giro disegnarlo
+        # una cosa alla volta, a tutta pagina: i pacchetti nuovi, oppure il
+        # lavoro di tutti i giorni del reparto
+        self.vista = "pacchetti"
+
+    def _alto(self) -> int:
+        """Dove cominciano i pannelli: sotto la striscia e le due viste."""
+        return self.rect.y + 96 + self.STRISCIA_H + 52
+
+    def _vista(self, k) -> None:
+        self.vista = k
+        self.scroll = 0.0
+        self.layout(self.view)
 
     def build(self) -> None:
         r = self.rect
         self.widgets = []
         self.alloc_sliders = {}
-        alto = r.y + 96 + self.STRISCIA_H
-        left = pygame.Rect(r.x, alto, r.w * 0.46, r.h - 96 - self.STRISCIA_H)
+        self.part_buttons, self.size_buttons, self.focus_buttons = [], [], []
+        vy = r.y + 96 + self.STRISCIA_H
+        x = r.x
+        for key, lab in (("pacchetti", "Pacchetti di aggiornamento"),
+                         ("reparto", "Lavoro di reparto")):
+            larga = T.width(lab, 16, True) + 48
+            b = Button((x, vy, larga, 40), lab, (lambda k=key: self._vista(k)))
+            b.active = key == self.vista
+            b.style = "tab" if b.active else "ghost"
+            self.widgets.append(b)
+            x += larga + 8
+        alto = self._alto()
+        if self.vista == "pacchetti":
+            self._build_pacchetti(r, alto)
+        else:
+            self._build_reparto(r, alto)
+
+    def _build_reparto(self, r, alto) -> None:
+        left = pygame.Rect(r.x, alto, r.w, r.h - (alto - r.y))
+        sw = min(left.w - 32, 820)
         y = left.y + 40
         for k, meta in C.CAR_PARTS.items():
-            s = Slider((left.x + 16, y, left.w - 32, 28), meta["label"],
+            s = Slider((left.x + 16, y, sw, 28), meta["label"],
                        self.team.resource_alloc.get(k, 0.1) * 100.0, 0, 100,
                        on_change=(lambda v, k=k: self._alloc(k, v)), fmt="{:.0f}%")
             self.alloc_sliders[k] = s
             self.widgets.append(s)
             y += 32
-        self.widgets.append(Button((left.x + 16, y + 8, (left.w - 42) / 2, 34),
+        self.widgets.append(Button((left.x + 16, y + 8, (sw - 10) / 2, 36),
                                    "Bilancia", self.balance, "ghost"))
-        self.widgets.append(Button((left.x + 26 + (left.w - 42) / 2, y + 8, (left.w - 42) / 2, 34),
+        self.widgets.append(Button((left.x + 26 + (sw - 10) / 2, y + 8, (sw - 10) / 2, 36),
                                    "Consiglio ingegneri", self.suggest, "primary"))
 
         # specifiche che non hanno convinto: si rimonta la vecchia o si insiste
         # sotto l'interruttore, non sopra: prima ci finiva a meta'
         self.trial_y = y + 96
         ty = self.trial_y + 26
-        bw = (left.w - 42) / 2
+        bw = (sw - 10) / 2
         for tr in self.team.spec_trials[:2]:
             peggio = development.deficit(self.team, tr) < -0.05
             if peggio:
@@ -720,10 +750,14 @@ class DevPage(Page):
         # recupera lo scorrimento della pagina
         self.log_y = int(ty + 10)
         ty = self.log_y + self._alt_registro()
-        self.left_h = max(r.h - 96 - self.STRISCIA_H, ty + 16 - alto)
+        self.left_h = max(r.h - (alto - r.y), ty + 16 - alto)
+        self.auto_toggle = Toggle((left.x + 16, y + 50, sw, 30),
+                                  "Decide il reparto", self.team.auto_dev,
+                                  on_change=self._set_auto)
+        self.widgets.append(self.auto_toggle)
 
-        right = pygame.Rect(r.x + r.w * 0.48, alto, r.w * 0.52 - 4,
-                            r.h - 96 - self.STRISCIA_H)
+    def _build_pacchetti(self, r, alto) -> None:
+        right = pygame.Rect(r.x, alto, r.w, max(r.h - (alto - r.y), 720))
         bx, by = right.x + 16, right.y + 200
         self.part_buttons = []
         for i, (k, meta) in enumerate(C.CAR_PARTS.items()):
@@ -754,10 +788,6 @@ class DevPage(Page):
             b.active = (dom == self.sel_focus)
             self.focus_buttons.append(b)
             self.widgets.append(b)
-        self.auto_toggle = Toggle((left.x + 16, y + 50, left.w - 32, 30),
-                                  "Decide il reparto", self.team.auto_dev,
-                                  on_change=self._set_auto)
-        self.widgets.append(self.auto_toggle)
         # sotto tutto quello che c'e' da leggere sul pacchetto: le spiegazioni
         # vanno a capo, e su una finestra stretta occupano una riga in piu'
         b = Button((bx, sy + Y_AVVIA, right.w - 32, 40), "Avvia progetto",
@@ -946,7 +976,8 @@ class DevPage(Page):
         n = len(C.CAR_PARTS)
         for k in C.CAR_PARTS:
             self.team.resource_alloc[k] = 1.0 / n
-            self.alloc_sliders[k].value = 100.0 / n
+            if k in self.alloc_sliders:
+                self.alloc_sliders[k].value = 100.0 / n
 
     def suggest(self) -> None:
         sug = engineering.suggested_allocation(self.gs)
@@ -1005,10 +1036,16 @@ class DevPage(Page):
              f"{team.upgrades_done} aggiornamenti portati in pista", accent=T.OK)
 
         self._striscia_vincoli(surf, pygame.Rect(r.x, r.y + 96, r.w, self.STRISCIA_H - 12))
+        if self.vista == "pacchetti":
+            self._draw_pacchetti(surf)
+        else:
+            self._draw_reparto(surf)
+        super().draw(surf)
 
-        alto = r.y + 96 + self.STRISCIA_H
-        left = pygame.Rect(r.x, alto, r.w * 0.46,
-                           getattr(self, "left_h", r.h - 96 - self.STRISCIA_H))
+    def _draw_reparto(self, surf) -> None:
+        r, gs, team = self.rect, self.gs, self.team
+        alto = self._alto()
+        left = pygame.Rect(r.x, alto, r.w, getattr(self, "left_h", r.h - (alto - r.y)))
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "LAVORO DI REPARTO: DOVE LIMARE", (left.x + 16, left.y + 12), 12,
                T.DIM_2, bold=True)
@@ -1055,8 +1092,10 @@ class DevPage(Page):
                    maxw=left.w - 32)
         self._disegna_registro(surf, left)
 
-        right = pygame.Rect(r.x + r.w * 0.48, alto, r.w * 0.52 - 4,
-                            r.h - 96 - self.STRISCIA_H)
+    def _draw_pacchetti(self, surf) -> None:
+        r, gs, team = self.rect, self.gs, self.team
+        alto = self._alto()
+        right = pygame.Rect(r.x, alto, r.w, max(r.h - (alto - r.y), 720))
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "PROGETTI DI AGGIORNAMENTO", (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)
@@ -1189,7 +1228,6 @@ class DevPage(Page):
         T.paragraph(surf, f"Assetto da ritrovare: {quanto} (-{upset*100:.0f}% di quello "
                           f"che sappiamo della vettura). "
                           f"{casa[0].upper()}{casa[1:]}.", (bx, yy), 12, T.GOLD, bw)
-        super().draw(surf)
 
 
 def _colonne_griglia(f_w: int, n_aree: int) -> tuple:
