@@ -33,9 +33,13 @@ class MenuScene(Scene):
             self.widgets.append(Button((cx - 170, y + 134, 340, 50), "Esci", self.quit, "ghost"))
         # il suono, in basso a destra
         pannello_audio.aggiungi(self.widgets, w - 420, h - 58, 396, self.build)
-        # e l'alta definizione, subito sopra
-        pannello_audio.aggiungi_video(self.widgets, w - 420, h - 102, 396, self.app,
-                                      self.build)
+        # e la grafica, subito sopra: si mette in fila dal basso, e quante
+        # righe sono lo si sa solo dopo averle messe
+        prima = len(self.widgets)
+        righe = pannello_audio.aggiungi_video(self.widgets, w - 420, 0, 396, self.app,
+                                              self.build)
+        for wd in self.widgets[prima:]:
+            wd.rect.y += h - 58 - 44 * righe
 
     def on_resize(self) -> None:
         self.build()

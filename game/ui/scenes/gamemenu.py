@@ -51,9 +51,8 @@ class GameMenuScene(Scene):
             y += 10
             if pannello_audio.aggiungi(self.widgets, cx - 200, y, 400, self.build):
                 y += 44
-            if pannello_audio.aggiungi_video(self.widgets, cx - 200, y, 400, self.app,
-                                             self.build):
-                y += 44
+            y += 44 * pannello_audio.aggiungi_video(self.widgets, cx - 200, y, 400, self.app,
+                                                    self.build)
             self.widgets.append(Toggle((cx - 200, y, 400, 34), "Editor di gioco",
                                        bool(getattr(self.app, "editor", False)),
                                        self.set_editor))

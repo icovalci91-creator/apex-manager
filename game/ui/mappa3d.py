@@ -232,8 +232,11 @@ class Mappa3D:
             self.build()
         try:
             tipo = "fe" if self._elettrico_3d() else "f1"
+            from . import qualita
             if (self.v3d is None or self.v3d.geo.track is not self.track
-                    or getattr(self.v3d, "tipo", "f1") != tipo):
+                    or getattr(self.v3d, "tipo", "f1") != tipo
+                    # la qualita' grafica e' cambiata: materiali e ombre nuovi
+                    or getattr(self.v3d, "versione_qualita", 0) != qualita.VERSIONE[0]):
                 if self.v3d is not None:
                     self.v3d.rilascia()
                 self.v3d = vista3d.Vista3D(self.track, tipo)

@@ -23,7 +23,7 @@ from array import array
 
 import pygame
 
-from . import monoposto, pista3d
+from . import monoposto, pista3d, qualita, risorse3d
 
 try:
     import moderngl
@@ -48,6 +48,11 @@ def disponibile() -> bool:
         except Exception:
             continue
         _STATO = True
+        try:
+            from . import qualita
+            qualita.scheda(_CTX.info.get("GL_RENDERER", ""))
+        except Exception:
+            pass
         break
     return _STATO
 
@@ -159,9 +164,18 @@ uniform vec3 eye; uniform float tempo; uniform float nuvole; uniform float bagna
 uniform vec2 origine; uniform float blocco; uniform int stile; uniform float riva;
 uniform sampler2DShadow ombre; uniform mat4 luce_vp; uniform float texel;
 uniform vec4 taglio; uniform float plastico;
+// i materiali fotografici (vedi risorse3d): colore, rilievo, ruvidita'
+uniform sampler2DArray mat_col; uniform sampler2DArray mat_nor; uniform sampler2DArray mat_rug;
+uniform float con_foto; uniform vec3 mat_media[6]; uniform float mat_metri[6];
+uniform float mat_c[6];
+// il cielo fotografico, per i riflessi dell'acqua
+uniform sampler2D cielo_tex; uniform float con_cielo;
 in vec3 v_pos; in vec3 v_nor; in vec3 v_col; in float v_glow; flat in int v_mat; in float v_par;
 in float v_aux;
 out vec4 frag;
+
+// cosa ha lasciato la foto del materiale: il rilievo e la ruvidita'
+vec3 g_rilievo = vec3(0.0, 0.0, 1.0); float g_rug = 1.0; float g_foto = 0.0;
 
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float rum(vec2 p) {
@@ -208,6 +222,29 @@ vec3 campi(vec2 p, vec3 prato) {
     return c;
 }
 
+// La foto del materiale `s` sopra al colore del pittore: la foto porta il
+// dettaglio (i sassolini dell'asfalto, i fili d'erba), il pittore la tinta e le
+// variazioni grandi. Due scale mescolate a macchie, perche' la ripetizione non
+// si veda.
+vec3 foto(int s, vec2 p, vec3 base, float forza) {
+    if (con_foto < 0.5 || mat_c[s] < 0.5) return base;
+    float m = mat_metri[s];
+    vec2 uv = p / m;
+    vec2 uv2 = p / (m * 2.7) + vec2(0.37, 0.61);
+    float k = smoothstep(0.35, 0.65, rum(p / (m * 7.0)));
+    vec3 t = mix(texture(mat_col, vec3(uv, float(s))).rgb,
+                 texture(mat_col, vec3(uv2, float(s))).rgb, k * 0.55);
+    g_rilievo = mix(texture(mat_nor, vec3(uv, float(s))).rgb,
+                    texture(mat_nor, vec3(uv2, float(s))).rgb, k * 0.55) * 2.0 - 1.0;
+    g_rug = texture(mat_rug, vec3(uv, float(s))).r;
+    g_foto = forza;
+    return mix(base, base * clamp(t / mat_media[s], 0.0, 2.5), forza);
+}
+
+vec2 equirett(vec3 d) {
+    return vec2(atan(d.x, -d.z) / 6.2831853 + 0.5, acos(clamp(d.y, -1.0, 1.0)) / 3.1415927);
+}
+
 vec3 albedo(out float lucido) {
     vec2 p = v_pos.xz;
     vec3 c = v_col;
@@ -232,10 +269,12 @@ vec3 albedo(out float lucido) {
         vec3 bosco = mix(vec3(0.08, 0.15, 0.07), vec3(0.20, 0.34, 0.14) * (0.8 + 0.4 * fbm(p / 25.0)),
                          0.35 + 0.65 * chioma);
         c = mix(c, bosco, clamp(v_aux, 0.0, 1.0));
+        c = foto(1, p, c, 1.0 - 0.6 * clamp(v_aux, 0.0, 1.0));
     } else if (v_mat == 2) {                    // sabbia
         float onde = sin(p.x * 0.22 + fbm(p / 30.0) * 6.0) * 0.5 + 0.5;
         c = v_col * (0.86 + 0.18 * fbm(p / 25.0) + 0.05 * onde);
         c = mix(c, vec3(0.56, 0.47, 0.34), smoothstep(0.62, 0.8, fbm(p / 300.0)) * 0.5);
+        c = foto(3, p, c, 1.0);
     } else if (v_mat == 3) {                    // citta': strade, marciapiedi, cortili
         vec2 q = (p - origine) / blocco;
         vec2 f = abs(fract(q) - 0.5) * blocco;
@@ -245,9 +284,11 @@ vec3 albedo(out float lucido) {
         vec3 marcia = vec3(0.66, 0.66, 0.64);
         vec3 citta = bordo < 8.0 ? strada : (bordo < 11.0 ? marcia : cortile);
         c = mix(v_col * (0.9 + 0.2 * fbm(p / 20.0)), citta, smoothstep(35.0, 70.0, v_par));
+        c = foto(4, p, c, 0.7);
     } else if (v_mat == 5) {                    // asfalto, con la traiettoria gommata
         c = v_col * (0.88 + 0.2 * fbm(p * 0.6));
         c *= 1.0 - 0.28 * exp(-pow(v_par * 2.4, 2.0));
+        c = foto(0, p, c, 1.0);
         lucido = bagnato;
     } else if (v_mat == 6) {                    // tetti
         c = v_col * (0.9 + 0.14 * rum(p * 0.7));
@@ -261,14 +302,17 @@ vec3 albedo(out float lucido) {
         float h = h21(posto);
         if (h < 0.55 && g.x > 0.2 && g.x < 0.85 && g.y > 0.15 && g.y < 0.65)
             c = mix(vec3(0.85, 0.85, 0.88), vec3(h * 1.5, 0.3 + h, 0.9 - h), step(0.25, h));
+        c = foto(4, p, c, 0.5);
     } else if (v_mat == 9) {                    // la folla in tribuna
         vec2 k = floor(p * 2.2);
         vec3 gente = vec3(h21(k + 3.1), h21(k + 5.3), h21(k));
         c = mix(v_col, gente, 0.22) * (0.85 + 0.15 * step(0.5, fract(p.y * 0.6)));
     } else if (v_mat == 10) {                   // ghiaia
         c = v_col * (0.8 + 0.4 * h21(floor(p * 3.0)));
+        c = foto(2, p, v_col * (0.9 + 0.2 * fbm(p / 6.0)), 1.0);
     } else if (v_mat == 12) {                   // strade di campagna
         c = v_col * (0.9 + 0.15 * rum(p * 0.4));
+        c = foto(5, p, c, 0.8);
         lucido = bagnato * 0.6;
     }
     if (riva > 0.5 && (v_mat == 1 || v_mat == 2 || v_mat == 3)) {
@@ -308,14 +352,27 @@ void main() {
         float fres = pow(1.0 - max(dot(vista, nn), 0.0), 4.0);
         vec3 fondo = vec3(0.06, 0.20, 0.26) * (amb_sky + sun_col * 0.5 * sole);
         vec3 cielo = mix(fog_col, zenit, 0.4);
+        if (con_cielo > 0.5) cielo = texture(cielo_tex, equirett(reflect(-vista, nn))).rgb;
         c = mix(fondo, cielo, 0.15 + 0.75 * fres);
         c += sun_col * pow(max(dot(reflect(-sun, nn), vista), 0.0), 300.0) * 0.9 * sole;
         c += vec3(1.0, 0.85, 0.6) * fari * 0.06;
     } else {
         vec3 a = albedo(lucido);
+        if (g_foto > 0.0 && n.y > 0.6) {
+            // il rilievo della foto, sui piani: si spegne in lontananza, dove
+            // tremolerebbe e basta
+            float vicino = 1.0 - smoothstep(60.0, 260.0, dist);
+            n = normalize(n + vec3(g_rilievo.x, 0.0, -g_rilievo.y) * 0.9 * g_foto * vicino);
+        }
         vec3 amb = mix(amb_ground, amb_sky, n.y * 0.5 + 0.5);
         float lambert = max(dot(n, sun), 0.0);
         c = a * (amb + sun_col * lambert * sole);
+        if (g_foto > 0.0) {
+            // un filo di luce del sole sulle superfici lisce
+            float liscio = 1.0 - g_rug;
+            c += sun_col * pow(max(dot(reflect(-sun, n), vista), 0.0), mix(6.0, 80.0, liscio))
+                 * liscio * 0.18 * sole * g_foto;
+        }
         if (lucido > 0.0) {
             vec3 cielo = mix(fog_col, zenit, 0.5);
             float fres = pow(1.0 - max(dot(vista, n), 0.0), 3.0);
@@ -361,6 +418,7 @@ uniform vec3 fog_col; uniform vec3 zenit; uniform float fog_d; uniform vec3 eye;
 uniform float fari; uniform float bagnato;
 uniform sampler2DShadow ombre; uniform mat4 luce_vp; uniform float texel;
 uniform sampler2DArray livree;
+uniform sampler2D cielo_tex; uniform float con_cielo;
 in vec3 v_pos; in vec3 v_nor; in vec3 v_loc; flat in int v_parte; in vec3 v_nloc;
 in vec3 v_col; in vec3 v_col2; flat in int v_stile; in vec3 v_gomma; flat in int v_livrea;
 out vec4 frag;
@@ -437,6 +495,12 @@ void main() {
     // la vernice: il cielo riflesso di taglio e il sole che batte
     float fres = pow(1.0 - max(dot(vista, n), 0.0), 4.0);
     vec3 cielo = mix(fog_col, zenit, 0.5 + 0.5 * n.y);
+    if (con_cielo > 0.5) {
+        // la vernice riflette il cielo vero: le nuvole scorrono sulla carrozzeria
+        vec3 r = reflect(-vista, n);
+        cielo = texture(cielo_tex, vec2(atan(r.x, -r.z) / 6.2831853 + 0.5,
+                                        acos(clamp(r.y, -1.0, 1.0)) / 3.1415927)).rgb;
+    }
     c = mix(c, cielo, lucido * (0.04 + 0.45 * fres));
     c += sun_col * pow(max(dot(reflect(-sun, n), vista), 0.0), 90.0) * lucido * 1.4 * sole;
     // di notte i fari del circuito
@@ -487,12 +551,19 @@ _FS_CIELO = """
 #version 330
 uniform mat4 inv_vp; uniform vec3 eye; uniform vec3 zenit; uniform vec3 orizzonte;
 uniform vec3 sun; uniform vec3 sun_col; uniform float stelle;
+uniform sampler2D cielo_tex; uniform float con_cielo;
 in vec2 v_ndc; in vec2 v_uv;
 out vec4 frag;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 void main() {
     vec4 p = inv_vp * vec4(v_ndc, 1.0, 1.0);
     vec3 dir = normalize(p.xyz / p.w - eye);
+    if (con_cielo > 0.5) {
+        vec2 uv = vec2(atan(dir.x, -dir.z) / 6.2831853 + 0.5,
+                       acos(clamp(dir.y, -1.0, 1.0)) / 3.1415927);
+        frag = vec4(texture(cielo_tex, uv).rgb, 1.0);
+        return;
+    }
     float h = clamp(dir.y, 0.0, 1.0);
     vec3 c = mix(orizzonte, zenit, pow(h, 0.5));
     float s = max(dot(dir, sun), 0.0);
@@ -794,6 +865,27 @@ class Vista3D:
         self.nuvole = 0.0
         self.bagnato = 0.0
         self.tempo = 0.0
+        # la qualita' grafica di quando la pista si e' caricata: se cambia, chi
+        # usa la vista la ricarica (vedi qualita.VERSIONE)
+        self.q = dict(qualita.attuale())
+        self.versione_qualita = qualita.VERSIONE[0]
+        self.ombra_misura = int(self.q["ombre"])
+        # i materiali fotografici, e le tele vuote da tenere agganciate quando
+        # non ci sono: un campionatore senza tela ferma il disegno
+        self.materiali = None
+        if self.q["texture"]:
+            try:
+                self.materiali = risorse3d.carica_materiali(ctx, int(self.q["texture"]))
+            except Exception:
+                self.materiali = None
+        self.tex_mat_vuota = ctx.texture_array((1, 1, 6), 3, data=b"\x80\x80\x80" * 6)
+        self.tex_rug_vuota = ctx.texture_array((1, 1, 6), 1, data=b"\xc8" * 6)
+        self.tex_cielo_vuoto = ctx.texture((1, 1), 3, data=bytes(6), dtype="f2")
+        # il cielo fotografico: si sceglie col tempo che fa, la prima volta
+        # che si disegna, e si ricambia se il tempo cambia molto
+        self.cieli = {}
+        self.cielo = None
+        self._cielo_nome = None
         self._ombre()
 
     def rilascia(self) -> None:
@@ -803,6 +895,13 @@ class Vista3D:
         if self.tex_livree is not None:
             self.tex_livree.release()
             self.tex_livree = None
+        for o in [self.tex_mat_vuota, self.tex_rug_vuota, self.tex_cielo_vuoto] + [
+                c["tex"] for c in self.cieli.values() if c] + (
+                [self.materiali[k] for k in ("colore", "normale", "ruvidita")]
+                if self.materiali else []):
+            o.release()
+        self.cieli = {}
+        self.materiali = None
         for o in list(self.buffer.values()) + [
                 self.vao_auto, self.vao_ombra_auto, self.vbo_auto, self.vbo_istanze,
                 self.vbo_macchia, self.p_auto, self.p_ombra_auto, self.tex_vuota,
@@ -821,6 +920,9 @@ class Vista3D:
                         zenit=(0.006, 0.010, 0.030), orizzonte=(0.05, 0.06, 0.11),
                         fari=1.0, stelle=1.0 - n)
 
+        if self.cielo is not None:
+            return self._luce_dal_cielo()
+
         def mix(a, b):
             return tuple(x + (y - x) * n for x, y in zip(a, b))
         sole = 1.0 - 0.72 * n
@@ -833,6 +935,49 @@ class Vista3D:
                     orizzonte=mix((0.78, 0.80, 0.80), (0.66, 0.68, 0.71)),
                     fari=0.0, stelle=0.0)
 
+    def _luce_dal_cielo(self) -> dict:
+        """La luce che da' la foto del cielo: il sole dov'e' nella foto (ma mai
+        troppo basso, o le ombre attraverserebbero mezzo circuito), del suo
+        colore, e la luce diffusa presa dalla media del cielo e del terreno."""
+        c = self.cielo
+        sx, sy, sz = c["sole"]
+        if sy < 0.35:
+            sy = 0.35
+        sole_dir = _norm((sx, sy, sz))
+        forza = c["forza_sole"]
+        col = c["colore_sole"]
+        m = max(col) or 1.0
+        sole_col = tuple(1.15 * forza * x / m for x in col)
+        amb_cielo = tuple(min(1.2, 0.85 * x) for x in c["amb_cielo"])
+        amb_terra = tuple(min(1.0, 0.75 * x) for x in c["amb_terra"])
+        # con un sole debole la luce diffusa deve fare tutto il lavoro
+        amb_cielo = tuple(x * (1.0 + 0.6 * (1.0 - forza)) for x in amb_cielo)
+        orizzonte = tuple(min(1.0, x) for x in c["orizzonte"])
+        return dict(sun=sole_dir, sun_col=sole_col, amb_sky=amb_cielo, amb_ground=amb_terra,
+                    zenit=amb_cielo, orizzonte=orizzonte, fari=0.0, stelle=0.0)
+
+    def _scegli_cielo(self) -> None:
+        """Il cielo fotografico adatto al tempo che fa. Di notte niente foto."""
+        if not self.q["cielo"] or self.geo.notte:
+            return
+        n = max(0.0, min(1.0, self.nuvole))
+        nome = "sereno" if n < 0.25 else ("nuvoloso" if n < 0.6 else "coperto")
+        if nome == self._cielo_nome:
+            return
+        self._cielo_nome = nome
+        if nome not in self.cieli:
+            try:
+                self.cieli[nome] = risorse3d.carica_cielo(self.ctx, nome, int(self.q["cielo"]))
+            except Exception:
+                self.cieli[nome] = None
+        prima = self.cielo
+        self.cielo = self.cieli.get(nome)
+        if self.cielo is not None or prima is not None:
+            # il sole si e' spostato: le ombre vanno rifatte
+            self.tex_ombre.release()
+            self.fbo_ombre.release()
+            self._ombre()
+
     def _ombre(self) -> None:
         """Le ombre si calcolano una volta: il sole e la scena non si muovono."""
         geo, ctx = self.geo, self.ctx
@@ -841,7 +986,7 @@ class Vista3D:
         centro = (geo.cx, geo.cy, geo.cz)
         occhio = tuple(c + s * r * 3 for c, s in zip(centro, sole))
         self.luce_vp = _per(_ortografica(r, r, r * 5), _guarda(occhio, centro))
-        self.tex_ombre = ctx.depth_texture((OMBRA_MISURA, OMBRA_MISURA))
+        self.tex_ombre = ctx.depth_texture((self.ombra_misura, self.ombra_misura))
         self.tex_ombre.compare_func = "<="
         self.tex_ombre.filter = (moderngl.LINEAR, moderngl.LINEAR)
         self.fbo_ombre = ctx.framebuffer(depth_attachment=self.tex_ombre)
@@ -858,14 +1003,21 @@ class Vista3D:
         for o in self.buffer.values():
             o.release()
         ctx = self.ctx
-        campioni = min(4, ctx.max_samples)
-        mezza = (max(8, misura[0] // 2), max(8, misura[1] // 2))
+        # la scena si disegna alla risoluzione che la qualita' concede; la
+        # passata finale torna alla misura piena
+        campioni = min(int(self.q["msaa"]), ctx.max_samples)
+        if campioni < 2:
+            campioni = 0
+        k = float(self.q["scala3d"])
+        interna = (max(16, int(misura[0] * k)), max(16, int(misura[1] * k)))
+        mezza = (max(8, interna[0] // 2), max(8, interna[1] // 2))
         b = {}
-        b["rb_ms"] = ctx.renderbuffer(misura, 4, samples=campioni, dtype="f2")
-        b["db_ms"] = ctx.depth_renderbuffer(misura, samples=campioni)
+        b["rb_ms"] = ctx.renderbuffer(interna, 4, samples=campioni, dtype="f2")
+        b["db_ms"] = ctx.depth_renderbuffer(interna, samples=campioni)
         b["ms"] = ctx.framebuffer(b["rb_ms"], b["db_ms"])
-        b["t_scena"] = ctx.texture(misura, 4, dtype="f2")
+        b["t_scena"] = ctx.texture(interna, 4, dtype="f2")
         b["scena"] = ctx.framebuffer(b["t_scena"])
+        self.interna = interna
         for k in ("a", "b"):
             b["t_" + k] = ctx.texture(mezza, 4, dtype="f2")
             b["t_" + k].repeat_x = b["t_" + k].repeat_y = False
@@ -920,7 +1072,6 @@ class Vista3D:
         for c in range(4):
             mvp[c * 4 + 1] = -mvp[c * 4 + 1]
         self.mvp = mvp
-        luce = self._luce()
         fog_d = geo.span * 4.6
         plastico = self.plastico and ripresa is None
         # le macchine, sul plastico visto da lontano, si fanno piu' grandi del
@@ -929,9 +1080,15 @@ class Vista3D:
         self.scala_auto = (max(1.0, min(2.4, 1.0 + (lontananza - 120.0) / 380.0))
                            if plastico else 1.0)
 
+        self._scegli_cielo()
+        luce = self._luce()
+        interna = self.interna
         b["ms"].use()
-        ctx.viewport = (0, 0, misura[0], misura[1])
+        ctx.viewport = (0, 0, interna[0], interna[1])
         ctx.disable(moderngl.DEPTH_TEST | moderngl.CULL_FACE | moderngl.BLEND)
+        # il cielo fotografico sta sull'unita' 5 per tutti quelli che lo usano
+        (self.cielo["tex"] if self.cielo else self.tex_cielo_vuoto).use(5)
+        con_cielo = 1.0 if self.cielo is not None else 0.0
         if plastico:
             tav = self._tavola()
             ctx.clear(*CARTA, 1.0)
@@ -955,6 +1112,8 @@ class Vista3D:
             pc["eye"].value = occhio
             for k in ("zenit", "orizzonte", "sun", "sun_col", "stelle"):
                 pc[k].value = luce[k]
+            pc["cielo_tex"].value = 5
+            pc["con_cielo"].value = con_cielo
             self.vao_cielo.render(moderngl.TRIANGLES)
 
         ctx.enable(moderngl.DEPTH_TEST)
@@ -973,7 +1132,25 @@ class Vista3D:
         pm["blocco"].value = pista3d.BLOCCO
         pm["stile"].value = {"parco": 0, "bosco": 1, "dune": 2}.get(geo.bioma, 0)
         pm["riva"].value = 1.0 if geo.acqua else 0.0
-        pm["texel"].value = 1.0 / OMBRA_MISURA
+        pm["texel"].value = 1.0 / self.ombra_misura
+        mat = self.materiali
+        if mat is not None:
+            mat["colore"].use(2)
+            mat["normale"].use(3)
+            mat["ruvidita"].use(4)
+            pm["mat_media"].write(array("f", [v for c in mat["medie"] for v in c]).tobytes())
+            pm["mat_metri"].write(array("f", mat["metri"]).tobytes())
+            pm["mat_c"].write(array("f", [1.0 if x else 0.0 for x in mat["presenti"]]).tobytes())
+        else:
+            self.tex_mat_vuota.use(2)
+            self.tex_mat_vuota.use(3)
+            self.tex_rug_vuota.use(4)
+        pm["mat_col"].value = 2
+        pm["mat_nor"].value = 3
+        pm["mat_rug"].value = 4
+        pm["con_foto"].value = 1.0 if mat is not None else 0.0
+        pm["cielo_tex"].value = 5
+        pm["con_cielo"].value = con_cielo
         pm["plastico"].value = 1.0 if plastico else 0.0
         pm["taglio"].value = self.tavola[:4] if plastico else (-1e9, 1e9, -1e9, 1e9)
         if plastico:
@@ -987,7 +1164,7 @@ class Vista3D:
             for k in ("sun", "sun_col", "amb_sky"):
                 pp[k].value = luce[k]
             self.vao_pareti.render(moderngl.TRIANGLES)
-        self._macchine(mvp, occhio, luce, fog_d)
+        self._macchine(mvp, occhio, luce, fog_d, con_cielo)
         ctx.disable(moderngl.DEPTH_TEST)
         ctx.copy_framebuffer(b["scena"], b["ms"])
 
@@ -997,11 +1174,11 @@ class Vista3D:
         b["a"].use()
         b["t_scena"].use(0)
         ps["tex"].value = 0
-        ps["passo"].value = (2.0 / misura[0], 0.0)
+        ps["passo"].value = (2.0 / interna[0], 0.0)
         self.vao_sfoca.render(moderngl.TRIANGLES)
         b["b"].use()
         b["t_a"].use(0)
-        ps["passo"].value = (0.0, 2.0 / misura[1])
+        ps["passo"].value = (0.0, 2.0 / interna[1])
         self.vao_sfoca.render(moderngl.TRIANGLES)
 
         b["fine"].use()
@@ -1022,7 +1199,7 @@ class Vista3D:
         dati = b["fine"].read(components=3, alignment=1)
         return pygame.image.frombytes(dati, misura, "RGB")
 
-    def _macchine(self, mvp, occhio, luce, fog_d) -> None:
+    def _macchine(self, mvp, occhio, luce, fog_d, con_cielo: float = 0.0) -> None:
         """Le monoposto, dove sono adesso: prima l'ombra, poi la macchina."""
         if not self.auto:
             return
@@ -1063,7 +1240,9 @@ class Vista3D:
         pa["fog_d"].value = fog_d
         pa["bagnato"].value = max(0.0, min(1.0, self.bagnato))
         pa["scala"].value = self.scala_auto
-        pa["texel"].value = 1.0 / OMBRA_MISURA
+        pa["texel"].value = 1.0 / self.ombra_misura
+        pa["cielo_tex"].value = 5
+        pa["con_cielo"].value = con_cielo
         self.tex_ombre.use(0)
         pa["ombre"].value = 0
         (self.tex_livree or self.tex_vuota).use(1)

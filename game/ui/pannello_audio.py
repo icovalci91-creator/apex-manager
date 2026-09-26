@@ -33,13 +33,24 @@ def aggiungi(widgets: list, x: int, y: int, largo: int, rifai) -> bool:
     return True
 
 
-def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> bool:
-    """La riga dell'alta definizione: la scala dell'interfaccia (un clic passa
-    alla prossima: automatica, 100%, 125%...) e lo schermo intero. False nel
-    browser, dove ci pensa il browser."""
-    from . import hd
+def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> int:
+    """Le righe della grafica: la qualita' della vista 3D (un clic passa alla
+    prossima: automatica, Bassa, Media, Alta, Ultra), poi la scala
+    dell'interfaccia e lo schermo intero. Dice quante righe ha messo: una sola
+    nel browser, dove la scala e lo schermo intero li decide il browser."""
+    from . import hd, qualita, vista3d
+    righe = 0
+    if vista3d.disponibile():
+        def cambia_qualita():
+            qualita.prossima()
+            rifai()
+        widgets.append(Button((x, y, largo, 34), qualita.etichetta(), cambia_qualita, "ghost",
+                              tip="Quanto lavora la scheda video nella vista 3D: "
+                                  "risoluzione, bordi, ombre, materiali e cielo fotografici"))
+        righe += 1
+        y += 44
     if getattr(app, "display", None) is None:
-        return False
+        return righe
     imp = hd.IMPOSTAZIONI
     scelte = [0.0] + list(hd.SCALE)
     attuale = float(imp.get("scala") or 0.0)
@@ -60,4 +71,4 @@ def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> boo
     widgets.append(Toggle((x + meta + 6, y, meta, 34), "Schermo intero (F11)",
                           bool(imp.get("schermo_intero")),
                           lambda v: (app.cambia_video(schermo_intero=bool(v)), rifai())))
-    return True
+    return righe + 1

@@ -228,7 +228,40 @@ il commit della cartella `dintorni/`: il gioco la usa da solo e l'eseguibile per
 la porta dentro; dove un file manca, resta l'ambiente inventato.
 
 I dati sono (c) OpenStreetMap contributors, sotto licenza ODbL: la vista 3D lo scrive in un
-angolo quando li usa.
+angolo quando li usa. Da questo ambiente di sviluppo OpenStreetMap non si raggiunge: li
+scarica il workflow `.github/workflows/dintorni.yml` sulle macchine di GitHub e li salva nel
+progetto.
+
+### Materiali e cieli fotografici, e la qualita' grafica
+
+La vista 3D di base dipinge tutto con il calcolo. Con le risorse fotografiche di **Poly
+Haven** (licenza CC0, scaricate da `tools/fetch_grafica.py` e dal workflow
+`.github/workflows/grafica.yml` in `grafica/`, elenco con autori e fonti in
+`grafica/elenco.json`) arrivano:
+
+- **i materiali**: asfalto, prato, ghiaia, sabbia, cemento e terra, ognuno con il colore, il
+  rilievo e la ruvidita'. La foto porta il dettaglio - i sassolini dell'asfalto, i fili
+  d'erba - e il pittore della vista 3D la tinta e le variazioni grandi, cosi' ogni circuito
+  tiene i suoi colori; due scale mescolate a macchie nascondono la ripetizione. Il rilievo
+  prende la luce del sole e si spegne in lontananza, dove tremolerebbe;
+- **i cieli**: foto a 360 gradi ad alta gamma dinamica (sereno, nuvoloso, coperto,
+  tramonto), scelte col tempo che fa. Il cielo vero fa da sfondo, da' la direzione e il
+  colore del sole (e con quello le ombre) e la luce diffusa, e si riflette sulla vernice
+  delle monoposto e sull'acqua. Di notte resta il cielo calcolato.
+
+La **qualita' grafica** si sceglie dal menu (un clic passa alla successiva): automatica,
+Bassa, Media, Alta, Ultra.
+
+| Livello | Risoluzione della scena | Antialiasing | Ombre | Materiali | Cielo |
+|---|---|---|---|---|---|
+| Bassa | 60% | no | 1024 | calcolati | calcolato |
+| Media | 80% | 2x | 2048 | foto a 1K | foto a 1K |
+| Alta | 100% | 4x | 2048 | foto a 2K | foto a 2K |
+| Ultra | 100% | 8x | 4096 | foto a 2K | foto a 2K |
+
+Automatica guarda la scheda video: Bassa senza accelerazione, Media per le integrate
+(Intel, Radeon Graphics), Alta per le altre. Le scritte, il tabellone e la grafica
+televisiva restano sempre a risoluzione piena.
 
 ## Eseguibile per Windows
 
@@ -2563,6 +2596,9 @@ saves/               salvataggi
 ```
 
 ## Crediti
+
+Le texture e i cieli fotografici della vista 3D vengono da [Poly Haven](https://polyhaven.com),
+licenza CC0: l'elenco con gli autori di ognuno sta in `grafica/elenco.json`.
 
 I layout scaricati con `tools/fetch_layouts.py` provengono da OpenStreetMap:
 © OpenStreetMap contributors, licenza [ODbL](https://www.openstreetmap.org/copyright).
