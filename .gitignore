@@ -16,3 +16,4 @@ dist/
 # le preferenze dell audio (volume, musica), scritte dal gioco lanciato dai sorgenti
 audio.json
 video.json
+errore.txt

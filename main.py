@@ -30,12 +30,36 @@ async def main() -> int:
     return 0
 
 
+def _salva_errore(text: str) -> str:
+    """Scrive l'errore in un file accanto ai salvataggi, e dice dove: e' quello
+    da mandare a chi deve correggerlo."""
+    try:
+        from game import config as C
+        cartella = C.UTENTE
+    except Exception:
+        import os
+        cartella = os.getcwd()
+    try:
+        import datetime
+        from pathlib import Path
+        dove = Path(cartella) / "errore.txt"
+        dove.parent.mkdir(parents=True, exist_ok=True)
+        with open(dove, "w", encoding="utf-8") as f:
+            f.write(f"Apex Manager - {datetime.datetime.now():%Y-%m-%d %H:%M}\n\n{text}")
+        return str(dove)
+    except Exception:
+        return ""
+
+
 async def show_crash(text: str) -> None:
-    """Scrive l'errore sullo schermo e ce lo tiene.
+    """Scrive l'errore sullo schermo e ce lo tiene, finche' non si chiude.
 
     Usa solo pygame, senza toccare i moduli del gioco: deve funzionare anche
-    quando e' proprio uno di quelli ad aver fallito.
+    quando e' proprio uno di quelli ad aver fallito. Prima sul computer la
+    schermata compariva e la finestra si chiudeva subito: l'errore non lo
+    leggeva nessuno. Adesso resta, e finisce anche in un file.
     """
+    dove = "" if IS_WEB else _salva_errore(text)
     try:
         import pygame
         if not pygame.get_init():
@@ -43,24 +67,40 @@ async def show_crash(text: str) -> None:
         surf = pygame.display.get_surface()
         if surf is None:
             surf = pygame.display.set_mode((1600, 900))
+        w, h = surf.get_size()
+        k = max(1.0, h / 900.0)
         surf.fill((14, 10, 12))
-        big = pygame.font.Font(None, 40)
-        small = pygame.font.Font(None, 22)
-        surf.blit(big.render("Apex Manager si e' fermato all'avvio", True, (229, 72, 77)), (40, 40))
-        y = 100
-        for line in text.splitlines()[-28:]:
-            surf.blit(small.render(line.rstrip()[:150], True, (231, 238, 248)), (40, y))
-            y += 22
+        big = pygame.font.Font(None, int(40 * k))
+        small = pygame.font.Font(None, int(22 * k))
+        x, y = int(40 * k), int(40 * k)
+        surf.blit(big.render("Apex Manager si e' fermato per un errore", True,
+                             (229, 72, 77)), (x, y))
+        y += int(44 * k)
+        if dove:
+            surf.blit(small.render(f"L'errore e' salvato in: {dove}", True, (245, 196, 80)),
+                      (x, y))
+            y += int(24 * k)
+        surf.blit(small.render("Premi Esc o chiudi la finestra per uscire.", True,
+                               (150, 160, 178)), (x, y))
+        y += int(36 * k)
+        righe = max(10, int((h - y - 20) / (22 * k)))
+        for line in text.splitlines()[-righe:]:
+            surf.blit(small.render(line.rstrip()[:170], True, (231, 238, 248)), (x, y))
+            y += int(22 * k)
         pygame.display.flip()
     except Exception:
         return
-    if not IS_WEB:
-        return
-    # la pagina non ha altro da fare: si tiene l'errore a schermo finche' non
-    # la si chiude, cedendo il controllo al browser a ogni giro
+    # si tiene l'errore a schermo finche' non lo si chiude, cedendo il
+    # controllo a ogni giro (nel browser e' il browser a volerlo)
     while True:
-        pygame.event.pump()
-        pygame.display.flip()
+        try:
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN
+                                              and ev.key == pygame.K_ESCAPE):
+                    return
+            pygame.display.flip()
+        except Exception:
+            return
         await asyncio.sleep(0.1)
 
 
