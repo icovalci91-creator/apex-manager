@@ -1,0 +1,125 @@
+{
+ "materiali": {
+  "asfalto": {
+   "asset": "asphalt_02",
+   "nome": "Asphalt 02",
+   "autori": [
+    "Rob Tuytel"
+   ],
+   "fonte": "https://polyhaven.com/a/asphalt_02",
+   "licenza": "CC0",
+   "misura": [
+    3000.000238418579,
+    3000
+   ]
+  },
+  "prato": {
+   "asset": "aerial_grass_rock",
+   "nome": "Aerial Grass Rock",
+   "autori": [
+    "Rob Tuytel"
+   ],
+   "fonte": "https://polyhaven.com/a/aerial_grass_rock",
+   "licenza": "CC0",
+   "misura": [
+    15000,
+    15000
+   ]
+  },
+  "ghiaia": {
+   "asset": "gravel_floor",
+   "nome": "Gravel Floor",
+   "autori": [
+    "Jenelle van Heerden",
+    "Matterfield"
+   ],
+   "fonte": "https://polyhaven.com/a/gravel_floor",
+   "licenza": "CC0",
+   "misura": [
+    2250,
+    2250
+   ]
+  },
+  "sabbia": {
+   "asset": "aerial_beach_01",
+   "nome": "Aerial Beach 01",
+   "autori": [
+    "Rob Tuytel"
+   ],
+   "fonte": "https://polyhaven.com/a/aerial_beach_01",
+   "licenza": "CC0",
+   "misura": [
+    30000,
+    30000
+   ]
+  },
+  "cemento": {
+   "asset": "concrete_floor_02",
+   "nome": "Concrete Floor 02",
+   "autori": [
+    "Rob Tuytel"
+   ],
+   "fonte": "https://polyhaven.com/a/concrete_floor_02",
+   "licenza": "CC0",
+   "misura": [
+    2000,
+    2000
+   ]
+  },
+  "terra": {
+   "asset": "dirt_floor",
+   "nome": "Dirt Floor",
+   "autori": [
+    "eye-candy.xyz"
+   ],
+   "fonte": "https://polyhaven.com/a/dirt_floor",
+   "licenza": "CC0",
+   "misura": [
+    2069.9996948242188,
+    2069.9996948242188
+   ]
+  }
+ },
+ "cieli": {
+  "sereno": {
+   "asset": "meadow_2",
+   "nome": "Meadow 2",
+   "autori": [
+    "Sergej Majboroda"
+   ],
+   "fonte": "https://polyhaven.com/a/meadow_2",
+   "licenza": "CC0"
+  },
+  "nuvoloso": {
+   "asset": "kloofendal_48d_partly_cloudy_puresky",
+   "nome": "Kloofendal 48d Partly Cloudy (Pure Sky)",
+   "autori": [
+    "Greg Zaal",
+    "Jarod Guest"
+   ],
+   "fonte": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+   "licenza": "CC0"
+  },
+  "coperto": {
+   "asset": "overcast_soil_puresky",
+   "nome": "Overcast Soil (Pure Sky)",
+   "autori": [
+    "Jarod Guest",
+    "Sergej Majboroda"
+   ],
+   "fonte": "https://polyhaven.com/a/overcast_soil_puresky",
+   "licenza": "CC0"
+  },
+  "tramonto": {
+   "asset": "lilienstein",
+   "nome": "Lilienstein",
+   "autori": [
+    "Andreas Mischok"
+   ],
+   "fonte": "https://polyhaven.com/a/lilienstein",
+   "licenza": "CC0"
+  }
+ },
+ "scaricato": "2026-09-26",
+ "fonte": "Poly Haven (polyhaven.com), licenza CC0"
+}
