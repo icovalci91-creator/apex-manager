@@ -43,7 +43,7 @@ _STESURA = (("urbano", C_URBANO), ("campi", C_CAMPI), ("verde", C_VERDE),
 # I materiali: stessi numeri nello shader di `vista3d`.
 M_PIANO, M_TERRA, M_SABBIA, M_CITTA = 0, 1, 2, 3
 M_ASFALTO, M_TETTO, M_CHIOMA, M_PARCHEGGIO, M_FOLLA = 5, 6, 7, 8, 9
-M_GHIAIA, M_ACQUA, M_STRADA = 10, 11, 12
+M_GHIAIA, M_ACQUA, M_STRADA, M_VETRO = 10, 11, 12, 13
 
 # L'ambiente attorno al tracciato: una scelta di messa in scena, non una
 # misura. Un circuito nuovo senza voce prende la campagna.
@@ -154,8 +154,12 @@ class Geometria:
     trasversale per l'asfalto) e quanto bosco c'e' sotto, per il terreno.
     """
 
-    def __init__(self, track):
+    def __init__(self, track, dettaglio: bool = False):
         self.track = track
+        # con il dettaglio (qualita' Alta e Ultra) i modelli attorno alla pista
+        # sono veri: alberi con il tronco, gradinate, box con i garage e le
+        # vetrate, cartelloni, postazioni dei commissari
+        self.dettaglio = dettaglio
         self.bioma = bioma(track)
         self.pal = PALETTE[self.bioma]
         self.notte = bool(getattr(track, "night", False))
@@ -177,6 +181,9 @@ class Geometria:
         self._pista()
         self._box()
         self._tribune()
+        if dettaglio:
+            self._cartelloni()
+            self._postazioni()
         if self.osm:
             self._osm_costruito()
         else:
@@ -278,7 +285,7 @@ class Geometria:
         self.tri(a, c, d, col, (g[0], g[2], g[3]), nor, mat, (pr[0], pr[2], pr[3]))
 
     def scatola(self, x, y, z, lungo, largo, alto, ang, col, glow_lati=0.0, tetto=None,
-                mat_tetto=M_TETTO) -> None:
+                mat_tetto=M_TETTO, mat_lati=M_PIANO) -> None:
         """Un parallelepipedo girato di `ang` attorno all'asse verticale."""
         ca, sa = math.cos(ang), math.sin(ang)
         ang4 = [(-lungo / 2, -largo / 2), (lungo / 2, -largo / 2),
@@ -294,7 +301,8 @@ class Geometria:
             mx, mz = (base[j][0] + base[k][0]) / 2 - x, (base[j][1] + base[k][1]) / 2 - z
             if nor[0] * mx + nor[2] * mz < 0:
                 nor = (-nor[0], 0.0, -nor[2])
-            self.quad(b[k], b[j], t[j], t[k], _mix(col, (0, 0, 0), 0.12), glow_lati, nor)
+            self.quad(b[k], b[j], t[j], t[k], _mix(col, (0, 0, 0), 0.12), glow_lati, nor,
+                      mat_lati)
 
     # ---------------------------------------------------------------- acqua
     def _prepara_acqua(self) -> None:
@@ -695,8 +703,22 @@ class Geometria:
             x = (a[0] + b[0]) / 2 + r[0] * verso * (largo + 9)
             z = (a[2] + b[2]) / 2 + r[2] * verso * (largo + 9)
             lungo = math.hypot(b[0] - a[0], b[2] - a[2]) + 0.4
-            self.scatola(x, a[1], z, lungo, 16, 11, ang, (0.80, 0.81, 0.84),
-                         0.6 if self.notte else 0.0, (0.86, 0.87, 0.89))
+            if self.dettaglio:
+                # +w della scatola e' il lato `r`: la corsia sta dall'altra parte
+                self._garage(x, a[1], z, lungo, ang, -verso, SQUADRE[(k // 3) % len(SQUADRE)])
+                # il muretto dei box, dalla parte della pista, con le pensiline
+                mx = (a[0] + b[0]) / 2 - r[0] * verso * (largo + 0.7)
+                mz = (a[2] + b[2]) / 2 - r[2] * verso * (largo + 0.7)
+                self.scatola(mx, a[1], mz, lungo, 0.5, 1.1, ang, (0.70, 0.71, 0.74))
+                if (k // 3) % 2 == 0:
+                    for u in (-2.0, 2.0):
+                        self.scatola(mx + math.cos(ang) * u, a[1], mz + math.sin(ang) * u,
+                                     0.2, 0.2, 2.6, ang, (0.25, 0.26, 0.29))
+                    self.scatola(mx, a[1] + 2.6, mz, 5.5, 2.4, 0.3, ang, (0.25, 0.26, 0.29),
+                                 0.0, (0.30, 0.31, 0.34), M_PIANO)
+            else:
+                self.scatola(x, a[1], z, lungo, 16, 11, ang, (0.80, 0.81, 0.84),
+                             0.6 if self.notte else 0.0, (0.86, 0.87, 0.89))
         # il paddock, dietro ai box: un piazzale con le motorhome in fila
         a, b = B[k0], B[k1]
         ang = math.atan2(b[2] - a[2], b[0] - a[0])
@@ -719,6 +741,36 @@ class Geometria:
                 col = SQUADRE[(j + (fila > 0) * 5) % len(SQUADRE)]
                 self.scatola(x, py + 0.2, z, 20, 9, 6 + (j % 3), ang, col,
                              0.5 if self.notte else 0.0, _mix(col, (1, 1, 1), 0.35))
+
+    def _garage(self, x, y, z, lungo, ang, corsia: float, squadra) -> None:
+        """Un pezzo dell'edificio dei box: i garage a piano terra con i portoni
+        aperti sulla corsia, la fascia col colore della squadra, il piano delle
+        vetrate e il tetto che sporge sulla corsia. `corsia` e' il lato (+1 o
+        -1, lungo l'asse corto) che guarda la corsia dei box."""
+        ca, sa = math.cos(ang), math.sin(ang)
+        notte = self.notte
+
+        def P(u, w, h):
+            return (x + ca * u - sa * w, y + h, z + sa * u + ca * w)
+        muro = (0.80, 0.81, 0.84)
+        self.scatola(x, y, z, lungo, 16, 5.0, ang, muro, 0.0, (0.55, 0.56, 0.58))
+        self.scatola(x, y + 5.0, z, lungo, 15.0, 4.2, ang, (0.14, 0.20, 0.27),
+                     0.9 if notte else 0.0, (0.55, 0.56, 0.58), M_TETTO, M_VETRO)
+        # il tetto sporge di due metri verso la corsia
+        self.scatola(x - sa * corsia * 1.5, y + 9.2, z + ca * corsia * 1.5, lungo + 0.1, 19.0,
+                     0.7, ang, (0.88, 0.89, 0.91), 0.0, (0.86, 0.87, 0.89))
+        wl = corsia * 8.06
+        nor = (-sa * corsia, 0.0, ca * corsia)
+        n = max(1, int(lungo // 6.5))
+        L = lungo / 2
+        for k in range(n):
+            u0 = -L + k * lungo / n + 0.6
+            u1 = -L + (k + 1) * lungo / n - 0.6
+            # dentro al garage: scuro di giorno, acceso di notte
+            self.quad(P(u0, wl, 0.1), P(u1, wl, 0.1), P(u1, wl, 4.1), P(u0, wl, 4.1),
+                      (0.13, 0.14, 0.16), 2.5 if notte else 0.0, nor)
+        self.quad(P(-L, wl, 4.3), P(L, wl, 4.3), P(L, wl, 4.95), P(-L, wl, 4.95), squadra,
+                  0.8 if notte else 0.0, nor)
 
     def _piazzale(self, x, y, z, lungo, largo, ang, mat, col, glow=0.0) -> None:
         """Un rettangolo piatto appoggiato sul terreno (parcheggi, paddock)."""
@@ -759,16 +811,56 @@ class Geometria:
         a, b = pt(-L, 0, basso), pt(L, 0, basso)
         c, d = pt(L, prof, alto), pt(-L, prof, alto)
         g = 0.7 if self.notte else 0.0
-        self.quad(a, b, c, d, colore, g, None, M_FOLLA)
         grigio = (0.62, 0.63, 0.66)
+        if self.dettaglio:
+            self._gradinate(pt, L, prof, basso, alto, colore, g, (rx, rz), (fx, fz))
+        else:
+            self.quad(a, b, c, d, colore, g, None, M_FOLLA)
+            self.quad(pt(-L, 0, 0), a, d, pt(-L, prof, 0), grigio, 0.0, (-fx, 0, -fz))
+            self.quad(pt(L, 0, 0), b, c, pt(L, prof, 0), grigio, 0.0, (fx, 0, fz))
         self.quad(pt(-L, 0, 0), pt(L, 0, 0), b, a, grigio, g, (-rx, 0, -rz))
         self.quad(pt(-L, prof, 0), pt(L, prof, 0), c, d, grigio, 0.0, (rx, 0, rz))
-        self.quad(pt(-L, 0, 0), a, d, pt(-L, prof, 0), grigio, 0.0, (-fx, 0, -fz))
-        self.quad(pt(L, 0, 0), b, c, pt(L, prof, 0), grigio, 0.0, (fx, 0, fz))
         self.quad(pt(-L, prof * 0.3, alto + 5), pt(L, prof * 0.3, alto + 5),
                   pt(L, prof + 1, alto + 4), pt(-L, prof + 1, alto + 4), (0.90, 0.91, 0.93), g,
                   None, M_TETTO)
+        if self.dettaglio:
+            # il bordo del tetto nel colore della tribuna, e i piloni dietro
+            self.quad(pt(-L, prof * 0.3, alto + 4.3), pt(L, prof * 0.3, alto + 4.3),
+                      pt(L, prof * 0.3, alto + 5), pt(-L, prof * 0.3, alto + 5),
+                      _mix(colore, (1, 1, 1), 0.15), g, (-rx, 0, -rz))
+            ang = math.atan2(fz, fx)
+            k = max(2, int(lungo // 14) + 1)
+            for j in range(k):
+                u = -L + 1.0 + (lungo - 2.0) * j / (k - 1)
+                x, yy, z = pt(u, prof + 0.4, 0)
+                self.scatola(x, y, z, 0.7, 0.7, alto + 4.2, ang, (0.55, 0.56, 0.60))
         return True
+
+    def _gradinate(self, pt, L, prof, basso, alto, colore, g, r, f) -> None:
+        """I gradoni di una tribuna, con la gente seduta e le scale grigie che
+        salgono fra i settori; i fianchi seguono gli scalini."""
+        n = 10
+        grigio = (0.62, 0.63, 0.66)
+        scala = (0.72, 0.72, 0.74)
+        dietro = (-r[0], 0.0, -r[1])
+        su = (0.0, 1.0, 0.0)
+        settori = max(1, int(2 * L // 18))
+        corsie = [-L + 2 * L * s / settori for s in range(1, settori)]
+        for k in range(n):
+            v0, v1 = prof * k / n, prof * (k + 1) / n
+            h0 = basso + (alto - basso) * k / n
+            h1 = basso + (alto - basso) * (k + 1) / n
+            # l'alzata e la pedata, con la gente
+            self.quad(pt(-L, v0, h0), pt(L, v0, h0), pt(L, v0, h1), pt(-L, v0, h1),
+                      _mix(colore, (0, 0, 0), 0.25), g, dietro, M_FOLLA)
+            self.quad(pt(-L, v0, h1), pt(L, v0, h1), pt(L, v1, h1), pt(-L, v1, h1), colore, g,
+                      su, M_FOLLA)
+            for u in corsie:
+                self.quad(pt(u - 0.7, v0 - 0.02, h1 + 0.03), pt(u + 0.7, v0 - 0.02, h1 + 0.03),
+                          pt(u + 0.7, v1, h1 + 0.03), pt(u - 0.7, v1, h1 + 0.03), scala, g, su)
+            for lato, nor in ((-L, (-f[0], 0, -f[1])), (L, (f[0], 0, f[1]))):
+                self.quad(pt(lato, v0, 0), pt(lato, v1, 0), pt(lato, v1, h1), pt(lato, v0, h1),
+                          grigio, 0.0, nor)
 
     def _tribune(self) -> None:
         colori = [(0.22, 0.34, 0.64), (0.72, 0.18, 0.18), (0.86, 0.74, 0.22), (0.20, 0.54, 0.42)]
@@ -1269,8 +1361,12 @@ class Geometria:
                       (a[0], y + alto, a[1]), muro, acceso, nor)
 
     # ----------------------------------------------------------------- alberi
-    def _chioma(self, x: float, z: float, r: float, col, alto: float | None = None) -> None:
+    def _chioma(self, x: float, z: float, r: float, col, alto: float | None = None,
+                fitto: bool = False) -> None:
         """Un albero visto dall'alto: una chioma tonda, bassa, a facce."""
+        if self.dettaglio:
+            self._albero(x, z, r, col, alto, fitto)
+            return
         y = self.terra(x, z)
         alto = alto or r * 1.8
         lati = 7
@@ -1309,7 +1405,7 @@ class Geometria:
                     continue
                 x = x0 + (gx + fx) * passo
                 z = z0 + (gz + fz) * passo
-                self._chioma(x, z, rng.uniform(5.5, 8.5), rng.choice(verdi))
+                self._chioma(x, z, rng.uniform(5.5, 8.5), rng.choice(verdi), None, True)
                 fatti += 1
         # gli alberi sparsi e i filari lungo le strade
         sparsi = {"parco": 700, "bosco": 500, "dune": 260}.get(self.bioma, 0)
@@ -1351,6 +1447,189 @@ class Geometria:
                 if self._libero(x, z, MEZZA_PISTA + self.fuga + 10):
                     self._chioma(x, z, rng.uniform(3.0, 4.0), (0.28, 0.42, 0.18), 10.0)
 
+    # ------------------------------------------------- alberi con il dettaglio
+    def _albero(self, x: float, z: float, r: float, col, alto: float | None, fitto: bool) -> None:
+        """Un albero vero: il tronco (nei boschi fitti non si vede, e si
+        risparmia) e la chioma tonda e bitorzoluta; nei boschi di montagna
+        anche gli abeti, e nel deserto le palme."""
+        rng = self.rng
+        y = self.terra(x, z)
+        if self.bioma == "deserto" and alto:
+            self._palma(x, y, z, r, col, alto)
+            return
+        alto = alto or r * 1.8
+        tronco = (0.30, 0.23, 0.16)
+        if self.bioma == "bosco" and rng.random() < 0.35:
+            scuro = _mix(col, (0.02, 0.10, 0.06), 0.35)
+            if not fitto:
+                self._tronco(x, y, z, r * 0.08, alto * 0.35, tronco)
+            self._cono(x, y + alto * 0.18, z, r * 0.9, alto * 0.62, scuro)
+            self._cono(x, y + alto * 0.55, z, r * 0.62, alto * 0.62, scuro)
+            return
+        if not fitto:
+            self._tronco(x, y, z, r * 0.09, alto * 0.5, tronco)
+        self._palla(x, y + alto * 0.62, z, r, alto * 0.42, col)
+
+    def _tronco(self, x, y, z, r, alto, col, lati: int = 5) -> None:
+        a0 = self.rng.random()
+        for k in range(lati):
+            a, b = a0 + k * 2 * math.pi / lati, a0 + (k + 1) * 2 * math.pi / lati
+            na, nb = (math.cos(a), 0.0, math.sin(a)), (math.cos(b), 0.0, math.sin(b))
+            pa0 = (x + na[0] * r, y - 0.3, z + na[2] * r)
+            pb0 = (x + nb[0] * r, y - 0.3, z + nb[2] * r)
+            pa1 = (x + na[0] * r * 0.65, y + alto, z + na[2] * r * 0.65)
+            pb1 = (x + nb[0] * r * 0.65, y + alto, z + nb[2] * r * 0.65)
+            self.tri(pa0, pb0, pb1, col, 0.0, (na, nb, nb))
+            self.tri(pa0, pb1, pa1, col, 0.0, (na, nb, na))
+
+    def _cono(self, x, y, z, r, alto, col, lati: int = 7) -> None:
+        """Un palco di abete: il cono con la gonna scura sotto."""
+        a0 = self.rng.random()
+        cima = (x, y + alto, z)
+        base = []
+        for k in range(lati):
+            a = a0 + k * 2 * math.pi / lati
+            rr = r * self.rng.uniform(0.88, 1.12)
+            base.append(((x + math.cos(a) * rr, y, z + math.sin(a) * rr),
+                         _norm((math.cos(a) * alto, r, math.sin(a) * alto))))
+        sotto = _mix(col, (0, 0, 0), 0.35)
+        centro = (x, y + alto * 0.12, z)
+        for k in range(lati):
+            (pa, na), (pb, nb) = base[k], base[(k + 1) % lati]
+            self.tri(pa, pb, cima, col, 0.0, (na, nb, (0.0, 1.0, 0.0)), M_CHIOMA)
+            self.tri(pa, centro, pb, sotto, 0.0, (0.0, -1.0, 0.0), M_CHIOMA)
+
+    def _palla(self, x, yc, z, r, ry, col, lati: int = 7) -> None:
+        """Una chioma: un ellissoide a facce, con i bordi mossi."""
+        rng = self.rng
+        a0 = rng.random()
+        anelli = []
+        for t in (0.95, 1.95):          # in radianti dalla cima: 55 e 110 gradi circa
+            anello = []
+            for k in range(lati):
+                a = a0 + (k + 0.5 * (t > 1)) * 2 * math.pi / lati
+                j = rng.uniform(0.85, 1.15)
+                d = (math.sin(t) * math.cos(a), math.cos(t), math.sin(t) * math.sin(a))
+                anello.append(((x + d[0] * r * j, yc + d[1] * ry * j, z + d[2] * r * j),
+                               _norm((d[0] / r, d[1] / ry, d[2] / r))))
+            anelli.append(anello)
+        cima = ((x, yc + ry * rng.uniform(0.9, 1.1), z), (0.0, 1.0, 0.0))
+        fondo = ((x, yc - ry * 0.75, z), (0.0, -1.0, 0.0))
+        sotto = _mix(col, (0, 0, 0), 0.25)
+        su, giu = anelli
+        for k in range(lati):
+            j = (k + 1) % lati
+            self.tri(su[k][0], su[j][0], cima[0], col, 0.0, (su[k][1], su[j][1], cima[1]),
+                     M_CHIOMA)
+            self.tri(su[k][0], giu[k][0], su[j][0], col, 0.0, (su[k][1], giu[k][1], su[j][1]),
+                     M_CHIOMA)
+            self.tri(su[j][0], giu[k][0], giu[j][0], sotto, 0.0,
+                     (su[j][1], giu[k][1], giu[j][1]), M_CHIOMA)
+            self.tri(giu[k][0], fondo[0], giu[j][0], sotto, 0.0,
+                     (giu[k][1], fondo[1], giu[j][1]), M_CHIOMA)
+
+    def _palma(self, x, y, z, r, col, alto) -> None:
+        """Una palma: il fusto che si piega un poco e il ciuffo di foglie."""
+        rng = self.rng
+        ang = rng.random() * 2 * math.pi
+        piega = rng.uniform(0.6, 1.6)
+        mezzo = (x + math.cos(ang) * piega * 0.3, y + alto * 0.5, z + math.sin(ang) * piega * 0.3)
+        cima = (x + math.cos(ang) * piega, y + alto, z + math.sin(ang) * piega)
+        fusto = (0.42, 0.34, 0.24)
+        for a, b, ra, rb in (((x, y - 0.3, z), mezzo, 0.28, 0.22), (mezzo, cima, 0.22, 0.18)):
+            for k in range(5):
+                t0, t1 = k * 2 * math.pi / 5, (k + 1) * 2 * math.pi / 5
+                n0 = (math.cos(t0), 0.0, math.sin(t0))
+                n1 = (math.cos(t1), 0.0, math.sin(t1))
+                self.quad((a[0] + n0[0] * ra, a[1], a[2] + n0[2] * ra),
+                          (a[0] + n1[0] * ra, a[1], a[2] + n1[2] * ra),
+                          (b[0] + n1[0] * rb, b[1], b[2] + n1[2] * rb),
+                          (b[0] + n0[0] * rb, b[1], b[2] + n0[2] * rb), fusto, 0.0,
+                          _norm((n0[0] + n1[0], 0.0, n0[2] + n1[2])))
+        lungo = r * 1.5
+        for k in range(7):
+            a = ang + k * 2 * math.pi / 7 + rng.uniform(-0.2, 0.2)
+            d = (math.cos(a), math.sin(a))
+            q = (-d[1], d[0])
+            m = (cima[0] + d[0] * lungo * 0.5, cima[1] + 0.5, cima[2] + d[1] * lungo * 0.5)
+            punta = (cima[0] + d[0] * lungo, cima[1] - 1.4, cima[2] + d[1] * lungo)
+            w = 0.75
+            self.tri(cima, (m[0] + q[0] * w, m[1], m[2] + q[1] * w), punta, col, 0.0, None,
+                     M_CHIOMA)
+            self.tri(cima, punta, (m[0] - q[0] * w, m[1], m[2] - q[1] * w), col, 0.0, None,
+                     M_CHIOMA)
+
+    # ------------------------------------------------------ lungo le barriere
+    def _libero_lungo(self, i: int, lato: float, dist: float, mezzo: float,
+                      prof: float) -> bool:
+        """Se accanto al punto `i`, a `dist` metri dal centro, c'e' posto per
+        qualcosa largo `2 * mezzo` e profondo `prof`: niente altra pista, niente
+        acqua, niente box."""
+        p, r, fw = self.P[i], self.R[i], self.F[i]
+        cx, cz = p[0] + r[0] * lato * dist, p[2] + r[2] * lato * dist
+        for u in (-mezzo, 0.0, mezzo):
+            for v in (0.0, prof):
+                x = cx + fw[0] * u + r[0] * lato * v
+                z = cz + fw[2] * u + r[2] * lato * v
+                if self.vicino(x, z, 40.0)[0] < dist - 1.0 or not self.all_asciutto(x, z):
+                    return False
+        return not any((b[0] - cx) ** 2 + (b[2] - cz) ** 2 < 45 ** 2 for b in self.box_P[::3])
+
+    def _cartelloni(self) -> None:
+        """I cartelloni pubblicitari sui rettilinei, appena dietro alle barriere,
+        rivolti alla pista: il colore dello sponsor con il marchio in mezzo."""
+        colori = [(0.82, 0.08, 0.10), (0.05, 0.28, 0.62), (0.96, 0.76, 0.06), (0.10, 0.10, 0.12),
+                  (0.02, 0.52, 0.34), (0.94, 0.94, 0.95), (0.92, 0.42, 0.04), (0.42, 0.10, 0.55)]
+        passo = max(1, int(round(48.0 / max(0.5, self.track.ds))))
+        dist = MEZZA_PISTA + CORDOLO + self.fuga + 2.2
+        g = 0.9 if self.notte else 0.0
+        k = 0
+        for i in range(0, self.n, passo):
+            if abs(self.K[i]) > 1.0 / 350.0:
+                continue
+            lato = 1.0 if (i // passo) % 2 else -1.0
+            if not self._libero_lungo(i, lato, dist, 6.5, 1.0):
+                continue
+            p, r, fw = self.P[i], self.R[i], self.F[i]
+            cx, cz = p[0] + r[0] * lato * dist, p[2] + r[2] * lato * dist
+            y = self.terra(cx, cz)
+            rl = (r[0] * lato, r[2] * lato)
+
+            def P(u, v, h):
+                return (cx + fw[0] * u + rl[0] * v, y + h, cz + fw[2] * u + rl[1] * v)
+            fondo = colori[k % len(colori)]
+            marchio = colori[(k * 3 + 2) % len(colori)]
+            if marchio == fondo:
+                marchio = colori[(k * 3 + 3) % len(colori)]
+            verso_pista = (-rl[0], 0.0, -rl[1])
+            self.quad(P(-6, 0, 0.9), P(6, 0, 0.9), P(6, 0, 3.1), P(-6, 0, 3.1), fondo, g,
+                      verso_pista)
+            self.quad(P(-3.6, -0.03, 1.45), P(3.6, -0.03, 1.45), P(3.6, -0.03, 2.55),
+                      P(-3.6, -0.03, 2.55), marchio, g, verso_pista)
+            self.quad(P(-6, 0.12, 0.9), P(6, 0.12, 0.9), P(6, 0.12, 3.1), P(-6, 0.12, 3.1),
+                      (0.40, 0.41, 0.44), 0.0, (rl[0], 0.0, rl[1]))
+            ang = math.atan2(fw[2], fw[0])
+            for u in (-5.0, 0.0, 5.0):
+                x, _, z = P(u, 0.06, 0.0)
+                self.scatola(x, y, z, 0.15, 0.15, 0.9, ang, (0.30, 0.31, 0.34))
+            k += 1
+
+    def _postazioni(self) -> None:
+        """Le casette dei commissari di percorso, ogni tre o quattrocento metri."""
+        passo = max(1, int(round(330.0 / max(0.5, self.track.ds))))
+        dist = MEZZA_PISTA + CORDOLO + self.fuga + 3.5
+        for i in range(passo // 2, self.n, passo):
+            lato = -1.0 if self.K[i] > 0 else 1.0     # all'esterno della curva
+            if not self._libero_lungo(i, lato, dist, 1.5, 2.5):
+                continue
+            p, r, fw = self.P[i], self.R[i], self.F[i]
+            x = p[0] + r[0] * lato * (dist + 1.2)
+            z = p[2] + r[2] * lato * (dist + 1.2)
+            y = self.terra(x, z)
+            ang = math.atan2(fw[2], fw[0])
+            self.scatola(x, y, z, 2.4, 2.4, 2.5, ang, (0.90, 0.90, 0.92),
+                         0.6 if self.notte else 0.0, (0.95, 0.48, 0.06))
+
     # ------------------------------------------------------------------ fari
     def _fari(self) -> None:
         """Le torri dei fari lungo il giro, per le gare di notte."""
@@ -1379,6 +1658,12 @@ class Geometria:
         ang = math.atan2(r[2], r[0])
         self.scatola(p[0], p[1] + 8.0, p[2], largo * 2 + 1.2, 1.4, 1.6, ang, scuro, g, None,
                      M_PIANO)
+        if self.dettaglio:
+            # i cinque semafori del via, appesi sotto al portale
+            for k in range(-2, 3):
+                x, z = p[0] + r[0] * k * 1.3, p[2] + r[2] * k * 1.3
+                self.scatola(x, p[1] + 6.6, z, 0.9, 0.6, 1.4, ang, (0.06, 0.06, 0.07), g,
+                             None, M_PIANO)
 
     # --------------------------------------------------------- lungo il giro
     def sul_giro(self, frazione: float, laterale: float = 0.0) -> tuple:

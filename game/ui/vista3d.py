@@ -310,6 +310,9 @@ vec3 albedo(out float lucido) {
     } else if (v_mat == 10) {                   // ghiaia
         c = v_col * (0.8 + 0.4 * h21(floor(p * 3.0)));
         c = foto(2, p, v_col * (0.9 + 0.2 * fbm(p / 6.0)), 1.0);
+    } else if (v_mat == 13) {                   // vetrate
+        c = v_col * (0.9 + 0.2 * rum(vec2(v_pos.y * 0.9, p.x + p.y)));
+        lucido = 0.6;
     } else if (v_mat == 12) {                   // strade di campagna
         c = v_col * (0.9 + 0.15 * rum(p * 0.4));
         c = foto(5, p, c, 0.8);
@@ -561,7 +564,13 @@ void main() {
     if (con_cielo > 0.5) {
         vec2 uv = vec2(atan(dir.x, -dir.z) / 6.2831853 + 0.5,
                        acos(clamp(dir.y, -1.0, 1.0)) / 3.1415927);
-        frag = vec4(texture(cielo_tex, uv).rgb, 1.0);
+        vec3 c = texture(cielo_tex, uv).rgb;
+        // le nuvole attorno al sole sono dieci volte piu' luminose del resto:
+        // si abbassano tutti e tre i colori insieme, se no il rosso e il verde
+        // arrivano al bianco prima del blu e le nuvole diventano gialle
+        float m = max(max(c.r, c.g), c.b);
+        c /= 1.0 + max(m - 1.1, 0.0) * 0.7;
+        frag = vec4(c, 1.0);
         return;
     }
     float h = clamp(dir.y, 0.0, 1.0);
@@ -781,12 +790,14 @@ class Elicottero:
 _GEO: dict = {}
 
 
-def geometria(track) -> pista3d.Geometria:
-    """La geometria di un circuito, costruita una volta sola per partita."""
-    g = _GEO.get(track.id)
+def geometria(track, dettaglio: bool = False) -> pista3d.Geometria:
+    """La geometria di un circuito, costruita una volta sola per partita (e
+    per livello di dettaglio: cambia con la qualita' grafica)."""
+    chiave = (track.id, bool(dettaglio))
+    g = _GEO.get(chiave)
     if g is None:
         _GEO.clear()
-        g = _GEO[track.id] = pista3d.Geometria(track)
+        g = _GEO[chiave] = pista3d.Geometria(track, bool(dettaglio))
     return g
 
 
@@ -805,7 +816,7 @@ class Vista3D:
         if not disponibile():
             raise RuntimeError("OpenGL non disponibile")
         ctx = self.ctx = _CTX
-        self.geo = geometria(track)
+        self.geo = geometria(track, qualita.attuale().get("dettaglio"))
         self.p_mondo = ctx.program(vertex_shader=_VS_MONDO, fragment_shader=_FS_MONDO)
         self.p_ombra = ctx.program(vertex_shader=_VS_OMBRA, fragment_shader=_FS_OMBRA)
         self.p_cielo = ctx.program(vertex_shader=_VS_PIENO, fragment_shader=_FS_CIELO)

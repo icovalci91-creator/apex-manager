@@ -252,7 +252,7 @@ Haven** (licenza CC0, scaricate da `tools/fetch_grafica.py` e dal workflow
 La **qualita' grafica** si sceglie dal menu (un clic passa alla successiva): automatica,
 Bassa, Media, Alta, Ultra.
 
-| Livello | Risoluzione della scena | Antialiasing | Ombre | Materiali | Cielo | Monoposto |
+| Livello | Risoluzione della scena | Antialiasing | Ombre | Materiali | Cielo | Modelli |
 |---|---|---|---|---|---|---|
 | Bassa | 60% | no | 1024 | calcolati | calcolato | semplici |
 | Media | 80% | 2x | 2048 | foto a 1K | foto a 1K | semplici |
@@ -266,6 +266,14 @@ con la coppa scura e il mozzo, la spalla delle gomme tonda, i tamburi e le prese
 le feritoie sulle pance, le telecamere sul muso, la visiera del casco, gli specchietti
 tondi, e curve lisce su scocca, pance e halo. Stesse misure della macchina semplice: la
 livrea ci si stende sopra uguale.
+
+Anche **attorno alla pista** i modelli si fanno veri: alberi con il tronco e la chioma tonda
+e mossa (abeti nei circuiti di montagna, palme nel deserto), tribune a gradoni con le scale
+fra i settori, i piloni e il bordo del tetto colorato, l'edificio dei box con i garage
+aperti sulla corsia (accesi di notte), la fascia di ogni squadra, il piano delle vetrate e
+il tetto che sporge, il muretto con le pensiline, i cartelloni pubblicitari lungo i
+rettilinei, le casette dei commissari e i cinque semafori sotto il portale del via. Tutto
+costruito dal codice, come le monoposto: non pesa niente nell'installatore.
 
 Automatica guarda la scheda video: Bassa senza accelerazione, Media per le integrate
 (Intel, Radeon Graphics), Alta per le altre. Le scritte, il tabellone e la grafica

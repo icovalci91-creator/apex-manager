@@ -9,8 +9,10 @@ Ogni livello dice quanto lavora la scheda video:
   * `texture` - a che misura si caricano i materiali fotografici (0: niente,
     si dipinge con il calcolo come prima);
   * `cielo` - quanto e' larga la foto del cielo (0: il cielo sfumato);
-  * `dettaglio` - le monoposto dettagliate: ali con il profilo vero, cerchi a
-    razze, curve piu' morbide (quattro volte i triangoli).
+  * `dettaglio` - i modelli dettagliati: le monoposto con le ali a profilo
+    vero, i cerchi a razze e le curve morbide (quattro volte i triangoli), e
+    attorno alla pista alberi con il tronco, gradinate, box con i garage,
+    cartelloni e postazioni dei commissari.
 
 La scelta sta nelle impostazioni video (`hd.IMPOSTAZIONI["qualita"]`); vuota
 vuol dire automatica: il gioco guarda che scheda video c'e' e sceglie da
