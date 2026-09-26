@@ -8,7 +8,9 @@ Ogni livello dice quanto lavora la scheda video:
   * `ombre` - quanto e' fine la mappa delle ombre;
   * `texture` - a che misura si caricano i materiali fotografici (0: niente,
     si dipinge con il calcolo come prima);
-  * `cielo` - quanto e' larga la foto del cielo (0: il cielo sfumato).
+  * `cielo` - quanto e' larga la foto del cielo (0: il cielo sfumato);
+  * `dettaglio` - le monoposto dettagliate: ali con il profilo vero, cerchi a
+    razze, curve piu' morbide (quattro volte i triangoli).
 
 La scelta sta nelle impostazioni video (`hd.IMPOSTAZIONI["qualita"]`); vuota
 vuol dire automatica: il gioco guarda che scheda video c'e' e sceglie da
@@ -22,10 +24,13 @@ from . import hd
 LIVELLI = ("bassa", "media", "alta", "ultra")
 NOMI = {"bassa": "Bassa", "media": "Media", "alta": "Alta", "ultra": "Ultra"}
 PRESET = {
-    "bassa": dict(scala3d=0.6, msaa=0, ombre=1024, texture=0, cielo=0),
-    "media": dict(scala3d=0.8, msaa=2, ombre=2048, texture=1024, cielo=1024),
-    "alta": dict(scala3d=1.0, msaa=4, ombre=2048, texture=2048, cielo=2048),
-    "ultra": dict(scala3d=1.0, msaa=8, ombre=4096, texture=2048, cielo=2048),
+    "bassa": dict(scala3d=0.6, msaa=0, ombre=1024, texture=0, cielo=0, dettaglio=False),
+    "media": dict(scala3d=0.8, msaa=2, ombre=2048, texture=1024, cielo=1024,
+                  dettaglio=False),
+    "alta": dict(scala3d=1.0, msaa=4, ombre=2048, texture=2048, cielo=2048,
+                 dettaglio=True),
+    "ultra": dict(scala3d=1.0, msaa=8, ombre=4096, texture=2048, cielo=2048,
+                  dettaglio=True),
 }
 
 # Cambia ogni volta che cambia la qualita': la vista 3D la confronta con la sua

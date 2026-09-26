@@ -833,7 +833,9 @@ class Vista3D:
         self.p_ombra_auto = ctx.program(vertex_shader=_VS_OMBRA_AUTO,
                                         fragment_shader=_FS_OMBRA_AUTO)
         self.tipo = tipo
-        forma = monoposto.mesh_fe() if tipo == "fe" else monoposto.mesh()
+        # in Alta e Ultra le monoposto dettagliate (vedi `monoposto`)
+        fine = bool(qualita.attuale().get("dettaglio"))
+        forma = monoposto.mesh_fe(fine) if tipo == "fe" else monoposto.mesh(fine)
         self.vbo_auto = ctx.buffer(forma.tobytes())
         self.vbo_istanze = ctx.buffer(reserve=ISTANZE_MAX * ISTANZA * 4, dynamic=True)
         istanze = (self.vbo_istanze, "3f 3f 3f 3f 1f 3f 1f/i", "i_pos", "i_fwd", "i_col",

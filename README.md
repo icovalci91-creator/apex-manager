@@ -252,12 +252,20 @@ Haven** (licenza CC0, scaricate da `tools/fetch_grafica.py` e dal workflow
 La **qualita' grafica** si sceglie dal menu (un clic passa alla successiva): automatica,
 Bassa, Media, Alta, Ultra.
 
-| Livello | Risoluzione della scena | Antialiasing | Ombre | Materiali | Cielo |
-|---|---|---|---|---|---|
-| Bassa | 60% | no | 1024 | calcolati | calcolato |
-| Media | 80% | 2x | 2048 | foto a 1K | foto a 1K |
-| Alta | 100% | 4x | 2048 | foto a 2K | foto a 2K |
-| Ultra | 100% | 8x | 4096 | foto a 2K | foto a 2K |
+| Livello | Risoluzione della scena | Antialiasing | Ombre | Materiali | Cielo | Monoposto |
+|---|---|---|---|---|---|---|
+| Bassa | 60% | no | 1024 | calcolati | calcolato | semplici |
+| Media | 80% | 2x | 2048 | foto a 1K | foto a 1K | semplici |
+| Alta | 100% | 4x | 2048 | foto a 2K | foto a 2K | dettagliate |
+| Ultra | 100% | 8x | 4096 | foto a 2K | foto a 2K | dettagliate |
+
+Le **monoposto dettagliate** hanno quattro volte i triangoli: le ali con il profilo vero
+(i flap dell'ala anteriore che salgono e si svergolano verso l'esterno, l'ala posteriore
+con il flap ripido e la trave bassa a due elementi, il collo di cigno), i cerchi a razze
+con la coppa scura e il mozzo, la spalla delle gomme tonda, i tamburi e le prese dei freni,
+le feritoie sulle pance, le telecamere sul muso, la visiera del casco, gli specchietti
+tondi, e curve lisce su scocca, pance e halo. Stesse misure della macchina semplice: la
+livrea ci si stende sopra uguale.
 
 Automatica guarda la scheda video: Bassa senza accelerazione, Media per le integrate
 (Intel, Radeon Graphics), Alta per le altre. Le scritte, il tabellone e la grafica
