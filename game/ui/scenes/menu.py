@@ -33,6 +33,9 @@ class MenuScene(Scene):
             self.widgets.append(Button((cx - 170, y + 134, 340, 50), "Esci", self.quit, "ghost"))
         # il suono, in basso a destra
         pannello_audio.aggiungi(self.widgets, w - 420, h - 58, 396, self.build)
+        # e l'alta definizione, subito sopra
+        pannello_audio.aggiungi_video(self.widgets, w - 420, h - 102, 396, self.app,
+                                      self.build)
 
     def on_resize(self) -> None:
         self.build()
@@ -103,10 +106,10 @@ class MenuScene(Scene):
         fx.splendi(surf, (w // 2, cy + 40), 360, T.ACCENT, 0.10 + 0.03 * math.sin(t * 1.3))
         titolo = T.render(C.GAME_TITLE.upper(), 96, (240, 246, 255), bold=True)
         tr = titolo.get_rect(center=(w // 2, cy + 36))
-        ombra = T.render(C.GAME_TITLE.upper(), 96, (0, 0, 0), bold=True)
+        ombra = T.render(C.GAME_TITLE.upper(), 96, (0, 0, 0), bold=True, per=surf)
         ombra.set_alpha(140)
         surf.blit(ombra, tr.move(0, 6))
-        surf.blit(titolo, tr)
+        surf.blit(T.render(C.GAME_TITLE.upper(), 96, (240, 246, 255), bold=True, per=surf), tr)
         if not fx.LEGGERO:
             q = (t % 5.0) / 5.0
             if q < 0.5:
@@ -120,7 +123,7 @@ class MenuScene(Scene):
                 surf.blit(lama, tr)
         # sotto, il sottotitolo spaziato fra due fili
         sotto = "M A N A G E R   D I   F O R M U L A   1"
-        img = T.render(sotto, 18, T.ACCENT, bold=True)
+        img = T.render(sotto, 18, T.ACCENT, bold=True, per=surf)
         sr = img.get_rect(center=(w // 2, tr.bottom + 16))
         surf.blit(img, sr)
         for verso in (-1, 1):

@@ -4,6 +4,7 @@ from __future__ import annotations
 import pygame
 
 from .. import config as C
+from . import hd
 
 BG        = (10, 13, 20)
 PANEL     = (19, 25, 35)
@@ -92,22 +93,34 @@ def corpo(size: int) -> int:
     return _CORPO.get(size, max(11, size))
 
 
+def _faccia(size: int, bold: bool, mono: bool) -> tuple:
+    """(carattere, corpo vero) di una scritta chiesta a `size`."""
+    if _TV[0] and not mono:
+        return ("tv_nero" if bold and size >= TITOLO_DA else "tv"), size
+    if mono:
+        return "mono", corpo(size)
+    if bold and size >= TITOLO_DA:
+        return "titolo", int(round(size * TITOLO_SCALA * SCALA))
+    return "sans", int(round(corpo(size) * SCALA))
+
+
 def font(size: int, bold: bool = False, mono: bool = False) -> pygame.font.Font:
     key = (size, bold, mono, _TV[0])
     f = _FONTS.get(key)
     if f is None:
-        if _TV[0] and not mono:
-            faccia = "tv_nero" if bold and size >= TITOLO_DA else "tv"
-            f = _carica(faccia, bold, size)
-            _FONTS[key] = f
-            return f
-        if mono:
-            faccia, c = "mono", corpo(size)
-        elif bold and size >= TITOLO_DA:
-            faccia, c = "titolo", int(round(size * TITOLO_SCALA * SCALA))
-        else:
-            faccia, c = "sans", int(round(corpo(size) * SCALA))
+        faccia, c = _faccia(size, bold, mono)
         f = _carica(faccia, bold, c)
+        _FONTS[key] = f
+    return f
+
+
+def font_hd(size: int, bold: bool, mono: bool, scala: float) -> pygame.font.Font:
+    """Lo stesso carattere, al corpo vero dello schermo ad alta definizione."""
+    key = (size, bold, mono, _TV[0], scala)
+    f = _FONTS.get(key)
+    if f is None:
+        faccia, c = _faccia(size, bold, mono)
+        f = _carica(faccia, bold, max(1, int(round(c * scala))))
         _FONTS[key] = f
     return f
 
@@ -145,20 +158,27 @@ _SURF_MAX = 3000
 
 
 def render(s: str, size: int = 16, colour=TEXT, bold: bool = False,
-           mono: bool = False) -> pygame.Surface:
-    key = (s, size, bold, mono, tuple(colour), _TV[0])
+           mono: bool = False, per=None) -> pygame.Surface:
+    """La scritta come immagine. Con `per` - la superficie su cui finira' - la
+    scritta si fa gia' alla risoluzione vera, se quella e' la tela ad alta
+    definizione: e' cosi' che il testo resta nitido."""
+    scala = per.S if hd.attiva(per) else 1.0
+    key = (s, size, bold, mono, tuple(colour), _TV[0], scala)
     img = _SURFS.get(key)
     if img is None:
         if len(_SURFS) >= _SURF_MAX:
             _SURFS.clear()
-        img = font(size, bold, mono).render(s, True, colour)
+        f = font(size, bold, mono) if scala == 1.0 else font_hd(size, bold, mono, scala)
+        img = f.render(s, True, colour)
         if _TV[0] and not mono:
             # Titillium ha sopra le lettere un margine piu' alto: lo si toglie,
             # cosi' la scritta cade dove cadeva quella per cui e' tarata la gara
-            taglio = min(img.get_height() - 1, int(round(size * 0.14)))
+            taglio = min(img.get_height() - 1, int(round(size * 0.14 * scala)))
             if taglio > 0:
                 img = img.subsurface((0, taglio, img.get_width(),
                                       img.get_height() - taglio)).copy()
+        if scala != 1.0:
+            img = hd.avvolgi(img, scala)
         _SURFS[key] = img
     return img
 
@@ -193,7 +213,7 @@ def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
     s = str(s)
     if maxw:
         s = ellipsize(s, f, maxw)
-    img = render(s, size, colour, bold, mono)
+    img = render(s, size, colour, bold, mono, per=surf)
     r = img.get_rect()
     _ink(pos[1] + r.h)
     if align == "left":
@@ -376,8 +396,25 @@ def panel(surf, rect, colour=PANEL, radius: int = 10, border=None, width: int = 
     if rilievo and r.w >= OMBRA_DA[0] and r.h >= OMBRA_DA[1]:
         from . import fx
         fx.proietta(surf, r, radius, 18, 7, 150)
+    if hd.attiva(surf):
+        # la lastra si fa alla risoluzione vera: bordi e angoli netti
+        v = surf.rett(r)
+        chiave = (v.w, v.h, colour, radius, border, width, rilievo, surf.S)
+        img = _LASTRE_HD.get(chiave)
+        if img is None:
+            if len(_LASTRE_HD) > 400:
+                _LASTRE_HD.clear()
+            img = hd.avvolgi(_lastra(v.w, v.h, colour, surf.v(radius),
+                                     tuple(border) if border else None,
+                                     max(1, surf.v(width)), rilievo), surf.S)
+            _LASTRE_HD[chiave] = img
+        surf.blit(img, r.topleft)
+        return
     surf.blit(_lastra(r.w, r.h, colour, radius, tuple(border) if border else None,
                       width, rilievo), r.topleft)
+
+
+_LASTRE_HD: dict = {}
 
 
 # --- il colore della squadra ----------------------------------------------
@@ -473,7 +510,18 @@ def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3
         r = pygame.Rect(rect[0], rect[1], max(2, int(rect[2] * mostra)), rect[3])
         colour = tuple(colour[:3])
         if r.w >= 6 and r.h >= 4:
-            surf.blit(_riempimento(r.w, r.h, colour, radius), r.topleft)
+            if hd.attiva(surf):
+                v = surf.rett(r)
+                chiave = (v.w, v.h, colour, radius, surf.S)
+                img = _RIEMPIMENTI_HD.get(chiave)
+                if img is None:
+                    if len(_RIEMPIMENTI_HD) > 600:
+                        _RIEMPIMENTI_HD.clear()
+                    img = hd.avvolgi(_riempimento(v.w, v.h, colour, surf.v(radius)), surf.S)
+                    _RIEMPIMENTI_HD[chiave] = img
+                surf.blit(img, r.topleft)
+            else:
+                surf.blit(_riempimento(r.w, r.h, colour, radius), r.topleft)
             if r.h >= 5 and not fx.LEGGERO:
                 # la punta accesa
                 fx.splendi(surf, (r.right - 1, r.centery), max(6, r.h * 2), colour, 0.45)
@@ -489,6 +537,9 @@ def bar(surf, rect, value: float, maxv: float = 100.0, colour=ACCENT, bg=PANEL_3
 
 
 _RIEMPIMENTI: dict = {}
+
+
+_RIEMPIMENTI_HD: dict = {}
 
 
 def _riempimento(w: int, h: int, colour, radius: int) -> pygame.Surface:

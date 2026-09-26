@@ -457,7 +457,7 @@ class Semaforo:
             q = dopo / self.via
             dim = int(64 + 26 * esce(min(1.0, dopo / 0.25)))
             a = 1.0 - max(0.0, (q - 0.6) / 0.4)
-            img = T.render("VIA!", dim, (255, 255, 255), bold=True)
+            img = T.render("VIA!", dim, (255, 255, 255), bold=True, per=surf)
             img.set_alpha(int(255 * max(0.0, a)))
             c = (r.centerx, r.y + r.h // 3)
             splendi(surf, c, int(dim * 2.2), (0, 200, 255), 0.35 * a)
@@ -528,10 +528,10 @@ class Traguardo:
         scacchi(surf, (fascia.x, fascia.bottom - 24, fascia.w, 24), 12, -self.t * 40)
         c = (fascia.centerx, fascia.centery - 12)
         splendi(surf, c, 260, self.colore, 0.22)
-        img = T.render(self.titolo, 40, (255, 255, 255), bold=True)
+        img = T.render(self.titolo, 40, (255, 255, 255), bold=True, per=surf)
         surf.blit(img, img.get_rect(center=c))
         if self.sotto:
-            img = T.render(self.sotto, 16, (210, 220, 235))
+            img = T.render(self.sotto, 16, (210, 220, 235), per=surf)
             surf.blit(img, img.get_rect(center=(fascia.centerx, fascia.centery + 26)))
         if self.coriandoli:
             self.coriandoli.draw(surf, r.topleft)

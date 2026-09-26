@@ -151,8 +151,10 @@ class Button(Widget):
         # il corpo segue l'altezza: i pulsantini da venti pixel del muretto non
         # possono avere la scritta dei pulsanti grandi, e nemmeno i loro margini
         corpo = 15 if r.h >= 30 else (12 if r.h >= 24 else 11)
-        f = T.font(corpo, self.style in ("primary", "danger"))
-        img = f.render(T.ellipsize(lbl, f, r.w - (16 if r.w >= 70 else 6)), True, fg)
+        grasso = self.style in ("primary", "danger")
+        f = T.font(corpo, grasso)
+        img = T.render(T.ellipsize(lbl, f, r.w - (16 if r.w >= 70 else 6)), corpo, fg, grasso,
+                       per=surf)
         surf.blit(img, img.get_rect(center=(r.centerx, r.centery - int(round(h * 0.6)))))
 
 

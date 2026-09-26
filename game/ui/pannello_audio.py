@@ -31,3 +31,33 @@ def aggiungi(widgets: list, x: int, y: int, largo: int, rifai) -> bool:
     widgets.append(Toggle((x + 2 * (terzo + 6), y, terzo, 34), "Effetti", bool(imp["effetti"]),
                           lambda v: (audio.imposta(effetti=bool(v)), rifai())))
     return True
+
+
+def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> bool:
+    """La riga dell'alta definizione: la scala dell'interfaccia (un clic passa
+    alla prossima: automatica, 100%, 125%...) e lo schermo intero. False nel
+    browser, dove ci pensa il browser."""
+    from . import hd
+    if getattr(app, "display", None) is None:
+        return False
+    imp = hd.IMPOSTAZIONI
+    scelte = [0.0] + list(hd.SCALE)
+    attuale = float(imp.get("scala") or 0.0)
+    adesso = getattr(app.screen, "S", 1.0)
+    if attuale <= 0:
+        etichetta = f"Scala: automatica ({adesso * 100:.0f}%)"
+    else:
+        etichetta = f"Scala: {attuale * 100:.0f}%"
+
+    def prossima():
+        i = next((k for k, v in enumerate(scelte) if abs(v - attuale) < 0.01), 0)
+        app.cambia_video(scala=scelte[(i + 1) % len(scelte)])
+        rifai()
+    meta = (largo - 6) // 2
+    widgets.append(Button((x, y, meta, 34), etichetta, prossima, "ghost",
+                          tip="Quanto sono grandi scritte e pulsanti: il gioco e' "
+                              "disegnato alla risoluzione vera dello schermo"))
+    widgets.append(Toggle((x + meta + 6, y, meta, 34), "Schermo intero (F11)",
+                          bool(imp.get("schermo_intero")),
+                          lambda v: (app.cambia_video(schermo_intero=bool(v)), rifai())))
+    return True

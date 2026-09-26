@@ -7,7 +7,7 @@ import sys
 import pygame
 
 from .. import config as C
-from . import audio, fx
+from . import audio, fx, hd
 from . import theme as T
 
 IS_WEB = sys.platform == "emscripten"
@@ -87,14 +87,21 @@ def _window_size() -> tuple:
 class App:
     def __init__(self):
         audio.prepara()
+        hd.carica()
+        hd.dpi_windows()
         pygame.init()
+        hd.installa()
         pygame.display.set_caption(f"{C.GAME_TITLE} {C.GAME_VERSION}")
         # anche nel browser il canvas puo' cambiare misura - un iPad che gira
         # da orizzontale a verticale, o la pagina che ridimensiona la finestra
         # - e RESIZABLE e' quello che permette al ciclo qui sotto di
         # accorgersene e riaprire il canvas alla misura giusta invece di
         # restare fermo a quella con cui si e' avviato
-        self.screen = pygame.display.set_mode(_window_size(), pygame.RESIZABLE)
+        self.display = None
+        if IS_WEB:
+            self.screen = pygame.display.set_mode(_window_size(), pygame.RESIZABLE)
+        else:
+            self.apri_finestra()
         self._splash()
         self.clock = pygame.time.Clock()
         self.running = True
@@ -106,6 +113,61 @@ class App:
         self.toast_t = 0.0
         # il suono si prepara mentre si guarda il menu
         audio.avvia()
+
+    # ---------------------------------------------------- l'alta definizione
+    def _desktop(self) -> tuple:
+        try:
+            return pygame.display.get_desktop_sizes()[0]
+        except Exception:
+            return (C.SCREEN_W, C.SCREEN_H)
+
+    def apri_finestra(self, fisica: tuple | None = None) -> None:
+        """Apre (o riapre) la finestra alla risoluzione vera dello schermo, e
+        sopra la tela ad alta definizione con la sua scala.
+
+        Senza una misura chiesta, la finestra prende quasi tutto lo schermo -
+        lascia il posto per la barra del titolo e per quella delle
+        applicazioni - o tutto, a schermo intero."""
+        dw, dh = self._desktop()
+        intero = bool(hd.IMPOSTAZIONI.get("schermo_intero"))
+        if intero:
+            self.display = pygame.display.set_mode((dw, dh), pygame.FULLSCREEN)
+        else:
+            if fisica is None:
+                sis = hd.scala_sistema()
+                fisica = (dw - int(16 * sis), dh - int(72 * sis))
+            self.display = pygame.display.set_mode(fisica, pygame.RESIZABLE)
+        self._nuova_tela()
+
+    def _nuova_tela(self) -> None:
+        fw, fh = self.display.get_size()
+        scala = hd.scala_per((fw, fh))
+        logica = (max(C.MIN_SCREEN_W, int(fw / scala)), max(C.MIN_SCREEN_H, int(fh / scala)))
+        self.screen = hd.Tela(logica, scala)
+        hd._TELA_ATTUALE[0] = self.screen
+
+    def cambia_video(self, **valori) -> None:
+        """Scala dell'interfaccia o schermo intero, dalle impostazioni."""
+        intero_prima = bool(hd.IMPOSTAZIONI.get("schermo_intero"))
+        hd.IMPOSTAZIONI.update(valori)
+        hd.salva()
+        if IS_WEB:
+            return
+        if bool(hd.IMPOSTAZIONI.get("schermo_intero")) != intero_prima:
+            self.apri_finestra()
+        else:
+            self._nuova_tela()
+        for sc in self.scenes:
+            if hasattr(sc, "on_resize"):
+                sc.on_resize()
+            elif hasattr(sc, "build"):
+                sc.build()
+
+    def _presenta(self) -> None:
+        """La tela sullo schermo vero."""
+        if getattr(self, "display", None) is not None:
+            pygame.Surface.blit(self.display, self.screen, (0, 0))
+        pygame.display.flip()
 
     def _splash(self) -> None:
         """Dipinge subito qualcosa, appena lo schermo esiste.
@@ -178,17 +240,33 @@ class App:
             dt = self.clock.tick(C.FPS) / 1000.0
             fx.tick(dt)
             for ev in pygame.event.get():
+                ev = hd.evento(ev, self.screen if getattr(self, "display", None) is not None
+                               else None)
                 if ev.type == pygame.QUIT:
                     self.running = False
                 elif ev.type == pygame.VIDEORESIZE:
-                    # sotto una certa misura le schermate non ci stanno piu':
-                    # meglio una finestra piu' grande della richiesta che una
-                    # in cui i pannelli finiscono uno sopra l'altro
-                    self.screen = pygame.display.set_mode(
-                        (max(C.MIN_SCREEN_W, ev.w), max(C.MIN_SCREEN_H, ev.h)),
-                        pygame.RESIZABLE)
+                    if self.display is not None:
+                        # la finestra vera cambia, la tela la segue con la
+                        # sua scala; sotto la misura minima la tela resta
+                        # quella minima e si vede un pezzo meno
+                        if not hd.IMPOSTAZIONI.get("schermo_intero"):
+                            self.display = pygame.display.set_mode((ev.w, ev.h),
+                                                                   pygame.RESIZABLE)
+                        self._nuova_tela()
+                    else:
+                        # sotto una certa misura le schermate non ci stanno
+                        # piu': meglio una finestra piu' grande della
+                        # richiesta che una in cui i pannelli finiscono uno
+                        # sopra l'altro
+                        self.screen = pygame.display.set_mode(
+                            (max(C.MIN_SCREEN_W, ev.w), max(C.MIN_SCREEN_H, ev.h)),
+                            pygame.RESIZABLE)
                     if self.scene and hasattr(self.scene, "on_resize"):
                         self.scene.on_resize()
+                elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_F11 and not IS_WEB:
+                    # F11: schermo intero, o di nuovo in finestra
+                    self.cambia_video(
+                        schermo_intero=not hd.IMPOSTAZIONI.get("schermo_intero"))
                 elif (ev.type == pygame.KEYDOWN and ev.key == pygame.K_m
                       and ev.mod & pygame.KMOD_CTRL):
                     # Ctrl+M: via l'audio, o di nuovo dentro
@@ -214,14 +292,13 @@ class App:
             in_pista = getattr(self.scene, "in_pista", None)
             audio.musica(not (callable(in_pista) and in_pista()))
             audio.aggiorna(dt)
-            pygame.display.flip()
+            self._presenta()
             await asyncio.sleep(0)
         pygame.quit()
 
     def _draw_toast(self) -> None:
         """Il messaggio in basso: sale, resta, e scende via."""
-        f = T.font(16, True)
-        img = f.render(self.toast_text, True, T.TEXT)
+        img = T.render(self.toast_text, 16, T.TEXT, True, per=self.screen)
         w, h = img.get_size()
         sw, sh = self.screen.get_size()
         # entra nei primi due decimi, esce negli ultimi tre

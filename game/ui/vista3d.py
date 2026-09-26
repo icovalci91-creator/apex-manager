@@ -787,6 +787,9 @@ class Vista3D:
         self.replay = 0.0
         self.buffer = {}
         self.misura = None
+        # la misura con cui chi guarda misura lo schermo: diversa da quella
+        # dell'immagine quando si disegna ad alta definizione
+        self.misura_logica = None
         self.mvp = None
         self.nuvole = 0.0
         self.bagnato = 0.0
@@ -1152,7 +1155,8 @@ class Vista3D:
             cw = m[3] * px + m[7] * py + m[11] * pz + m[15]
             if cw <= 0.1:
                 return None
-            return ((cx / cw * 0.5 + 0.5) * self.misura[0], (cy / cw * 0.5 + 0.5) * self.misura[1])
+            mis = self.misura_logica or self.misura
+            return ((cx / cw * 0.5 + 0.5) * mis[0], (cy / cw * 0.5 + 0.5) * mis[1])
         b = schermo(x + f[0] * 5.0, y + f[1] * 5.0, z + f[2] * 5.0)
         c = schermo(x, y + 5.0, z)
         if b is None or c is None:
@@ -1171,4 +1175,5 @@ class Vista3D:
         cw = m[3] * x + m[7] * y + m[11] * z + m[15]
         if cw <= 0.1:
             return None
-        return ((cx / cw * 0.5 + 0.5) * self.misura[0], (cy / cw * 0.5 + 0.5) * self.misura[1])
+        mis = self.misura_logica or self.misura
+        return ((cx / cw * 0.5 + 0.5) * mis[0], (cy / cw * 0.5 + 0.5) * mis[1])

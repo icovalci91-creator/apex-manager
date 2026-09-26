@@ -22,12 +22,21 @@ ricava dal formato del numero - se si legge con due decimali, il passo non e' ma
 grosso di quello che si vede - e i valori restano sempre multipli tondi, cosi' l'ingaggio
 si ferma a 26.5 M$ e non a 26.4837.
 
-La misura di riferimento e' 1600x900, ma la finestra si apre grande quanto ci sta
-davvero sullo schermo: un portatile a 1920x1080 con lo scaling di Windows al 125% ha un
-desktop da 1536x864, e aprire piu' grandi di cosi' taglia fuori il bordo destro e il
-fondo. La finestra si ridimensiona a piacere e le schermate si riadattano - il menu di
-sinistra stringe il passo se le voci non ci stanno - fino a un minimo di 1180x680, sotto
-il quale i pannelli non starebbero piu' in piedi.
+**Alta definizione.** Il gioco si disegna alla risoluzione vera dello schermo. Prima su un
+monitor con lo scaling di Windows al 125 o 150% era Windows a ingrandire la finestra,
+stirandola e sfocando tutto; adesso il gioco dice a Windows che l'ingrandimento lo fa da
+se' (`game/ui/hd.py`) e disegna su una tela grande quanto lo schermo vero: le pagine
+continuano a ragionare in pixel "logici", ma scritte, linee, cerchi, pannelli, barre e la
+vista 3D escono al corpo e alla risoluzione veri, netti. Solo le luci e le ombre, che sono
+morbide comunque, si ingrandiscono. La finestra si apre grande quasi quanto lo schermo;
+**F11** passa allo schermo intero.
+
+La scala la sceglie il gioco - quella di Windows, oppure quella che porta l'altezza attorno
+ai 1080 pixel logici, cosi' su un monitor 1440p o 4K le scritte non diventano minuscole -
+o chi gioca, dal menu iniziale e da quello della partita: **Scala** (automatica, 100%,
+125%, 150%, 175%, 200%...) e **Schermo intero**, che restano salvati. Sotto una finestra
+logica di 1180x680 la scala scende da sola, perche' i pannelli non starebbero piu' in piedi.
+Nel browser non c'e' niente di tutto questo: li' ci pensa il browser.
 
 ## La grafica
 

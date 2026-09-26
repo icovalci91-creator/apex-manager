@@ -16,7 +16,7 @@ import pygame
 
 from . import grafica_gara as GG
 from . import theme as T
-from . import audio, pista3d, regia, trackdraw, vista3d
+from . import audio, hd, pista3d, regia, trackdraw, vista3d
 from .widgets import Button
 
 
@@ -278,7 +278,10 @@ class Mappa3D:
             if sc is not None:
                 self.v3d.auto.append((sc, self.track.linea_a(sc) * metri, (250, 176, 20),
                                       (24, 24, 28), 0, (250, 176, 20), -1))
-            img = self.v3d.disegna(vista.size)
+            # ad alta definizione la pista si disegna alla risoluzione vera
+            fisica = surf.rett(vista).size if hd.attiva(surf) else vista.size
+            img = self.v3d.disegna(fisica)
+            self.v3d.misura_logica = tuple(vista.size)
             self._audio_3d = (pygame.time.get_ticks(), pos, tv, dt_sim, vista.w)
         except Exception as exc:          # driver, memoria: la scheda video dice di no
             vista3d.spegni()
@@ -288,12 +291,16 @@ class Mappa3D:
             return False
         self._mappa = pygame.Rect(vista)
         maschera = getattr(self, "_maschera", None)
-        if maschera is None or maschera.get_size() != vista.size:
-            maschera = pygame.Surface(vista.size, pygame.SRCALPHA)
-            pygame.draw.rect(maschera, (255, 255, 255, 255), maschera.get_rect(), border_radius=10)
+        if maschera is None or maschera.get_size() != img.get_size():
+            maschera = pygame.Surface(img.get_size(), pygame.SRCALPHA)
+            tondo = int(round(10 * img.get_width() / max(1, vista.w)))
+            pygame.draw.rect(maschera, (255, 255, 255, 255), maschera.get_rect(),
+                             border_radius=tondo)
             self._maschera = maschera
         img = img.convert_alpha()
         img.blit(maschera, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        if hd.attiva(surf):
+            img = hd.avvolgi(img, surf.S)
         surf.blit(img, vista.topleft)
         pygame.draw.rect(surf, T.LINE, vista, 1, border_radius=10)
         if sc is not None:

@@ -337,7 +337,8 @@ class FinancePage(Page):
             # la scritta del marchio, nei suoi colori, come andrebbe sulla macchina
             colori = s.get("colori") or []
             if len(colori) == 2:
-                scritta = T.render(s.get("scritta", s["name"]), 13, T.hex_rgb(colori[1]), bold=True)
+                scritta = T.render(s.get("scritta", s["name"]), 13, T.hex_rgb(colori[1]),
+                                   bold=True, per=surf)
                 box = pygame.Rect(0, 0, scritta.get_width() + 16, 22)
                 box.topright = (right.right - 16, oy + 1)
                 pygame.draw.rect(surf, T.hex_rgb(colori[0]), box, border_radius=4)

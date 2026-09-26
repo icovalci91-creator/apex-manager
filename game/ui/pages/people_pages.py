@@ -629,7 +629,7 @@ def _pannelli_scheda(r) -> tuple:
 
 def _chip(surf, pos, testo: str, colore) -> pygame.Rect:
     """Una pillola piccola con una parola dentro: il ruolo, lo stato."""
-    img = T.render(testo, 11, colore, bold=True)
+    img = T.render(testo, 11, colore, bold=True, per=surf)
     r = pygame.Rect(pos[0], pos[1], img.get_width() + 20, img.get_height() + 6)
     pygame.draw.rect(surf, T.mix(T.PANEL, colore, 0.18), r, border_radius=r.h // 2)
     pygame.draw.rect(surf, T.mix(T.PANEL, colore, 0.55), r, 1, border_radius=r.h // 2)
