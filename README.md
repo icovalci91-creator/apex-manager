@@ -232,6 +232,9 @@ angolo quando li usa. Da questo ambiente di sviluppo OpenStreetMap non si raggiu
 scarica il workflow `.github/workflows/dintorni.yml` sulle macchine di GitHub e li salva nel
 progetto.
 
+Oggi ci sono i dintorni veri dei 24 circuiti del mondiale (4,9 MB in tutto): le piste
+candidate, quelle private e quelle della Formula E restano con l'ambiente inventato.
+
 ### Materiali e cieli fotografici, e la qualita' grafica
 
 La vista 3D di base dipinge tutto con il calcolo. Con le risorse fotografiche di **Poly
