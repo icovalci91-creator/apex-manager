@@ -1,0 +1,57 @@
+name: Scarica i dintorni dei circuiti
+
+# Va a prendere da OpenStreetMap quello che c'e' attorno a ogni circuito -
+# palazzi, strade, acqua, boschi - con tools/fetch_dintorni.py, e lo salva nel
+# progetto in dintorni/: da li' lo usa la vista 3D e l'eseguibile per Windows
+# se lo porta dentro.
+#
+# Gira qui e non sul computer di chi sviluppa perche' qui internet c'e'
+# sempre. Parte da solo quando cambia lo strumento o questo file, oppure a mano
+# da Actions ("Run workflow"). Scarica solo i circuiti che non ce l'hanno: gli
+# altri li salta, e il servizio di OpenStreetMap - che e' condiviso - non
+# viene disturbato per niente.
+#
+# I dati sono (c) OpenStreetMap contributors, sotto licenza ODbL.
+
+on:
+  push:
+    branches: [main, claude/game-analysis-l4v034]
+    paths:
+      - '.github/workflows/dintorni.yml'
+      - 'tools/fetch_dintorni.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # serve a salvare dintorni/ nel progetto
+
+concurrency:
+  group: dintorni-${{ github.ref }}
+
+jobs:
+  scarica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Scarica
+        run: python tools/fetch_dintorni.py
+
+      - name: Salva nel progetto
+        run: |
+          ls -la dintorni || true
+          du -sh dintorni || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dintorni
+          if git diff --cached --quiet; then
+            echo "niente di nuovo da salvare"
+            exit 0
+          fi
+          git commit -m "Dintorni dei circuiti da OpenStreetMap" -m "(c) OpenStreetMap contributors, ODbL. Scaricati da tools/fetch_dintorni.py."
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
