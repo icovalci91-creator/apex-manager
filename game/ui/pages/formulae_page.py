@@ -58,7 +58,11 @@ class FormulaEPage(Page):
         if self.tab == 2:
             self._build_corri()
             return
-        massimo = FE.ingegneri_massimi(self.gs, team)
+        # quando il tetto e' gia' pieno - un pilota caro appena preso - il
+        # massimo scende al minimo: la barra deve comunque avere un intervallo e
+        # contenere quelli che abbiamo, che si possono solo ridurre
+        massimo = max(FE.ingegneri_massimi(self.gs, team), FE.ingegneri(team),
+                      FE.INGEGNERI_MIN + 1)
         self.slider = Slider((self.left.x + 16, self.left.y + 140, self.left.w - 32, 34),
                              "Ingegneri del programma", value=FE.ingegneri(team),
                              lo=FE.INGEGNERI_MIN, hi=massimo, step=1, fmt="{:.0f}",

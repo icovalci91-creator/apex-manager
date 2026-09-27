@@ -282,6 +282,16 @@ class Slider(Widget):
             if self.on_change:
                 self.on_change(self.value)
 
+    def _frazione(self, v: float) -> float:
+        """Dove sta `v` sulla barra, da 0 a 1. Sempre dentro: se il massimo
+        scende sotto il valore - o sotto il minimo, quando i soldi finiscono -
+        la barra resta piena invece di allungarsi di miliardi di pixel (su
+        Windows pygame rifiuta il rettangolo e il gioco si fermava)."""
+        span = self.hi - self.lo
+        if span <= 1e-9:
+            return 1.0 if v >= self.lo else 0.0
+        return max(0.0, min(1.0, (v - self.lo) / span))
+
     def nudge(self, verso: int) -> None:
         self._emit(self.value + verso * self.step)
 
@@ -353,10 +363,10 @@ class Slider(Widget):
                maxw=self.label_w - 8)
         tr = self.track_rect
         pygame.draw.rect(surf, T.PANEL_3, tr, border_radius=4)
-        f = (self.value - self.lo) / max(1e-6, self.hi - self.lo)
+        f = self._frazione(self.value)
         pygame.draw.rect(surf, T.ACCENT, (tr.x, tr.y, int(tr.w * f), tr.h), border_radius=4)
         if self.marker is not None:
-            mf = (self.marker - self.lo) / max(1e-6, self.hi - self.lo)
+            mf = self._frazione(self.marker)
             mx = tr.x + int(tr.w * mf)
             pygame.draw.line(surf, T.GOLD, (mx, tr.y - 6), (mx, tr.bottom + 6), 2)
         cx = tr.x + int(tr.w * f)
