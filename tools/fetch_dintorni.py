@@ -85,7 +85,7 @@ QUERY = """[out:json][timeout:240];
   relation["leisure"~"^(park|golf_course|nature_reserve)$"]({b});
   way["amenity"="parking"]({b});
   way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|pedestrian|raceway)$"]({b});
-  way["aeroway"="apron"]({b});
+  way["aeroway"~"^(apron|taxiway|taxilane|runway)$"]({b});
   way["railway"~"^(rail|light_rail|tram|narrow_gauge)$"]({b});
   way["waterway"~"^(river|canal|riverbank)$"]({b});
   way["natural"="coastline"]({b});
@@ -257,6 +257,13 @@ def elabora(risposta: dict, bbox: tuple) -> dict:
                 # le piste vere: servono a mettere al suo posto un circuito
                 # disegnato a mano (vedi `posa`)
                 uscita["piste"].append(codifica(semplifica(punti, piano, 2.0)))
+                continue
+            if tag.get("aeroway") in ("taxiway", "taxilane", "runway") and not chiuso:
+                # le vie di rullaggio e le piste di volo: cemento largo, su cui
+                # corrono i circuiti d'aeroporto come Tempelhof
+                largo = {"runway": 45, "taxiway": 23, "taxilane": 15}[tag["aeroway"]]
+                uscita["strade"].append({"l": codifica(semplifica(punti, piano, 2.0)),
+                                         "w": largo, "a": 1})
                 continue
             if chiuso and (tag.get("aeroway") == "apron" or tag.get("highway") == "pedestrian"):
                 uscita["piazzali"].append(codifica(semplifica(punti, piano, 2.5)))
