@@ -178,8 +178,32 @@ scapperebbe mentre si guarda indietro. Sopra x6 restano le riprese larghe.
 I sorpassi in gara sono manovre che durano qualche secondo (vedi *Come si muovono le
 macchine*), e la vista 3D smussa quello che resta di brusco in sette decimi.
 
-Serve `moderngl` (e' in `requirements.txt`) e una scheda video con OpenGL 3.3. Dove non
-c'e' - la versione web, un PC senza driver - i pulsanti non compaiono e resta la mappa 2D.
+Serve una scheda video con OpenGL 3.3. Dove non c'e' - la versione web, un PC senza
+driver - i pulsanti non compaiono e resta la mappa 2D.
+
+### Il motore: Panda3D
+
+La vista 3D la disegna **Panda3D**, un motore 3D vero che si guida da Python
+(`game/ui/vista_panda.py`, acceso da `game/ui/motore_panda.py`). La finestra resta di
+pygame, con tutto il resto del gioco: Panda3D disegna la scena fuori schermo, in una
+catena di buffer della scheda video - le ombre viste dal sole, la scena con l'antialiasing,
+due sfocature a mezza risoluzione, la passata finale - e l'ultimo fotogramma si legge come
+un'immagine da incollare nella mappa. La scena e' un grafo di nodi: il cielo o il tavolo del
+plastico, il mondo, le pareti del blocco, le ombre sotto alle macchine e le macchine, una
+monoposto sola disegnata ventidue volte (le istanze) con posizione e colori di ognuna.
+
+Gli shader sono gli stessi di prima, scritti per il gioco: cambia chi li chiama. Il motore
+di prima, in `moderngl` (`game/ui/vista3d.py`), resta come riserva: se Panda3D non si
+accende o si rompe a meta' gara si passa da soli a moderngl, e dal menu (*Motore*) si puo'
+scegliere a mano. Nell'eseguibile entrano solo i pezzi di Panda3D che servono - nucleo,
+OpenGL, finestra - e `ApexManager.exe --prova-3d` dice se il motore si accende (la build di
+GitHub lo controlla a ogni versione).
+
+Sui test di questo progetto, a parita' di immagine, Panda3D disegna Monza dall'elicottero in
+81 ms invece di 96 e la regia televisiva in 152 invece di 240 (con il disegno software: su
+una scheda vera sono una frazione). Il motore apre la strada a quello che viene dopo:
+modelli fatti da artisti (glTF), livelli di dettaglio, migliaia di alberi istanziati,
+occlusione ambientale.
 
 ## Il suono
 

@@ -62,16 +62,15 @@ def _immagine(percorso: Path, lato: int, canali: int, neutro: tuple) -> bytes:
         return bytes(neutro) * (lato * lato)
 
 
-def carica_materiali(ctx, lato: int):
-    """Le tre tele dei materiali (colore, rilievo, ruvidita') alla misura
-    `lato`, con le mipmap; e per ogni strato il colore medio e se c'e'.
+def dati_materiali(lato: int) -> dict | None:
+    """I materiali letti da disco, pronti per la scheda video: le tre tele
+    (colore, rilievo, ruvidita') come byte, uno strato dopo l'altro, alla misura
+    `lato`; e per ogni strato il colore medio, se c'e', e quanti metri copre.
     None se non c'e' nessun materiale su disco."""
-    import moderngl
     base = cartella()
     presenti = [(base / "materiali" / m / "colore.jpg").exists() for m in MATERIALI]
     if not any(presenti):
         return None
-    n = len(MATERIALI)
     colore, normale, ruvido, medie = [], [], [], []
     for m, c in zip(MATERIALI, presenti):
         d = base / "materiali" / m
@@ -87,17 +86,6 @@ def carica_materiali(ctx, lato: int):
         tot = [sum(campione[k::3]) for k in range(3)]
         cnt = max(1, len(campione) // 3)
         medie.append(tuple(max(1.0, t / cnt) / 255.0 for t in tot))
-    tele = []
-    for strati, comp in ((colore, 3), (normale, 3), (ruvido, 1)):
-        t = ctx.texture_array((lato, lato, n), comp, data=b"".join(strati))
-        t.build_mipmaps()
-        t.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
-        t.repeat_x = t.repeat_y = True
-        try:
-            t.anisotropy = 8.0
-        except Exception:
-            pass
-        tele.append(t)
     # quanti metri copre una ripetizione: Poly Haven lo scrive (in millimetri)
     # per ogni foto; dove manca, la stima di METRI
     metri = dict(METRI)
@@ -110,9 +98,31 @@ def carica_materiali(ctx, lato: int):
                 metri[m] = max(0.5, float(misura[0]) / 1000.0)
     except Exception:
         pass
+    return {"colore": b"".join(colore), "normale": b"".join(normale),
+            "ruvidita": b"".join(ruvido), "lato": lato, "strati": len(MATERIALI),
+            "medie": medie, "presenti": presenti, "metri": [metri[m] for m in MATERIALI]}
+
+
+def carica_materiali(ctx, lato: int):
+    """Le tre tele dei materiali sulla scheda video (moderngl), con le mipmap."""
+    import moderngl
+    d = dati_materiali(lato)
+    if d is None:
+        return None
+    n = d["strati"]
+    tele = []
+    for chiave, comp in (("colore", 3), ("normale", 3), ("ruvidita", 1)):
+        t = ctx.texture_array((lato, lato, n), comp, data=d[chiave])
+        t.build_mipmaps()
+        t.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+        t.repeat_x = t.repeat_y = True
+        try:
+            t.anisotropy = 8.0
+        except Exception:
+            pass
+        tele.append(t)
     return {"colore": tele[0], "normale": tele[1], "ruvidita": tele[2],
-            "medie": medie, "presenti": presenti,
-            "metri": [metri[m] for m in MATERIALI]}
+            "medie": d["medie"], "presenti": d["presenti"], "metri": d["metri"]}
 
 
 # ---------------------------------------------------------------------- cieli
@@ -163,12 +173,12 @@ def direzione(u: float, v: float) -> tuple:
     return (math.sin(theta) * math.sin(phi), math.cos(theta), -math.sin(theta) * math.cos(phi))
 
 
-def carica_cielo(ctx, nome: str, larghezza: int):
-    """Il cielo `nome` sulla scheda video, largo `larghezza` pixel, e quello
-    che se ne ricava per illuminare il resto: dov'e' il sole e di che colore,
-    la luce media del cielo e del terreno, il colore dell'orizzonte.
-    None se il file non c'e' o non si legge."""
-    import moderngl
+def dati_cielo(nome: str, larghezza: int):
+    """Il cielo `nome` letto da disco, largo `larghezza` pixel, gia' esposto
+    (numpy float32, altezza x larghezza x 3), e quello che se ne ricava per
+    illuminare il resto: dov'e' il sole e di che colore, la luce media del
+    cielo e del terreno, il colore dell'orizzonte. None se il file non c'e'
+    o non si legge."""
     import numpy as np
     percorso = cartella() / "cieli" / f"{nome}.hdr"
     if not percorso.exists():
@@ -204,17 +214,30 @@ def carica_cielo(ctx, nome: str, larghezza: int):
     # l'esposizione: il cielo tipico - la mediana - attorno a 0.62, che e' la
     # luce che il resto della scena si aspetta
     esp = 0.62 / max(1e-4, mediana)
-    # il sole va oltre quello che un numero a mezza precisione tiene: si ferma prima
-    tex = ctx.texture((w, h), 3, data=np.minimum(img * esp, 60000.0).astype("f2").tobytes(),
-                      dtype="f2")
-    tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
-    tex.repeat_x = True
-    tex.repeat_y = False
     colore_sole = tuple(float(v) for v in img[y, x] / max(1e-4, picco))
     forza = max(0.0, min(1.0, (math.log10(max(1.0, netto)) - 1.0) / 2.0))
-    return {"tex": tex, "sole": sole, "forza_sole": forza,
+    # il sole va oltre quello che un numero a mezza precisione tiene: si ferma prima
+    esposta = np.ascontiguousarray(np.minimum(img * esp, 60000.0).astype(np.float32))
+    return {"img": esposta, "misura": (w, h), "sole": sole, "forza_sole": forza,
             "colore_sole": colore_sole,
             "amb_cielo": tuple(float(v) * esp for v in cielo_medio),
             "amb_terra": tuple(float(v) * esp for v in terra_media),
             "orizzonte": tuple(float(v) * esp for v in fascia),
             "esposizione": esp}
+
+
+def carica_cielo(ctx, nome: str, larghezza: int):
+    """Il cielo `nome` sulla scheda video (moderngl), con quello che se ne
+    ricava per la luce (vedi `dati_cielo`)."""
+    import moderngl
+    d = dati_cielo(nome, larghezza)
+    if d is None:
+        return None
+    tex = ctx.texture(d["misura"], 3, data=d["img"].astype("f2").tobytes(), dtype="f2")
+    tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    tex.repeat_x = True
+    tex.repeat_y = False
+    fuori = dict(d)
+    del fuori["img"]
+    fuori["tex"] = tex
+    return fuori

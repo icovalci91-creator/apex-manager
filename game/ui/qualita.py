@@ -69,8 +69,8 @@ def attuale() -> dict:
 def etichetta() -> str:
     scelta = str(hd.IMPOSTAZIONI.get("qualita") or "")
     if scelta in PRESET:
-        return f"Grafica 3D: {NOMI[scelta]}"
-    return f"Grafica 3D: automatica ({NOMI[automatica()]})"
+        return f"Grafica: {NOMI[scelta]}"
+    return f"Grafica: auto ({NOMI[automatica()]})"
 
 
 def prossima() -> None:

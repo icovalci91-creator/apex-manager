@@ -31,7 +31,8 @@ import pygame
 WEB = sys.platform == "emscripten"
 SCALE = (1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 IMPOSTAZIONI = {"scala": 0.0, "schermo_intero": False,   # scala 0 = automatica
-                "qualita": ""}                              # qualita' 3D, "" = automatica
+                "qualita": "",                              # qualita' 3D, "" = automatica
+                "motore": ""}                               # motore 3D, "" = predefinito
 
 
 # ------------------------------------------------------------ le immagini HD

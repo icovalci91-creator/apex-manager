@@ -34,8 +34,68 @@ _CTX = None
 _STATO = None                # None: non ancora provato
 
 
+# Chi disegna la vista 3D: Panda3D (`vista_panda`) o moderngl (questo modulo).
+# La scelta sta nelle impostazioni video (`hd.IMPOSTAZIONI["motore"]`); vuota
+# vuol dire quello predefinito. Se Panda3D non si accende, o si rompe a meta'
+# gara, si passa a moderngl; se non va nemmeno quello, resta la mappa 2D.
+MOTORI = ("panda", "moderngl")
+PREDEFINITO = "panda"
+_PANDA_ROTTO = [False]
+
+
+def motore() -> str:
+    """Il motore che si userebbe adesso: "panda" o "moderngl"."""
+    from . import hd
+    scelta = str(hd.IMPOSTAZIONI.get("motore") or PREDEFINITO)
+    if scelta == "panda" and not _PANDA_ROTTO[0]:
+        from . import motore_panda
+        if motore_panda.disponibile():
+            qualita.scheda(motore_panda.scheda())
+            return "panda"
+    return "moderngl"
+
+
+def etichetta_motore() -> str:
+    from . import hd
+    scelta = str(hd.IMPOSTAZIONI.get("motore") or PREDEFINITO)
+    if motore() == "panda":
+        return "Motore: Panda3D"
+    if scelta == "panda":
+        return "Motore: riserva"
+    return "Motore: moderngl"
+
+
+def prossimo_motore() -> None:
+    """Passa all'altro motore. Chi sceglie Panda3D a mano gli da' un'altra
+    possibilita', anche se prima si era rotto."""
+    from . import hd
+    scelta = str(hd.IMPOSTAZIONI.get("motore") or PREDEFINITO)
+    nuovo = "moderngl" if scelta == "panda" else "panda"
+    hd.IMPOSTAZIONI["motore"] = nuovo
+    if nuovo == "panda":
+        _PANDA_ROTTO[0] = False
+    hd.salva()
+    # la vista si ricarica come quando cambia la qualita'
+    qualita.VERSIONE[0] += 1
+
+
+def crea(track, tipo: str = "f1"):
+    """La vista 3D di una pista, con il motore scelto."""
+    if motore() == "panda":
+        from .vista_panda import VistaPanda
+        return VistaPanda(track, tipo)
+    return Vista3D(track, tipo)
+
+
 def disponibile() -> bool:
-    """C'e' una scheda video con cui disegnare in 3D? Si prova una volta sola."""
+    """C'e' una scheda video con cui disegnare in 3D?"""
+    if motore() == "panda":
+        return True
+    return _moderngl_disponibile()
+
+
+def _moderngl_disponibile() -> bool:
+    """moderngl si accende? Si prova una volta sola."""
     global _CTX, _STATO
     if _STATO is not None:
         return _STATO
@@ -58,8 +118,12 @@ def disponibile() -> bool:
 
 
 def spegni() -> None:
-    """Dopo un errore della scheda video non si riprova: si resta sul 2D."""
+    """Dopo un errore della scheda video non si riprova con quel motore: da
+    Panda3D si passa a moderngl, da moderngl alla mappa 2D."""
     global _STATO
+    if motore() == "panda":
+        _PANDA_ROTTO[0] = True
+        return
     _STATO = False
 
 
@@ -813,7 +877,7 @@ class Vista3D:
 
     def __init__(self, track, tipo: str = "f1"):
         """`tipo`: "f1" per le monoposto di Formula 1, "fe" per la Gen3."""
-        if not disponibile():
+        if not _moderngl_disponibile():
             raise RuntimeError("OpenGL non disponibile")
         ctx = self.ctx = _CTX
         self.geo = geometria(track, qualita.attuale().get("dettaglio"))
@@ -980,25 +1044,36 @@ class Vista3D:
         self._cielo_nome = nome
         if nome not in self.cieli:
             try:
-                self.cieli[nome] = risorse3d.carica_cielo(self.ctx, nome, int(self.q["cielo"]))
+                self.cieli[nome] = self._carica_cielo(nome)
             except Exception:
                 self.cieli[nome] = None
         prima = self.cielo
         self.cielo = self.cieli.get(nome)
         if self.cielo is not None or prima is not None:
             # il sole si e' spostato: le ombre vanno rifatte
-            self.tex_ombre.release()
-            self.fbo_ombre.release()
-            self._ombre()
+            self._rifai_ombre()
 
-    def _ombre(self) -> None:
-        """Le ombre si calcolano una volta: il sole e la scena non si muovono."""
-        geo, ctx = self.geo, self.ctx
+    def _carica_cielo(self, nome: str):
+        return risorse3d.carica_cielo(self.ctx, nome, int(self.q["cielo"]))
+
+    def _rifai_ombre(self) -> None:
+        self.tex_ombre.release()
+        self.fbo_ombre.release()
+        self._ombre()
+
+    def _vp_luce(self) -> list:
+        """La matrice della luce del sole, che guarda tutto il mondo dall'alto."""
+        geo = self.geo
         sole = self._luce()["sun"]
         r = geo.ext * 1.02
         centro = (geo.cx, geo.cy, geo.cz)
         occhio = tuple(c + s * r * 3 for c, s in zip(centro, sole))
-        self.luce_vp = _per(_ortografica(r, r, r * 5), _guarda(occhio, centro))
+        return _per(_ortografica(r, r, r * 5), _guarda(occhio, centro))
+
+    def _ombre(self) -> None:
+        """Le ombre si calcolano una volta: il sole e la scena non si muovono."""
+        ctx = self.ctx
+        self.luce_vp = self._vp_luce()
         self.tex_ombre = ctx.depth_texture((self.ombra_misura, self.ombra_misura))
         self.tex_ombre.compare_func = "<="
         self.tex_ombre.filter = (moderngl.LINEAR, moderngl.LINEAR)
@@ -1053,14 +1128,11 @@ class Vista3D:
             pos = (x, y + 1.0, z)
         self.elicottero.segui(chi, pos)
 
-    def disegna(self, misura) -> pygame.Surface:
-        """Un fotogramma della pista, grande `misura`, con le macchine di `self.auto`.
-
-        `self.auto` e' una lista di (frazione del giro, spostamento laterale in
-        metri, colore, seconda tinta, schema della livrea[, colore della mescola])."""
-        misura = (max(16, int(misura[0])), max(16, int(misura[1])))
-        self._buffer(misura)
-        geo, ctx, b = self.geo, self.ctx, self.buffer
+    def _inquadra(self, misura) -> tuple:
+        """Da dove si guarda, per un fotogramma grande `misura`: l'occhio, la
+        matrice della vista (gia' ribaltata in y), la distanza della foschia,
+        il fuoco della regia, se riprende la regia, se si vede il plastico."""
+        geo = self.geo
         aspetto = misura[0] / misura[1]
         if self.plastico:
             # sul plastico si inquadra il blocco intero, non solo la pista
@@ -1093,6 +1165,17 @@ class Vista3D:
         self.scala_auto = (max(1.0, min(2.4, 1.0 + (lontananza - 120.0) / 380.0))
                            if plastico else 1.0)
 
+        return occhio, mvp, fog_d, fuoco, regia, plastico
+
+    def disegna(self, misura) -> pygame.Surface:
+        """Un fotogramma della pista, grande `misura`, con le macchine di `self.auto`.
+
+        `self.auto` e' una lista di (frazione del giro, spostamento laterale in
+        metri, colore, seconda tinta, schema della livrea[, colore della mescola])."""
+        misura = (max(16, int(misura[0])), max(16, int(misura[1])))
+        self._buffer(misura)
+        geo, ctx, b = self.geo, self.ctx, self.buffer
+        occhio, mvp, fog_d, fuoco, regia, plastico = self._inquadra(misura)
         self._scegli_cielo()
         luce = self._luce()
         interna = self.interna
@@ -1212,11 +1295,10 @@ class Vista3D:
         dati = b["fine"].read(components=3, alignment=1)
         return pygame.image.frombytes(dati, misura, "RGB")
 
-    def _macchine(self, mvp, occhio, luce, fog_d, con_cielo: float = 0.0) -> None:
-        """Le monoposto, dove sono adesso: prima l'ombra, poi la macchina."""
-        if not self.auto:
-            return
-        ctx, geo = self.ctx, self.geo
+    def _dati_istanze(self) -> array:
+        """Le monoposto, dove sono adesso: ISTANZA float per macchina (posizione,
+        direzione, colori, schema, mescola, livrea)."""
+        geo = self.geo
         dati = array("f")
         for voce in self.auto[:ISTANZE_MAX]:
             frazione, laterale, col, col2, stile = voce[:5]
@@ -1228,6 +1310,14 @@ class Vista3D:
                          col2[0] / 255.0, col2[1] / 255.0, col2[2] / 255.0, float(stile),
                          gomma[0] / 255.0, gomma[1] / 255.0, gomma[2] / 255.0,
                          float(livrea + 1)))
+        return dati
+
+    def _macchine(self, mvp, occhio, luce, fog_d, con_cielo: float = 0.0) -> None:
+        """Le monoposto, dove sono adesso: prima l'ombra, poi la macchina."""
+        if not self.auto:
+            return
+        ctx, geo = self.ctx, self.geo
+        dati = self._dati_istanze()
         quante = len(dati) // ISTANZA
         self.vbo_istanze.write(dati.tobytes())
         sole = luce["sun"]
@@ -1271,6 +1361,15 @@ class Vista3D:
         l'acqua dove il bordo passa in mare."""
         if self.tavola is not None:
             return self.tavola
+        dati, self.tavola = self._dati_tavola()
+        self.vbo_pareti = self.ctx.buffer(dati.tobytes())
+        self.vao_pareti = self.ctx.vertex_array(self.p_pareti, [
+            (self.vbo_pareti, "3f 3f 3f", "in_pos", "in_col", "in_nor")])
+        return self.tavola
+
+    def _dati_tavola(self) -> tuple:
+        """Le pareti del blocco (nove float per vertice: posizione, colore,
+        normale) e le misure (x0, x1, z0, z1, fondo, quota del tavolo)."""
         geo = self.geo
         xs = [p[0] for p in geo.P]
         zs = [p[2] for p in geo.P]
@@ -1308,11 +1407,7 @@ class Vista3D:
                 for i in (0, 1, 2, 0, 2, 3):
                     x, y, z, c = v[i]
                     dati.extend((x, y, z, c[0], c[1], c[2], n[0], n[1], n[2]))
-        self.vbo_pareti = self.ctx.buffer(dati.tobytes())
-        self.vao_pareti = self.ctx.vertex_array(self.p_pareti, [
-            (self.vbo_pareti, "3f 3f 3f", "in_pos", "in_col", "in_nor")])
-        self.tavola = (x0, x1, z0, z1, fondo, tavolo)
-        return self.tavola
+        return dati, (x0, x1, z0, z1, fondo, tavolo)
 
     def carica_livree(self, tele: list) -> None:
         """Le livree delle squadre, una tela per squadra (vedi `livree`): la

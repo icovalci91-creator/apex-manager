@@ -239,7 +239,7 @@ class Mappa3D:
                     or getattr(self.v3d, "versione_qualita", 0) != qualita.VERSIONE[0]):
                 if self.v3d is not None:
                     self.v3d.rilascia()
-                self.v3d = vista3d.Vista3D(self.track, tipo)
+                self.v3d = vista3d.crea(self.track, tipo)
                 # le livree si dipingono una volta per weekend, con gli
                 # sponsor che le squadre hanno adesso
                 tele, self._indice_livree = self._livree_3d()

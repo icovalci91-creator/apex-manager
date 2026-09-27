@@ -35,7 +35,8 @@ def aggiungi(widgets: list, x: int, y: int, largo: int, rifai) -> bool:
 
 def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> int:
     """Le righe della grafica: la qualita' della vista 3D (un clic passa alla
-    prossima: automatica, Bassa, Media, Alta, Ultra), poi la scala
+    prossima: automatica, Bassa, Media, Alta, Ultra) e il motore che la
+    disegna (Panda3D o moderngl), poi la scala
     dell'interfaccia e lo schermo intero. Dice quante righe ha messo: una sola
     nel browser, dove la scala e lo schermo intero li decide il browser."""
     from . import hd, qualita, vista3d
@@ -44,9 +45,19 @@ def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> int
         def cambia_qualita():
             qualita.prossima()
             rifai()
-        widgets.append(Button((x, y, largo, 34), qualita.etichetta(), cambia_qualita, "ghost",
+        largo_q = (largo - 6) * 11 // 20
+
+        def cambia_motore():
+            vista3d.prossimo_motore()
+            rifai()
+        widgets.append(Button((x, y, largo_q, 34), qualita.etichetta(), cambia_qualita, "ghost",
                               tip="Quanto lavora la scheda video nella vista 3D: "
                                   "risoluzione, bordi, ombre, materiali e cielo fotografici"))
+        widgets.append(Button((x + largo_q + 6, y, largo - largo_q - 6, 34),
+                              vista3d.etichetta_motore(), cambia_motore, "ghost",
+                              tip="Chi disegna la vista 3D: Panda3D, il motore, o moderngl, "
+                                  "quello di prima. Se Panda3D non si accende si passa "
+                                  "da soli a moderngl"))
         righe += 1
         y += 44
     if getattr(app, "display", None) is None:
@@ -56,7 +67,7 @@ def aggiungi_video(widgets: list, x: int, y: int, largo: int, app, rifai) -> int
     attuale = float(imp.get("scala") or 0.0)
     adesso = getattr(app.screen, "S", 1.0)
     if attuale <= 0:
-        etichetta = f"Scala: automatica ({adesso * 100:.0f}%)"
+        etichetta = f"Scala: auto ({adesso * 100:.0f}%)"
     else:
         etichetta = f"Scala: {attuale * 100:.0f}%"
 

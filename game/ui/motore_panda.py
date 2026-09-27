@@ -80,10 +80,25 @@ def disponibile() -> bool:
             s["errore"] = f"OpenGL {versione[0]}.{versione[1]}: serve il 3.3"
             return False
         s["ok"] = True
+        # all'uscita si chiudono i buffer prima che Python smonti i moduli: se
+        # no Panda3D li chiude da solo troppo tardi e il programma finisce con
+        # un errore invece che in silenzio
+        import atexit
+        atexit.register(chiudi_tutto)
     except Exception as ex:           # una DLL che manca, un driver rotto
         s["errore"] = f"{type(ex).__name__}: {ex}"
         s["ok"] = False
     return s["ok"]
+
+
+def chiudi_tutto() -> None:
+    m = _STATO["motore"]
+    if m is not None:
+        try:
+            m.remove_all_windows()
+        except Exception:
+            pass
+    _HOST[0] = None
 
 
 def scheda() -> str:
@@ -146,6 +161,64 @@ class Uscita:
         if self.buffer is not None:
             _STATO["motore"].remove_window(self.buffer)
             self.buffer = None
+
+
+_HOST = [None]
+
+
+def host():
+    """Il buffer d'appoggio: piccolo, sempre acceso e mai disegnato. Tutti gli
+    altri buffer nascono su di lui e ne condividono la scheda video, cosi' le
+    texture passano dall'uno all'altro senza copie."""
+    if _HOST[0] is None:
+        u = Uscita((16, 16))
+        u.buffer.set_active(False)
+        _HOST[0] = u
+    return _HOST[0].buffer
+
+
+def buffer(nome: str, misura, ordine: int, *, campioni: int = 0, virgola: bool = True,
+           profondita: bool = True, ram: bool = False, solo_profondita: bool = False):
+    """Un buffer fuori schermo (un framebuffer object) con la sua texture.
+
+    `virgola`: colori a mezza precisione, che vanno oltre l'1 (servono al
+    bagliore); `ram`: la texture si copia in memoria a ogni fotogramma, per
+    leggerla; `solo_profondita`: niente colore, solo la profondita' (le
+    ombre). Restituisce (buffer, texture), o (None, None) se la scheda dice di
+    no - per esempio a troppi campioni di antialiasing."""
+    from panda3d.core import (FrameBufferProperties, GraphicsOutput, GraphicsPipe,
+                              Texture, WindowProperties)
+    h = host()
+    fb = FrameBufferProperties()
+    if solo_profondita:
+        fb.set_rgba_bits(0, 0, 0, 0)
+    elif virgola and not ram:
+        fb.set_rgba_bits(16, 16, 16, 16)
+        fb.set_float_color(True)
+    else:
+        fb.set_rgba_bits(8, 8, 8, 8)
+    fb.set_depth_bits(24 if (profondita or solo_profondita) else 0)
+    if campioni:
+        fb.set_multisamples(campioni)
+    b = _STATO["motore"].make_output(
+        _STATO["pipe"], nome, ordine, fb, WindowProperties.size(int(misura[0]), int(misura[1])),
+        GraphicsPipe.BF_refuse_window, h.get_gsg(), h)
+    if b is None:
+        return None, None
+    t = Texture(nome)
+    if solo_profondita:
+        t.set_format(Texture.F_depth_component24)
+        b.add_render_texture(t, GraphicsOutput.RTM_bind_or_copy, GraphicsOutput.RTP_depth)
+    else:
+        b.add_render_texture(t, GraphicsOutput.RTM_copy_ram if ram
+                             else GraphicsOutput.RTM_bind_or_copy, GraphicsOutput.RTP_color)
+    b.get_display_region(0).set_active(False)
+    return b, t
+
+
+def togli(b) -> None:
+    if b is not None:
+        _STATO["motore"].remove_window(b)
 
 
 def prova_da_riga_di_comando(percorso: str) -> int:
