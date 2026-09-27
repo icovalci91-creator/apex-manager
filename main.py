@@ -105,6 +105,11 @@ async def show_crash(text: str) -> None:
 
 
 if __name__ == "__main__":
+    if "--prova-3d" in sys.argv:
+        # per la build di GitHub: si accende Panda3D, si scrive com'e' andata
+        # in prova3d.txt e si esce, senza aprire il gioco
+        from game.ui import motore_panda
+        sys.exit(motore_panda.prova_da_riga_di_comando("prova3d.txt"))
     code = 1
     try:
         code = asyncio.run(main())

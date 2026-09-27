@@ -83,6 +83,20 @@ jobs:
           Write-Host "e' ancora vivo dopo venticinque secondi: bene"
           Stop-Process -Id $p.Id -Force
 
+      - name: Controlla che Panda3D ci sia tutto
+        # la vista 3D gira su Panda3D, che carica il modulo di OpenGL solo
+        # quando serve: si chiede all'eseguibile di accenderlo e si legge
+        # cosa risponde. La macchina di GitHub non ha una scheda video vera,
+        # quindi basta che il modulo si carichi
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\ApexManager.exe -ArgumentList "--prova-3d" -PassThru -Wait
+          if (Test-Path prova3d.txt) { Get-Content prova3d.txt } else { Write-Host "prova3d.txt non scritto" }
+          if ($p.ExitCode -ne 0) {
+            Write-Host "Panda3D non si accende: codice $($p.ExitCode)"
+            exit 1
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: ApexManager-windows

@@ -24,6 +24,10 @@ occupa sempre config.py.
 (`glcontext.wgl` su Windows) solo quando serve, e PyInstaller da solo non li
 vede: si elencano qui, se no l'eseguibile parte ma la gara resta in 2D.
 
+**Panda3D.** Il motore della vista 3D: se ne prende solo il nucleo con
+OpenGL (vedi sotto), e l'eseguibile sa dire se si accende con
+`ApexManager.exe --prova-3d`, che scrive com'e' andata in prova3d.txt.
+
 **Il suono.** Si sintetizza all'avvio con numpy (`game/ui/sintesi.py`): e'
 l'unica libreria in piu', e pesa una quindicina di megabyte.
 
@@ -37,10 +41,33 @@ from PyInstaller.utils.hooks import collect_submodules
 
 blocco = None
 
+# Panda3D, il motore della vista 3D: del pacchetto (quasi duecento megabyte)
+# servono il nucleo, OpenGL (con Cg, a cui il modulo di OpenGL e' legato) e
+# la finestra di Windows. Il nucleo lo trova
+# PyInstaller seguendo gli import; il modulo di OpenGL e quello della finestra
+# Panda3D li carica da solo quando serve, e vanno elencati. Il resto - video,
+# audio, fisica, DirectX, gli strumenti - resta fuori.
+import os
+PANDA_BIN = []
+try:
+    import panda3d
+    _cartella_panda = os.path.dirname(panda3d.__file__)
+    for _f in os.listdir(_cartella_panda):
+        if _f.split('.')[0] in ('libpandagl', 'libp3windisplay', 'libp3x11display',
+                                'libpandagles2', 'libp3headlessgl'):
+            PANDA_BIN.append((os.path.join(_cartella_panda, _f), 'panda3d'))
+except ImportError:
+    pass
+PANDA_FUORI = ('avcodec', 'avformat', 'avutil', 'avfilter', 'avdevice', 'swscale',
+               'swresample', 'cgd3d9', 'tinydisplay', 'assimp',
+               'fmod', 'openal', 'bullet', 'ode', 'libpandaegg', 'egg.', 'dx9', 'd3dx9',
+               'ffmpeg', 'vrpn', 'vision', 'physics', 'libpandaai', 'ai.', 'skel', 'fx.',
+               'libpandafx', 'ptloader', 'rplight')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=PANDA_BIN,
     # (da dove, dove finisce dentro al pacchetto): le due cartelle che il gioco
     # legge all'avvio, con la stessa struttura che hanno nel progetto
     # e i dintorni dei circuiti per la vista 3D, se qualcuno li ha scaricati
@@ -49,17 +76,24 @@ a = Analysis(
           + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else [])
           # e le texture e i cieli fotografici, se tools/fetch_grafica.py li ha scaricati
           + ([('grafica', 'grafica')] if __import__('os').path.isdir('grafica') else []),
-    hiddenimports=['moderngl', '_moderngl'] + collect_submodules('glcontext'),
+    hiddenimports=['moderngl', '_moderngl', 'panda3d.core'] + collect_submodules('glcontext'),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
         'tkinter', 'unittest', 'pydoc_data', 'test',
         'pygame.tests', 'PIL', 'setuptools', 'pip',
+        'direct', 'panda3d.bullet', 'panda3d.ode', 'panda3d.egg', 'panda3d.physics',
+        'panda3d.fx', 'panda3d.ai', 'panda3d.skel', 'panda3d.vision', 'panda3d.vrpn',
+        'panda3d.direct', 'panda3d._rplight',
     ],
     noarchive=False,
     optimize=0,
 )
+# fuori i pezzi di Panda3D che non servono, anche se qualcosa li ha tirati dentro
+a.binaries = [b for b in a.binaries
+              if not ('panda3d' in b[0].replace('\\', '/').lower()
+                      and any(k in os.path.basename(b[0]).lower() for k in PANDA_FUORI))]
 pyz = PYZ(a.pure)
 
 # Due modi di impacchettare, dalla stessa ricetta:
