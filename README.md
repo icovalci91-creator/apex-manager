@@ -232,8 +232,18 @@ angolo quando li usa. Da questo ambiente di sviluppo OpenStreetMap non si raggiu
 scarica il workflow `.github/workflows/dintorni.yml` sulle macchine di GitHub e li salva nel
 progetto.
 
-Oggi ci sono i dintorni veri dei 24 circuiti del mondiale (4,9 MB in tutto): le piste
-candidate, quelle private e quelle della Formula E restano con l'ambiente inventato.
+Ci sono i dintorni veri dei 24 circuiti del mondiale e dei 12 della Formula E; le piste
+candidate e quelle private restano con l'ambiente inventato.
+
+**La Formula E** non ha le coordinate del tracciato: i suoi circuiti sono disegnati a tratti
+sulla forma nota. Nei dati c'e' il punto del posto vero (`luogo`: il piazzale di Tempelhof,
+l'ExCeL, il Big Sight...), e lo strumento cerca da li' la *posa* - di quanto spostare e
+girare il disegno - in cui il tracciato passa di piu' sulle strade, sui piazzali e sulle
+piste vere e il meno possibile dentro ai palazzi o nell'acqua: tutte le rotazioni, ogni
+venti metri fino a settecento di distanza, poi di fino attorno alle migliori. Provato sui
+circuiti cittadini veri (Monaco, Baku, Singapore, Las Vegas girati e spostati a caso) ritrova
+l'angolo giusto e il centro a qualche decina di metri. La posa si salva nel file dei
+dintorni, e il gioco la usa per riportare la mappa sotto il disegno.
 
 ### Materiali e cieli fotografici, e la qualita' grafica
 

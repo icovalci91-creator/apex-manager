@@ -961,7 +961,8 @@ class Geometria:
         piste di volo con le loro strisce. Tutto allineato al rettilineo del
         traguardo, perche' e' li' che il circuito e' stato disegnato.
         """
-        if self.bioma != "aeroporto":
+        if self.bioma != "aeroporto" or self.osm:
+            # con la mappa vera il piazzale, il terminal e le piste ci sono gia'
             return
         f = self.F[0]
         ux, uz = _norm((f[0], 0.0, f[2]))[0], _norm((f[0], 0.0, f[2]))[2]
@@ -1317,6 +1318,16 @@ class Geometria:
                 self.tri((poli[a][0], y, poli[a][1]), (poli[b][0], y, poli[b][1]),
                          (poli[c][0], y, poli[c][1]), (0.34, 0.35, 0.37), g, (0, 1, 0),
                          M_PARCHEGGIO)
+        # i piazzali di cemento - quello di un aeroporto, le piazze pedonali -
+        # anche sotto la pista: ci si corre sopra
+        for poli in o.get("piazzali", []):
+            if len(poli) < 3 or not all(dentro(*p) for p in poli):
+                continue
+            y = max(self.terra(x, z) for x, z in poli) + 0.05
+            for a, b, c in self._triangola(poli):
+                self.tri((poli[a][0], y, poli[a][1]), (poli[b][0], y, poli[b][1]),
+                         (poli[c][0], y, poli[c][1]), (0.58, 0.58, 0.56), g, (0, 1, 0),
+                         M_PIANO)
         mediterranea = self.track.id in ("monaco", "baku", "madrid", "barcelona")
         tinte = ([(0.86, 0.78, 0.66), (0.80, 0.56, 0.42), (0.90, 0.86, 0.78), (0.74, 0.70, 0.62)]
                  if mediterranea else

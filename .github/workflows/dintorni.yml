@@ -19,6 +19,7 @@ on:
     paths:
       - '.github/workflows/dintorni.yml'
       - 'tools/fetch_dintorni.py'
+      - 'data/tracks.json'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +40,10 @@ jobs:
           python-version: '3.11'
 
       - name: Scarica
-        run: python tools/fetch_dintorni.py
+        run: |
+          # numpy serve a mettere i circuiti di Formula E sulle strade vere
+          pip install numpy
+          python tools/fetch_dintorni.py
 
       - name: Salva nel progetto
         run: |

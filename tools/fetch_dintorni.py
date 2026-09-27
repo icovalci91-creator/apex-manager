@@ -69,6 +69,7 @@ STRADE = {
     "motorway": 18, "trunk": 14, "primary": 11, "secondary": 9, "tertiary": 8,
     "unclassified": 6, "residential": 6, "living_street": 5, "service": 4,
     "motorway_link": 8, "trunk_link": 7, "primary_link": 7, "secondary_link": 6,
+    "pedestrian": 6,
 }
 
 QUERY = """[out:json][timeout:240];
@@ -83,7 +84,8 @@ QUERY = """[out:json][timeout:240];
   way["leisure"~"^(park|garden|golf_course|pitch|marina|nature_reserve)$"]({b});
   relation["leisure"~"^(park|golf_course|nature_reserve)$"]({b});
   way["amenity"="parking"]({b});
-  way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link)$"]({b});
+  way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|pedestrian|raceway)$"]({b});
+  way["aeroway"="apron"]({b});
   way["railway"~"^(rail|light_rail|tram|narrow_gauge)$"]({b});
   way["waterway"~"^(river|canal|riverbank)$"]({b});
   way["natural"="coastline"]({b});
@@ -232,7 +234,8 @@ def elabora(risposta: dict, bbox: tuple) -> dict:
     s, w, n, e = bbox
     piano = Piano((s + n) / 2, (w + e) / 2)
     uscita = {k: [] for k in ("acqua", "bosco", "verde", "campi", "urbano", "sabbia",
-                              "parcheggi", "edifici", "strade", "ferrovie", "fiumi", "costa")}
+                              "parcheggi", "edifici", "strade", "ferrovie", "fiumi", "costa",
+                              "piste", "piazzali")}
 
     def codifica(punti):
         piatti = []
@@ -249,6 +252,14 @@ def elabora(risposta: dict, bbox: tuple) -> dict:
             chiuso = len(punti) >= 4 and punti[0] == punti[-1]
             if tag.get("natural") == "coastline":
                 uscita["costa"].append(codifica(semplifica(punti, piano, 3.0)))
+                continue
+            if tag.get("highway") == "raceway":
+                # le piste vere: servono a mettere al suo posto un circuito
+                # disegnato a mano (vedi `posa`)
+                uscita["piste"].append(codifica(semplifica(punti, piano, 2.0)))
+                continue
+            if chiuso and (tag.get("aeroway") == "apron" or tag.get("highway") == "pedestrian"):
+                uscita["piazzali"].append(codifica(semplifica(punti, piano, 2.5)))
                 continue
             if tag.get("building") and tag.get("building") != "no" and chiuso:
                 p = semplifica(punti, piano, 1.0)
@@ -284,6 +295,168 @@ def elabora(risposta: dict, bbox: tuple) -> dict:
                 for a in anelli:
                     uscita[fam].append(codifica(semplifica(a, piano, 2.5)))
     return uscita
+
+
+# ------------------------------------------------ dove sta un circuito disegnato
+# I circuiti di Formula E del gioco non hanno le coordinate vere: sono disegnati
+# a tratti (rettilineo, curva, rettilineo) sulla pianta del posto vero. Per
+# mettergli attorno la citta' vera bisogna sapere dove poggiarli e come girarli.
+# Si parte da un punto scritto nei dati (`luogo`, il centro del posto: il
+# piazzale di Tempelhof, l'ExCeL, il Big Sight...) e si cerca, girando il
+# tracciato e spostandolo di qualche centinaio di metri, la posa in cui passa
+# di piu' sulle strade, sui piazzali e sulle piste vere, e il meno possibile
+# dentro ai palazzi e nell'acqua. Un circuito cittadino corre sulle strade:
+# quando le curve del disegno cadono sugli incroci veri, la posa e' quella.
+CELLA = 4.0                  # metri, il lato di una casella della griglia
+RICERCA = 700.0              # di quanto ci si puo' spostare dal punto dei dati
+PESI = (("verde", -0.3), ("campi", -0.3), ("bosco", -1.0), ("parcheggi", 0.8),
+        ("piazzali", 0.9), ("acqua", -3.0), ("edifici", -2.0))
+
+
+def _in_metri(piatti, bbox, lat0, lon0):
+    import numpy as np
+    a = np.asarray(piatti, dtype=float).reshape(-1, 2)
+    lat = bbox[0] + a[:, 0] * SCALA
+    lon = bbox[1] + a[:, 1] * SCALA
+    mx = 111320.0 * math.cos(math.radians(lat0))
+    return np.stack([(lon - lon0) * mx, (lat - lat0) * 110540.0], axis=1)
+
+
+def _riempi(G, poli, valore, mezzo):
+    """Riempie un poligono (in metri) sulla griglia, riga per riga."""
+    import numpy as np
+    n = G.shape[0]
+    q = (poli + mezzo) / CELLA
+    y0 = max(0, int(math.floor(q[:, 1].min())))
+    y1 = min(n - 1, int(math.ceil(q[:, 1].max())))
+    if y1 < y0:
+        return
+    a, b = q, np.roll(q, -1, axis=0)
+    for y in range(y0, y1 + 1):
+        yc = y + 0.5
+        taglia = (a[:, 1] <= yc) != (b[:, 1] <= yc)
+        if not taglia.any():
+            continue
+        aa, bb = a[taglia], b[taglia]
+        xs = np.sort(aa[:, 0] + (yc - aa[:, 1]) * (bb[:, 0] - aa[:, 0]) / (bb[:, 1] - aa[:, 1]))
+        for k in range(0, len(xs) - 1, 2):
+            x0 = max(0, int(math.ceil(xs[k] - 0.5)))
+            x1 = min(n - 1, int(math.floor(xs[k + 1] - 0.5)))
+            if x1 >= x0:
+                G[y, x0:x1 + 1] = valore
+
+
+def _traccia(G, linea, largo, valore, mezzo):
+    """Una strada: la linea con la sua larghezza, stampata sulla griglia."""
+    import numpy as np
+    n = G.shape[0]
+    r = max(1, int(round(largo / 2.0 / CELLA)))
+    off = [(i, j) for i in range(-r, r + 1) for j in range(-r, r + 1) if i * i + j * j <= r * r]
+    off = np.asarray(off)
+    punti = []
+    for p, q in zip(linea, linea[1:]):
+        d = float(np.hypot(*(q - p)))
+        k = max(1, int(d / (CELLA * 0.5)))
+        t = np.linspace(0.0, 1.0, k + 1)[:, None]
+        punti.append(p + (q - p) * t)
+    if not punti:
+        return
+    c = ((np.concatenate(punti) + mezzo) / CELLA).astype(int)
+    tutte = (c[:, None, :] + off[None, :, :]).reshape(-1, 2)
+    ok = (tutte >= 0).all(axis=1) & (tutte < n).all(axis=1)
+    tutte = tutte[ok]
+    G[tutte[:, 1], tutte[:, 0]] = valore
+
+
+def griglia(fuori, bbox, lat0, lon0, mezzo):
+    """Quanto e' buono ogni punto attorno a (lat0, lon0) per farci passare una
+    pista: le strade valgono, i palazzi e l'acqua no."""
+    import numpy as np
+    n = int(2 * mezzo / CELLA) + 1
+    G = np.zeros((n, n), dtype=np.float32)
+    for chiave, valore in PESI:
+        for voce in fuori.get(chiave, []):
+            piatti = voce["p"] if isinstance(voce, dict) else voce
+            if len(piatti) >= 6:
+                _riempi(G, _in_metri(piatti, bbox, lat0, lon0), valore, mezzo)
+    for r in fuori.get("strade", []):
+        _traccia(G, _in_metri(r["l"], bbox, lat0, lon0), r["w"] + 2.0, 1.0, mezzo)
+    for linea in fuori.get("piste", []):
+        _traccia(G, _in_metri(linea, bbox, lat0, lon0), 14.0, 2.0, mezzo)
+    return G
+
+
+def _punteggi(G, q, ox, oy, mezzo):
+    """Il punteggio medio del tracciato `q` (punti, N x 2) spostato di ogni
+    (ox, oy): un numero per ogni spostamento."""
+    import numpy as np
+    n = G.shape[0]
+    X = ((q[:, 0][:, None] + ox[None, :] + mezzo) / CELLA).astype(int)
+    Y = ((q[:, 1][:, None] + oy[None, :] + mezzo) / CELLA).astype(int)
+    fuori = (X < 0) | (Y < 0) | (X >= n) | (Y >= n)
+    v = G[np.clip(Y, 0, n - 1), np.clip(X, 0, n - 1)]
+    v[fuori] = -3.0
+    return v.mean(axis=0)
+
+
+def posa(fuori, bbox, luogo, pianta):
+    """La posa migliore del tracciato `pianta` (punti in metri, nord in su)
+    attorno a `luogo` (lat, lon): dove va il suo centro, di quanto si gira."""
+    import numpy as np
+    lat0, lon0 = float(luogo[0]), float(luogo[1])
+    P = np.asarray(pianta, dtype=float)
+    centro = P.mean(axis=0)
+    P = P - centro
+    P = P[::2]
+    raggio = float(np.hypot(P[:, 0], P[:, 1]).max())
+    mezzo = raggio + RICERCA + 60.0
+    G = griglia(fuori, bbox, lat0, lon0, mezzo)
+
+    def ruota(a):
+        c, s_ = math.cos(math.radians(a)), math.sin(math.radians(a))
+        return P @ np.array([[c, s_], [-s_, c]])
+
+    def cerca(angoli, xs, ys):
+        ox, oy = np.meshgrid(xs, ys)
+        ox, oy = ox.ravel(), oy.ravel()
+        migliori = []
+        for a in angoli:
+            v = _punteggi(G, ruota(a), ox, oy, mezzo)
+            k = int(np.argmax(v))
+            migliori.append((float(v[k]), float(a), float(ox[k]), float(oy[k])))
+        return sorted(migliori, reverse=True)
+
+    passo = 20.0
+    griglia_larga = np.arange(-RICERCA, RICERCA + 1, passo)
+    primi = cerca(np.arange(0, 360, 3), griglia_larga, griglia_larga)[:6]
+    fini = []
+    for _, a, x, y in primi:
+        vicino = np.arange(-passo, passo + 1, 4.0)
+        fini += cerca(np.arange(a - 3, a + 3.01, 0.5), x + vicino, y + vicino)[:1]
+    punti, angolo, x, y = max(fini)
+    q = ruota(angolo) + (x, y)
+    X = ((q[:, 0] + mezzo) / CELLA).astype(int).clip(0, G.shape[0] - 1)
+    Y = ((q[:, 1] + mezzo) / CELLA).astype(int).clip(0, G.shape[0] - 1)
+    sulle_strade = float((G[Y, X] > 0.5).mean())
+    mx = 111320.0 * math.cos(math.radians(lat0))
+    return {"lat": round(lat0 + y / 110540.0, 7), "lon": round(lon0 + x / mx, 7),
+            "angolo": round(angolo % 360.0, 2),
+            "centro": [round(float(centro[0]), 2), round(float(centro[1]), 2)],
+            "punteggio": round(punti, 3), "sulle_strade": round(sulle_strade, 3)}
+
+
+def riquadro_luogo(luogo, pianta) -> tuple:
+    """Il riquadro da scaricare attorno a un circuito disegnato: il tracciato
+    dovunque la ricerca lo possa portare, e il margine di sempre."""
+    xs = [p[0] for p in pianta]
+    ys = [p[1] for p in pianta]
+    raggio = math.hypot(max(xs) - min(xs), max(ys) - min(ys)) / 2
+    margine = raggio + RICERCA + MARGINE_M * 0.6
+    lat0, lon0 = float(luogo[0]), float(luogo[1])
+    mx = 111320.0 * math.cos(math.radians(lat0))
+    dlat, dlon = margine / 110540.0, margine / mx
+    return (round(lat0 - dlat, 5), round(lon0 - dlon, 5),
+            round(lat0 + dlat, 5), round(lon0 + dlon, 5))
 
 
 # ---------------------------------------------------------------- download
@@ -335,6 +508,9 @@ def main() -> None:
 
     dati = json.loads(TRACKS.read_text(encoding="utf-8"))
     piste = [t for t in dati.get("tracks", []) if t.get("geo")]
+    # la Formula E: tracciati disegnati, con il punto del posto vero da cui
+    # partire a cercare la posa
+    piste += [t for t in dati.get("formulae", []) if t.get("luogo")]
     if args.only:
         piste = [t for t in piste if t["id"] in args.only]
         mancano = set(args.only) - {t["id"] for t in piste}
@@ -347,7 +523,13 @@ def main() -> None:
         if dove.exists() and not args.force and not args.dry_run:
             print(f"{t['id']:<14}gia' scaricato ({dove.stat().st_size // 1024} kB), salto")
             continue
-        bbox = riquadro(t["geo"])
+        pianta = None
+        if t.get("geo"):
+            bbox = riquadro(t["geo"])
+        else:
+            from game.model.track import Track
+            pianta = Track.from_dict(t)._metri
+            bbox = riquadro_luogo(t["luogo"], pianta)
         print(f"{t['id']:<14}chiedo {bbox}...", flush=True)
         try:
             if args.da_file:
@@ -367,6 +549,9 @@ def main() -> None:
             "origine": [bbox[0], bbox[1]],
             "scala": SCALA,
         })
+        if pianta is not None:
+            fuori["posa"] = posa(fuori, bbox, t["luogo"], pianta)
+            print(f"{t['id']:<14}posa {fuori['posa']}", flush=True)
         testo = json.dumps(fuori, separators=(",", ":")).encode("utf-8")
         conti = ", ".join(f"{len(fuori[c])} {c}" for c in
                           ("edifici", "strade", "acqua", "bosco", "verde", "campi", "urbano")
