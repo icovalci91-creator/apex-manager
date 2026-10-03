@@ -1,6 +1,8 @@
 """Weekend di gara: prove libere, qualifica, sprint e gara con vista 2D dal vivo."""
 from __future__ import annotations
 
+import time
+
 import pygame
 
 from ... import config as C
@@ -20,6 +22,8 @@ from ..mappa3d import Mappa3D
 from ..widgets import Button
 
 SPEEDS = [0, 1, 4, 12, 40]
+# "Simula fino alla fine": quanto tempo di calcolo per fotogramma (secondi)
+SALTO_PER_FOTOGRAMMA = 0.03
 SPEED_LABELS = ["II", "x1", "x4", "x12", "x40"]
 
 # I colori del tabellone: viola il migliore di tutti, verde il migliore suo,
@@ -664,6 +668,7 @@ class WeekendScene(Mappa3D, Scene):
         kind = "sprint" if self.stage == "sprint" else "gp"
         self.sim = S.make_race(self.gs, self.ws, kind=kind)
         self.applied = False
+        self.salto = False
         # si parte dal semaforo: cinque rosse, e poi via
         self.semaforo = fx.Semaforo(self.gs.round * 31 + len(kind))
         self.speed_idx = 2
@@ -674,10 +679,12 @@ class WeekendScene(Mappa3D, Scene):
         self.build()
 
     def skip_to_end(self) -> None:
+        """La gara fino in fondo, ma senza fermare lo schermo: prima si faceva
+        tutta in un colpo e il gioco restava immobile per qualche secondo.
+        Adesso scorre a tutta velocita' sotto gli occhi (vedi `update`)."""
         self.semaforo = None
         if self.sim:
-            self.sim.fast_forward()
-            self._on_race_end()
+            self.salto = True
 
     def force_pit(self, driver_id: str, mescola: str = "") -> None:
         """Box al prossimo passaggio, con la gomma che si vuole.
@@ -762,13 +769,21 @@ class WeekendScene(Mappa3D, Scene):
                 self._on_turno_end()
             return
         if self.sim and not self.sim.finished:
-            mult = SPEEDS[self.speed_idx]
-            if mult:
-                step = dt * mult
-                n = max(1, int(step / 0.6) + 1)
-                for _ in range(n):
-                    self.sim.update(step / n)
+            if getattr(self, "salto", False):
+                # avanti a passi da un secondo, quanti ne stanno in un
+                # fotogramma: lo schermo resta vivo e la gara corre
+                fine = time.perf_counter() + SALTO_PER_FOTOGRAMMA
+                while not self.sim.finished and time.perf_counter() < fine:
+                    self.sim.update(1.0)
+            else:
+                mult = SPEEDS[self.speed_idx]
+                if mult:
+                    step = dt * mult
+                    n = max(1, int(step / 0.6) + 1)
+                    for _ in range(n):
+                        self.sim.update(step / n)
             if self.sim.finished:
+                self.salto = False
                 self._on_race_end()
 
     def _on_race_end(self) -> None:

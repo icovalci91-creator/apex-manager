@@ -432,6 +432,28 @@ def gain_domains(gs, team, part: str, delta: float, track=None, focus=None) -> d
             for d in prima[1]}
 
 
+# Il giro "prima" dipende solo dalla macchina com'e' adesso e dal circuito: le
+# squadre del computer lo rifacevano identico per ogni pezzo e ogni dominio che
+# provavano, e dopo ogni gara erano centinaia di giri simulati per niente.
+_BASE: dict = {}
+_ESCLUSI = ("setup", "setup_quality", "_setup_cost", "fuel_kg")
+
+
+def _firma_auto(car) -> str:
+    """Tutto quello della macchina che sposta il giro, tranne l'assetto (che si
+    ritrova ogni volta) e la benzina (che si toglie)."""
+    voci = []
+    for k, v in sorted(vars(car).items()):
+        if k in _ESCLUSI:
+            continue
+        if k == "parts":
+            v = tuple((n, tuple(sorted(vars(pz).items()))) for n, pz in sorted(v.items()))
+        elif isinstance(v, dict):
+            v = tuple(sorted(v.items()))
+        voci.append((k, v))
+    return repr(voci)
+
+
 def _due_giri(gs, team, part: str, delta: float, track, focus):
     """Il giro prima e dopo l'aggiornamento, con l'assetto ritrovato ogni volta."""
     from ..sim import pace
@@ -449,7 +471,14 @@ def _due_giri(gs, team, part: str, delta: float, track, focus):
                             bias=car.domain_bias)
         return d["tempo"] / car.apply_setup_effects(), d["domini"]
 
-    prima = misura()
+    chiave = (id(track), track.ref_time, getattr(track, "calibration", 1.0),
+              hash(tuple(getattr(track, "domain_map", None) or ())), _firma_auto(car))
+    prima = _BASE.get(chiave)
+    if prima is None:
+        prima = misura()
+        if len(_BASE) > 600:
+            _BASE.clear()
+        _BASE[chiave] = prima
     p.perf = max(20.0, p.perf + delta)
     if focus is not None:
         p.focus = focus

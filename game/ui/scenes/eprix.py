@@ -15,6 +15,8 @@ manopole in piu' sono quelle che il regolamento aggiunge qui.
 """
 from __future__ import annotations
 
+import time
+
 import pygame
 
 from ...core import formulae as FE
@@ -275,10 +277,10 @@ class EPrixScene(Mappa3D, Scene):
         self.build()
 
     def salta(self) -> None:
+        """Fino al traguardo senza fermare lo schermo (vedi `update`)."""
         self.semaforo = None
         if self.sim:
-            self.sim.fast_forward()
-            self._fine()
+            self.salto = True
 
     def delegato(self) -> bool:
         if not self.sim:
@@ -449,15 +451,21 @@ class EPrixScene(Mappa3D, Scene):
             return
         if self.sim.finished:
             return
-        mult = SPEEDS[self.speed_idx]
-        if not mult:
-            return
-        passo = dt * mult
-        n = max(1, int(passo / 2.0) + 1)
-        for _ in range(n):
-            self.sim.update(passo / n)
-            if self.sim.finished:
-                break
+        if getattr(self, "salto", False):
+            # a passi da due secondi, quanti ne stanno in un fotogramma
+            fine = time.perf_counter() + 0.03
+            while not self.sim.finished and time.perf_counter() < fine:
+                self.sim.update(2.0)
+        else:
+            mult = SPEEDS[self.speed_idx]
+            if not mult:
+                return
+            passo = dt * mult
+            n = max(1, int(passo / 2.0) + 1)
+            for _ in range(n):
+                self.sim.update(passo / n)
+                if self.sim.finished:
+                    break
         if self.sim.finished:
             self._fine()
         else:
