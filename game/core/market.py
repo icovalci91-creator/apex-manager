@@ -464,7 +464,7 @@ def valore_mercato(d) -> float:
     appena sotto di lui sceglie il ragazzo. Prima contava quasi solo la scheda
     di oggi, e la griglia invecchiava di un anno a stagione."""
     return (d.overall + 0.35 * d.potential
-            + 0.9 * max(0, 25 - d.age) - 1.2 * max(0, d.age - 32))
+            + 1.1 * max(0, 25 - d.age) - 1.5 * max(0, d.age - 31))
 
 
 def run_transfer_window(gs) -> list:
@@ -725,6 +725,10 @@ def ai_staff_market(gs) -> list:
     return news
 
 
+# quanti fra i ragazzi che salgono ogni anno sono fuori scala
+FENOMENI = 0.08
+
+
 def new_talents(gs) -> list:
     """Giovani promesse che salgono dalle categorie minori."""
     from .state import _load
@@ -736,6 +740,12 @@ def new_talents(gs) -> list:
         # escono dalla Formula 2: non sono ancora da titolare, ma i migliori
         # ci arrivano in un paio di stagioni
         base = gs.rng.uniform(72, 81)
+        fenomeno = gs.rng.random() < FENOMENI
+        if fenomeno:
+            # e ogni tanto ne arriva uno fuori scala, gia' pronto a diciannove
+            # anni e destinato a vincere: senza, i campioni di oggi restavano i
+            # piu' forti per dieci anni perche' nessuno arrivava a raggiungerli
+            base = gs.rng.uniform(79, 83)
         d = Driver(
             id=f"{last.lower()}{gs.rng.randrange(100, 999)}", first=first, last=last,
             nat=gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL", "AR"]),
@@ -745,7 +755,8 @@ def new_talents(gs) -> list:
             wet=base - gs.rng.uniform(0, 6), feedback=base - gs.rng.uniform(2, 8),
             aggression=gs.rng.uniform(60, 85), stamina=gs.rng.uniform(80, 92),
             estro=gs.rng.uniform(45, 92),
-            potential=min(97.0, base + gs.rng.uniform(6, 18)),
+            potential=(gs.rng.uniform(94, 98) if fenomeno
+                       else min(97.0, base + gs.rng.uniform(6, 18))),
             marketability=gs.rng.uniform(35, 65), salary=gs.rng.uniform(0.8, 1.8),
             contract_until=gs.season,
         )
