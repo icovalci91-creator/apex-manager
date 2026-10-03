@@ -169,8 +169,12 @@ class Driver:
         for a in DRIVER_ATTRS:
             cur = getattr(self, a)
             if self.age < peak:
+                # i ragazzi crescono davvero: da una stagione all'altra uno di
+                # vent'anni guadagna un paio di punti, se ha margine e un buon
+                # programma intorno. Prima ne guadagnava mezzo, e a venticinque
+                # anni era ancora lontano dai titolari
                 room = max(0.0, self.potential - self.overall)
-                gain = rng.uniform(0.2, 1.6) * (0.35 + 0.65 * quality) * (0.4 + room / 22.0)
+                gain = rng.uniform(0.3, 2.0) * (0.4 + 0.6 * quality) * (0.5 + room / 18.0)
             elif self.age <= 33:
                 gain = rng.uniform(-0.3, 0.6) * (0.5 + quality)
             else:

@@ -457,6 +457,16 @@ def fire_staff(gs, team, person: Staff) -> tuple:
 
 
 # ------------------------------------------------------- finestra di mercato
+def valore_mercato(d) -> float:
+    """Quanto vale un pilota per chi deve riempire un sedile: quello che fa
+    adesso, quello che puo' diventare, e l'eta'. Un direttore sportivo guarda
+    avanti: fra un veterano di trentaquattro anni e un ragazzo di ventidue
+    appena sotto di lui sceglie il ragazzo. Prima contava quasi solo la scheda
+    di oggi, e la griglia invecchiava di un anno a stagione."""
+    return (d.overall + 0.35 * d.potential
+            + 0.9 * max(0, 25 - d.age) - 1.2 * max(0, d.age - 32))
+
+
 def run_transfer_window(gs) -> list:
     """Movimenti delle scuderie IA fra una stagione e l'altra."""
     news = []
@@ -468,6 +478,9 @@ def run_transfer_window(gs) -> list:
                 if not d or d.contract_until > gs.season or team.is_player:
                     continue
                 keep = 0.55 + 0.4 * ((d.overall - 78) / 16.0) - 0.25 * max(0, d.age - 35) * 0.1
+                # e passati i trentuno si rinnova con meno entusiasmo: c'e'
+                # sempre un ragazzo che costa meno e che domani andra' piu' forte
+                keep -= 0.07 * max(0, d.age - 31)
                 if lista is team.reserves:
                     keep += 0.15          # una riserva costa poco, si tiene volentieri
                 # chi sta perdendo il confronto in casa, da tempo, non aspetta
@@ -521,7 +534,7 @@ def run_transfer_window(gs) -> list:
         if team.is_player:
             continue
         while len(team.drivers) < 2 and gs.free_agents:
-            pool = sorted(gs.free_agents, key=lambda d: -(d.overall + d.potential * 0.35))
+            pool = sorted(gs.free_agents, key=lambda d: -valore_mercato(d))
             # e ogni tanto si guarda anche in Formula E. Non spesso: costa
             # l'indennizzo, e un direttore sportivo di Formula 1 il telefono
             # lo alza per quel campionato solo quando li' c'e' qualcuno che
@@ -533,8 +546,7 @@ def run_transfer_window(gs) -> list:
                 def valore(d):
                     # chi ha vinto in Formula E vale piu' della sua scheda: e'
                     # il campionato che ha appena fatto a parlare per lui
-                    return (d.overall + d.potential * 0.35
-                            + PESO_TITOLO_FE * merito.get(d.id, 0.0))
+                    return valore_mercato(d) + PESO_TITOLO_FE * merito.get(d.id, 0.0)
 
                 # e deve valerne la pena: pagare l'indennizzo per uno che
                 # vale come chi e' gia' libero non lo fa nessuno
@@ -616,11 +628,11 @@ def _smette(gs, d) -> bool:
         # a ventisette anni, senza volante da tre stagioni, non si e' piu' una
         # promessa: si e' uno che quel treno l'ha perso
         return gs.rng.random() < 0.55
-    if fermo >= ANNI_FERMO and d.age >= 24:
+    if fermo >= ANNI_FERMO and d.age >= 24 and d.overall < 80.0:
         # e anche fra i ragazzi: di quelli che salgono dalle categorie minori
         # ne arriva una decina l'anno e i volanti sono venti. Chi a
-        # ventiquattro anni non ne ha ancora trovato uno va a correre altrove,
-        # se no il mercato si riempie di promesse che non lo sono piu'
+        # ventiquattro anni non ne ha ancora trovato uno, e non ha il livello,
+        # va a correre altrove; chi il livello ce l'ha aspetta il suo turno
         return gs.rng.random() < 0.35
     if d.age < RITIRO_DA:
         return False
@@ -721,7 +733,9 @@ def new_talents(gs) -> list:
     for _ in range(gs.rng.randint(5, 9)):
         first = gs.rng.choice(pool["first"])
         last = gs.rng.choice(pool["last"])
-        base = gs.rng.uniform(68, 79)
+        # escono dalla Formula 2: non sono ancora da titolare, ma i migliori
+        # ci arrivano in un paio di stagioni
+        base = gs.rng.uniform(72, 81)
         d = Driver(
             id=f"{last.lower()}{gs.rng.randrange(100, 999)}", first=first, last=last,
             nat=gs.rng.choice(["IT", "GB", "FR", "DE", "ES", "BR", "JP", "US", "NL", "AR"]),

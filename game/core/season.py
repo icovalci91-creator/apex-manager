@@ -342,6 +342,10 @@ def end_season(gs) -> dict:
             # anni per stagione e a trentanove ne aveva vissuti venti
             continue
         quality = 0.5
+        if not team and d.age <= 24:
+            # un ragazzo senza volante in Formula 1 non sta fermo: corre in
+            # Formula 2 o in Formula 3, e li' cresce
+            quality = 0.65
         if team:
             quality = (0.38 * (team.facilities.get("simulator", 60) / 100.0)
                        + 0.30 * (team.facilities.get("academy", 60) / 100.0)
