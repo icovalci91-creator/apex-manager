@@ -293,9 +293,13 @@ class GameState:
 
     def _calibrate_tracks(self) -> None:
         """Allinea il modello di giro ai tempi reali usando una vettura di riferimento."""
-        ref = self._ref_car()
+        from . import taratura
         for tr in list(self.tracks) + list(self.candidates):
-            tr.calibrate(ref)
+            # la stessa taratura di sempre, ma ricordata: non dipende dalla
+            # partita, e rifarla a ogni salvataggio caricato costava secondi.
+            # Una vettura di riferimento nuova per ogni circuito: la taratura
+            # le cambia l'assetto, e il circuito dopo non deve ereditarlo
+            taratura.calibra(tr, self._ref_car(), self.regulations)
 
     def refresh_tracks(self) -> None:
         """Rimisura i circuiti dopo un cambio di regolamento, senza ritararli.
