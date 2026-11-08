@@ -1,8 +1,10 @@
 """Stato della partita: costruzione del mondo, calendario, classifiche, salvataggi."""
 from __future__ import annotations
 
+import base64
 import json
 import random
+import struct
 import zlib
 from dataclasses import asdict, dataclass, field, fields
 
@@ -24,6 +26,45 @@ ROLE_LEVEL_FROM_REP = {
 def _load(name: str) -> dict:
     with open(C.DATA / name, encoding="utf-8") as f:
         return json.load(f)
+
+
+def _rng_salvato(rng) -> list | None:
+    """Il punto in cui e' arrivato il generatore della partita, per il salvataggio.
+
+    Sono 624 parole da 32 bit e la posizione a cui si e' arrivati, piu' il
+    secondo numero che random.gauss si tiene da parte. Scritte come numeri nel
+    JSON farebbero sette kilobyte; impacchettate in byte e passate in base64
+    sono meno della meta', e conta: nella versione web ogni salvataggio sta
+    in localStorage, che ha poco posto.
+    """
+    if rng is None:
+        return None
+    versione, parole, gauss = rng.getstate()
+    pacco = struct.pack(f"<{len(parole)}I", *parole)
+    return [versione, base64.b64encode(pacco).decode("ascii"), gauss]
+
+
+def _rimetti_rng(rng, salvato) -> None:
+    """Riporta il generatore dove era quando si e' salvato.
+
+    Un salvataggio di prima non ce l'ha, e allora il generatore resta com'e'
+    uscito da new_game col seme: e' quello che succedeva sempre. Lo stesso se
+    il dato non si legge, perche' una partita che non si apre per un numero
+    casuale sarebbe un danno molto peggiore di una che prende un'altra strada.
+    """
+    if not salvato:
+        return
+    prima = rng.getstate()
+    try:
+        versione, testo, gauss = salvato
+        pacco = base64.b64decode(testo, validate=True)
+        parole = struct.unpack(f"<{len(pacco) // 4}I", pacco)
+        rng.setstate((int(versione), parole, None if gauss is None else float(gauss)))
+    except (TypeError, ValueError, OverflowError, struct.error):
+        # setstate si prende il numero di gauss prima di guardare le parole:
+        # un dato rotto a meta' lascerebbe un generatore che non e' piu' quello
+        # del seme e nemmeno quello salvato. Si torna a quello del seme.
+        rng.setstate(prima)
 
 
 @dataclass
@@ -260,7 +301,15 @@ class GameState:
         return gs
 
     def _restore_calendar(self, calendario, candidati) -> None:
-        """Rimette il calendario com'era: le gare cambiano di stagione in stagione."""
+        """Rimette il calendario com'era: le gare cambiano di stagione in stagione.
+
+        I candidati tornano nell'ordine in cui erano, e con il mese con cui sono
+        usciti. Non e' un dettaglio: a fine stagione chi entra si sceglie per
+        offerta, e a pari offerta passa chi sta davanti; chi entra si mette in
+        fila nel calendario dal suo mese. Rimessi nell'ordine e coi mesi dei
+        dati, una partita ricaricata poteva prendere un'altra strada da quella
+        salvata, e la pagina dei test elencava le piste in un altro ordine.
+        """
         if not calendario:
             return
         tutti = {t.id: t for t in list(self.tracks) + list(self.candidates)}
@@ -276,12 +325,20 @@ class GameState:
         if not nuovi:
             return
         self.tracks = nuovi
-        rimasti = [t for k, t in tutti.items() if t not in nuovi]
+        presi = {t.id for t in nuovi}
+        rimasti = []
         for voce in (candidati or []):
             t = tutti.get(voce["id"])
-            if t is not None and t not in nuovi:
-                t.contract_until = voce.get("contract_until", t.contract_until)
-                t.fee = voce.get("fee", t.fee)
+            if t is None or t.id in presi:
+                continue
+            t.contract_until = voce.get("contract_until", t.contract_until)
+            t.fee = voce.get("fee", t.fee)
+            t.month = voce.get("month", t.month)
+            rimasti.append(t)
+            presi.add(t.id)
+        # un circuito arrivato nei dati dopo il salvataggio non sta in nessuno
+        # dei due elenchi: aspetta fra i candidati, in coda
+        rimasti += [t for k, t in tutti.items() if k not in presi]
         self.candidates = rimasti
 
     def _ref_car(self):
@@ -460,6 +517,9 @@ class GameState:
             "season": self.season, "round": self.round, "phase": self.phase,
             "player_team": self.player_team, "player_is_constructor": self.player_is_constructor,
             "seed": self.seed, "regulations": self.regulations,
+            # il generatore a che punto e': senza, ogni partita ricaricata
+            # ripescava dal seme gli stessi numeri del primo giorno di carriera
+            "rng": _rng_salvato(self.rng),
             "editor_used": bool(getattr(self, "editor_used", False)),
             "track_history": self.track_history,
             "race_distance": self.race_distance,
@@ -479,12 +539,17 @@ class GameState:
             # classifica e gare gia' corse. Senza questo, riaprendo il gioco a
             # meta' stagione il mondiale ricomincerebbe da zero
             "fe_stato": getattr(self, "fe_stato", None),
+            # come e' finito l'ultimo mondiale elettrico, per i piloti e per le
+            # squadre: lo sfoglia il mercato d'inverno, quando la classifica si
+            # e' gia' azzerata, e ricaricando a quel punto non c'era piu'
+            "fe_merito": getattr(self, "fe_merito", None),
+            "fe_merito_squadre": getattr(self, "fe_merito_squadre", None),
             "wec_griglia": getattr(self, "wec_griglia", {}) or {},
             "wec_stato": getattr(self, "wec_stato", None),
             "calendar": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
                           "month": t.month} for t in self.tracks],
-            "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee}
-                           for t in self.candidates],
+            "candidates": [{"id": t.id, "contract_until": t.contract_until, "fee": t.fee,
+                            "month": t.month} for t in self.candidates],
             "engine_makers": self.engine_makers,
             # la classifica intera, non solo la testa: un nostro ragazzo che ha
             # chiuso ventesimo va ritrovato al ventesimo posto anche domani
@@ -507,6 +572,7 @@ class GameState:
             "teams": {
                 t.id: {
                     "cash": t.cash, "points": t.points, "wins": t.wins, "podiums": t.podiums,
+                    "titles": dict(t.titles or {}),
                     "spent": t.spent, "capex_log": t.capex_log or {}, "austerity": t.austerity,
                     "track_id": t.track_id, "track_name": t.track_name,
                     "reputation": t.reputation, "facilities": t.facilities,
@@ -598,6 +664,11 @@ class GameState:
         gs.fe_stato = data.get("fe_stato") or None
         gs.wec_griglia = dict(data.get("wec_griglia") or {})
         gs.wec_stato = data.get("wec_stato") or None
+        # new_game non li crea: finche' la prima stagione elettrica non si
+        # chiude non ci sono, e un salvataggio di prima resta cosi'
+        for chiave in ("fe_merito", "fe_merito_squadre"):
+            if data.get(chiave) is not None:
+                setattr(gs, chiave, dict(data.get(chiave)))
         gs._restore_calendar(data.get("calendar"), data.get("candidates"))
         gs.engine_makers.update(data.get("engine_makers", {}))
         from . import powertrain as _pt
@@ -630,6 +701,10 @@ class GameState:
             t = gs.teams[tid]
             t.cash = td["cash"]; t.points = td["points"]; t.wins = td["wins"]
             t.podiums = td["podiums"]; t.spent = td["spent"]; t.reputation = td["reputation"]
+            # i mondiali vinti in carriera: un salvataggio di prima non li ha,
+            # e restano quelli dei dati come allora
+            if td.get("titles") is not None:
+                t.titles = dict(td.get("titles"))
             t.entry_season = int(td.get("entry_season", 0) or 0)
             t.capex_log = dict(td.get("capex_log") or {})
             t.austerity = float(td.get("austerity", 0.0))
@@ -731,6 +806,9 @@ class GameState:
 
         gs.sync_engines()
         gs._sync_to_regulations(base_sprints)
+        # per ultimo: tutto quello che c'e' sopra puo' pescare dal generatore,
+        # e la partita deve ripartire esattamente dal punto in cui si e' salvata
+        _rimetti_rng(gs.rng, data.get("rng"))
         return gs
 
     def _sync_to_regulations(self, base_sprints=None) -> None:

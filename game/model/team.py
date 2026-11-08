@@ -291,7 +291,11 @@ class Team:
             "kind": verso, "category": category, "label": label,
             "amount": round(float(amount), 3), "in_cap": bool(in_cap),
         })
-        del self.ledger[4000:]
+        # il tetto tiene le voci piu' recenti e lascia andare le piu' vecchie.
+        # Tagliando la coda, a libro pieno ogni movimento nuovo spariva appena
+        # scritto, e con lui la spesa della stagione in corso, che il bilancio
+        # e il portafoglio dello sviluppo leggono proprio da qui
+        del self.ledger[:-4000]
 
     def add_income(self, label: str, amount: float, category: str = "altro") -> None:
         self.cash += amount
