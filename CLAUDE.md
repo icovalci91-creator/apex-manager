@@ -52,9 +52,10 @@ errore vero. README.md descrive ogni funzione del gioco.
 - Vista 3D: Panda3D disegna fuori schermo (`vista_panda.py`,
   `motore_panda.py`) e pygame incolla il fotogramma; `vista3d.py` con moderngl
   fa da riserva. Stessi shader GLSL, y in alto.
-- Equilibrio misurato su 74 stagioni simulate: ritiri 1.4-2.5 a gara, safety
-  car 0.5-1.4, giro/riferimento 0.99-1.03, eta' media dei titolari 26.5-28.5,
-  da 1 a 5 esordienti l'anno.
+- Equilibrio: le misure delle stagioni pulite (ritiri, safety car,
+  giro/riferimento, eta' dei titolari, esordienti, dominio) e le soglie stanno
+  in `.claude/skills/collaudo/soglie.json`. Se un collaudo non passa si
+  corregge il gioco, non la soglia.
 
 ## Convenzioni
 - Nomi, commenti, messaggi e testi in italiano.

@@ -1,0 +1,53 @@
+{
+  "_come_si_legge": "Per ogni misura il minimo e il massimo dentro cui stanno le stagioni pulite, con margine. 'stagione' vale per ogni stagione con almeno gare_minime gran premi; 'lampo' per quelle piu' corte (la prova --gare N, o una carriera ripresa a campionato quasi finito); 'carriera' per le medie su tutto il collaudo, giudicate solo con almeno stagioni_minime stagioni finite. Una misura che manca (null) non si giudica.",
+  "_taratura": "Tarate a novembre 2026 sul codice di 1129223 con 20 stagioni pulite: ferrari seme 1, mclaren seme 7, williams seme 3 con Formula E ed endurance, haas seme 11 (tre stagioni ciascuna) e ferrari seme 2 per otto stagioni. Visto: ritiri 1.54-2.67 a gara, safety car 0.58-1.17, giro/riferimento sull'asciutto 0.978-0.996 (cala di circa 0.002 a stagione), eta' dei titolari 25.6-29.3, deriva da -2.63 a +1.00, esordienti 0-5 l'anno e da 1.9 a 3 di media, dominio fino a 0.67, salvataggio fino a 3.6 MB (cresce fino alla quinta stagione e poi quasi si ferma). Provate guastando il gioco in una copia: il mercato di prima di b64f73d (la griglia che invecchiava) esce con 1 alla terza stagione, il rischio di rottura per 2.5 alla prima, from_dict che non rilegge la reputazione al primo salvataggio; e alla prima stagione una squadra piu' veloce di 1.2 s al giro (dominio 0.958), il passo di gara piu' lento del 3.5% (giro/riferimento 1.030) e nove secondi in piu' nella fine stagione. Ricontrollate pulite con audi seme 42 e cadillac seme 99 con Formula E ed endurance, tre stagioni ciascuna: tutto dentro. Il rischio di rottura per 1.6 (circa un quarto di ritiro in piu' a gara) e i giovani che smettono di arrivare dalla Formula 2 senza toccare il mercato restano dentro: tre stagioni sono poche per vederli, e li' serve --rif.",
+  "gare_minime": 10,
+  "stagione": {
+    "dnf_per_gara": {"min": 1.0, "max": 3.0,
+      "perche": "Ritiri per gran premio (guasti e incidenti). Sopra: affidabilita' o errori dei piloti peggiorati; sotto: le macchine non si rompono piu'."},
+    "sc_per_gara": {"min": 0.3, "max": 1.7,
+      "perche": "Safety car e virtual safety car per gran premio. Fuori dall'intervallo le gare diventano una lotteria o un trenino."},
+    "giro_su_rif": {"min": 0.96, "max": 1.02,
+      "perche": "Giro piu' veloce della gara diviso il riferimento del circuito, solo gare asciutte. Fuori: il modello del giro, la taratura o la crescita delle vetture si sono spostati."},
+    "eta_titolari": {"min": 24.5, "max": 29.8,
+      "perche": "Eta' media dei titolari. Sopra: i giovani non entrano o non crescono; sotto: il mercato butta fuori i piloti esperti troppo presto."},
+    "deriva_eta_titolari": {"min": -3.5, "max": 1.5,
+      "perche": "Quanto e' cambiata l'eta' media dei titolari dalla prima stagione del collaudo. Un anno e mezzo in piu': la griglia invecchia, il ricambio si e' fermato."},
+    "esordienti": {"min": 0, "max": 8,
+      "perche": "Titolari dell'anno dopo senza un gran premio alle spalle. Troppi: il mercato svuota la griglia."},
+    "dominio": {"max": 0.875,
+      "perche": "Quota di gran premi vinti dalla squadra che ne vince di piu'. Sopra: una squadra sola vince quasi tutto."},
+    "tempo_gare_s": {"max": 400,
+      "perche": "Tempo per simulare le gare della stagione (qui 60-95 s). Molto sopra: la simulazione di gara e' diventata lenta."},
+    "tempo_fine_stagione_s": {"max": 8,
+      "perche": "Fine stagione, inverno e Commissione (qui sotto i due secondi): il giocatore li aspetta davanti allo schermo."},
+    "tempo_salvataggio_s": {"max": 1.0,
+      "perche": "Tempo di to_dict e della scrittura in json (qui meno di un decimo)."},
+    "tempo_caricamento_s": {"max": 5.0,
+      "perche": "Tempo di from_dict, che rifa' una partita nuova e ci rimette sopra il salvataggio (qui 0.6 s, erano 4 prima della taratura in cache)."},
+    "dimensione_salvataggio_kb": {"max": 5000,
+      "perche": "Dimensione del salvataggio. Molto sopra: qualcosa si accumula senza essere mai potato."}
+  },
+  "carriera": {
+    "esordienti_per_anno": {"min": 1.0, "max": 6.0, "stagioni_minime": 3,
+      "perche": "Media degli esordienti per anno. Sotto uno: i giovani non arrivano piu' in Formula 1."},
+    "dominio_medio": {"max": 0.75, "stagioni_minime": 3,
+      "perche": "Dominio medio sulle stagioni: una squadra che vince tre gare su quattro anno dopo anno."}
+  },
+  "lampo": {
+    "dnf_per_gara": {"max": 7.0,
+      "perche": "Ritiri per gara su poche gare (tre gare pulite arrivano a 6.3): solo i casi grossolani."},
+    "sc_per_gara": {"max": 4.0,
+      "perche": "Safety car per gara su poche gare (tre gare pulite arrivano a 3): solo i casi grossolani."},
+    "giro_su_rif": {"min": 0.95, "max": 1.03,
+      "perche": "Giro sul riferimento su poche gare asciutte (pulite fra 0.966 e 1.012)."},
+    "eta_titolari": {"min": 24.5, "max": 29.8,
+      "perche": "Eta' media dei titolari."},
+    "tempo_salvataggio_s": {"max": 1.0,
+      "perche": "Tempo di to_dict e della scrittura in json."},
+    "tempo_caricamento_s": {"max": 5.0,
+      "perche": "Tempo di from_dict."},
+    "dimensione_salvataggio_kb": {"max": 5000,
+      "perche": "Dimensione del salvataggio."}
+  }
+}
