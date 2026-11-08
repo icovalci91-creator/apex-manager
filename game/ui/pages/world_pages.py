@@ -269,15 +269,18 @@ class RulesPage(Page):
         T.text(surf, architetture.scheda(gs, aid).get("nome", reg.get("label", "")),
                (left.x + 16, left.y + 30), 16, T.TEXT, bold=True, maxw=left.w - 32)
         comp = pu.get("components_per_season", {})
-        stretto = left.w < 400
-        if comp and not stretto:
+        if comp:
             conta = ("{ice} termici, {turbo} turbo, {k} MGU-K, {es} batterie".format(
                 ice=comp.get("ice", 4), turbo=comp.get("turbo", 4),
                 k=comp.get("mgu_k", 3), es=comp.get("energy_store", 3)))
-        elif comp:
-            conta = "{ice} / {turbo} / {k} / {es}".format(
-                ice=comp.get("ice", 4), turbo=comp.get("turbo", 4),
-                k=comp.get("mgu_k", 3), es=comp.get("energy_store", 3))
+            # per esteso solo se ci sta accanto all'etichetta: la soglia a 400
+            # pixel di pannello era tarata sul carattere di prima, e a 1180 la
+            # riga finiva tagliata a "3 ba..." contro "Componenti a stagione"
+            if (T.width("Componenti a stagione", 13) + 12 + T.width(conta, 13, True)
+                    > left.w - 32):
+                conta = "{ice} / {turbo} / {k} / {es}".format(
+                    ice=comp.get("ice", 4), turbo=comp.get("turbo", 4),
+                    k=comp.get("mgu_k", 3), es=comp.get("energy_store", 3))
         else:
             conta = str(pu.get("units_per_season", 4))
         righe = [
@@ -306,12 +309,17 @@ class RulesPage(Page):
                    maxw=left.w * 0.58)
             y += 21
         y += 8
-        T.text(surf, "ORE DI SVILUPPO AERO (ATR)", (left.x + 16, y), 12, T.DIM_2, bold=True)
+        titolo = "ORE DI SVILUPPO AERO (ATR)"
+        T.text(surf, titolo, (left.x + 16, y), 12, T.DIM_2, bold=True)
         base = reg.get("sporting", {}).get("atr_baseline_wind_tunnel_runs")
-        if base and not stretto:
-            T.text(surf, f"riferimento {base} run e "
-                         f"{sp.get('atr_baseline_cfd_items', 2000)} CFD ogni due mesi",
-                   (left.right - 16, y), 11, T.DIM_2, align="right", maxw=left.w * 0.6)
+        if base:
+            rif = (f"riferimento {base} run e "
+                   f"{sp.get('atr_baseline_cfd_items', 2000)} CFD ogni due mesi")
+            # accanto al titolo, e solo se ci sta davvero: con un massimo fisso
+            # del 60% del pannello, a 1180 ci finiva sopra. Su una riga sua
+            # toglierebbe posto alle barre, che sono il dato
+            if T.width(titolo, 12, True) + 16 + T.width(rif, 11) <= left.w - 32:
+                T.text(surf, rif, (left.right - 16, y), 11, T.DIM_2, align="right")
         y += 20
         scale = reg["aero_testing_restriction"]["scale"]
         spazio = max(0, int((left.bottom - 16 - y) / 18))
@@ -547,10 +555,15 @@ class RulesPage(Page):
             self._read_proposals()
         y = right.y + 40
         for item in self.proposals:
-            if y > right.bottom - 100:
-                break
             p = item["p"]
-            T.panel(surf, (right.x + 12, y, right.w - 24, 96), T.PANEL_2, radius=8)
+            stretta = 130 if (p.get("safety") or p.get("directive")) else 90
+            # la scheda e' alta quanto la sua descrizione: a 96 pixel fissi una
+            # descrizione di tre righe finiva sotto al verdetto
+            alta_desc = len(T.wrap(p["desc"], 12, right.w - 48 - stretta)) * T.line_h(12)
+            alta = max(96, 30 + alta_desc + 6 + 28)
+            if y + alta > right.bottom - 4:
+                break
+            T.panel(surf, (right.x + 12, y, right.w - 24, alta), T.PANEL_2, radius=8)
             T.text(surf, p["title"], (right.x + 24, y + 10), 15, T.TEXT, bold=True,
                    maxw=right.w - 140)
             col_cat = (T.WARN if p.get("safety") else
@@ -560,14 +573,13 @@ class RulesPage(Page):
             if p.get("safety") or p.get("directive"):
                 T.text(surf, "in vigore da subito", (right.right - 24, y + 27), 10,
                        col_cat, align="right")
-            stretta = 130 if (p.get("safety") or p.get("directive")) else 90
             T.paragraph(surf, p["desc"], (right.x + 24, y + 30), 12, T.DIM,
                         right.w - 48 - stretta)
-            T.text(surf, f"Per noi: {item['verdict']}", (right.x + 24, y + 68), 13,
+            T.text(surf, f"Per noi: {item['verdict']}", (right.x + 24, y + alta - 28), 13,
                    item["colour"], bold=True)
             T.text(surf, f"scuderie favorevoli stimate: {item['yes']}/{len(gs.teams)}",
-                   (right.right - 24, y + 68), 12, T.DIM, align="right")
-            y += 104
+                   (right.right - 24, y + alta - 28), 12, T.DIM, align="right")
+            y += alta + 8
 
 
 class StandingsPage(Page):
@@ -669,8 +681,9 @@ class CalendarPage(Page):
     COLS = 6
     CARD_H = 150
     # quanto si tiene l'intestazione: titolo, contratti in scadenza e cosa
-    # chiedono le gare che restano, senza che si scrivano una sopra l'altra
-    TOP = 46
+    # chiedono le gare che restano, senza che si scrivano una sopra l'altra.
+    # Sono tre righe al loro passo vero, due da 15 pixel e una da 17
+    TOP = 48
 
     def __init__(self, shell):
         super().__init__(shell)
@@ -737,12 +750,16 @@ class CalendarPage(Page):
             largo = int(r.w * 0.44)
             righe = T.wrap(f"le {len(restanti)} gare che restano chiedono: {testo}",
                            12, largo)
+            # il passo e' quello vero delle righe: a 14 pixel fissi una scritta
+            # da 12, che si disegna a 13, toccava quella di sotto
+            passo = T.line_h(12)
             for i, riga in enumerate(righe[:2]):
-                T.text(surf, riga, (r.right - 16, r.y + i * 14), 12, T.GOLD, align="right")
+                T.text(surf, riga, (r.right - 16, r.y + i * passo), 12, T.GOLD,
+                       align="right")
             manca = [engineering.AREAS[a].lower() for a, _v in top if prof.get(a, 50) < 55]
             if manca:
                 T.text(surf, "e noi siamo indietro su " + ", ".join(manca),
-                       (r.right - 16, r.y + len(righe[:2]) * 14), 11, T.WARN,
+                       (r.right - 16, r.y + len(righe[:2]) * passo), 11, T.WARN,
                        align="right", maxw=largo)
         cols, ch = self.COLS, self.CARD_H
         top = r.y + self.TOP
@@ -783,7 +800,11 @@ class CalendarPage(Page):
                    (rect.x + 12, rect.bottom - 26), 11, T.DIM_2,
                    maxw=rect.w - 24 - (86 if done else (62 if in_scadenza else 0)))
             if getattr(t, "tradition", 0) >= 0.85:
-                T.text(surf, "STORICO", (rect.x + 12, rect.y + 8 + 14), 10, T.GOLD, bold=True)
+                # sotto il numero della gara, una riga intera piu' giu': a 14
+                # pixel fissi finiva dentro il numero, che si disegna a 14 di
+                # corpo e non a 13. Cosi' sta anche alla pari con SPRINT
+                T.text(surf, "STORICO", (rect.x + 12, rect.y + 8 + T.line_h(13, True)),
+                       10, T.GOLD, bold=True)
             if in_scadenza:
                 T.text(surf, f"fino {scade}", (rect.right - 12, rect.bottom - 26), 11, col,
                        align="right")
@@ -1070,7 +1091,10 @@ class HistoryPage(Page):
                T.DIM_2, bold=True)
         y = right.y + 44
         if not gs.season_history:
+            # e' una riga come le altre: senza il suo passo il titolo di sotto
+            # le stava attaccato
             T.text(surf, "Nessuna stagione completata.", (right.x + 16, y), 13, T.DIM)
+            y += 26
         for h in reversed(gs.season_history):
             T.text(surf, str(h["season"]), (right.x + 16, y), 15, T.GOLD, bold=True)
             T.text(surf, h["driver_champion"], (right.x + 76, y), 14, T.TEXT, maxw=180)

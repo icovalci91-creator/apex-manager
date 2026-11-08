@@ -207,6 +207,22 @@ def _ink(y: float) -> None:
         _INK[0] = y
 
 
+class fuori_conto:
+    """`with T.fuori_conto():` - quello che si disegna dentro non sposta il
+    fondo della pagina. Serve alle liste che scorrono: le righe che il loro
+    riquadro taglia non si vedono, e non devono allungare la pagina. Contate,
+    lasciavano sotto ai pannelli una striscia vuota da scorrere."""
+
+    def __enter__(self):
+        self._prima = _INK_ON[0]
+        _INK_ON[0] = False
+        return self
+
+    def __exit__(self, *_a):
+        _INK_ON[0] = self._prima
+        return False
+
+
 def text(surf, s: str, pos, size: int = 16, colour=TEXT, bold: bool = False,
          mono: bool = False, align: str = "left", maxw: int | None = None):
     f = font(size, bold, mono)
@@ -307,7 +323,14 @@ INTERLINEA = 1.16
 
 def line_h(size: int, bold: bool = False) -> int:
     """Altezza di una riga di testo, interlinea compresa."""
-    return int(round(size * INTERLINEA))
+    # Il quinto in piu' si prende sul corpo che si disegna davvero, non su
+    # quello chiesto. Quando i corpi piccoli sono cresciuti (_CORPO) il passo e'
+    # rimasto sul numero chiesto: una scritta da 13 si disegnava a 14 con le
+    # righe ogni 15 pixel, una da 9 a 11 con le righe ogni 10, e le righe di
+    # un paragrafo finivano una addosso all'altra. I titoli, che si disegnano
+    # piu' piccoli di come si chiedono, tengono il passo di prima.
+    vero = _faccia(size, bold, False)[1]
+    return int(round(max(size, vero) * INTERLINEA))
 
 
 # Quanto si schiarisce il bordo superiore di un pannello. E' poco, ed e' il

@@ -459,18 +459,24 @@ class ScrollList(Widget):
             self.draw_header(surf, pygame.Rect(self.rect.x, self.rect.y, self.rect.w, self.header_h))
         body = self.body
         prev = surf.get_clip()
-        surf.set_clip(body)
+        # dentro il ritaglio che c'e' gia', non al suo posto: la pagina ritaglia
+        # quello che si vede, e una lista scorsa sopra il bordo della pagina si
+        # disegnava sopra l'intestazione e la barra in alto
+        surf.set_clip(body.clip(prev) if prev else body)
         first = max(0, int(self.offset // self.row_h))
         last = min(len(self.items), first + body.h // self.row_h + 2)
-        for i in range(first, last):
-            y = body.y + i * self.row_h - self.offset
-            r = pygame.Rect(body.x, int(y), body.w, self.row_h)
-            if i == self.selected:
-                T.panel(surf, r.inflate(-4, -3), T.PANEL_3, radius=6)
-            elif i == self.hover_idx:
-                T.panel(surf, r.inflate(-4, -3), T.PANEL_2, radius=6)
-            if self.draw_row:
-                self.draw_row(surf, r, i, self.items[i])
+        # dove finisce la lista lo dice il suo riquadro, non le righe che ci
+        # stanno sotto tagliate
+        with T.fuori_conto():
+            for i in range(first, last):
+                y = body.y + i * self.row_h - self.offset
+                r = pygame.Rect(body.x, int(y), body.w, self.row_h)
+                if i == self.selected:
+                    T.panel(surf, r.inflate(-4, -3), T.PANEL_3, radius=6)
+                elif i == self.hover_idx:
+                    T.panel(surf, r.inflate(-4, -3), T.PANEL_2, radius=6)
+                if self.draw_row:
+                    self.draw_row(surf, r, i, self.items[i])
         surf.set_clip(prev)
         if self.max_offset > 0:
             h = max(24, int(body.h * body.h / (len(self.items) * self.row_h)))
@@ -623,13 +629,18 @@ class TextInput(Widget):
 
 
 def stat_row(surf, rect, label, value, maxv=100.0, colour=None, suffix="",
-             show_bar=True, riferimento=None):
-    """Una riga etichetta-barra-numero. `riferimento` mette la tacca della media."""
-    T.text(surf, label, (rect.x, rect.centery - 9), 14, T.DIM)
+             show_bar=True, riferimento=None, colonna: int = 168):
+    """Una riga etichetta-barra-numero. `riferimento` mette la tacca della media,
+    `colonna` e' quanto spazio ha l'etichetta prima della barra."""
+    # L'etichetta non passa mai sotto la barra. La colonna era fissa a 168
+    # pixel, misurata col carattere stretto di prima: con Nunito "Trazione e
+    # grip meccanico" ne prende 183 e finiva sopra la barra. Chi ha etichette
+    # lunghe allarga la colonna; quello che non ci sta comunque si taglia.
+    T.text(surf, label, (rect.x, rect.centery - 9), 14, T.DIM, maxw=colonna - 8)
     col = colour or T.stat_colour(value)
     if show_bar:
-        T.bar(surf, (rect.x + 168, rect.centery - 5, rect.w - 240, 10), value, maxv,
-              col, riferimento=riferimento)
+        T.bar(surf, (rect.x + colonna, rect.centery - 5, rect.w - colonna - 72, 10),
+              value, maxv, col, riferimento=riferimento)
     T.text(surf, f"{value:.0f}{suffix}", (rect.right, rect.centery - 9), 15, col,
            bold=True, align="right")
 

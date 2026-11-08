@@ -10,6 +10,16 @@ from ..scenes.shell import Page
 from ..widgets import Button, ScrollList, Slider, card
 
 
+# Le due note in fondo al pannello: servono a scriverle e, prima, a misurarle.
+NOTA_COLLETTIVE = ("Si gira con la macchina di quest'anno, l'unica volta in "
+                   "tutto l'anno: e' li' che si capisce com'e' fatta. Non "
+                   "tolgono giornate di test privati.")
+NOTA_REGOLE = ("Il regolamento vieta di provare con la vettura dell'anno: "
+               "si gira con monoposto di due stagioni fa. Serve ai piloti e "
+               "alla correlazione, non a rendere piu' veloce la macchina di "
+               "adesso.")
+
+
 class TestingPage(Page):
     def __init__(self, shell):
         super().__init__(shell)
@@ -19,15 +29,68 @@ class TestingPage(Page):
         self.days = 2
 
     # ------------------------------------------------------------ costruzione
-    def build(self) -> None:
+    def _pannelli(self) -> tuple:
+        """I due pannelli, alti quanto la finestra o quanto serve a destra."""
         r = self.rect
-        self.widgets = []
         left = pygame.Rect(r.x, r.y + 96, r.w * 0.42, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
+        self.q = self._quote(right.w - 32)
+        left.h = right.h = max(right.h, self.q["alto"])
+        return left, right
+
+    def _quote(self, larga: int) -> dict:
+        """Dove cade ogni blocco del pannello di destra, dal suo bordo alto.
+
+        Erano quote fisse, e ognuna dava per scontato quanto fosse alto il
+        blocco sopra: la descrizione del programma andava a due righe e CHI
+        MANDIAMO finiva dentro la lista dei piloti; il motivo per cui non si
+        puo' girare si scriveva sopra il nome del circuito; e su una finestra
+        bassa tutto usciva dal pannello. Qui ogni blocco parte da dove finisce
+        quello sopra, e la stessa misura serve ai comandi e alle scritte.
+        """
+        q = {}
+        # la descrizione cambia col programma senza rifare la pagina: si tiene
+        # il posto della piu' lunga, cosi' sotto non si muove niente
+        righe = max(len(T.wrap(m["desc"], 13, larga)) for m in TT.PROGRAMMI.values())
+        y = 106 + righe * T.line_h(13) + 8
+        q["chi"] = y
+        y += 22
+        q["piloti"] = y
+        y += 122 + 16
+        q["giornate"] = y
+        y += 36
+        q["manda"] = y
+        y += 40 + 16
+        q["conto"] = y
+        # il conto, le sue tre voci, "e' casa nostra" e il motivo per cui non
+        # si puo' girare hanno ognuno la sua riga, anche quando sono vuote:
+        # cambiano scegliendo la pista, e la pagina non si rifa' per questo
+        y += 20 + 18 + 18
+        q["perche"] = y
+        y += T.line_h(13) + 8
+        q["mappa"] = y
+        y += 150 + 10
+        q["dopo"] = y
+        if self.gs.phase == "preseason":
+            blocco = 20
+            for ses in TT.preseason_sessions(self.gs):
+                blocco += len(T.wrap(f"{ses['track'].name}: {ses['days']} giorni, "
+                                     f"00.00 M$  gia' fatte", 12, larga)) * T.line_h(12)
+            blocco += 6 + 44 + len(T.wrap(NOTA_COLLETTIVE, 12, larga)) * T.line_h(12)
+        else:
+            blocco = len(T.wrap(NOTA_REGOLE, 12, larga)) * T.line_h(12)
+        q["blocco"] = blocco
+        q["alto"] = y + blocco + 14
+        return q
+
+    def build(self) -> None:
+        self.widgets = []
+        left, right = self._pannelli()
+        q = self.q
         self.piste = ScrollList((left.x + 12, left.y + 40, left.w - 24, left.h - 56),
                                 row_h=34, draw_row=self._row_track, on_select=self._pick_track)
         self.widgets.append(self.piste)
 
-        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
         self.prog_buttons = []
         bw = (right.w - 44) / 2
         for i, (key, meta) in enumerate(TT.PROGRAMMI.items()):
@@ -38,15 +101,16 @@ class TestingPage(Page):
             self.widgets.append(b)
         self._mark_prog()
 
-        self.piloti = ScrollList((right.x + 16, right.y + 154, right.w - 32, 122),
+        self.piloti = ScrollList((right.x + 16, right.y + q["piloti"], right.w - 32, 122),
                                  row_h=30, draw_row=self._row_driver, on_select=self._pick_driver)
         self.widgets.append(self.piloti)
 
-        self.s_days = Slider((right.x + 16, right.y + 292, right.w - 32, 28), "Giornate",
-                             self.days, 1, max(1, TT.days_left(self.gs, self.team)),
+        self.s_days = Slider((right.x + 16, right.y + q["giornate"], right.w - 32, 28),
+                             "Giornate", self.days, 1,
+                             max(1, TT.days_left(self.gs, self.team)),
                              on_change=self._set_days, fmt="{:.0f}")
         self.widgets.append(self.s_days)
-        self.widgets.append(Button((right.x + 16, right.y + 328, 250, 40),
+        self.widgets.append(Button((right.x + 16, right.y + q["manda"], 250, 40),
                                    "Manda la squadra in pista", self.run, "primary"))
 
         # prove collettive: ci sono solo prima che cominci il campionato
@@ -171,31 +235,34 @@ class TestingPage(Page):
         card(surf, (r.x + 2 * (cw + 16), r.y, cw, 86), "Circuiti studiati",
              str(note), "assetto gia' nella finestra giusta", accent=T.OK)
 
-        left = pygame.Rect(r.x, r.y + 96, r.w * 0.42, r.h - 96)
+        left, right = self._pannelli()
+        q = self.q
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "DOVE GIRARE", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         T.text(surf, "costo per la sessione scelta", (left.right - 16, left.y + 12), 11,
                T.DIM_2, align="right")
 
-        right = pygame.Rect(r.x + r.w * 0.44, r.y + 96, r.w * 0.56 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "PROGRAMMA", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
         meta = TT.PROGRAMMI[self.programme]
         T.paragraph(surf, meta["desc"], (right.x + 16, right.y + 106), 13, T.DIM,
                     right.w - 32)
-        T.text(surf, "CHI MANDIAMO", (right.x + 16, right.y + 148), 12, T.DIM_2, bold=True)
+        T.text(surf, "CHI MANDIAMO", (right.x + 16, right.y + q["chi"]), 12, T.DIM_2,
+               bold=True)
         if self.programme != "giovani":
             T.text(surf, "(per questo programma il pilota conta poco)",
-                   (right.x + 150, right.y + 148), 11, T.DIM_2, maxw=right.w - 176)
+                   (right.x + 150, right.y + q["chi"]), 11, T.DIM_2,
+                   maxw=right.w - 176)
 
         if self.track:
             voci = TT.cost_breakdown(gs, team, self.track, self.programme, self.days)
             prezzo = sum(voci.values())
             ok, why = TT.can_run(gs, team, self.track, self.programme, self.days)
             casa = TT.is_home(team, self.track)
+            y = right.y + q["conto"]
             T.text(surf, f"{self.days} giornate a {self.track.name}: {prezzo:.2f} M$ "
                          f"dentro il tetto di spesa",
-                   (right.x + 16, right.y + 384), 14, T.TEXT, maxw=right.w - 32)
+                   (right.x + 16, y), 14, T.TEXT, maxw=right.w - 32)
             # le tre voci separate: i materiali sono uguali dappertutto, il
             # resto lo si paga solo andando a casa d'altri
             x = right.x + 16
@@ -203,32 +270,35 @@ class TestingPage(Page):
                                       ("trasferta", "trasferta")):
                 v = voci[chiave]
                 col = T.DIM_2 if v <= 0.001 else (T.TEXT if chiave == "materiali" else T.WARN)
-                T.text(surf, f"{etichetta} {v:.2f}", (x, right.y + 404), 12, col)
+                T.text(surf, f"{etichetta} {v:.2f}", (x, y + 20), 12, col)
                 x += 150
             if casa:
                 T.text(surf, "e' casa nostra: si paga solo quello che si consuma",
-                       (right.x + 16, right.y + 422), 12, T.OK, maxw=right.w - 32)
+                       (right.x + 16, y + 38), 12, T.OK, maxw=right.w - 32)
             if not ok:
-                T.text(surf, why, (right.x + 16, right.y + 440), 13, T.BAD,
+                T.text(surf, why, (right.x + 16, right.y + q["perche"]), 13, T.BAD,
                        maxw=right.w - 32)
+            y = right.y + q["mappa"]
             trackdraw.draw_minimap(surf, self.track,
-                                   (right.x + 16, right.y + 440, 210, 150),
+                                   (right.x + 16, y, 210, 150),
                                    colour=(58, 70, 92), width=3)
-            T.text(surf, self.track.name, (right.x + 244, right.y + 448), 16, T.TEXT,
+            T.text(surf, self.track.name, (right.x + 244, y + 8), 16, T.TEXT,
                    bold=True, maxw=right.w - 268)
             T.text(surf, f"{self.track.length_km:.3f} km - {self.track.country}",
-                   (right.x + 244, right.y + 470), 13, T.DIM)
+                   (right.x + 244, y + 30), 13, T.DIM)
             sapere = TT.setup_bonus(team, self.track)
             T.text(surf, f"conoscenza accumulata {sapere*100:.0f}%",
-                   (right.x + 244, right.y + 492), 13,
+                   (right.x + 244, y + 52), 13,
                    T.OK if sapere > 0.3 else T.DIM)
             if self.track not in gs.tracks:
                 T.text(surf, "fuori dal calendario: si gira e basta",
-                       (right.x + 244, right.y + 514), 12, T.DIM_2)
+                       (right.x + 244, y + 74), 12, T.DIM_2)
 
         # le prove collettive vengono dopo la scheda del circuito, non a una
-        # distanza fissa dal fondo: su una finestra bassa ci finivano sopra
-        py = max(right.y + 600 if self.track else right.y + 400, right.bottom - 190)
+        # distanza fissa dal fondo: su una finestra bassa ci finivano sopra.
+        # Su una finestra alta scendono in fondo, alte quanto sono davvero
+        py = max(right.y + (q["dopo"] if self.track else q["conto"]),
+                 right.bottom - 14 - q["blocco"])
         if gs.phase == "preseason" and getattr(self, "pre_buttons", None):
             T.text(surf, "PROVE COLLETTIVE DI INIZIO STAGIONE", (right.x + 16, py),
                    12, T.GOLD, bold=True)
@@ -243,15 +313,9 @@ class TestingPage(Page):
             for b, _ses, _f in self.pre_buttons:
                 b.rect.y = int(yy)
             yy += 44
-            T.paragraph(surf, "Si gira con la macchina di quest'anno, l'unica volta in "
-                              "tutto l'anno: e' li' che si capisce com'e' fatta. Non "
-                              "tolgono giornate di test privati.",
-                        (right.x + 16, yy), 12, T.DIM_2, right.w - 32)
+            T.paragraph(surf, NOTA_COLLETTIVE, (right.x + 16, yy), 12, T.DIM_2,
+                        right.w - 32)
         else:
-            T.paragraph(surf, "Il regolamento vieta di provare con la vettura dell'anno: "
-                              "si gira con monoposto di due stagioni fa. Serve ai piloti e "
-                              "alla correlazione, non a rendere piu' veloce la macchina di "
-                              "adesso.",
-                        (right.x + 16, max(py, right.bottom - 60)), 12, T.DIM_2,
+            T.paragraph(surf, NOTA_REGOLE, (right.x + 16, py), 12, T.DIM_2,
                         right.w - 32)
         super().draw(surf)

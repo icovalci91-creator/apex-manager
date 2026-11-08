@@ -10,6 +10,14 @@ from ..scenes.shell import Page
 from ..widgets import Button, Slider, card
 
 
+# Perche' l'organico si paga due volte: e' la nota in fondo al pannello del
+# reparto, e si manda a capo da sola sulla larghezza che c'e'.
+NOTA = ("Gli stipendi stanno dentro il tetto di spesa: ogni persona in piu' e' un "
+        "pezzo di aggiornamento in meno. Chi taglia risparmia subito e lo paga in "
+        "pista due anni dopo, che e' esattamente quello che e' successo a mezza "
+        "griglia quando il tetto e' arrivato.")
+
+
 class WorkforcePage(Page):
     def __init__(self, shell):
         super().__init__(shell)
@@ -113,21 +121,31 @@ class WorkforcePage(Page):
              DP.REPARTI[peggio]["label"], f"resa x{DP.size_factor(team, peggio):.2f}",
              accent=T.BAD if DP.size_factor(team, peggio) < 0.9 else T.OK)
 
+        meta = DP.REPARTI[self.area]
+        prezzo = DP.hire_cost(team, self.area, self.quanti)
+        annuo = self.quanti * meta["cost"]
+        ok, why = DP.can_hire(gs, team, self.area, self.quanti)
         left = pygame.Rect(r.x, r.y + 96, r.w * 0.56, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.58, r.y + 96, r.w * 0.42 - 4, r.h - 96)
+        # La nota in fondo sta sotto l'esito dell'assunzione, mai sopra. Era
+        # appesa al fondo del pannello, e su una finestra bassa il fondo saliva
+        # fino all'esito: le due cose si scrivevano una sopra l'altra. Adesso,
+        # quando non c'e' posto, sono i pannelli ad allungarsi e la pagina scorre
+        esito = (312 if not ok else 290) + T.font(13).get_height()
+        alto_nota = len(T.wrap(NOTA, 12, right.w - 32)) * T.line_h(12)
+        alto = max(r.h - 96, esito + 12 + alto_nota + 14, self._alto_reparti())
+        left.h = right.h = alto
+
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "I REPARTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         T.text(surf, "la tacca e' la dimensione di una squadra di vertice",
                (left.right - 16, left.y + 12), 11, T.DIM_2, align="right")
 
-        right = pygame.Rect(r.x + r.w * 0.58, r.y + 96, r.w * 0.42 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
-        meta = DP.REPARTI[self.area]
         T.text(surf, meta["label"].upper(), (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)
-        y = right.y + 36
-        for riga in _wrap(meta["desc"], 52):
-            T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
-            y += 17
+        T.paragraph(surf, meta["desc"], (right.x + 16, right.y + 36), 13, T.DIM,
+                    right.w - 32)
 
         capo = team.role(meta["boss"])
         T.text(surf, "Lo dirige", (right.x + 16, right.y + 96), 13, T.DIM)
@@ -142,9 +160,6 @@ class WorkforcePage(Page):
         T.text(surf, f"{meta['cost']:.3f} M$ all'anno",
                (right.right - 16, right.y + 140), 13, T.TEXT, bold=True, align="right")
 
-        prezzo = DP.hire_cost(team, self.area, self.quanti)
-        annuo = self.quanti * meta["cost"]
-        ok, why = DP.can_hire(gs, team, self.area, self.quanti)
         T.text(surf, f"Assumerne {self.quanti} costa {prezzo:.2f} M$ subito e "
                      f"{annuo:.1f} M$ all'anno.",
                (right.x + 16, right.y + 268), 13, T.TEXT, maxw=right.w - 32)
@@ -157,24 +172,11 @@ class WorkforcePage(Page):
         if not ok:
             T.text(surf, why, (right.x + 16, right.y + 312), 13, T.BAD, maxw=right.w - 32)
 
-        for i, riga in enumerate((
-                "Gli stipendi stanno dentro il tetto di spesa: ogni persona in",
-                "piu' e' un pezzo di aggiornamento in meno. Chi taglia risparmia",
-                "subito e lo paga in pista due anni dopo, che e' esattamente",
-                "quello che e' successo a mezza griglia quando il tetto e' arrivato.")):
-            T.text(surf, riga, (right.x + 16, right.bottom - 76 + i * 17), 12,
-                   T.DIM_2, maxw=right.w - 32)
+        T.paragraph(surf, NOTA, (right.x + 16, right.bottom - 14 - alto_nota), 12,
+                    T.DIM_2, right.w - 32)
         super().draw(surf)
 
-
-def _wrap(testo: str, n: int) -> list:
-    fuori, riga = [], ""
-    for parola in testo.split():
-        if len(riga) + len(parola) + 1 > n:
-            fuori.append(riga)
-            riga = parola
-        else:
-            riga = f"{riga} {parola}".strip()
-    if riga:
-        fuori.append(riga)
-    return fuori
+    def _alto_reparti(self) -> int:
+        """Quanto serve al pannello dei reparti: le schede sono pulsanti, e a
+        1180x680 l'ultima usciva dal fondo."""
+        return 46 + len(DP.REPARTI) * 68 + 6

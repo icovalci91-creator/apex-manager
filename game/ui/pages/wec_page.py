@@ -18,7 +18,27 @@ from ..scenes.shell import Page
 from ..widgets import Button, Slider, card
 
 
+# Il testo dell'invito: serve a scriverlo e, prima, a misurarlo.
+INVITO = ("L'endurance non ha un tetto di spesa: ha un mercato, e i numeri "
+          "sono grossi in tutte e due le direzioni. Un programma Hypercar "
+          "che vince Le Mans firma contratti che ripagano i quaranta "
+          "milioni e avanza; uno che arriva quinto di classe li brucia "
+          "tutti. In LMGT3 si rischia un quinto e si impara la meta'.")
+NOTA_CLASSIFICA = ("Le gare lunghe - Le Mans, il Bahrain, il Qatar - pagano una "
+                   "volta e mezza, ed e' li' che il mondiale si decide. Le "
+                   "ventiquattro ore contano il triplo in affidabilita': una "
+                   "macchina fragile non le finisce.")
+
+
 class WecPage(Page):
+    # Quanto deve essere alto il pannello del programma perche' le voci di spesa
+    # non finiscano sotto il pulsante di chiusura: manopole, spese, totale,
+    # sponsor e quello che torna in Formula 1 arrivano a 443 dall'alto, il
+    # pulsante ne prende 58 dal basso. Era alto quanto la finestra e basta, e a
+    # 1180x680 ne aveva 378
+    ALTO_PROGRAMMA = 514
+    RIGA_CLASSIFICA = 24
+
     def __init__(self, shell):
         super().__init__(shell)
         self.classe = "lmgt3"
@@ -29,16 +49,21 @@ class WecPage(Page):
         self.widgets = []
         self.left = pygame.Rect(r.x, r.y + 92, r.w * 0.50, r.h - 92)
         self.right = pygame.Rect(r.x + r.w * 0.52, r.y + 92, r.w * 0.48 - 4, r.h - 92)
+        # i due pannelli sono alti quanto la finestra, e di piu' quando quello
+        # che ci va dentro non ci sta: allora la pagina scorre
+        alto = max(self.left.h, self._alto_sinistra(), self._alto_destra())
+        self.left.h = self.right.h = alto
         team = self.team
         if not WEC.ha(team):
+            q = self._invito_quote()
             larg = (self.left.w - 44) / 2
             for i, cl in enumerate(WEC.classi()):
-                b = Button((self.left.x + 16 + i * (larg + 12), self.left.y + 210,
+                b = Button((self.left.x + 16 + i * (larg + 12), q["classi"],
                             larg, 30), WEC.scheda(cl).get("nome", cl).upper(),
                            (lambda k=cl: self.scegli(k)), "tab")
                 b.active = (self.classe == cl)
                 self.widgets.append(b)
-            b = Button((self.left.x + 16, self.left.y + 252, self.left.w - 32, 44),
+            b = Button((self.left.x + 16, q["iscrivi"], self.left.w - 32, 44),
                        f"ISCRIVI LA SQUADRA ({WEC.costo_ingresso(team, self.classe):.0f} M$)",
                        self.apri, "primary")
             b.enabled = WEC.puo_aprire(self.gs, team, self.classe)[0]
@@ -59,6 +84,48 @@ class WecPage(Page):
         self.widgets.append(Button((self.left.x + 16, self.left.bottom - 58,
                                     self.left.w - 32, 40),
                                    "Chiudi il programma", self.chiudi, "danger"))
+
+    # ------------------------------------------------------------------ misure
+    def _invito_quote(self) -> dict:
+        """Dove cade ogni pezzo dell'invito, misurato sul testo vero.
+
+        A quote fisse la nota della classe - tre righe a 1180 - arrivava fino
+        ai pulsanti delle classi. Le stesse quote servono a build() per i
+        comandi e a draw() per le scritte.
+        """
+        c = self.left
+        larga = c.w - 32
+        y = c.y + 44 + len(T.wrap(INVITO, 13, larga)) * T.line_h(13) + 16
+        q = {"nome": y}
+        y += 20
+        q["nota"] = y
+        nota = WEC.scheda(self.classe).get("nota", "")
+        y += len(T.wrap(nota, 12, larga)) * T.line_h(12) + 14
+        q["classi"] = y
+        y += 30 + 12
+        q["iscrivi"] = y
+        y += 44 + 14
+        q["perche"] = y
+        _ok, perche = WEC.puo_aprire(self.gs, self.team, self.classe)
+        q["fondo"] = y + len(T.wrap(perche, 13, larga)) * T.line_h(13) + 16
+        return q
+
+    def _alto_sinistra(self) -> int:
+        if not WEC.ha(self.team):
+            return self._invito_quote()["fondo"] - self.left.y
+        return self.ALTO_PROGRAMMA
+
+    def _alto_destra(self) -> int:
+        larga = self.right.w - 32
+        if WEC.ha(self.team):
+            n = len(WEC.classifica(self.gs, WEC.classe(self.team)))
+            return (44 + n * self.RIGA_CLASSIFICA + 12
+                    + len(T.wrap(NOTA_CLASSIFICA, 12, larga)) * T.line_h(12) + 14)
+        y = 44
+        for _cl in WEC.classi():
+            y += 20 + 4 * 18 + 10
+        nota = str((WEC.corrente().get("resa", {}) or {}).get("_nota", ""))
+        return y + 28 + len(T.wrap(nota, 12, larga)) * T.line_h(12) + 14
 
     # ------------------------------------------------------------------ azioni
     def scegli(self, cl: str) -> None:
@@ -105,21 +172,16 @@ class WecPage(Page):
     def _invito(self, surf, c) -> None:
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "NON SIAMO ISCRITTI", (c.x + 16, c.y + 14), 15, T.TEXT, bold=True)
-        T.paragraph(surf,
-                    "L'endurance non ha un tetto di spesa: ha un mercato, e i numeri "
-                    "sono grossi in tutte e due le direzioni. Un programma Hypercar "
-                    "che vince Le Mans firma contratti che ripagano i quaranta "
-                    "milioni e avanza; uno che arriva quinto di classe li brucia "
-                    "tutti. In LMGT3 si rischia un quinto e si impara la meta'.",
-                    (c.x + 16, c.y + 44), 13, T.DIM, maxw=c.w - 32)
+        T.paragraph(surf, INVITO, (c.x + 16, c.y + 44), 13, T.DIM, maxw=c.w - 32)
         s = WEC.scheda(self.classe)
         ok, perche = WEC.puo_aprire(self.gs, self.team, self.classe)
-        T.text(surf, s.get("nome", "").upper(), (c.x + 16, c.y + 140), 14, T.ACCENT,
+        q = self._invito_quote()
+        T.text(surf, s.get("nome", "").upper(), (c.x + 16, q["nome"]), 14, T.ACCENT,
                bold=True)
-        T.paragraph(surf, s.get("nota", ""), (c.x + 16, c.y + 160), 12, T.DIM,
+        T.paragraph(surf, s.get("nota", ""), (c.x + 16, q["nota"]), 12, T.DIM,
                     maxw=c.w - 32)
-        T.text(surf, perche, (c.x + 16, c.y + 310), 13, T.OK if ok else T.BAD,
-               maxw=c.w - 32)
+        T.paragraph(surf, perche, (c.x + 16, q["perche"]), 13, T.OK if ok else T.BAD,
+                    maxw=c.w - 32)
 
     def _classi(self, surf, c) -> None:
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
@@ -216,7 +278,7 @@ class WecPage(Page):
                (c.right - 16, c.y + 14), 12, T.DIM_2, align="right")
         righe = WEC.classifica(gs, cl)
         y = c.y + 44
-        rh = min(24, (c.h - 140) / max(1, len(righe)))
+        rh = self.RIGA_CLASSIFICA
         for i, (r, punti, vitt) in enumerate(righe, 1):
             mio = r.get("team_id") == team.id
             if mio:
@@ -231,9 +293,8 @@ class WecPage(Page):
             T.text(surf, f"{punti:.0f}", (c.right - 16, y), 12, col, mono=True,
                    align="right", bold=mio)
             y += rh
-        T.paragraph(surf,
-                    "Le gare lunghe - Le Mans, il Bahrain, il Qatar - pagano una "
-                    "volta e mezza, ed e' li' che il mondiale si decide. Le "
-                    "ventiquattro ore contano il triplo in affidabilita': una "
-                    "macchina fragile non le finisce.",
-                    (c.x + 16, c.bottom - 72), 12, T.DIM_2, maxw=c.w - 32)
+        # in fondo al pannello, alta quanto e' davvero: a 72 pixel fissi dal
+        # fondo una quarta riga sarebbe uscita dal pannello
+        alta = len(T.wrap(NOTA_CLASSIFICA, 12, c.w - 32)) * T.line_h(12)
+        T.paragraph(surf, NOTA_CLASSIFICA, (c.x + 16, c.bottom - 14 - alta), 12,
+                    T.DIM_2, maxw=c.w - 32)

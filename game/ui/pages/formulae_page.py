@@ -17,7 +17,37 @@ from ..scenes.shell import Page
 from ..widgets import Button, Slider, Tabs, Toggle, card
 
 
+# I due testi dell'invito: servono a scriverli e, prima, a misurarli.
+INVITO = ("Iscriversi vuol dire comprare due monoposto, aprire una sede e "
+          "trovare la gente. Il costo grosso pero' non e' quello: e' tenerlo "
+          "aperto ogni anno. Il tetto della serie e' un decimo di quello della "
+          "Formula 1, stipendi dei piloti compresi, e chi non vince quei soldi "
+          "non li rivede.")
+SCONTO = ("Sei un costruttore: la casa madre ci mette la sua parte "
+          "sull'ingresso, e il consiglio lo vuole.")
+
+
 class FormulaEPage(Page):
+    # Quanto devono essere alti i pannelli, al minimo, perche' niente si scriva
+    # sopra nient'altro. Erano alti quanto la finestra e basta: a 1180x680 le
+    # voci di spesa del programma finivano sotto i pulsanti, la classifica si
+    # stringeva fino a righe di nove pixel e il regolamento usciva dal suo
+    # pannello. Adesso, quando il contenuto non ci sta, i pannelli crescono e
+    # la pagina scorre.
+    #   programma: schede, manopole, spese, totale e sponsor arrivano a 344
+    #              dall'alto; chi guida, sedili e pulsanti prendono 128 dal basso
+    #   sedili:    il conto del tetto arriva a 308, poi c'e' CORRI che ne prende 58
+    ALTO_PROGRAMMA = 482
+    ALTO_SEDILI = 378
+    # la scheda di ogni sedile: la scritta in alto, il nome e i numeri, ognuno
+    # al suo passo. Era alta 54 e i numeri ne uscivano dal fondo
+    ALTO_SEDILE = 60
+    # sotto la classifica dei piloti: i costruttori (titolo e quattro righe) e
+    # il pulsante della gara, che prima ci stava sopra
+    SOTTO_MONDIALE = 160
+    RIGA_CLASSIFICA = 21
+    RIGA_CALENDARIO = 20
+
     def __init__(self, shell):
         super().__init__(shell)
         self.tab = 0     # 0 = il programma, 1 = il mondiale
@@ -26,20 +56,28 @@ class FormulaEPage(Page):
     def build(self) -> None:
         r = self.rect
         self.widgets = []
+        self.b_costruttore = None
         # sotto l'intestazione ci va la riga delle linguette, e i pannelli
         # cominciano sotto di quella: prima le linguette finivano sopra al
         # testo di apertura e non si leggeva ne' l'uno ne' le altre
         self.left = pygame.Rect(r.x, r.y + 124, r.w * 0.50, r.h - 124)
         self.right = pygame.Rect(r.x + r.w * 0.52, r.y + 124, r.w * 0.48 - 4, r.h - 124)
+        alto = max(self.left.h, self._alto_sinistra(), self._alto_destra())
+        self.left.h = self.right.h = alto
         team = self.team
         if not FE.ha(team):
-            b = Button((self.left.x + 16, self.left.y + 250, self.left.w - 32, 44),
+            q = self._invito_quote()
+            b = Button((self.left.x + 16, q["iscrivi"], self.left.w - 32, 44),
                        f"Iscrivi la squadra ({FE.costo_ingresso(team):.0f} M$)",
                        self.apri, "primary")
             ok, _ = FE.puo_aprire(self.gs, team)
             b.enabled = ok
             self.widgets.append(b)
-            self.costruttore = Toggle((self.left.x + 16, self.left.y + 204, 24, 24),
+            # largo quanto il pannello, come gli altri interruttori del gioco:
+            # l'etichetta a sinistra e la manopola a destra. Largo 24 pixel, la
+            # manopola usciva a sinistra sopra il bordo del pannello
+            self.costruttore = Toggle((self.left.x + 16, q["interruttore"],
+                                       self.left.w - 32, 28),
                                       "Propulsore costruito in casa",
                                       value=False)
             self.widgets.append(self.costruttore)
@@ -80,14 +118,16 @@ class FormulaEPage(Page):
         # reparto propulsori anche a programma avviato, e quando e' pronto
         # farlo debuttare - due momenti separati, come in Formula 1
         if FE.puo_diventare_costruttore(self.gs, team)[0]:
-            self.widgets.append(Button(
+            self.b_costruttore = Button(
                 (self.left.right - 216, self.left.y + 22, 200, 28),
                 f"Diventa costruttore ({FE.CONVERSIONE_COSTRUTTORE_COSTO:.0f} M$)",
-                self.avvia_costruttore, "normal"))
+                self.avvia_costruttore, "normal")
+            self.widgets.append(self.b_costruttore)
         elif FE.costruttore_pronto(self.gs, team):
-            self.widgets.append(Button(
+            self.b_costruttore = Button(
                 (self.left.right - 216, self.left.y + 22, 200, 28),
-                "Debutta il motore nostro", self.debutta_costruttore, "primary"))
+                "Debutta il motore nostro", self.debutta_costruttore, "primary")
+            self.widgets.append(self.b_costruttore)
         # i due sedili: chi ci mettiamo. Un professionista della serie fa il suo
         # e non cresce; un ragazzo del vivaio costa risultati e cresce davvero
         y = self.left.bottom - 108
@@ -101,6 +141,49 @@ class FormulaEPage(Page):
         self.widgets.append(Button((self.left.x + 28 + larg2, self.left.bottom - 58,
                                     larg2, 40),
                                    "Chiudi il programma", self.chiudi, "danger"))
+
+    def _alto_sinistra(self) -> int:
+        """Quanto serve al pannello di sinistra per la scheda che si vede."""
+        if not FE.ha(self.team):
+            return self._invito_quote()["fondo"] - self.left.y
+        if self.tab == 1:
+            return self.ALTO_SEDILI
+        if self.tab == 2:
+            n = len(FE.classifica(self.gs, self.team))
+            return 38 + n * self.RIGA_CLASSIFICA + 10 + self.SOTTO_MONDIALE
+        return self.ALTO_PROGRAMMA
+
+    def _alto_destra(self) -> int:
+        """Quanto serve al pannello di destra per la scheda che si vede."""
+        if not FE.ha(self.team) or self.tab == 0:
+            return self._alto_regolamento(self.right.w)
+        if self.tab == 1:
+            return 50 + 9 * 26 + 34
+        cal = FE.stato(self.gs, self.team).get("calendario") or []
+        return 38 + len(cal) * self.RIGA_CALENDARIO + 36
+
+    def _invito_quote(self) -> dict:
+        """Dove cade ogni pezzo dell'invito, misurato sul testo vero.
+
+        A quote fisse il paragrafo d'apertura - cinque righe a 1180 - arrivava
+        addosso al perche', e la seconda riga del costruttore finiva sopra
+        all'interruttore. Le stesse quote servono a build() per i comandi e a
+        draw() per le scritte, cosi' non possono andare ognuno per conto suo.
+        """
+        c = self.left
+        larga = c.w - 32
+        y = c.y + 44 + len(T.wrap(INVITO, 13, larga)) * T.line_h(13) + 14
+        q = {"perche": y}
+        _ok, perche = FE.puo_aprire(self.gs, self.team)
+        y += len(T.wrap(perche, 13, larga)) * T.line_h(13) + 10
+        if getattr(self.team, "proprieta", "") == "costruttore":
+            q["sconto"] = y
+            y += len(T.wrap(SCONTO, 12, larga)) * T.line_h(12) + 10
+        q["interruttore"] = y
+        y += 28 + 18
+        q["iscrivi"] = y
+        q["fondo"] = y + 44 + 16
+        return q
 
     def _build_corri(self, larg: float = 0.0) -> None:
         larg = larg or (self.left.w - 32)
@@ -233,32 +316,31 @@ class FormulaEPage(Page):
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "NON SIAMO ISCRITTI", (c.x + 16, c.y + 14), 15, T.TEXT, bold=True)
         ok, perche = FE.puo_aprire(self.gs, self.team)
-        T.paragraph(surf,
-                    "Iscriversi vuol dire comprare due monoposto, aprire una sede e "
-                    "trovare la gente. Il costo grosso pero' non e' quello: e' tenerlo "
-                    "aperto ogni anno. Il tetto della serie e' un decimo di quello della "
-                    "Formula 1, stipendi dei piloti compresi, e chi non vince quei soldi "
-                    "non li rivede.",
-                    (c.x + 16, c.y + 44), 13, T.DIM, maxw=c.w - 32)
-        T.text(surf, perche, (c.x + 16, c.y + 160), 13,
-               T.OK if ok else T.BAD, maxw=c.w - 32)
-        sconto = getattr(self.team, "proprieta", "") == "costruttore"
-        if sconto:
-            T.paragraph(surf, "Sei un costruttore: la casa madre ci mette la sua parte "
-                              "sull'ingresso, e il consiglio lo vuole.",
-                        (c.x + 16, c.y + 182), 12, T.ACCENT, maxw=c.w - 32)
+        q = self._invito_quote()
+        T.paragraph(surf, INVITO, (c.x + 16, c.y + 44), 13, T.DIM, maxw=c.w - 32)
+        T.paragraph(surf, perche, (c.x + 16, q["perche"]), 13,
+                    T.OK if ok else T.BAD, maxw=c.w - 32)
+        if "sconto" in q:
+            T.paragraph(surf, SCONTO, (c.x + 16, q["sconto"]), 12, T.ACCENT,
+                        maxw=c.w - 32)
 
     def _programma(self, surf) -> None:
         c, team, gs = self.left, self.team, self.gs
         T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, team.fe_nome.upper(), (c.x + 16, c.y + 12), 16, T.TEXT, bold=True)
+        # il nome e il motore stanno a sinistra del pulsante del costruttore,
+        # quando c'e': "reparto in costruzione, pronto nel" accanto a "Debutta
+        # il motore nostro" gli finiva sotto
+        b = getattr(self, "b_costruttore", None)
+        largo = (b.rect.x - 8 if b is not None else c.right - 16) - (c.x + 16)
+        T.text(surf, team.fe_nome.upper(), (c.x + 16, c.y + 12), 16, T.TEXT, bold=True,
+               maxw=largo)
         if team.fe_costruttore:
             chi = "propulsore costruito in casa"
         elif FE.costruttore_in_arrivo(team):
             chi = f"propulsore cliente - reparto in costruzione, pronto nel {team.fe_costruttore_anno}"
         else:
             chi = "propulsore cliente"
-        T.text(surf, chi, (c.x + 16, c.y + 34), 12, T.DIM_2, maxw=c.w - 220)
+        T.text(surf, chi, (c.x + 16, c.y + 34), 12, T.DIM_2, maxw=largo)
         larg = (c.w - 44) / 3
         card(surf, (c.x + 16, c.y + 56, larg, 62), "PROGRAMMA",
              f"{FE.livello(team):.0f}", f"tetto {FE.muro(gs, team):.0f}")
@@ -349,7 +431,7 @@ class FormulaEPage(Page):
         larg = (self.left.w - 44) / 2
         for i in range(2):
             self.widgets.append(Button(
-                (self.left.x + 16 + i * (larg + 12), self.left.y + 150, larg, 32),
+                (self.left.x + 16 + i * (larg + 12), self._y_libera(), larg, 32),
                 "LIBERA IL SEDILE", (lambda k=i: self.libera(k)), "ghost"))
         self.sel_btn = []
         c = self.right
@@ -364,6 +446,10 @@ class FormulaEPage(Page):
                 self.widgets.append(b)
             y += 26
         self._build_corri()
+
+    def _y_libera(self) -> int:
+        """Dove stanno i pulsanti per liberare i sedili: sotto le due schede."""
+        return self.left.y + 90 + self.ALTO_SEDILE + 6
 
     def _costo_sedile(self, i: int) -> float:
         """Quanto costa adesso chi occupa quel sedile: liberandolo, si recupera."""
@@ -393,25 +479,31 @@ class FormulaEPage(Page):
                     (c.x + 16, c.y + 36), 12, T.DIM, maxw=c.w - 32)
         ids = list(getattr(team, "fe_piloti", []) or [])
         larg = (c.w - 44) / 2
+        # ogni riga della scheda scende del passo vero della riga sopra: a 16
+        # pixel fissi il nome, che si disegna a 15 di corpo, finiva addosso ai
+        # numeri sotto, e questi sul bordo della scheda
+        y_nome = 8 + T.line_h(11, True)
+        y_numeri = y_nome + T.line_h(14, True)
         for i in range(2):
-            r = pygame.Rect(c.x + 16 + i * (larg + 12), c.y + 90, larg, 54)
+            r = pygame.Rect(c.x + 16 + i * (larg + 12), c.y + 90, larg, self.ALTO_SEDILE)
             T.panel(surf, r, T.PANEL_2, radius=8, border=T.LINE)
             d = gs.drivers.get(ids[i] if i < len(ids) else "")
             T.text(surf, f"MACCHINA {i + 1}", (r.x + 12, r.y + 8), 11, T.DIM_2,
                    bold=True)
             if d is None:
-                T.text(surf, "professionista ingaggiato", (r.x + 12, r.y + 26), 13,
+                T.text(surf, "professionista ingaggiato", (r.x + 12, r.y + y_nome), 13,
                        T.DIM, maxw=r.w - 24)
                 continue
-            T.text(surf, d.name, (r.x + 12, r.y + 24), 14, T.TEXT, bold=True,
+            T.text(surf, d.name, (r.x + 12, r.y + y_nome), 14, T.TEXT, bold=True,
                    maxw=r.w - 24)
             casa = getattr(d, "seat", "") != "formulae"
             T.text(surf, f"{d.overall:.0f} di valore, {d.age} anni - "
                          + ("dal vivaio, non pesa sul tetto" if casa
                             else f"{d.salary:.2f} M$"),
-                   (r.x + 12, r.y + 40), 11, T.OK if casa else T.WARN, maxw=r.w - 24)
+                   (r.x + 12, r.y + y_numeri), 11, T.OK if casa else T.WARN,
+                   maxw=r.w - 24)
         # il conto del tetto, che e' la ragione per cui questa scelta esiste
-        y = c.y + 196
+        y = self._y_libera() + 32 + 14
         nel = FE.spesa_nel_tetto(gs, team)
         t = FE.tetto(gs)
         T.text(surf, "Ingaggi", (c.x + 16, y), 12, T.DIM_2)
@@ -447,8 +539,11 @@ class FormulaEPage(Page):
             T.text(surf, f"{d.age}", (c.right - 210, y + 1), 11, T.DIM_2)
             T.text(surf, f"{d.overall:.0f}", (c.right - 176, y), 12, T.DIM,
                    mono=True)
+            # allineato a destra, prima dei pulsanti M1 e M2: allineato a
+            # sinistra a 116 pixel dal bordo finiva sotto di loro, e dello
+            # stipendio si leggeva solo la prima cifra
             T.text(surf, f"{d.salary:.2f}", (c.right - 116, y), 12, T.WARN,
-                   mono=True)
+                   mono=True, align="right")
             y += 26
         T.text(surf, "eta' - valore - milioni a stagione", (c.x + 16, c.bottom - 26),
                11, T.DIM_2)
@@ -468,7 +563,7 @@ class FormulaEPage(Page):
                (c.right - 16, c.y + 14), 12, T.DIM_2, align="right")
         righe = FE.classifica(gs, team)
         y = c.y + 38
-        rh = min(21, (c.h - 130) / max(1, len(righe)))
+        rh = self.RIGA_CLASSIFICA
         for i, (r, punti, vitt, podi) in enumerate(righe, 1):
             mio = r["squadra"] == team.fe_nome
             if mio:
@@ -484,8 +579,9 @@ class FormulaEPage(Page):
             T.text(surf, f"{punti:.0f}", (c.right - 16, y), 12, col, mono=True,
                    align="right", bold=mio)
             y += rh
-        # e i costruttori, che sono quelli che pagano
-        y = c.bottom - 96
+        # e i costruttori, che sono quelli che pagano: sopra il pulsante della
+        # gara, non sotto
+        y = c.bottom - self.SOTTO_MONDIALE
         T.text(surf, "COSTRUTTORI", (c.x + 16, y), 12, T.DIM_2, bold=True)
         y += 20
         for i, (nome, v) in enumerate(FE.classifica_squadre(gs, team)[:4], 1):
@@ -512,7 +608,7 @@ class FormulaEPage(Page):
         campo = {x["id"]: x for x in st.get("campo") or []}
         piste = {t.id: t for t in getattr(gs, "fe_tracks", []) or []}
         y = c.y + 38
-        rh = min(20, (c.h - 60) / max(1, len(cal)))
+        rh = self.RIGA_CALENDARIO
         for i, tid in enumerate(cal, 1):
             t = piste.get(tid)
             fatta = storia.get(i)
@@ -536,72 +632,82 @@ class FormulaEPage(Page):
         T.text(surf, "* corsa dal muretto", (c.x + 16, c.bottom - 26), 11, T.DIM_2)
 
     # ------------------------------------------------------------ il regolamento
-    def _regolamento(self, surf, c) -> None:
-        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+    def _testi_regolamento(self) -> tuple:
+        """Le voci del regolamento: le stesse servono a misurarlo e a scriverlo."""
         reg, tec = FE.corrente(), FE.tecnico()
-        T.text(surf, "IL REGOLAMENTO", (c.x + 16, c.y + 12), 15, T.TEXT, bold=True)
-        y = c.y + 40
-        for eti, val in (
-                ("Potenza in gara", f"{tec.get('potenza_gara_kw')} kW"),
-                ("Attack Mode", f"{tec.get('potenza_attack_kw')} kW"),
-                ("Recupero in frenata", f"{tec.get('recupero_max_kw')} kW"),
-                ("Batteria", f"{tec.get('batteria_kwh')} kWh"),
-                ("Peso minimo", f"{tec.get('peso_min_kg')} kg con pilota"),
-                ("Trazione", tec.get("trazione", "")),
-                ("Gomme", f"{(tec.get('gomme') or {}).get('fornitore','')} "
-                          f"{(tec.get('gomme') or {}).get('asciutto','')}")):
-            T.text(surf, eti, (c.x + 16, y), 12, T.DIM_2)
-            T.text(surf, str(val), (c.right - 16, y), 12, T.TEXT, align="right")
-            y += 19
-        y += 8
+        righe = (
+            ("Potenza in gara", f"{tec.get('potenza_gara_kw')} kW"),
+            ("Attack Mode", f"{tec.get('potenza_attack_kw')} kW"),
+            ("Recupero in frenata", f"{tec.get('recupero_max_kw')} kW"),
+            ("Batteria", f"{tec.get('batteria_kwh')} kWh"),
+            ("Peso minimo", f"{tec.get('peso_min_kg')} kg con pilota"),
+            ("Trazione", tec.get("trazione", "")),
+            ("Gomme", f"{(tec.get('gomme') or {}).get('fornitore','')} "
+                      f"{(tec.get('gomme') or {}).get('asciutto','')}"))
+        formati = []
         for chiave in ("eprix", "unleashed"):
             f = (reg.get("formati") or {}).get(chiave, {})
             if not f:
                 continue
             boost = "con Pit Boost" if f.get("pit_boost") else "senza sosta"
-            T.text(surf, f.get("nome", chiave), (c.x + 16, y), 13, T.ACCENT, bold=True)
-            T.text(surf, f"{f.get('durata_min')} min + 1 giro, {boost}",
-                   (c.right - 16, y), 12, T.TEXT, align="right")
-            y += 19
-        y += 8
+            formati.append((f.get("nome", chiave),
+                            f"{f.get('durata_min')} min + 1 giro, {boost}"))
         am = reg.get("attack_mode") or {}
         pb = reg.get("pit_boost") or {}
         en = reg.get("energia") or {}
-        T.text(surf, "ATTACK MODE", (c.x + 16, y), 12, T.GOLD, bold=True)
-        y += 17
-        T.paragraph(surf,
-                    f"{am.get('potenza_kw')} kW per {am.get('minuti_totali')} minuti in "
-                    f"tutto, in {'-'.join(str(x) for x in am.get('attivazioni', []))} "
-                    f"attivazioni decise dalla FIA un'ora prima. Si prende passando "
-                    f"fuori traiettoria: costa tempo subito per averne dopo. Vietato nei "
-                    f"primi {am.get('vietato_primi_giri')} giri e sotto neutralizzazione.",
-                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
-        y += 74
-        T.text(surf, "PIT BOOST", (c.x + 16, y), 12, T.GOLD, bold=True)
-        y += 17
-        T.paragraph(surf,
-                    f"Ricarica rapida obbligatoria nell'E-Prix: {pb.get('energia_kwh')} kWh "
-                    f"a {pb.get('potenza_ricarica_kw')} kW in {pb.get('durata_s')} secondi "
-                    f"fermi, e solo con la batteria fra il "
-                    f"{pb.get('carica_min', 0) * 100:.0f}% e il "
-                    f"{pb.get('carica_max', 0) * 100:.0f}%. Non e' una sosta che si "
-                    f"sceglie quando si vuole: e' una finestra, e ci si arriva gestendo.",
-                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
-        y += 74
-        T.text(surf, "NEUTRALIZZAZIONI", (c.x + 16, y), 12, T.GOLD, bold=True)
-        y += 17
-        T.paragraph(surf,
-                    f"Sotto safety car si toglie a tutti "
-                    f"{en.get('penale_neutralizzazione_kwh_min')} kWh al minuto. E' il "
-                    f"contrario della Formula 1: li' la neutralizzazione regala tempo, "
-                    f"qui toglie energia.",
-                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
-        y += 56
         q = reg.get("qualifica") or {}
-        T.text(surf, "QUALIFICA", (c.x + 16, y), 12, T.GOLD, bold=True)
-        y += 17
-        T.paragraph(surf,
-                    f"{q.get('gruppi')} gruppi, i primi {q.get('passano_per_gruppo')} di "
-                    f"ognuno passano ai duelli a eliminazione diretta. Dal 2026/27 "
-                    f"arrivare ai duelli da' punti iridati.",
-                    (c.x + 16, y), 12, T.DIM, maxw=c.w - 32)
+        blocchi = (
+            ("ATTACK MODE",
+             f"{am.get('potenza_kw')} kW per {am.get('minuti_totali')} minuti in "
+             f"tutto, in {'-'.join(str(x) for x in am.get('attivazioni', []))} "
+             f"attivazioni decise dalla FIA un'ora prima. Si prende passando "
+             f"fuori traiettoria: costa tempo subito per averne dopo. Vietato nei "
+             f"primi {am.get('vietato_primi_giri')} giri e sotto neutralizzazione."),
+            ("PIT BOOST",
+             f"Ricarica rapida obbligatoria nell'E-Prix: {pb.get('energia_kwh')} kWh "
+             f"a {pb.get('potenza_ricarica_kw')} kW in {pb.get('durata_s')} secondi "
+             f"fermi, e solo con la batteria fra il "
+             f"{pb.get('carica_min', 0) * 100:.0f}% e il "
+             f"{pb.get('carica_max', 0) * 100:.0f}%. Non e' una sosta che si "
+             f"sceglie quando si vuole: e' una finestra, e ci si arriva gestendo."),
+            ("NEUTRALIZZAZIONI",
+             f"Sotto safety car si toglie a tutti "
+             f"{en.get('penale_neutralizzazione_kwh_min')} kWh al minuto. E' il "
+             f"contrario della Formula 1: li' la neutralizzazione regala tempo, "
+             f"qui toglie energia."),
+            ("QUALIFICA",
+             f"{q.get('gruppi')} gruppi, i primi {q.get('passano_per_gruppo')} di "
+             f"ognuno passano ai duelli a eliminazione diretta. Dal 2026/27 "
+             f"arrivare ai duelli da' punti iridati."))
+        return righe, formati, blocchi
+
+    def _alto_regolamento(self, larga: int) -> int:
+        """Quanto e' alto il regolamento scritto in un pannello largo `larga`."""
+        righe, formati, blocchi = self._testi_regolamento()
+        alto = 40 + 19 * len(righe) + 8 + 19 * len(formati) + 8
+        for _titolo, testo in blocchi:
+            alto += 17 + len(T.wrap(testo, 12, larga - 32)) * T.line_h(12) + 12
+        return alto + 4
+
+    def _regolamento(self, surf, c) -> None:
+        T.panel(surf, c, T.PANEL, radius=10, border=T.LINE)
+        righe, formati, blocchi = self._testi_regolamento()
+        T.text(surf, "IL REGOLAMENTO", (c.x + 16, c.y + 12), 15, T.TEXT, bold=True)
+        y = c.y + 40
+        for eti, val in righe:
+            T.text(surf, eti, (c.x + 16, y), 12, T.DIM_2)
+            T.text(surf, str(val), (c.right - 16, y), 12, T.TEXT, align="right")
+            y += 19
+        y += 8
+        for nome, val in formati:
+            T.text(surf, nome, (c.x + 16, y), 13, T.ACCENT, bold=True)
+            T.text(surf, val, (c.right - 16, y), 12, T.TEXT, align="right")
+            y += 19
+        y += 8
+        # ogni paragrafo prende lo spazio che occupa davvero: a passo fisso il
+        # titolo dopo finiva dentro le ultime righe di quello prima, e su una
+        # finestra bassa l'ultimo usciva dal pannello
+        for titolo, testo in blocchi:
+            T.text(surf, titolo, (c.x + 16, y), 12, T.GOLD, bold=True)
+            y += 17
+            y += T.paragraph(surf, testo, (c.x + 16, y), 12, T.DIM, maxw=c.w - 32) + 12

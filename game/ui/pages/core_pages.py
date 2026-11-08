@@ -546,21 +546,23 @@ class CarPage(Page):
             T.text(surf, f"{kit.old_perf:.1f}  ->  {kit.perf:.1f}   ({kit.gain:+.1f})",
                    (px, self.car_rect.y + 132), 15, T.OK if kit.gain > 0 else T.BAD,
                    bold=True, maxw=pw)
-            T.paragraph(surf, f"esemplari integri {kit.ready} su 2, montati "
-                              f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12,
-                        T.DIM, pw)
+            alta = T.paragraph(surf, f"esemplari integri {kit.ready} su 2, montati "
+                                     f"{len(kit.fitted)}", (px, self.car_rect.y + 154), 12,
+                               T.DIM, pw)
+            # sotto gli esemplari, che con la scheda stretta vanno su due righe
+            ys = self.car_rect.y + 154 + max(18, alta)
             gare = max(0, kits.build_time(team, kit.size) - (gs.round - kit.round_ready))
             quando = "alla prossima gara" if gare <= 1 else f"fra {gare} gare"
             if kit.gain <= 0:
                 T.text(surf, "peggio della vecchia: non conviene montarla",
-                       (px, self.car_rect.y + 172), 12, T.BAD, maxw=pw)
+                       (px, ys), 12, T.BAD, maxw=pw)
             elif kit.spare <= 0 and len(kit.fitted) < 2:
                 T.text(surf, (f"il pezzo rifatto arriva {quando}" if danno
                               else f"il secondo esemplare esce {quando}"),
-                       (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
+                       (px, ys), 12, T.WARN, maxw=pw)
             elif len(kit.fitted) == 1:
                 T.text(surf, "una macchina aggiornata, l'altra no",
-                       (px, self.car_rect.y + 172), 12, T.WARN, maxw=pw)
+                       (px, ys), 12, T.WARN, maxw=pw)
         else:
             T.paragraph(surf, "Nessun pezzo nuovo in arrivo per questo componente: "
                               "si migliora con un pacchetto di sviluppo.",
@@ -571,11 +573,15 @@ class CarPage(Page):
         y += 22
         prof = engineering.car_profile(team, gs)
         tutte = engineering.grid_profiles(gs)
+        # la colonna delle etichette e' larga quanto la piu' lunga, cosi' le
+        # barre partono tutte dallo stesso punto e nessun nome ci finisce sopra
+        colonna = max(168, 12 + max(T.width(lab, 14)
+                                    for lab in engineering.AREAS.values()))
         for key, lab in engineering.AREAS.items():
             media = (sum(p[key] for p in tutte.values()) / max(1, len(tutte))
                      if tutte else None)
             stat_row(surf, pygame.Rect(left.x + 16, y, left.w - 32, 20), lab,
-                     prof[key], riferimento=media)
+                     prof[key], riferimento=media, colonna=colonna)
             y += 20
         y += 8
         cost = car.repair_cost()
@@ -1429,6 +1435,76 @@ class EngineersPage(Page):
         self._brief = engineering.briefing(self.gs)
         self._report = engineering.field_report(self.gs)
 
+    def _righe_progetto(self, larga: int) -> list:
+        """Le righe sopra ai cursori della vettura che verra', gia' messe in fila.
+
+        Ogni riga e' (pezzi a sinistra, pezzo a destra), e un pezzo e'
+        (testo, corpo, colore, grassetto). Quando c'e' larghezza sono tre righe,
+        ognuna con la sua nota a destra. A 1180 non ci stavano: la frase dei capi
+        e la fedelta' alla linea si scrivevano una sopra l'altra, e cosi' le
+        quote del budget e dove e' andato il lavoro. Allora la frase prende la
+        riga intera, fedelta' e lavoro fatto ne dividono una, e le quote vanno
+        sotto da sole - in breve, se nemmeno cosi' ci stanno.
+        """
+        gs, team = self.gs, self.team
+        f = nextcar.fidelity(team)
+        proj = nextcar.projection(gs, team)
+        atteso = nextcar.expected_gain(gs, team)
+        titolo = ((f"PROGETTO VETTURA {gs.season + 1}", 12, T.GOLD, True),
+                  (f"gia' in cassaforte: {atteso:+.1f} di media", 11,
+                   T.OK if atteso > 0.4 else T.DIM_2, False))
+        tp = team.role("team_principal")
+        td = team.role("technical_director")
+        col_f = T.OK if f > 0.75 else (T.WARN if f > 0.5 else T.BAD)
+        chi = f"{tp.last if tp else 'Il team principal'} e {td.last if td else 'il tecnico'}"
+        if f > 0.8:
+            frase = f"{chi}: quello che chiedi, il reparto lo fa."
+        elif f > 0.55:
+            frase = f"{chi}: la linea arriva, ma per strada si perde qualcosa."
+        else:
+            frase = f"{chi}: il reparto fa quello che gli riesce, non quello che chiedi."
+        frase = (frase, 12, col_f, False)
+        fedelta = (f"fedelta' alla linea {f*100:.0f}%", 11, col_f, False)
+        # e in chiaro, in milioni: dove va il budget del reparto. E' la riga che
+        # serve per decidere, perche' una percentuale non dice quanto si sta
+        # togliendo alla macchina con cui si corre domenica
+        quote = development.quote_sviluppo(gs, team)
+        budget = development.budget_headroom(gs, team)
+        parti = [("oggi", quote["oggi"], T.TEXT),
+                 (f"vettura {gs.season + 1}", quote["anno"], T.GOLD)]
+        if quote["ciclo"] > 0:
+            parti.append(("ciclo nuovo", quote["ciclo"], T.ACCENT))
+        pezzi = [(f"{eti} {q*100:.0f}% ({budget * q:.1f} M$/gara)", 11, col, True)
+                 for eti, q, col in parti]
+        # dove e' andato finora il lavoro: sulla stessa riga della ripartizione,
+        # a destra. Impilarlo sotto lo faceva finire sopra al primo cursore
+        forte = max(proj, key=proj.get) if proj else None
+        dove = ((f"finora su {nextcar.AREE[forte]['label'].lower()}"
+                 if forte and proj[forte] > 0.2 else "niente dirottato finora"),
+                11, T.DIM_2, False)
+
+        def largo(*roba) -> int:
+            return (sum(T.width(t, c, g) for t, c, _col, g in roba)
+                    + 14 * (len(roba) - 1))
+
+        if largo(*pezzi) > larga:
+            # i milioni restano, la percentuale si toglie: e' il numero che
+            # dice quanto si toglie alla macchina di domenica
+            pezzi = [(f"{eti} {budget * q:.1f} M$/gara", 11, col, True)
+                     for eti, q, col in parti]
+        righe = [([titolo[0]], titolo[1])]
+        if largo(frase) + 16 + largo(fedelta) <= larga:
+            righe.append(([frase], fedelta))
+            fedelta = None
+        else:
+            righe.append(([frase], None))
+        if fedelta is None and largo(*pezzi) + 16 + largo(dove) <= larga:
+            righe.append((pezzi, dove))
+        else:
+            righe.append(([fedelta] if fedelta else [], dove))
+            righe.append((pezzi, None))
+        return righe
+
     def draw(self, surf) -> None:
         r = self.rect
         if self._brief is None:
@@ -1440,13 +1516,20 @@ class EngineersPage(Page):
             return
         left = pygame.Rect(r.x, r.y + TESTA_TECNICA, r.w * 0.46, r.h - TESTA_TECNICA)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
-        T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12), 12,
-               T.DIM_2, bold=True)
+        titolo = T.text(surf, "RIUNIONE CON I RESPONSABILI", (left.x + 16, left.y + 12),
+                        12, T.DIM_2, bold=True)
         if self.team.auto_dev:
             parti = engineering.suggested_parts(self.gs, self.team, 3)
             nomi = ", ".join(C.CAR_PARTS[p]["label"].lower() for p in parti[:3])
+            # nello spazio che il titolo lascia: al 60% del pannello, a 1180 ci
+            # finiva sopra
             T.text(surf, f"lavorano da soli su {nomi}", (left.right - 16, left.y + 12),
-                   11, T.OK, align="right", maxw=left.w * 0.6)
+                   11, T.OK, align="right", maxw=left.right - 16 - (titolo.right + 12))
+        # il progetto della vettura che verra' si misura prima della riunione:
+        # quante righe prende dipende dalla larghezza, e la riunione si ferma
+        # dove comincia lui
+        righe_p = self._righe_progetto(left.w - 32)
+        ty = self.nc_y - 8 - 18 * len(righe_p)
         y = left.y + 40
         saltati = 0
         for speaker, line in self._brief:
@@ -1454,7 +1537,7 @@ class EngineersPage(Page):
             alto = 20 + len(righe) * 18 + 12
             # si guarda prima se ci sta tutto: sotto ci va il progetto della
             # macchina nuova, e mezza frase sopra il titolo non si legge
-            if y + alto > self.nc_y - 62:
+            if y + alto > ty:
                 saltati += 1
                 continue
             T.text(surf, speaker, (left.x + 16, y), 14, T.ACCENT, bold=True)
@@ -1463,55 +1546,22 @@ class EngineersPage(Page):
                 T.text(surf, riga, (left.x + 24, y), 13, T.TEXT)
                 y += 18
             y += 12
-        if saltati:
+        if saltati and y + T.line_h(11) <= ty:
             T.text(surf, f"e altri {saltati} interventi: la riunione e' lunga",
                    (left.x + 16, y), 11, T.DIM_2, maxw=left.w - 32)
 
         # --- il progetto della vettura dell'anno prossimo
-        gs, team = self.gs, self.team
-        f = nextcar.fidelity(team)
-        proj = nextcar.projection(gs, team)
-        atteso = nextcar.expected_gain(gs, team)
-        ty = self.nc_y - 62
-        T.text(surf, f"PROGETTO VETTURA {gs.season + 1}", (left.x + 16, ty), 12,
-               T.GOLD, bold=True)
-        T.text(surf, f"gia' in cassaforte: {atteso:+.1f} di media",
-               (left.right - 16, ty), 11,
-               T.OK if atteso > 0.4 else T.DIM_2, align="right")
-        tp = team.role("team_principal")
-        td = team.role("technical_director")
-        col_f = T.OK if f > 0.75 else (T.WARN if f > 0.5 else T.BAD)
-        chi = f"{tp.last if tp else 'Il team principal'} e {td.last if td else 'il tecnico'}"
-        if f > 0.8:
-            frase = f"{chi}: quello che chiedi, il reparto lo fa."
-        elif f > 0.55:
-            frase = f"{chi}: la linea arriva, ma per strada si perde qualcosa."
-        else:
-            frase = f"{chi}: il reparto fa quello che gli riesce, non quello che chiedi."
-        T.text(surf, frase, (left.x + 16, ty + 18), 12, col_f, maxw=left.w - 32)
-        T.text(surf, f"fedelta' alla linea {f*100:.0f}%", (left.right - 16, ty + 18), 11,
-               col_f, align="right")
-        # e in chiaro, in milioni: dove va il budget del reparto. E' la riga che
-        # serve per decidere, perche' una percentuale non dice quanto si sta
-        # togliendo alla macchina con cui si corre domenica
-        quote = development.quote_sviluppo(gs, team)
-        budget = development.budget_headroom(gs, team)
-        pezzi = [("oggi", quote["oggi"], T.TEXT),
-                 (f"vettura {gs.season + 1}", quote["anno"], T.GOLD)]
-        if quote["ciclo"] > 0:
-            pezzi.append(("ciclo nuovo", quote["ciclo"], T.ACCENT))
-        xq = left.x + 16
-        for etichetta, q, col in pezzi:
-            testo = f"{etichetta} {q*100:.0f}% ({budget * q:.1f} M$/gara)"
-            T.text(surf, testo, (xq, ty + 36), 11, col, bold=True)
-            xq += T.width(testo, 11) + 14
-        # dove e' andato finora il lavoro: sulla stessa riga della ripartizione,
-        # a destra. Impilarlo sotto lo faceva finire sopra al primo cursore
-        forte = max(proj, key=proj.get) if proj else None
-        dove = (f"finora su {nextcar.AREE[forte]['label'].lower()}"
-                if forte and proj[forte] > 0.2 else "niente dirottato finora")
-        T.text(surf, dove, (left.right - 16, ty + 36), 11, T.DIM_2, align="right",
-               maxw=left.w * 0.42)
+        for i, (sinistra, destra) in enumerate(righe_p):
+            ry = ty + 18 * i
+            xq = left.x + 16
+            for testo, corpo, col, grasso in sinistra:
+                T.text(surf, testo, (xq, ry), corpo, col, bold=grasso,
+                       maxw=left.right - 16 - xq)
+                xq += T.width(testo, corpo, grasso) + 14
+            if destra:
+                testo, corpo, col, grasso = destra
+                T.text(surf, testo, (left.right - 16, ry), corpo, col, bold=grasso,
+                       align="right", maxw=left.right - 16 - (xq + 2))
 
         right = pygame.Rect(r.x + r.w * 0.48, r.y + TESTA_TECNICA, r.w * 0.52 - 4,
                             r.h - TESTA_TECNICA)
@@ -1561,8 +1611,13 @@ ETICHETTE_PU = (
 class PowerUnitPage(Page):
     """Il reparto motori: sviluppo, confronto coi motoristi, programma proprio."""
 
+    # Quanto prende a destra il blocco del programma in corso, dal titolo alle
+    # tre righe sul debutto: sono i passi con cui lo scrive draw()
+    ALTO_PROGRAMMA = 224
+
     def build(self) -> None:
         self.found_note = ""
+        self.b_reparto = None
         r = self.rect
         self.widgets = []
         gs, team = self.gs, self.team
@@ -1618,10 +1673,13 @@ class PowerUnitPage(Page):
                 b.on_click = self.stop_arch
                 self.widgets.append(b)
             y += 170
+        # il pulsante del reparto: la y vera gliela da' il disegno, sotto il
+        # testo che lo spiega
         if powertrain.ready_to_debut(gs):
-            self.widgets.append(Button((right.x + 16, y, right.w - 32, 42),
-                                       "Porta in pista la nostra power unit",
-                                       self.debut, "primary"))
+            self.b_reparto = Button((right.x + 16, y, right.w - 32, 42),
+                                    "Porta in pista la nostra power unit",
+                                    self.debut, "primary")
+            self.widgets.append(self.b_reparto)
         elif not team.works and not powertrain.has_program(gs):
             can, why = powertrain.can_found(team)
             costo, _stagioni = powertrain.piano_fondazione(team)
@@ -1632,11 +1690,71 @@ class PowerUnitPage(Page):
                 self.start_program, "primary" if can else "ghost")
             b.enabled = can
             b.tip = why
+            self.b_reparto = b
             self.widgets.append(b)
             self.found_note = "" if can else why
 
     def refresh(self) -> None:
         self.build()
+
+    # ------------------------------------------------------------------ misure
+    # I pannelli erano alti quanto la finestra e basta. A 1180x680 gli assi del
+    # motore uscivano dal fondo a sinistra, e a destra il pulsante del reparto
+    # non aveva dove stare. Qui si misura quanto serve a ogni colonna, con gli
+    # stessi passi del disegno, e i pannelli crescono: la pagina scorre.
+    def _fine_sinistra(self) -> int:
+        """Dove finisce la colonna di sinistra: assi, specifica e omologazione."""
+        gs, team = self.gs, self.team
+        y = self.assi_y + 24 * len(ETICHETTE_PU)
+        if getattr(self, "b_focus", None):
+            quote = powertrain.focus_di(powertrain.maker(gs, team))
+            if quote.get("power", 0.0) - powertrain.POWER_SICURO > 0:
+                y += 18
+        y += 12 + 22
+        if powertrain.locked(gs) or not team.works:
+            y += T.font(13).get_height()
+        else:
+            y += 22 + 24 + 20 + 24
+        if getattr(self, "b_omologa", None) is not None:
+            y += 8 + self.b_omologa.rect.h
+        return y + 14
+
+    def _testo_reparto(self) -> str:
+        """Il testo sotto ai numeri del reparto, per chi il motore lo compra e
+        per chi lo costruisce. Un programma in corso ha il suo blocco."""
+        team = self.team
+        if team.works:
+            return ("Costruiamo la nostra power unit: il budget qui sopra e' quello "
+                    "che il reparto motori spende a ogni gara. Sta fuori dal tetto di "
+                    "spesa della squadra, come nella realta'.")
+        eng = powertrain.maker(self.gs, team)
+        return (f"Compriamo la power unit da {eng.get('name', '-')} per "
+                f"{team.engine_customer_cost:.0f} M$ a stagione, e ci teniamo la "
+                "specifica che decidono loro. Fondando un reparto nostro potremmo "
+                "svilupparla in casa, ma servono anni e un buon responsabile "
+                "powertrain.")
+
+    def _fine_destra(self, right) -> int:
+        """Dove finisce la colonna di destra: righe, programma, testo, pulsante
+        del reparto e il perche' sotto di lui."""
+        gs, team = self.gs, self.team
+        y = right.y + 96 + 22 * (8 if team.works else 7) + 10
+        if getattr(self, "arch_y", 0):
+            y = max(y, self.arch_y + 170)
+        if powertrain.locked(gs):
+            y += 24
+        if gs.regulations.get("pu_equalisation"):
+            y += 22
+        if powertrain.has_program(gs):
+            y += self.ALTO_PROGRAMMA
+        else:
+            y += (len(T.wrap(self._testo_reparto(), 13, right.w - 32))
+                  * (T.line_h(13) + 2))
+        if getattr(self, "b_reparto", None) is not None:
+            y += 8 + self.b_reparto.rect.h
+        if getattr(self, "found_note", ""):
+            y += 8 + len(T.wrap(self.found_note, 13, right.w - 32)) * T.line_h(13)
+        return y + 14
 
     def _ciclo_futuro(self) -> bool:
         """C'e' un ciclo nuovo all'orizzonte su cui valga la pena scommettere?"""
@@ -1726,6 +1844,9 @@ class PowerUnitPage(Page):
 
         # --- confronto fra i motoristi -----------------------------------
         left = pygame.Rect(r.x, r.y + 96, r.w * 0.46, r.h - 96)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
+        left.h = right.h = max(left.h, self._fine_sinistra() - left.y,
+                               self._fine_destra(right) - right.y)
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "I MOTORISTI", (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
         y = left.y + 42
@@ -1830,7 +1951,6 @@ class PowerUnitPage(Page):
             self.b_omologa.rect.y = int(max(y + 8, left.bottom - 58))
 
         # --- reparto e programma -----------------------------------------
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 96, r.w * 0.52 - 4, r.h - 96)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "IL NOSTRO REPARTO", (right.x + 16, right.y + 12), 12, T.DIM_2, bold=True)
 
@@ -1945,21 +2065,21 @@ class PowerUnitPage(Page):
                          "crescere piu' in fretta."):
                 T.text(surf, line, (right.x + 16, y), 12, T.DIM_2, maxw=right.w - 32)
                 y += 16
-        elif not team.works:
-            for riga in (f"Compriamo la power unit da {eng.get('name', '-')} per "
-                         f"{team.engine_customer_cost:.0f} M$ a stagione, e ci teniamo",
-                         "la specifica che decidono loro. Fondando un reparto nostro",
-                         "potremmo svilupparla in casa, ma servono anni e un buon",
-                         "responsabile powertrain."):
-                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
-                y += 18
         else:
-            for riga in ("Costruiamo la nostra power unit: il budget qui sopra e' quello",
-                         "che il reparto motori spende a ogni gara. Sta fuori dal tetto di",
-                         "spesa della squadra, come nella realta'."):
-                T.text(surf, riga, (right.x + 16, y), 13, T.DIM, maxw=right.w - 32)
-                y += 18
+            # mandato a capo sulla larghezza vera: spezzato a mano, a 1180 la
+            # prima riga finiva tagliata a "a stagio..."
+            y += T.paragraph(surf, self._testo_reparto(), (right.x + 16, y), 13, T.DIM,
+                             right.w - 32, leading=2)
+        # il pulsante del reparto sta sotto quello che c'e' scritto, come quello
+        # dell'omologazione: a 300 pixel fissi copriva le ultime due righe del
+        # testo da cliente, che da quando le righe del reparto sono sette
+        # comincia piu' in basso
+        if getattr(self, "b_reparto", None) is not None:
+            self.b_reparto.rect.y = int(y + 8)
+            y += 8 + self.b_reparto.rect.h
+        # e il perche' non si puo' fondare sta sotto di lui, nel suo pannello:
+        # scritto in fondo alla pagina attraversava tutti e due i pannelli
         if getattr(self, "found_note", ""):
-            T.text(surf, self.found_note, (r.x + 16, r.bottom - 26), 13, T.WARN,
-                   maxw=r.w - 32)
+            T.paragraph(surf, self.found_note, (right.x + 16, y + 8), 13, T.WARN,
+                        right.w - 32)
         super().draw(surf)

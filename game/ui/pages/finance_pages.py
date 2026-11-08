@@ -40,23 +40,39 @@ class FinancePage(Page):
     def _build_bilancio(self) -> None:
         pass
 
+    # La trattativa sotto l'elenco degli sponsor, dall'alto: nome, fascia e
+    # descrizione, i due cursori, il pulsante, la valutazione e i bonus. I
+    # cursori stavano a 54, sotto una descrizione che arriva a 60; e a 1180x680
+    # valutazione e bonus finivano sotto il fondo del pannello
+    TRATTATIVA_CURSORI = 62
+    TRATTATIVA_ALTA = 228
+
+    def _pannelli_sponsor(self) -> tuple:
+        """I due pannelli della scheda sponsor e dove comincia la trattativa:
+        alti quanto la finestra, o quanto serve alla trattativa."""
+        r = self.rect
+        left = pygame.Rect(r.x, r.y + 46, r.w * 0.46, r.h - 46)
+        right = pygame.Rect(r.x + r.w * 0.48, r.y + 46, r.w * 0.52 - 4, r.h - 46)
+        oy = int(right.y + 46 + r.h * 0.40)
+        left.h = right.h = max(right.h, oy + self.TRATTATIVA_ALTA + 14 - right.y)
+        return left, right, oy
+
     def _build_sponsor(self) -> None:
         r = self.rect
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 46, r.w * 0.52 - 4, r.h - 46)
+        left, right, oy = self._pannelli_sponsor()
         self.market = ScrollList((right.x + 12, right.y + 40, right.w - 24, r.h * 0.40),
                                  row_h=42, draw_row=self._row_sponsor,
                                  on_select=self._pick_sponsor)
         self.widgets.append(self.market)
-        oy = right.y + 46 + r.h * 0.40
-        self.s_val = Slider((right.x + 16, oy + 54, right.w - 32, 28), "Cifra richiesta",
+        cy = oy + self.TRATTATIVA_CURSORI
+        self.s_val = Slider((right.x + 16, cy, right.w - 32, 28), "Cifra richiesta",
                             self.ask, 0.5, 110.0, on_change=self._set_ask, fmt="{:.1f} M$")
-        self.s_yrs = Slider((right.x + 16, oy + 90, right.w - 32, 28), "Durata",
+        self.s_yrs = Slider((right.x + 16, cy + 36, right.w - 32, 28), "Durata",
                             self.years, 1, 6, on_change=self._set_years, fmt="{:.0f} anni")
         self.widgets += [self.s_val, self.s_yrs]
-        self.widgets.append(Button((right.x + 16, oy + 130, 230, 38),
+        self.widgets.append(Button((right.x + 16, cy + 76, 230, 38),
                                    "Presenta la proposta", self.offer, "primary"))
 
-        left = pygame.Rect(r.x, r.y + 46, r.w * 0.46, r.h - 46)
         self.mine = ScrollList((left.x + 12, left.y + 40, left.w - 24, left.h - 100),
                                row_h=46, draw_row=self._row_deal, on_select=self._pick_deal)
         self.widgets.append(self.mine)
@@ -313,14 +329,13 @@ class FinancePage(Page):
         return c.bottom
 
     def _draw_sponsor(self, surf) -> None:
-        r, gs, team = self.rect, self.gs, self.team
-        left = pygame.Rect(r.x, r.y + 46, r.w * 0.46, r.h - 46)
+        gs, team = self.gs, self.team
+        left, right, oy = self._pannelli_sponsor()
         T.panel(surf, left, T.PANEL, radius=10, border=T.LINE)
         tot = SP.annual_income(team)
         T.text(surf, f"I NOSTRI ACCORDI  -  {tot:.1f} M$ ALL'ANNO",
                (left.x + 16, left.y + 12), 12, T.DIM_2, bold=True)
 
-        right = pygame.Rect(r.x + r.w * 0.48, r.y + 46, r.w * 0.52 - 4, r.h - 46)
         T.panel(surf, right, T.PANEL, radius=10, border=T.LINE)
         T.text(surf, "CHI SI SIEDE AL TAVOLO", (right.x + 16, right.y + 12), 12,
                T.DIM_2, bold=True)
@@ -329,7 +344,6 @@ class FinancePage(Page):
                (right.right - 16, right.y + 12), 12,
                T.stat_colour(appeal * 100, 40, 75), bold=True, align="right")
 
-        oy = right.y + 46 + r.h * 0.40
         s = self.sel_sponsor
         if s:
             equo = SP.offer_value(gs, team, s)
@@ -351,11 +365,12 @@ class FinancePage(Page):
             giudizio = ("dovrebbe accettare" if self.ask <= equo * 1.05 else
                         "proveranno a trattare" if self.ask <= equo * 1.35 else
                         "si alzeranno dal tavolo")
+            sotto = oy + self.TRATTATIVA_CURSORI + 128
             T.text(surf, f"Valutazione equa {equo:.1f} M$/anno - {giudizio}",
-                   (right.x + 16, oy + 182), 13, col, bold=True)
+                   (right.x + 16, sotto), 13, col, bold=True, maxw=right.w - 32)
             bonus = (f"bonus: {s['bonus_win']:.2f} a vittoria, {s['bonus_podium']:.2f} "
                      f"a podio, {s['bonus_title']:.1f} per il titolo")
-            T.text(surf, bonus, (right.x + 16, oy + 202), 12, T.DIM, maxw=right.w - 32)
+            T.text(surf, bonus, (right.x + 16, sotto + 20), 12, T.DIM, maxw=right.w - 32)
         else:
             T.text(surf, "Nessuno sponsor disponibile: hai gli spazi pieni oppure "
                          "i marchi liberi non trattano con noi.",
