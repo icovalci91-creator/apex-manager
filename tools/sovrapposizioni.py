@@ -181,7 +181,7 @@ def main() -> None:
         shell = GameShell(app)
         app.push(shell)
         surf = pygame.Surface((W, H))
-        for pid, _lab in NAV:
+        for pid, *_resto in NAV:
             if args.only and pid not in args.only:
                 continue
             shell.go(pid)

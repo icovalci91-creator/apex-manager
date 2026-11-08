@@ -27,6 +27,10 @@ on:
     paths-ignore:
       - 'screenshots/**'
       - 'README.md'
+      # gli attrezzi di Claude Code (skill, hook, istruzioni): non entrano
+      # nell'eseguibile, rifarlo per loro e' solo tempo perso
+      - '.claude/**'
+      - 'CLAUDE.md'
   workflow_dispatch:
 
 permissions:
