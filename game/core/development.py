@@ -15,6 +15,7 @@ fondo nuovo non funziona, e rimonta quello vecchio.
 """
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass, field
 
 from .. import config as C
@@ -397,7 +398,53 @@ def expected_gain(gs, team, part: str, size: str) -> float:
 # in cronometro. Qui lo si traduce: si prende la macchina, le si alza quel
 # componente e le si rifa' fare il giro. Il risultato dipende dalla pista - un
 # fondo a Silverstone e un fondo a Monaco non sono lo stesso fondo.
-_SEC = {}
+#
+# I giri costano, e le squadre del computer li chiedono a centinaia dopo ogni
+# gara: per questo si ricordano. Le due memorie qui sotto riconoscono la
+# partita e il circuito dall'indirizzo, id(), perche' sono dataclass e non si
+# possono usare come chiave. Ma un indirizzo vale solo finche' l'oggetto e'
+# vivo: la partita liberata dopo un caricamento, con i suoi circuiti, lascia
+# posto a oggetti nuovi che possono nascere proprio li' - e con la partita
+# ricaricata succede spesso - e allora una voce vecchia passava per loro. Una
+# squadra si vedeva rispondere con i conti di una partita che non c'era piu',
+# e quale voce tornasse lo decideva dove Python aveva sistemato la memoria.
+#
+# Ogni voce si porta dietro un riferimento debole a chi l'ha calcolata, e vale
+# solo se chi la chiede e' ancora proprio lui. Debole, perche' la memoria non
+# deve tenere in vita una partita chiusa; e non un segno messo sull'oggetto,
+# perche' la taratura fotografa il circuito intero per la sua chiave e un
+# attributo in piu' gliele farebbe rifare tutte.
+class _Memoria:
+    def __init__(self, tetto: int):
+        self.tetto = tetto
+        self.voci: dict = {}
+        self.messe = 0
+
+    def ritrova(self, chiave, padrone):
+        voce = self.voci.get(chiave)
+        if voce is not None and voce[0]() is padrone:
+            return voce[1]
+        return None
+
+    def ricorda(self, chiave, padrone, valore) -> None:
+        try:
+            rif = weakref.ref(padrone)
+        except TypeError:        # un oggetto che non li ammette: si rifa' ogni volta
+            return
+        # si svuota dopo `tetto` voci messe, non quando il dizionario ne tiene
+        # tante: una voce rifatta per l'oggetto nuovo prende il posto di quella
+        # vecchia e non lo allunga, e contando la lunghezza la memoria si
+        # svuoterebbe di nuovo a seconda degli indirizzi. Quando si svuota
+        # conta: _SEC riconosce la macchina a meno di un decimo di punto, e
+        # cosa c'era dentro sposta i numeri che leggono le squadre
+        if self.messe > self.tetto:
+            self.voci.clear()
+            self.messe = 0
+        self.voci[chiave] = (rif, valore)
+        self.messe += 1
+
+
+_SEC = _Memoria(400)
 
 
 def _impronta(gs, team, part, delta, track, focus):
@@ -412,13 +459,12 @@ def gain_seconds(gs, team, part: str, delta: float, track=None, focus=None) -> f
     if track is None or delta == 0:
         return 0.0
     chiave = _impronta(gs, team, part, delta, track, focus)
-    if chiave in _SEC:
-        return _SEC[chiave]
+    val = _SEC.ritrova(chiave, gs)
+    if val is not None:
+        return val
     prima, dopo = _due_giri(gs, team, part, delta, track, focus)
     val = round(prima[0] - dopo[0], 4)
-    if len(_SEC) > 400:
-        _SEC.clear()
-    _SEC[chiave] = val
+    _SEC.ricorda(chiave, gs, val)
     return val
 
 
@@ -435,7 +481,7 @@ def gain_domains(gs, team, part: str, delta: float, track=None, focus=None) -> d
 # Il giro "prima" dipende solo dalla macchina com'e' adesso e dal circuito: le
 # squadre del computer lo rifacevano identico per ogni pezzo e ogni dominio che
 # provavano, e dopo ogni gara erano centinaia di giri simulati per niente.
-_BASE: dict = {}
+_BASE = _Memoria(600)
 _ESCLUSI = ("setup", "setup_quality", "_setup_cost", "fuel_kg")
 
 
@@ -473,12 +519,10 @@ def _due_giri(gs, team, part: str, delta: float, track, focus):
 
     chiave = (id(track), track.ref_time, getattr(track, "calibration", 1.0),
               hash(tuple(getattr(track, "domain_map", None) or ())), _firma_auto(car))
-    prima = _BASE.get(chiave)
+    prima = _BASE.ritrova(chiave, track)
     if prima is None:
         prima = misura()
-        if len(_BASE) > 600:
-            _BASE.clear()
-        _BASE[chiave] = prima
+        _BASE.ricorda(chiave, track, prima)
     p.perf = max(20.0, p.perf + delta)
     if focus is not None:
         p.focus = focus
