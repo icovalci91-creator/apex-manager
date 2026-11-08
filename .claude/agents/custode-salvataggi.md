@@ -88,10 +88,13 @@ codice si muove, quindi controllale con `grep -n` prima di citarle.
 - Il JSON cambia due cose senza dirlo: le tuple tornano liste, e le chiavi
   numeriche di un dizionario tornano stringhe (per questo `capex_log` usa
   `str(stagione)`, game/model/team.py:311).
-- Non si salvano, per scelta: `gs.rng` (riparte dal seme), gli attributi con
-  il trattino basso davanti (cache e conti di lavoro), `Car.setup_quality` e
-  `Car.fuel_kg` (li ricalcola il modello del giro), i dati fissi che vengono
-  da `data/`.
+- Il generatore della partita (`gs.rng`) si salva (`_rng_salvato` e
+  `_rimetti_rng` in state.py) e si rimette per ultimo in from_dict: una
+  partita ricaricata deve ripartire dallo stesso punto. Anche l'ordine e il
+  mese dei circuiti candidati tornano come erano (`_restore_calendar`).
+- Non si salvano, per scelta: gli attributi con il trattino basso davanti
+  (cache e conti di lavoro), `Car.setup_quality` e `Car.fuel_kg` (li
+  ricalcola il modello del giro), i dati fissi che vengono da `data/`.
 
 ## Come lavori
 

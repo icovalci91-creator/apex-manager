@@ -37,7 +37,8 @@ errore vero. README.md descrive ogni funzione del gioco.
 - Salvataggi: la carriera passa da un eseguibile all'altro. In `from_dict` un
   campo nuovo si legge con `.get(chiave, predefinito)`, mai con `td["..."]`.
   Un attributo che non finisce in `to_dict` torna in silenzio al valore di
-  `data/` quando si ricarica. `gs.rng` non si salva.
+  `data/` quando si ricarica. Anche il generatore (`gs.rng`) si salva: una
+  partita ricaricata riparte dallo stesso punto.
 - Taratura dei circuiti: `game/core/taratura.py` la tiene in cache con una
   chiave fatta dai sorgenti in `_MODULI`. Un modulo nuovo del modello del giro
   va aggiunto li', se no si rileggono tarature vecchie.

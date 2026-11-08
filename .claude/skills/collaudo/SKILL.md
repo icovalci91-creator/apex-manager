@@ -55,12 +55,9 @@ della skill e' scritta per quello, e da PowerShell chiederebbe il permesso.
 - `--seme N` cambia la carriera. Stesso seme e stesso codice, stessi numeri:
   l'`impronta` dell'ultima riga lo riassume (i tempi non ci entrano), e
   `--rif HEAD` su un albero senza modifiche da' due impronte uguali. Fra
-  Windows e Linux, o fra due versioni di Python, i numeri possono scostarsi di
-  poco: `game/core/development.py` tiene due memorie (`_SEC`, `_BASE`) con
-  chiave `id(gs)` e `id(track)`, e quando Python riusa l'indirizzo di un
-  oggetto liberato (la partita ricaricata dopo un salvataggio) un calcolo
-  vecchio puo' tornare buono per uno nuovo. Le soglie hanno margine anche per
-  questo; per confrontare due versioni si usa `--rif`, sulla stessa macchina.
+  Windows e Linux, o fra due versioni di Python, i conti in virgola possono
+  scostarsi di poco: le soglie hanno margine anche per questo, e per
+  confrontare due versioni si usa `--rif`, sulla stessa macchina.
 - Tutto quello che dura piu' di un minuto va lanciato col comando in background
   dello strumento Bash, e si legge l'uscita quando ha finito. Intanto si puo'
   fare altro, ma non dire che il collaudo e' passato prima di averlo letto.
@@ -80,11 +77,6 @@ l'ultima riga:
   o una misura fuori soglia con il perche'.
 - Uscita 2: argomenti sbagliati (anche una squadra che non c'e'), gioco non
   trovato, commit di `--rif` che non esiste.
-
-`salva e ricarica identico (candidati in altro ordine, difetto noto)` non e' un
-errore: `GameState._restore_calendar` ricarica i circuiti candidati
-nell'ordine dei dati e non in quello del salvataggio, e il collaudo confronta
-quella lista senza badare all'ordine. Tutto il resto deve essere identico.
 
 ## Le soglie
 
@@ -177,7 +169,9 @@ una carriera molto lunga il minimo va riguardato.
   quel commit: e' il modo piu' corto per avere un salvataggio vecchio. Va bene
   anche un commit lontano (o il tag dell'ultima versione Windows): su codice di
   prima del calendario unico (dd05dcc) si corre solo la Formula 1, e il
-  rapporto lo dice in una nota.
+  rapporto lo dice in una nota. Prima della Formula E (21618e0) e
+  dell'endurance (85deca2) `--fe` e `--wec` non si possono chiedere: il
+  "prima" si ferma e lo dice.
 
 Il giro completo, per una modifica a `to_dict`/`from_dict`:
 

@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import importlib
 import inspect
 import io
@@ -93,20 +94,18 @@ CLASSE = "__classe__"
 ASSENTE = "(assente)"
 
 # Quello che non si confronta, e perche'.
-#  - gs.rng: il generatore non si salva, per scelta. Ricaricando riparte dal
-#    seme, e da li' la partita prende un'altra strada con gli stessi numeri.
 #  - gli attributi con il trattino basso davanti: sono i conti di lavoro, le
 #    cache che il modello si tiene per non rifare un calcolo (la linea di un
 #    circuito, le penalita' dell'assetto appena valutato). Si rifanno da soli.
 #  - Car.setup_quality e Car.fuel_kg: li riscrive il modello del giro ogni
 #    volta che guarda la macchina. Sono gli stessi che development._ESCLUSI
 #    tiene fuori dalla firma di una vettura, e per la stessa ragione.
-SALTA = {("GameState", "rng"), ("Car", "setup_quality"), ("Car", "fuel_kg")}
+SALTA = {("Car", "setup_quality"), ("Car", "fuel_kg")}
 
-# Elenchi in cui conta chi c'e', non in che ordine. I candidati al calendario
-# _restore_calendar li rimette nell'ordine dei dati, e chi li usa li ordina da
-# se' (calendar.roll_contracts per offerta, testing li cerca per id).
-ORDINE_LIBERO = {("GameState", "candidates")}
+# Elenchi in cui conta chi c'e', non in che ordine. Oggi nessuno: anche i
+# candidati al calendario tornano nell'ordine in cui erano, perche' a pari
+# offerta passa chi sta davanti (calendar.roll_contracts).
+ORDINE_LIBERO: set = set()
 
 
 class Impossibile(Exception):
@@ -291,7 +290,9 @@ def foto(x, pila=None):
     if x is None or isinstance(x, (bool, int, float, str)):
         return x
     if isinstance(x, random.Random):
-        return "<rng>"
+        # il punto a cui e' arrivato il generatore: si salva, e una partita
+        # ricaricata deve ripartire da li', non dal seme
+        return "<rng " + hashlib.sha1(repr(x.getstate()).encode()).hexdigest()[:12] + ">"
     if isinstance(x, (types.FunctionType, types.MethodType, types.ModuleType, type)):
         return f"<{getattr(x, '__qualname__', type(x).__name__)}>"
     pila = set() if pila is None else pila

@@ -13,10 +13,9 @@ I numeri si confrontano con soglie.json, accanto a questo file: sono i limiti
 dentro cui stanno le stagioni pulite, con un po' di margine. Uno fuori, un
 errore o un salvataggio che ricaricato non torna uguale, e il collaudo esce
 con 1. Stesso seme, stesso codice e stesso Python, stessi numeri: l'impronta
-stampata alla fine lo dice in una riga. (Fra macchine diverse possono
-scostarsi di poco: game/core/development.py ricorda dei calcoli con chiave
-id(gs) e id(track), e Python riusa gli indirizzi degli oggetti liberati, come
-la partita ricaricata dopo ogni salvataggio.)
+stampata alla fine lo dice in una riga. (Fra macchine o versioni di Python
+diverse i conti in virgola possono scostarsi di poco: due versioni del codice
+si confrontano con --rif, sulla stessa macchina.)
 
     python .claude/skills/collaudo/collaudo.py [squadra] [--seme N] [--stagioni N]
         [--fe] [--wec] [--gare N] [--rif COMMIT] [--salva-in FILE]
@@ -198,22 +197,15 @@ def _canonico(dati) -> str:
                       sort_keys=True, ensure_ascii=False)
 
 
-def _candidati_in_ordine(testo: str) -> str:
-    """Lo stesso salvataggio, con i circuiti candidati messi in fila per nome.
-
-    GameState._restore_calendar (game/core/state.py) ricostruisce i candidati
-    nell'ordine in cui stanno nei dati del gioco, non in quello del
-    salvataggio: dopo il primo rinnovo dei contratti di calendario, salvare e
-    ricaricare li rimescola. Sono gli stessi circuiti con gli stessi contratti,
-    e il gioco non da' peso all'ordine in cui li tiene: e' un difetto noto, che
-    qui non si corregge (il codice del gioco non e' affare del collaudo) e
-    quindi si confronta senza badare all'ordine. Tutto il resto deve tornare
-    identico.
-    """
-    d = json.loads(testo)
-    d["candidates"] = sorted(d.get("candidates") or [],
-                             key=lambda c: json.dumps(c, sort_keys=True))
-    return json.dumps(d, sort_keys=True, ensure_ascii=False)
+def _se_c_e(nome: str):
+    """Il modulo del gioco `nome`, o None se in quel codice non c'e' ancora."""
+    import importlib
+    try:
+        return importlib.import_module(nome)
+    except ModuleNotFoundError as e:
+        if e.name != nome:       # manca qualcos'altro: e' un errore vero
+            raise
+        return None
 
 
 def _breve(x) -> str:
@@ -288,8 +280,13 @@ class Collaudo:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
         os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
-        from game.core import formulae, inverno, rules, season, tyres, wec
+        from game.core import inverno, rules, season, tyres
         from game.core.state import GameState
+        # Formula E ed endurance sono arrivate dopo (21618e0, 85deca2): con
+        # --rif su un commit di prima non ci sono, e la carriera si fa con la
+        # sola Formula 1 invece di fermarsi all'importazione
+        formulae = _se_c_e("game.core.formulae")
+        wec = _se_c_e("game.core.wec")
         from game.sim import session
         from game.sim.weekend import Weather
         self.GameState, self.Weather = GameState, Weather
@@ -315,6 +312,12 @@ class Collaudo:
         # e' la delega che il giocatore puo' dare, e tiene il collaudo uguale
         # per tutte le squadre
         gs.player.auto_dev = True
+        for chiesto, modulo, nome in ((a.fe, self.FE, "la Formula E"),
+                                      (a.wec, self.WEC, "l'endurance")):
+            if chiesto and modulo is None:
+                raise RuntimeError(f"il codice collaudato non ha ancora {nome}: "
+                                f"togli --{'fe' if modulo is self.FE else 'wec'} "
+                                "o scegli un commit piu' recente")
         if a.fe and not self.FE.ha(gs.player):
             gs.player.cash += 300
             dici(self.FE.apri(gs, gs.player, f"{gs.player.short} FE"))
@@ -405,21 +408,13 @@ class Collaudo:
         testo2 = json.dumps(gs2.to_dict(), ensure_ascii=False)
         prima, dopo = _canonico(json.loads(testo)), _canonico(json.loads(testo2))
         esito = {"anno": anno, "momento": momento, "uguale": prima == dopo,
-                 "solo_ordine_candidati": False, "differenze": [],
+                 "differenze": [],
                  "kb": round(len(testo.encode("utf-8")) / 1024.0, 1),
                  "tempo_salvataggio_s": round(t_salva, 3),
                  "tempo_caricamento_s": round(t_carica, 3),
                  "impronta": hashlib.sha1(prima.encode("utf-8")).hexdigest()[:12]}
         if not esito["uguale"]:
-            prima_n, dopo_n = _candidati_in_ordine(prima), _candidati_in_ordine(dopo)
-            if prima_n == dopo_n:
-                esito["uguale"] = True
-                esito["solo_ordine_candidati"] = True
-            else:
-                # le differenze si cercano con i candidati gia' in fila: se no
-                # le prime righe sarebbero sempre il difetto noto, e il campo
-                # rotto davvero finirebbe oltre il limite
-                esito["differenze"] = differenze(json.loads(prima_n), json.loads(dopo_n))
+            esito["differenze"] = differenze(json.loads(prima), json.loads(dopo))
         self.rapporto["salvataggi"].append(esito)
         return esito
 
@@ -538,9 +533,7 @@ class Collaudo:
              f"esordienti {'-' if s['esordienti'] is None else s['esordienti']}  "
              f"dominio {f(s['dominio'], 3)}")
         if salva["uguale"]:
-            nota = (" (candidati in altro ordine, difetto noto)"
-                    if salva["solo_ordine_candidati"] else "")
-            esito = f"salva e ricarica identico{nota}"
+            esito = "salva e ricarica identico"
         else:
             esito = "SALVA E RICARICA DIVERSO: " + "; ".join(salva["differenze"][:4])
         dici(f"   tempi: gare {f(s['tempo_gare_s'], 1)} s, fine stagione "
