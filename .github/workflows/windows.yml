@@ -22,7 +22,10 @@ name: Build Windows e allega alla release
 
 on:
   push:
-    branches: [main, claude/game-analysis-l4v034]
+    # claude/** e non solo il ramo di lavoro: ogni thread del progetto lavora
+    # su un suo ramo claude/..., e senza questa riga un push da li' non
+    # produceva nessun eseguibile da provare
+    branches: [main, 'claude/**']
     tags: ['v*']
     paths-ignore:
       - 'screenshots/**'
