@@ -7,7 +7,8 @@ errore vero. README.md descrive ogni funzione del gioco.
 
 ## Come si lavora
 - Ramo di lavoro `claude/game-analysis-l4v034`: commit e push li', niente PR se
-  non chieste. `main` e' molto indietro.
+  non chieste. `main` e' molto indietro. La build Windows parte anche dai
+  rami `claude/...` dei thread del progetto.
 - Commit in italiano, nella forma `Area: cosa cambia` (vedi `git log`).
 - Dopo un push che tocca il gioco si controlla la corsa "Build Windows e allega
   alla release" (`.github/workflows/windows.yml`) e si da' il link
