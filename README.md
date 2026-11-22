@@ -345,6 +345,21 @@ quindi da Linux o da Mac un `.exe` non esce. La ricetta sta in `apex.spec` e fun
 uguale sugli altri sistemi (`pyinstaller apex.spec` da' `dist/ApexManager` su Linux e Mac),
 solo che il file che ne esce gira li' e non su Windows.
 
+**Costruirlo sul proprio PC.** `AggiornaECostruisci.bat` fa la stessa cosa della build su
+GitHub, ma in locale, con un doppio clic. Si copia dove si vuole (il desktop va bene) e:
+
+1. controlla che ci siano Git e Python, e se mancano propone di installarli con `winget`;
+2. la prima volta scarica il progetto in `%USERPROFILE%\ApexManager-sorgenti`, le volte dopo
+   lo riallinea all'ultimo commit del ramo di lavoro (quello che c'era cambiato a mano in
+   quella cartella si perde: e' sua e basta);
+3. installa le librerie in un ambiente virtuale `.venv` dentro quella cartella;
+4. costruisce `dist\ApexManager.exe`;
+5. se sul PC c'e' Inno Setup 6 fa anche `dist\ApexManager-Setup.exe`, se no lo salta.
+
+Alla fine apre la cartella `dist` e chiede se avviare il gioco. Il primo giro dura parecchi
+minuti (scarica Panda3D e il resto), i successivi meno. Ramo, cartella e versione di
+PyInstaller stanno in cima al file.
+
 L'icona non e' un file misterioso trascinato dietro: la disegna
 `python tools/icona.py`, che scrive `assets/apex.ico` con sei misure dentro.
 

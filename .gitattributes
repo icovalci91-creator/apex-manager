@@ -1,0 +1,4 @@
+# I .bat restano con gli a capo di Windows anche nel repository: chi scarica
+# il file da GitHub con "Download raw" lo riceve com'e' salvato, e con gli a
+# capo di Linux cmd.exe sbaglia i salti alle etichette
+*.bat -text
