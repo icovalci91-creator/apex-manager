@@ -361,6 +361,29 @@ sarebbe nemmeno scrivibile. Vanno dove ogni sistema mette i dati di un'applicazi
 Lanciando `python main.py` dai sorgenti invece resta tutto com'era, con i salvataggi in
 `saves/` dentro al progetto: chi sviluppa vuole vederseli li' accanto.
 
+## Versione per Mac
+
+Lo stesso gioco, senza una riga diversa, impacchettato per i Mac con chip M (M1 e
+successivi, macOS 11 o piu' recente). pygame, Panda3D e numpy hanno tutti la loro
+versione per questi Mac, quindi c'e' anche la vista 3D.
+
+A ogni push la macchina Mac di GitHub (`.github/workflows/mac.yml`) costruisce
+`ApexManager.app` con la stessa ricetta della versione Windows (`apex.spec`), lo prova
+all'avvio e con `--prova-3d`, e lo mette in `ApexManager.dmg`. Si scarica dalla pagina
+Actions, sotto "Artifacts", come **ApexManager-mac**; con un tag `v*` finisce anche
+nella release accanto all'eseguibile per Windows. Si apre il `.dmg` e si trascina
+Apex Manager in Applicazioni.
+
+**Per ora l'app non e' firmata.** macOS la apre solo la prima volta con clic destro >
+Apri, oppure da Impostazioni di Sistema > Privacy e sicurezza > Apri comunque. La firma
+con l'account sviluppatore Apple, che toglie questo passaggio, arriva quando i
+certificati saranno nei segreti del repository. L'identificativo dell'app e' ancora
+provvisorio (`it.apexmanager.provvisorio`).
+
+I salvataggi stanno in `~/Library/Application Support/ApexManager`, dove macOS tiene i dati delle
+applicazioni. Da guardare su un Mac vero: la nitidezza sugli schermi Retina, che oggi
+il gioco cura a mano solo su Windows.
+
 ## Versione web (iPad e tablet)
 
 **Non si pubblica piu' da sola.** Il gioco si usa con l'eseguibile per Windows: la build per
