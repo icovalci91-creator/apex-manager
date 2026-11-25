@@ -35,9 +35,11 @@ permissions:
 
 jobs:
   mac:
-    # macos-14 e successivi girano su chip M (arm64): la stessa famiglia del
-    # MacBook che verra'
-    runs-on: macos-14
+    # macos-latest gira su chip M (arm64), la stessa famiglia del MacBook che
+    # verra'. Non un numero preciso: con macos-14 GitHub annullava il lavoro
+    # prima ancora di partire, perche' quella macchina la sta ritirando, e
+    # latest segue da solo le macchine che restano
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
