@@ -2,16 +2,16 @@
 REM Apex Manager - aggiorna i sorgenti e costruisce l'eseguibile sul PC.
 REM
 REM Si lancia con un doppio clic, da dove si vuole (il desktop va bene): non
-REM ha bisogno di stare dentro al progetto, perche' il progetto se lo tiene
-REM in una cartella sua, CARTELLA qui sotto. La prima volta lo scarica, le
-REM volte dopo lo aggiorna. Poi fa quello che fa la build su GitHub
+REM ha bisogno di stare dentro al progetto, che sta in CARTELLA qui sotto
+REM (la copia di lavoro sul desktop). Se la cartella non c'e' la scarica, se
+REM c'e' la aggiorna. Poi fa quello che fa la build su GitHub
 REM (.github/workflows/windows.yml): installa le librerie, scrive la sigla
 REM della build, impacchetta con PyInstaller e, se sul PC c'e' Inno Setup,
 REM fa anche l'installatore.
 REM
-REM La cartella del progetto e' sua e basta: a ogni giro la riallinea a
-REM GitHub e butta via quello che ci si e' cambiato a mano. Chi vuole
-REM modificare il gioco lo fa in un'altra copia.
+REM Aggiornare vuol dire riallineare la cartella a GitHub. Se dentro ci sono
+REM file del gioco cambiati a mano, prima di buttarli li elenca e chiede.
+REM I salvataggi (saves/*.json) e gli altri file ignorati da git non li tocca.
 REM
 REM Le librerie stanno in un ambiente virtuale (.venv dentro la cartella)
 REM per non sporcare il Python di sistema, e PyInstaller e' alla stessa
@@ -27,7 +27,7 @@ title Apex Manager - aggiorna e costruisci
 REM ---------------------------------------------------------------- impostazioni
 set "REPO=https://github.com/icovalci91-creator/apex-manager.git"
 set "RAMO=claude/game-analysis-l4v034"
-set "CARTELLA=%USERPROFILE%\ApexManager-sorgenti"
+set "CARTELLA=%USERPROFILE%\Desktop\racing-manager"
 set "PYINSTALLER=pyinstaller==6.11.1"
 set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 
@@ -62,8 +62,19 @@ echo  [2/5] Aggiorno il gioco da GitHub...
 cd /d "%CARTELLA%"
 git fetch origin "%RAMO%"
 if errorlevel 1 goto :errore
-REM -f e -B: la cartella torna identica a GitHub anche se qualcosa e'
-REM stato toccato, e il ramo locale punta all'ultimo commit scaricato
+REM file del gioco cambiati a mano? se si', si chiede prima di buttarli
+set "CAMBIATI="
+for /f "delims=" %%f in ('git status --porcelain --untracked-files^=no') do set "CAMBIATI=1"
+if not defined CAMBIATI goto :riallinea
+echo.
+echo        ATTENZIONE: in questa cartella ci sono file cambiati a mano:
+git status --short --untracked-files=no
+echo        Aggiornando, queste modifiche vanno perse.
+choice /c SN /n /m "        Le butto e aggiorno? [S/N] "
+if errorlevel 2 goto :annullato
+:riallinea
+REM -f e -B: la cartella torna identica a GitHub, e il ramo locale punta
+REM all'ultimo commit scaricato
 git checkout -f -B "%RAMO%" FETCH_HEAD
 if errorlevel 1 goto :errore
 
@@ -81,7 +92,12 @@ if errorlevel 1 goto :errore
 set "VPY=%CARTELLA%\.venv\Scripts\python.exe"
 "%VPY%" -m pip install --upgrade pip --quiet --disable-pip-version-check
 "%VPY%" -m pip install -r requirements.txt %PYINSTALLER% --disable-pip-version-check
-if errorlevel 1 goto :errore_librerie
+if errorlevel 1 goto :annullato
+echo.
+echo  Fermato: non ho toccato niente. Salva altrove le tue modifiche e rilancia.
+goto :chiudi
+
+:errore_librerie
 echo        Fatto.
 echo.
 
@@ -164,6 +180,11 @@ goto :chiudi
 :link_python
 echo  Scarica Python 3.11 da https://www.python.org/downloads/
 echo  (durante l'installazione spunta "Add python.exe to PATH") e rilancia il file.
+goto :chiudi
+
+:annullato
+echo.
+echo  Fermato: non ho toccato niente. Salva altrove le tue modifiche e rilancia.
 goto :chiudi
 
 :errore_librerie

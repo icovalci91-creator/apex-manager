@@ -349,9 +349,9 @@ solo che il file che ne esce gira li' e non su Windows.
 GitHub, ma in locale, con un doppio clic. Si copia dove si vuole (il desktop va bene) e:
 
 1. controlla che ci siano Git e Python, e se mancano propone di installarli con `winget`;
-2. la prima volta scarica il progetto in `%USERPROFILE%\ApexManager-sorgenti`, le volte dopo
-   lo riallinea all'ultimo commit del ramo di lavoro (quello che c'era cambiato a mano in
-   quella cartella si perde: e' sua e basta);
+2. aggiorna la copia del progetto in `%USERPROFILE%\Desktop\racing-manager` (se non c'e' la
+   scarica) all'ultimo commit del ramo di lavoro; se dentro ci sono file del gioco cambiati
+   a mano li elenca e chiede prima di buttarli, e i salvataggi non li tocca;
 3. installa le librerie in un ambiente virtuale `.venv` dentro quella cartella;
 4. costruisce `dist\ApexManager.exe`;
 5. se sul PC c'e' Inno Setup 6 fa anche `dist\ApexManager-Setup.exe`, se no lo salta.
