@@ -9,8 +9,9 @@ REM (.github/workflows/windows.yml): installa le librerie, scrive la sigla
 REM della build, impacchetta con PyInstaller e, se sul PC c'e' Inno Setup,
 REM fa anche l'installatore.
 REM
-REM Aggiornare vuol dire riallineare la cartella a GitHub. Se dentro ci sono
-REM file del gioco cambiati a mano, prima di buttarli li elenca e chiede.
+REM Aggiornare non butta niente: le modifiche fatte a mano nei file del gioco
+REM si mettono da parte, si scarica il nuovo e si rimettono sopra, cosi'
+REM l'eseguibile esce con l'ultima versione di GitHub piu' le tue modifiche.
 REM I salvataggi (saves/*.json) e gli altri file ignorati da git non li tocca.
 REM
 REM Le librerie stanno in un ambiente virtuale (.venv dentro la cartella)
@@ -62,21 +63,34 @@ echo  [2/5] Aggiorno il gioco da GitHub...
 cd /d "%CARTELLA%"
 git fetch origin "%RAMO%"
 if errorlevel 1 goto :errore
-REM file del gioco cambiati a mano? se si', si chiede prima di buttarli
+REM Le modifiche fatte a mano si mettono da parte (git stash), si aggiorna e
+REM si rimettono sopra. Se l'aggiornamento tocca le stesse righe ci si
+REM ferma, e le modifiche restano salvate nello stash: non si perde niente.
+set "DA_PARTE="
 set "CAMBIATI="
 for /f "delims=" %%f in ('git status --porcelain --untracked-files^=no') do set "CAMBIATI=1"
-if not defined CAMBIATI goto :riallinea
-echo.
-echo        ATTENZIONE: in questa cartella ci sono file cambiati a mano:
+if not defined CAMBIATI goto :avanti
+echo        Hai file cambiati a mano, li tengo:
 git status --short --untracked-files=no
-echo        Aggiornando, queste modifiche vanno perse.
-choice /c SN /n /m "        Le butto e aggiorno? [S/N] "
-if errorlevel 2 goto :annullato
-:riallinea
-REM -f e -B: la cartella torna identica a GitHub, e il ramo locale punta
-REM all'ultimo commit scaricato
-git checkout -f -B "%RAMO%" FETCH_HEAD
+git stash push --quiet -m "AggiornaECostruisci"
 if errorlevel 1 goto :errore
+set "DA_PARTE=1"
+:avanti
+REM --ff-only: si va avanti solo se GitHub ha la stessa storia piu' qualcosa
+REM di nuovo. Con commit tuoi che GitHub non ha non si mescola niente: si
+REM costruisce la versione che c'e' qui.
+git merge --ff-only --quiet FETCH_HEAD
+if errorlevel 1 goto :non_aggiornato
+goto :rimetti
+:non_aggiornato
+echo        Non aggiorno: qui ci sono commit tuoi che GitHub non ha.
+echo        Costruisco la versione che hai in questa cartella.
+:rimetti
+if not defined DA_PARTE goto :sorgenti_pronti
+git stash pop --quiet
+if errorlevel 1 goto :scontro
+echo        Le tue modifiche sono di nuovo al loro posto.
+
 
 :sorgenti_pronti
 cd /d "%CARTELLA%"
@@ -92,12 +106,7 @@ if errorlevel 1 goto :errore
 set "VPY=%CARTELLA%\.venv\Scripts\python.exe"
 "%VPY%" -m pip install --upgrade pip --quiet --disable-pip-version-check
 "%VPY%" -m pip install -r requirements.txt %PYINSTALLER% --disable-pip-version-check
-if errorlevel 1 goto :annullato
-echo.
-echo  Fermato: non ho toccato niente. Salva altrove le tue modifiche e rilancia.
-goto :chiudi
-
-:errore_librerie
+if errorlevel 1 goto :errore_librerie
 echo        Fatto.
 echo.
 
@@ -182,10 +191,13 @@ echo  Scarica Python 3.11 da https://www.python.org/downloads/
 echo  (durante l'installazione spunta "Add python.exe to PATH") e rilancia il file.
 goto :chiudi
 
-:annullato
+:scontro
 echo.
-echo  Fermato: non ho toccato niente. Salva altrove le tue modifiche e rilancia.
-goto :chiudi
+echo  Le tue modifiche toccano le stesse righe dell'aggiornamento e non si
+echo  rimettono da sole. Non le ho buttate: i file in conflitto hanno dentro
+echo  sia la tua versione sia quella nuova, segnate con ^<^<^<^<^<^<^< e ^>^>^>^>^>^>^>.
+echo  Sistemali con il tuo editor e rilancia. Una copia resta in git stash.
+goto :errore_msg
 
 :errore_librerie
 echo.
