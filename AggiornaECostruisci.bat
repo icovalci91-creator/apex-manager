@@ -1,17 +1,23 @@
 @echo off
 REM Apex Manager - aggiorna i sorgenti e costruisce l'eseguibile sul PC.
 REM
-REM Si lancia con un doppio clic, da dove si vuole (il desktop va bene): non
-REM ha bisogno di stare dentro al progetto, che sta in CARTELLA qui sotto
-REM (la copia di lavoro sul desktop). Se la cartella non c'e' la scarica, se
-REM c'e' la aggiorna. Poi fa quello che fa la build su GitHub
+REM Serve al PC che fa solo da officina: le modifiche si fanno altrove e
+REM finiscono su GitHub, qui si scarica l'ultima versione e si costruisce
+REM l'exe. Si lancia con un doppio clic, in uno di due modi:
+REM
+REM   * dentro la cartella del progetto (il file e' nel repository): lavora
+REM     su quella cartella;
+REM   * da fuori, per esempio dal desktop: lavora sulla cartella
+REM     racing-manager accanto a se', e se non c'e' la scarica da GitHub.
+REM
+REM Poi fa quello che fa la build su GitHub
 REM (.github/workflows/windows.yml): installa le librerie, scrive la sigla
 REM della build, impacchetta con PyInstaller e, se sul PC c'e' Inno Setup,
 REM fa anche l'installatore.
 REM
-REM Aggiornare non butta niente: le modifiche fatte a mano nei file del gioco
-REM si mettono da parte, si scarica il nuovo e si rimettono sopra, cosi'
-REM l'eseguibile esce con l'ultima versione di GitHub piu' le tue modifiche.
+REM Aggiornare non butta niente: se nei file del gioco c'e' qualcosa di
+REM cambiato a mano, si mette da parte, si scarica il nuovo e si rimette
+REM sopra.
 REM I salvataggi (saves/*.json) e gli altri file ignorati da git non li tocca.
 REM
 REM Le librerie stanno in un ambiente virtuale (.venv dentro la cartella)
@@ -25,10 +31,25 @@ REM etichette.
 setlocal EnableExtensions
 title Apex Manager - aggiorna e costruisci
 
+REM Lanciato da dentro il progetto, l'aggiornamento puo' riscrivere proprio
+REM questo file mentre cmd.exe lo sta leggendo (lo legge un pezzo alla
+REM volta, e un file cambiato sotto i piedi fa eseguire righe a caso). Allora
+REM si copia in %TEMP% e si continua da li': chiamare un .bat senza "call"
+REM passa la mano e non torna piu' qui.
+if /i "%~1"=="--cartella" goto :copia_fatta
+if not exist "%~dp0apex.spec" goto :copia_fatta
+copy /y "%~f0" "%TEMP%\AggiornaECostruisci.bat" >nul
+for %%I in ("%~dp0.") do set "QUI=%%~fI"
+"%TEMP%\AggiornaECostruisci.bat" --cartella "%QUI%"
+:copia_fatta
+
 REM ---------------------------------------------------------------- impostazioni
 set "REPO=https://github.com/icovalci91-creator/apex-manager.git"
 set "RAMO=claude/game-analysis-l4v034"
-set "CARTELLA=%USERPROFILE%\Desktop\racing-manager"
+REM la cartella del progetto: vedi in cima
+set "CARTELLA=%~dp0racing-manager"
+if exist "%~dp0apex.spec" for %%I in ("%~dp0.") do set "CARTELLA=%%~fI"
+if /i "%~1"=="--cartella" set "CARTELLA=%~2"
 set "PYINSTALLER=pyinstaller==6.11.1"
 set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 

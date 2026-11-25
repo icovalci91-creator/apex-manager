@@ -346,11 +346,13 @@ uguale sugli altri sistemi (`pyinstaller apex.spec` da' `dist/ApexManager` su Li
 solo che il file che ne esce gira li' e non su Windows.
 
 **Costruirlo sul proprio PC.** `AggiornaECostruisci.bat` fa la stessa cosa della build su
-GitHub, ma in locale, con un doppio clic. Si copia dove si vuole (il desktop va bene) e:
+GitHub, ma in locale, con un doppio clic: e' per il PC che scarica le novita' e fa l'exe,
+mentre le modifiche si fanno altrove e arrivano su GitHub. Si lancia da dentro la cartella
+del progetto, oppure da fuori (il desktop va bene): allora lavora sulla cartella
+`racing-manager` accanto a se'. Poi:
 
 1. controlla che ci siano Git e Python, e se mancano propone di installarli con `winget`;
-2. aggiorna la copia del progetto in `%USERPROFILE%\Desktop\racing-manager` (se non c'e' la
-   scarica) all'ultimo commit del ramo di lavoro; i file del gioco cambiati a mano li mette
+2. aggiorna la copia del progetto (se non c'e' la scarica) all'ultimo commit del ramo di lavoro; i file del gioco cambiati a mano li mette
    da parte e li rimette sopra dopo l'aggiornamento (se si scontrano si ferma senza buttare
    niente), e i salvataggi non li tocca;
 3. installa le librerie in un ambiente virtuale `.venv` dentro quella cartella;
