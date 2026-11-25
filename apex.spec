@@ -4,8 +4,12 @@
     pyinstaller apex.spec
 
 Ne esce un file solo - dist/ApexManager.exe su Windows, dist/ApexManager su
-Linux e Mac - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
+Linux - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
 lo riceve non deve installare niente: lo copia dove vuole e ci clicca sopra.
+
+Sul Mac ne esce dist/ApexManager.app, l'applicazione come la vuole macOS
+(vedi MAC piu' sotto); la build di GitHub (.github/workflows/mac.yml) la mette
+poi in un .dmg.
 
 Con APEX_CARTELLA=1 ne esce invece una cartella, dist/ApexManager/, con i dati
 gia' scompattati accanto all'eseguibile: e' quella che l'installatore
@@ -103,8 +107,22 @@ pyz = PYZ(a.pure)
 #     l'installatore (installer/apex.iss): il gioco parte subito, senza
 #     scompattarsi in una cartella temporanea a ogni avvio.
 import os
+import sys
 CARTELLA = os.environ.get("APEX_CARTELLA") == "1"
 ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
+
+# Sul Mac un programma e' una cartella ApexManager.app con dentro l'eseguibile,
+# le librerie e i dati, e quella e' l'unica forma che Apple sa firmare e
+# verificare: il file solo di PyInstaller, che si scompatta in una cartella
+# temporanea a ogni avvio, li' e' sconsigliato e con la firma non va d'accordo.
+# Quindi sul Mac si fa sempre la cartella, e poi la si veste da applicazione
+# con BUNDLE in fondo.
+MAC = sys.platform == "darwin"
+if MAC:
+    CARTELLA = True
+    # l'icona del Mac e' un .icns, che la build di GitHub ricava da
+    # assets/apex.png con gli strumenti di macOS (sips e iconutil)
+    ICONA = 'assets/apex.icns' if os.path.exists('assets/apex.icns') else None
 
 if CARTELLA:
     exe = EXE(
@@ -151,4 +169,31 @@ else:
         codesign_identity=None,
         entitlements_file=None,
         icon=ICONA,
+    )
+
+if MAC:
+    # L'identificativo dell'app e' quello che Apple usa per riconoscerla per
+    # sempre: una volta registrato su App Store Connect non si cambia piu'.
+    # Finche' Ico non lo sceglie se ne usa uno provvisorio, e la build di
+    # GitHub lo puo' sostituire con APEX_BUNDLE_ID senza toccare questo file.
+    app = BUNDLE(
+        coll,
+        name='ApexManager.app',
+        icon=ICONA,
+        bundle_identifier=os.environ.get("APEX_BUNDLE_ID", "it.apexmanager.provvisorio"),
+        version=os.environ.get("APEX_VERSIONE", "0.1.0"),
+        info_plist={
+            'CFBundleName': 'Apex Manager',
+            'CFBundleDisplayName': 'Apex Manager',
+            'CFBundleShortVersionString': os.environ.get("APEX_VERSIONE", "0.1.0"),
+            'LSApplicationCategoryType': 'public.app-category.simulation-games',
+            # i Mac con chip M: macOS 11 e' il primo che ci gira sopra
+            'LSMinimumSystemVersion': '11.0',
+            # dice a macOS che l'app sa disegnare sugli schermi Retina. Se poi
+            # la finestra esca nitida o ingrandita dipende da come pygame la
+            # apre (game/ui/hd.py, che oggi fa la sua magia solo su Windows):
+            # e' da guardare su un Mac vero
+            'NSHighResolutionCapable': True,
+            'NSHumanReadableCopyright': 'Apex Manager',
+        },
     )

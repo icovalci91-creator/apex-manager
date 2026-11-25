@@ -1,0 +1,133 @@
+name: Build Mac e allega alla release
+
+# Fa l'applicazione per Mac (chip M). Come per Windows, PyInstaller impacchetta
+# solo per il sistema su cui gira: un'app per Mac la puo' produrre solo un Mac,
+# e finche' non ce n'e' uno a casa si usa quello che presta GitHub.
+#
+# Lo stesso codice del gioco, senza differenze: pygame, Panda3D e numpy hanno
+# tutti la loro versione per i Mac con chip M, quindi qui non si riscrive
+# niente, si impacchetta e basta.
+#
+# Ne esce ApexManager.dmg: si apre, si trascina Apex Manager in Applicazioni.
+#
+#   * a ogni push si trova in fondo alla pagina Actions, sotto "Artifacts";
+#   * a ogni tag che comincia per v finisce anche allegato alla release,
+#     accanto all'eseguibile per Windows.
+#
+# Per ora l'app NON e' firmata ne' verificata da Apple: macOS la apre solo
+# dopo il clic destro > Apri (o da Impostazioni > Privacy e sicurezza > Apri
+# comunque). La firma con l'account sviluppatore arriva in un secondo tempo,
+# quando i certificati saranno nei segreti del repository.
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    tags: ['v*']
+    paths-ignore:
+      - 'screenshots/**'
+      - 'README.md'
+      - '.claude/**'
+      - 'CLAUDE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # serve ad allegare il .dmg alla release
+
+jobs:
+  mac:
+    # macos-14 e successivi girano su chip M (arm64): la stessa famiglia del
+    # MacBook che verra'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Installa quello che serve
+        # la stessa versione di PyInstaller della build Windows, cosi' le due
+        # ricette si comportano allo stesso modo
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller==6.11.1
+
+      - name: Scrivi la sigla della build
+        run: |
+          git log -1 --format='%h %cd' --date=format:'%d/%m %H:%M' > data/build.txt
+          cat data/build.txt
+
+      - name: Prepara l'icona del Mac
+        # il Mac vuole un .icns con dieci misure dentro: si ricavano tutte
+        # da assets/apex.png (512x512) con gli strumenti che macOS ha gia'
+        run: |
+          set -e
+          mkdir -p apex.iconset
+          for n in 16 32 128 256 512; do
+            sips -z $n $n assets/apex.png --out apex.iconset/icon_${n}x${n}.png > /dev/null
+            d=$((n * 2))
+            if [ $d -le 512 ]; then
+              sips -z $d $d assets/apex.png --out apex.iconset/icon_${n}x${n}@2x.png > /dev/null
+            fi
+          done
+          iconutil -c icns apex.iconset -o assets/apex.icns
+          ls -l assets/apex.icns
+
+      - name: Impacchetta
+        env:
+          APEX_VERSIONE: "0.1.${{ github.run_number }}"
+        run: python -m PyInstaller --noconfirm --clean apex.spec
+
+      - name: Controlla che parta davvero
+        # come su Windows: lo si lancia senza schermo per qualche secondo e si
+        # guarda che non muoia da solo
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          dist/ApexManager.app/Contents/MacOS/ApexManager > avvio.log 2>&1 &
+          pid=$!
+          sleep 25
+          if ! kill -0 $pid 2>/dev/null; then
+            codice=0; wait $pid || codice=$?
+            echo "si e' chiuso da solo con codice $codice"
+            cat avvio.log
+            exit 1
+          fi
+          echo "e' ancora vivo dopo venticinque secondi: bene"
+          kill -9 $pid
+
+      - name: Controlla che Panda3D ci sia tutto
+        run: |
+          set +e
+          dist/ApexManager.app/Contents/MacOS/ApexManager --prova-3d
+          codice=$?
+          if [ -f prova3d.txt ]; then cat prova3d.txt; else echo "prova3d.txt non scritto"; fi
+          if [ $codice -ne 0 ]; then
+            echo "Panda3D non si accende: codice $codice"
+            exit 1
+          fi
+
+      - name: Metti l'app in un .dmg
+        # dentro al .dmg l'app e un collegamento ad Applicazioni, cosi' chi lo
+        # apre la installa trascinandola, come ci si aspetta su un Mac
+        run: |
+          set -e
+          mkdir -p dmg
+          cp -R dist/ApexManager.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Apex Manager" -srcfolder dmg -ov -format UDZO dist/ApexManager.dmg
+          ls -lh dist/ApexManager.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApexManager-mac
+          path: dist/ApexManager.dmg
+          if-no-files-found: error
+
+      - name: Allega alla release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ApexManager.dmg
