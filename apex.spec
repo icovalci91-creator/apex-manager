@@ -78,7 +78,11 @@ a = Analysis(
           + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else [])
           # e le texture e i cieli fotografici, se tools/fetch_grafica.py li ha scaricati
           + ([('grafica', 'grafica')] if __import__('os').path.isdir('grafica') else []),
-    hiddenimports=['moderngl', '_moderngl', 'panda3d.core'] + collect_submodules('glcontext'),
+    # numpy dalla 2.4 importa i suoi moduli interni (numpy._core._exceptions e
+    # compagni) dal codice compilato, dove PyInstaller non guarda: senza questa
+    # riga l'eseguibile parte ma il suono, che si sintetizza con numpy, no
+    hiddenimports=['moderngl', '_moderngl', 'panda3d.core'] + collect_submodules('glcontext')
+                  + collect_submodules('numpy._core', filter=lambda n: '.tests' not in n),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

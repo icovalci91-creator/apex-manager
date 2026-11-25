@@ -79,6 +79,16 @@ jobs:
           iconutil -c icns build/apex.iconset -o assets/apex.icns
           ls -l assets/apex.icns
 
+      - name: Panda3D dai sorgenti (solo per confronto)
+        # se la vista 3D non si accende nemmeno da qui, il problema e' la
+        # macchina di GitHub e non l'impacchettamento: lo si stampa e si va
+        # avanti, a decidere e' il controllo sull'app piu' sotto
+        continue-on-error: true
+        run: |
+          python main.py --prova-3d || true
+          cat prova3d.txt || true
+          rm -f prova3d.txt
+
       - name: Impacchetta
         env:
           APEX_VERSIONE: 0.1.${{ github.run_number }}
@@ -109,6 +119,8 @@ jobs:
           if [ -f prova3d.txt ]; then cat prova3d.txt; else echo "prova3d.txt non scritto"; fi
           if [ $codice -ne 0 ]; then
             echo "Panda3D non si accende: codice $codice"
+            # di quali librerie ha bisogno il modulo di OpenGL, e dove le cerca
+            otool -L dist/ApexManager.app/Contents/Frameworks/panda3d/libpandagl.dylib || true
             exit 1
           fi
 

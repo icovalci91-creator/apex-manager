@@ -342,11 +342,35 @@ git tag v0.2 && git push origin v0.2     # e la release si fa da sola
 Lo costruisce `.github/workflows/windows.yml` su una macchina Windows, e deve essere una
 macchina Windows: PyInstaller non compila per un sistema diverso da quello su cui gira,
 quindi da Linux o da Mac un `.exe` non esce. La ricetta sta in `apex.spec` e funziona
-uguale sugli altri sistemi (`pyinstaller apex.spec` da' `dist/ApexManager` su Linux e Mac),
-solo che il file che ne esce gira li' e non su Windows.
+uguale sugli altri sistemi (`pyinstaller apex.spec` da' `dist/ApexManager` su Linux e
+`dist/ApexManager.app` su Mac), solo che il file che ne esce gira li' e non su Windows.
 
 L'icona non e' un file misterioso trascinato dietro: la disegna
 `python tools/icona.py`, che scrive `assets/apex.ico` con sei misure dentro.
+
+## App per Mac
+
+Dallo stesso codice e dalla stessa ricetta (`apex.spec`) esce anche **ApexManager.dmg**,
+per i Mac con chip Apple (M1 e successivi; i Mac con processore Intel restano fuori). Lo
+costruisce `.github/workflows/mac.yml` su una macchina Mac di GitHub a ogni push, e si
+trova sotto "Artifacts" come `ApexManager-mac`, oltre che allegato alle release con il
+tag `v`. Si apre il dmg e si trascina **Apex Manager** in Applicazioni. I salvataggi
+vanno in `~/Library/Application Support/ApexManager/saves` (vedi sotto), quindi
+aggiornare l'app non li tocca.
+
+**Finche' non e' firmata.** Senza la firma di Apple il Mac, la prima volta, dice che non
+puo' verificare lo sviluppatore e non la apre. Si va in **Impostazioni di Sistema >
+Privacy e sicurezza**, in fondo c'e' "Apex Manager e' stata bloccata" con **Apri
+comunque**: si conferma una volta e da li' in poi parte con un doppio clic.
+
+**Firmata e notarizzata.** La build e' gia' pronta a firmare l'app con il certificato
+*Developer ID Application* dell'account sviluppatore Apple, a mandarla ad Apple per la
+notarizzazione e ad attaccarci il timbro: parte da sola appena nei segreti del
+repository (Settings > Secrets and variables > Actions) ci sono `MAC_CERT_P12`
+(il certificato .p12 in base64), `MAC_CERT_PASSWORD`, `APPLE_API_KEY_P8` (la chiave
+.p8 di App Store Connect in base64), `APPLE_API_KEY_ID` e `APPLE_API_ISSUER_ID`. I
+permessi che l'app firmata chiede al Mac stanno in `installer/mac-permessi.plist`.
+Allora il dmg si apre con un doppio clic come qualunque programma scaricato.
 
 **Dove finiscono i salvataggi.** Non accanto all'eseguibile: dentro a un eseguibile
 monofile quella cartella e' temporanea e sparisce alla chiusura, e sotto `Programmi` non
