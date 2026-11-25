@@ -4,8 +4,10 @@
     pyinstaller apex.spec
 
 Ne esce un file solo - dist/ApexManager.exe su Windows, dist/ApexManager su
-Linux e Mac - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
+Linux - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
 lo riceve non deve installare niente: lo copia dove vuole e ci clicca sopra.
+Sul Mac ne esce invece dist/ApexManager.app (vedi in fondo), che e' il modo in
+cui il Mac si aspetta un programma.
 
 Con APEX_CARTELLA=1 ne esce invece una cartella, dist/ApexManager/, con i dati
 gia' scompattati accanto all'eseguibile: e' quella che l'installatore
@@ -63,6 +65,12 @@ PANDA_FUORI = ('avcodec', 'avformat', 'avutil', 'avfilter', 'avdevice', 'swscale
                'fmod', 'openal', 'bullet', 'ode', 'libpandaegg', 'egg.', 'dx9', 'd3dx9',
                'ffmpeg', 'vrpn', 'vision', 'physics', 'libpandaai', 'ai.', 'skel', 'fx.',
                'libpandafx', 'ptloader', 'rplight')
+# sul Mac il modulo di OpenGL e' legato a libpandafx (su Windows no): senza,
+# Panda3D dice "Library not loaded: @rpath/libpandafx" e la vista 3D non c'e'.
+# Via anche 'fx.', che nel nome libpandafx.1.10.dylib c'e' dentro; il modulo
+# Python panda3d.fx resta fuori lo stesso, per `excludes`
+if __import__('sys').platform == 'darwin':
+    PANDA_FUORI = tuple(k for k in PANDA_FUORI if k not in ('libpandafx', 'fx.'))
 
 a = Analysis(
     ['main.py'],
@@ -76,7 +84,11 @@ a = Analysis(
           + ([('dintorni', 'dintorni')] if __import__('os').path.isdir('dintorni') else [])
           # e le texture e i cieli fotografici, se tools/fetch_grafica.py li ha scaricati
           + ([('grafica', 'grafica')] if __import__('os').path.isdir('grafica') else []),
-    hiddenimports=['moderngl', '_moderngl', 'panda3d.core'] + collect_submodules('glcontext'),
+    # numpy dalla 2.4 importa i suoi moduli interni (numpy._core._exceptions e
+    # compagni) dal codice compilato, dove PyInstaller non guarda: senza questa
+    # riga l'eseguibile parte ma il suono, che si sintetizza con numpy, no
+    hiddenimports=['moderngl', '_moderngl', 'panda3d.core'] + collect_submodules('glcontext')
+                  + collect_submodules('numpy._core', filter=lambda n: '.tests' not in n),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -103,8 +115,19 @@ pyz = PYZ(a.pure)
 #     l'installatore (installer/apex.iss): il gioco parte subito, senza
 #     scompattarsi in una cartella temporanea a ogni avvio.
 import os
-CARTELLA = os.environ.get("APEX_CARTELLA") == "1"
-ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
+import sys
+MAC = sys.platform == "darwin"
+# Sul Mac si fa sempre la cartella: il file unico dentro a un'app e' sconsigliato
+# da PyInstaller stesso (a ogni avvio si scompatta tutto, e firma e
+# notarizzazione di Apple ci inciampano). L'app che ne esce e' la cartella
+# vestita da programma, vedi BUNDLE in fondo.
+CARTELLA = os.environ.get("APEX_CARTELLA") == "1" or MAC
+# l'icona del Mac (.icns) non sta nel progetto: la fa la build per il Mac
+# dallo stesso disegno di quella di Windows, con gli attrezzi di Apple
+if MAC:
+    ICONA = 'assets/apex.icns' if os.path.exists('assets/apex.icns') else None
+else:
+    ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
 
 if CARTELLA:
     exe = EXE(
@@ -151,4 +174,29 @@ else:
         codesign_identity=None,
         entitlements_file=None,
         icon=ICONA,
+    )
+
+# Sul Mac la cartella diventa ApexManager.app, il "programma" che si trascina
+# in Applicazioni. Dentro c'e' la stessa cartella di Windows: stesso codice,
+# stessi dati, cambia solo il vestito. La firma di Apple (identita' e
+# permessi del runtime protetto) si mette dopo, nella build: qui l'app esce
+# con la firma "ad hoc" che PyInstaller le da' da solo, quella che basta a un
+# Mac con chip Apple per aprirla.
+if MAC:
+    app = BUNDLE(
+        coll,
+        name='ApexManager.app',
+        icon=ICONA,
+        bundle_identifier='io.github.icovalci91creator.apexmanager',
+        version=os.environ.get("APEX_VERSIONE", "0.1.0"),
+        info_plist={
+            'CFBundleDisplayName': 'Apex Manager',
+            'CFBundleName': 'Apex Manager',
+            'LSApplicationCategoryType': 'public.app-category.sports-games',
+            'NSHighResolutionCapable': True,
+            # il gioco e' tutto in italiano: il Mac mostra in italiano anche
+            # i menu e le finestre di sistema dell'app
+            'CFBundleDevelopmentRegion': 'it',
+            'LSMinimumSystemVersion': '11.0',
+        },
     )

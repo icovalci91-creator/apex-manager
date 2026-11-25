@@ -45,7 +45,9 @@ def _configura() -> None:
         "sync-video false",
         "coordinate-system yup-right",
         "notify-level warning",
-        "notify-level-display fatal",
+        # nella prova da riga di comando si vuole sapere perche' il modulo
+        # grafico non si carica, quindi lui parla; nel gioco tace
+        "notify-level-display " + ("info" if os.environ.get("APEX_PANDA_DIAG") else "fatal"),
         "gl-version 3 3",
         "textures-power-2 none",
         "model-cache-dir",
@@ -227,6 +229,7 @@ def prova_da_riga_di_comando(percorso: str) -> int:
     porti dietro tutti i pezzi. Scrive il risultato in `percorso`."""
     ok = False
     righe = []
+    os.environ["APEX_PANDA_DIAG"] = "1"
     try:
         import panda3d
         righe.append(f"panda3d {getattr(panda3d, '__version__', '?')} importato")
@@ -239,6 +242,13 @@ def prova_da_riga_di_comando(percorso: str) -> int:
         caricato = _STATO["pipe"] is not None
         righe.append(f"modulo OpenGL: {'caricato' if caricato else 'MANCA'}")
         righe.append(f"disegno 3D: {'si' if ok else 'no'}")
+        interno = getattr(sys, "_MEIPASS", None)
+        if interno and not caricato:
+            # cosa c'e' davvero accanto all'eseguibile: dice subito se il
+            # modulo di OpenGL e' rimasto fuori o c'e' ma non si carica
+            cartella = os.path.join(interno, "panda3d")
+            pezzi = sorted(os.listdir(cartella)) if os.path.isdir(cartella) else []
+            righe.append(f"in {cartella}: {', '.join(pezzi) or 'niente'}")
         ok = caricato
     except Exception as ex:
         righe.append(f"ERRORE {type(ex).__name__}: {ex}")

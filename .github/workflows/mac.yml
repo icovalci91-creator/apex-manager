@@ -1,0 +1,226 @@
+name: Build Mac
+
+# Fa l'app per il Mac, dallo stesso codice e dalla stessa ricetta (apex.spec)
+# della build Windows. Va fatta qui per la stessa ragione: PyInstaller non
+# compila per un sistema diverso da quello su cui gira, quindi un'app per Mac
+# la puo' produrre solo un Mac. Questo e' quel Mac: una macchina di GitHub con
+# chip Apple, come i MacBook di oggi. Ne esce un'app per chip Apple (M1 e
+# successivi); i Mac con processore Intel restano fuori.
+#
+# Ne esce ApexManager.dmg: si apre, si trascina Apex Manager in Applicazioni.
+#
+#   * a ogni push si trova in fondo alla pagina Actions, sotto "Artifacts",
+#     con il nome ApexManager-mac;
+#   * a ogni tag che comincia per v finisce anche allegato alla release,
+#     accanto ai file per Windows.
+#
+# La firma di Apple. Finche' nel progetto non ci sono i segreti dell'account
+# sviluppatore, l'app esce senza firma: si apre lo stesso, ma la prima volta
+# il Mac chiede di confermare da Impostazioni di Sistema > Privacy e
+# sicurezza > "Apri comunque". Quando i segreti ci sono (MAC_CERT_P12 e gli
+# altri, vedi i passi qui sotto e il README) la build firma l'app con il
+# certificato Developer ID, la manda ad Apple per la notarizzazione e ci
+# attacca il timbro: allora si apre con un doppio clic, come qualunque
+# programma scaricato. Non c'e' niente da accendere a mano: basta aggiungere
+# i segreti.
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    tags: ['v*']
+    paths-ignore:
+      - 'screenshots/**'
+      - 'README.md'
+      - '.claude/**'
+      - 'CLAUDE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # serve ad allegare il dmg alla release
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    env:
+      # i segreti non si possono leggere in un `if:`, il loro "c'e' o non
+      # c'e'" si'. Senza certificato i passi della firma si saltano
+      HA_FIRMA: ${{ secrets.MAC_CERT_P12 != '' }}
+      HA_NOTARIZZAZIONE: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Installa quello che serve
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller==6.11.1
+
+      - name: Scrivi la sigla della build
+        run: |
+          git log -1 --format='%h %cd' --date=format:'%d/%m %H:%M' > data/build.txt
+          cat data/build.txt
+
+      - name: Fai l'icona del Mac
+        # dallo stesso disegno di quella di Windows (assets/apex.png, 512 px):
+        # il Mac vuole un .icns con le misure da 16 a 1024, e lo fanno gli
+        # attrezzi di Apple che ogni Mac ha gia'
+        run: |
+          set -e
+          mkdir -p build/apex.iconset
+          for n in 16 32 128 256 512; do
+            sips -z $n $n assets/apex.png --out build/apex.iconset/icon_${n}x${n}.png >/dev/null
+            d=$((n * 2))
+            sips -z $d $d assets/apex.png --out build/apex.iconset/icon_${n}x${n}@2x.png >/dev/null
+          done
+          iconutil -c icns build/apex.iconset -o assets/apex.icns
+          ls -l assets/apex.icns
+
+      - name: Panda3D dai sorgenti (solo per confronto)
+        # se la vista 3D non si accende nemmeno da qui, il problema e' la
+        # macchina di GitHub e non l'impacchettamento: lo si stampa e si va
+        # avanti, a decidere e' il controllo sull'app piu' sotto
+        continue-on-error: true
+        run: |
+          python main.py --prova-3d || true
+          cat prova3d.txt || true
+          rm -f prova3d.txt
+
+      - name: Impacchetta
+        env:
+          APEX_VERSIONE: 0.1.${{ github.run_number }}
+        run: python -m PyInstaller --noconfirm --clean apex.spec
+
+      - name: Controlla che parta davvero
+        # come su Windows: senza schermo per venticinque secondi, e si guarda
+        # che non muoia da solo
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          dist/ApexManager.app/Contents/MacOS/ApexManager &
+          pid=$!
+          sleep 25
+          if ! kill -0 $pid 2>/dev/null; then
+            wait $pid; echo "si e' chiuso da solo con codice $?"
+            exit 1
+          fi
+          echo "e' ancora vivo dopo venticinque secondi: bene"
+          kill -9 $pid
+
+      - name: Controlla che Panda3D ci sia tutto
+        run: |
+          set +e
+          dist/ApexManager.app/Contents/MacOS/ApexManager --prova-3d
+          codice=$?
+          if [ -f prova3d.txt ]; then cat prova3d.txt; else echo "prova3d.txt non scritto"; fi
+          if [ $codice -ne 0 ]; then
+            echo "Panda3D non si accende: codice $codice"
+            # di quali librerie ha bisogno il modulo di OpenGL, e dove le cerca
+            otool -L dist/ApexManager.app/Contents/Frameworks/panda3d/libpandagl.dylib || true
+            exit 1
+          fi
+
+      - name: Firma l'app (solo con il certificato Developer ID)
+        # dall'interno verso l'esterno, come vuole Apple: prima ogni libreria,
+        # poi il programma con i suoi permessi (installer/mac-permessi.plist),
+        # poi l'app intera. Il certificato vive in un portachiavi usa e getta
+        # che sparisce con la macchina
+        if: env.HA_FIRMA == 'true'
+        env:
+          MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          set -e
+          KC="$RUNNER_TEMP/apex.keychain-db"
+          KCPW="$(openssl rand -hex 24)"
+          security create-keychain -p "$KCPW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KCPW" "$KC"
+          echo "$MAC_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MAC_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KCPW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          ID="$(security find-identity -v -p codesigning "$KC" | grep 'Developer ID Application' | head -1 | awk -F'"' '{print $2}')"
+          if [ -z "$ID" ]; then
+            echo "nel certificato non c'e' un'identita' 'Developer ID Application'"
+            security find-identity -v -p codesigning "$KC"
+            exit 1
+          fi
+          echo "firmo con: $ID"
+          APP=dist/ApexManager.app
+          find "$APP/Contents" -type f ! -path "*/MacOS/ApexManager" -print0 |
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q 'Mach-O'; then
+                codesign --force --options runtime --timestamp --sign "$ID" "$f"
+              fi
+            done
+          codesign --force --options runtime --timestamp \
+            --entitlements installer/mac-permessi.plist --sign "$ID" "$APP/Contents/MacOS/ApexManager"
+          codesign --force --options runtime --timestamp \
+            --entitlements installer/mac-permessi.plist --sign "$ID" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          echo "APEX_ID_FIRMA=$ID" >> "$GITHUB_ENV"
+
+      - name: Fai il dmg
+        # l'app con accanto la scorciatoia ad Applicazioni: chi lo apre la
+        # trascina li' e ha finito. Un dmg e non uno zip perche' lo zip degli
+        # Artifacts di GitHub perde i collegamenti dentro all'app e la rompe
+        run: |
+          set -e
+          mkdir -p build/dmg
+          cp -R dist/ApexManager.app build/dmg/
+          ln -s /Applications build/dmg/Applicazioni
+          hdiutil create -volname "Apex Manager" -srcfolder build/dmg -ov -format UDZO dist/ApexManager.dmg
+          if [ -n "$APEX_ID_FIRMA" ]; then
+            codesign --force --timestamp --sign "$APEX_ID_FIRMA" dist/ApexManager.dmg
+          fi
+          ls -lh dist/ApexManager.dmg
+
+      - name: Notarizza (solo con la chiave di App Store Connect)
+        # si manda il dmg ad Apple, che lo controlla in qualche minuto; se va
+        # bene ci si attacca il timbro (staple), cosi' il Mac lo riconosce
+        # anche senza rete. Se va male si stampa il rapporto di Apple
+        if: env.HA_FIRMA == 'true' && env.HA_NOTARIZZAZIONE == 'true'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -e
+          CHIAVE="$RUNNER_TEMP/AuthKey.p8"
+          echo "$APPLE_API_KEY_P8" | base64 --decode > "$CHIAVE"
+          set +e
+          xcrun notarytool submit dist/ApexManager.dmg \
+            --key "$CHIAVE" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" \
+            --wait --timeout 45m --output-format json > notarizzazione.json
+          cat notarizzazione.json
+          esito=$(python3 -c "import json;print(json.load(open('notarizzazione.json')).get('status',''))")
+          invio=$(python3 -c "import json;print(json.load(open('notarizzazione.json')).get('id',''))")
+          if [ "$esito" != "Accepted" ]; then
+            echo "Apple non l'ha accettato ($esito): ecco il suo rapporto"
+            [ -n "$invio" ] && xcrun notarytool log "$invio" \
+              --key "$CHIAVE" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID"
+            rm -f "$CHIAVE"
+            exit 1
+          fi
+          rm -f "$CHIAVE"
+          set -e
+          xcrun stapler staple dist/ApexManager.dmg
+          spctl --assess --type open --context context:primary-signature --verbose=2 dist/ApexManager.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApexManager-mac
+          path: dist/ApexManager.dmg
+          if-no-files-found: error
+
+      - name: Allega alla release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ApexManager.dmg
