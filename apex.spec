@@ -65,6 +65,10 @@ PANDA_FUORI = ('avcodec', 'avformat', 'avutil', 'avfilter', 'avdevice', 'swscale
                'fmod', 'openal', 'bullet', 'ode', 'libpandaegg', 'egg.', 'dx9', 'd3dx9',
                'ffmpeg', 'vrpn', 'vision', 'physics', 'libpandaai', 'ai.', 'skel', 'fx.',
                'libpandafx', 'ptloader', 'rplight')
+# sul Mac il modulo di OpenGL e' legato a libpandafx (su Windows no): senza,
+# Panda3D dice "Library not loaded: @rpath/libpandafx" e la vista 3D non c'e'
+if __import__('sys').platform == 'darwin':
+    PANDA_FUORI = tuple(k for k in PANDA_FUORI if k != 'libpandafx')
 
 a = Analysis(
     ['main.py'],
