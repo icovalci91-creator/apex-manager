@@ -4,8 +4,10 @@
     pyinstaller apex.spec
 
 Ne esce un file solo - dist/ApexManager.exe su Windows, dist/ApexManager su
-Linux e Mac - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
+Linux - che si porta dietro Python, pygame e tutti i dati del gioco. Chi
 lo riceve non deve installare niente: lo copia dove vuole e ci clicca sopra.
+Sul Mac ne esce invece dist/ApexManager.app (vedi in fondo), che e' il modo in
+cui il Mac si aspetta un programma.
 
 Con APEX_CARTELLA=1 ne esce invece una cartella, dist/ApexManager/, con i dati
 gia' scompattati accanto all'eseguibile: e' quella che l'installatore
@@ -103,8 +105,19 @@ pyz = PYZ(a.pure)
 #     l'installatore (installer/apex.iss): il gioco parte subito, senza
 #     scompattarsi in una cartella temporanea a ogni avvio.
 import os
-CARTELLA = os.environ.get("APEX_CARTELLA") == "1"
-ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
+import sys
+MAC = sys.platform == "darwin"
+# Sul Mac si fa sempre la cartella: il file unico dentro a un'app e' sconsigliato
+# da PyInstaller stesso (a ogni avvio si scompatta tutto, e firma e
+# notarizzazione di Apple ci inciampano). L'app che ne esce e' la cartella
+# vestita da programma, vedi BUNDLE in fondo.
+CARTELLA = os.environ.get("APEX_CARTELLA") == "1" or MAC
+# l'icona del Mac (.icns) non sta nel progetto: la fa la build per il Mac
+# dallo stesso disegno di quella di Windows, con gli attrezzi di Apple
+if MAC:
+    ICONA = 'assets/apex.icns' if os.path.exists('assets/apex.icns') else None
+else:
+    ICONA = 'assets/apex.ico' if os.path.exists('assets/apex.ico') else None
 
 if CARTELLA:
     exe = EXE(
@@ -151,4 +164,29 @@ else:
         codesign_identity=None,
         entitlements_file=None,
         icon=ICONA,
+    )
+
+# Sul Mac la cartella diventa ApexManager.app, il "programma" che si trascina
+# in Applicazioni. Dentro c'e' la stessa cartella di Windows: stesso codice,
+# stessi dati, cambia solo il vestito. La firma di Apple (identita' e
+# permessi del runtime protetto) si mette dopo, nella build: qui l'app esce
+# con la firma "ad hoc" che PyInstaller le da' da solo, quella che basta a un
+# Mac con chip Apple per aprirla.
+if MAC:
+    app = BUNDLE(
+        coll,
+        name='ApexManager.app',
+        icon=ICONA,
+        bundle_identifier='io.github.icovalci91creator.apexmanager',
+        version=os.environ.get("APEX_VERSIONE", "0.1.0"),
+        info_plist={
+            'CFBundleDisplayName': 'Apex Manager',
+            'CFBundleName': 'Apex Manager',
+            'LSApplicationCategoryType': 'public.app-category.sports-games',
+            'NSHighResolutionCapable': True,
+            # il gioco e' tutto in italiano: il Mac mostra in italiano anche
+            # i menu e le finestre di sistema dell'app
+            'CFBundleDevelopmentRegion': 'it',
+            'LSMinimumSystemVersion': '11.0',
+        },
     )

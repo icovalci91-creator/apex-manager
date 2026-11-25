@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  I permessi che l'app chiede al Mac quando e' firmata con il runtime protetto
+  (hardened runtime), che Apple pretende per la notarizzazione. Servono solo
+  alla build firmata (.github/workflows/mac.yml): senza firma non si leggono.
+
+  Sono due, ed entrambi esistono perche' il gioco e' Python impacchettato:
+
+  * allow-unsigned-executable-memory: Python e ctypes preparano in memoria
+    pezzetti di codice al volo; il runtime protetto altrimenti li blocca e
+    l'app muore all'avvio senza dire perche'.
+  * disable-library-validation: PyInstaller scompatta e carica le librerie di
+    pygame, numpy e Panda3D come pezzi separati. Le firmiamo tutte noi, ma se
+    una sola restasse con la firma del suo autore il Mac rifiuterebbe di
+    caricarla; con questo permesso basta che sia firmata.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

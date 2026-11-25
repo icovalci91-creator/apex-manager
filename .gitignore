@@ -21,3 +21,6 @@ dist_cartella/
 build_cartella/
 prova3d.txt
 cache/
+
+# l'icona del Mac: la fa la build per il Mac da assets/apex.png
+assets/apex.icns
